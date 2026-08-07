@@ -3,6 +3,7 @@ defmodule AllbertAssist.Extensions.RegistryTest do
   @moduletag :home_fs_serial
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.DevGates.V14M0RegistryLedger
   alias AllbertAssist.Extensions.Registry
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -87,5 +88,10 @@ defmodule AllbertAssist.Extensions.RegistryTest do
              Registry.registered_child_specs(),
              &(Map.get(&1, :plugin_id) == "m7.example")
            )
+  end
+
+  test "shipped restoration preserves the complete frozen registry projection" do
+    assert :ok = ShippedRegistries.restore!()
+    assert :ok = V14M0RegistryLedger.check!()
   end
 end

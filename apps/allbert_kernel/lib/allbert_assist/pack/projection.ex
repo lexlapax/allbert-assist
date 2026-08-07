@@ -40,6 +40,7 @@ defmodule AllbertAssist.Pack.Projection do
   originate in consulted OTP terms.
   """
 
+  alias __MODULE__.Closed
   alias __MODULE__.Row
   alias AllbertAssist.Pack.{Descriptor, Identity, OTPMetadata}
   alias AllbertAssist.Pack.OTPMetadata.{ApplicationSpec, ReleaseApplication, ReleaseSpec}
@@ -61,6 +62,16 @@ defmodule AllbertAssist.Pack.Projection do
               :app_sha256,
               :descriptor
             ])
+  @closed_keys Enum.sort([
+                 :__struct__,
+                 :schema_version,
+                 :closed_applications,
+                 :pack_applications,
+                 :rows,
+                 :projection_sha256,
+                 :closure_sha256
+               ])
+  @closure_domain "allbert.pack.projection-closure.v1\0"
 
   @type reason :: {:invalid_projection, term()}
 
@@ -107,6 +118,89 @@ defmodule AllbertAssist.Pack.Projection do
   def reconcile(_component_rows, _applications, _release, _opts),
     do: invalid(:shape)
 
+  @doc """
+  Reconcile a sealed projection and bind it to the complete application closure.
+
+  This preserves `reconcile/4` for callers that need only rows while giving
+  composition and transitional adapters evidence that cannot silently lose a
+  row after reconciliation.
+  """
+  @spec reconcile_closed([map()], [ApplicationSpec.t()], ReleaseSpec.t(), keyword()) ::
+          {:ok, Closed.t()} | {:error, reason()}
+  def reconcile_closed(component_rows, applications, release, opts \\ [])
+
+  def reconcile_closed(component_rows, applications, %ReleaseSpec{} = release, opts)
+      when is_list(component_rows) and is_list(applications) and is_list(opts) do
+    if Keyword.get(opts, :sealed, false) == true do
+      reconcile_sealed_closed(component_rows, applications, release, opts)
+    else
+      invalid(:closed_requires_sealed)
+    end
+  end
+
+  def reconcile_closed(_component_rows, _applications, _release, _opts),
+    do: invalid(:shape)
+
+  defp reconcile_sealed_closed(component_rows, applications, release, opts) do
+    with {:ok, rows} <- reconcile(component_rows, applications, release, opts),
+         {:ok, projection_sha256} <- digest(rows),
+         closed = build_closed_projection(rows, applications, projection_sha256, opts),
+         :ok <- validate_closed(closed) do
+      {:ok, closed}
+    end
+  end
+
+  defp build_closed_projection(rows, applications, projection_sha256, opts) do
+    closed_applications = Keyword.fetch!(opts, :closed_applications)
+
+    pack_applications =
+      applications
+      |> Enum.filter(&(not is_nil(&1.pack_module)))
+      |> Enum.map(& &1.application)
+
+    %Closed{
+      schema_version: 1,
+      closed_applications: closed_applications,
+      pack_applications: pack_applications,
+      rows: rows,
+      projection_sha256: projection_sha256,
+      closure_sha256: closure_digest(closed_applications, pack_applications, projection_sha256)
+    }
+  end
+
+  @doc "Validate a sealed closed-projection envelope without re-running discovery."
+  @spec validate_closed(term()) :: :ok | {:error, reason()}
+  def validate_closed(%Closed{} = closed) do
+    with :ok <- validate_closed_shape(closed),
+         :ok <- validate_closed_schema(closed),
+         {:ok, actual_projection_sha256} <- digest(closed.rows),
+         :ok <-
+           require_equal(
+             actual_projection_sha256,
+             closed.projection_sha256,
+             :closed_projection_digest
+           ),
+         :ok <- validate_application_list(closed.closed_applications, :closed_applications),
+         :ok <- validate_application_list(closed.pack_applications, :closed_pack_applications),
+         :ok <- validate_pack_application_closure(closed),
+         expected_closure_sha256 =
+           closure_digest(
+             closed.closed_applications,
+             closed.pack_applications,
+             closed.projection_sha256
+           ),
+         :ok <-
+           require_equal(
+             expected_closure_sha256,
+             closed.closure_sha256,
+             :closed_closure_digest
+           ) do
+      :ok
+    end
+  end
+
+  def validate_closed(_closed), do: invalid(:closed_shape)
+
   @spec canonical_bytes([Row.t()]) :: {:ok, binary()} | {:error, reason()}
   def canonical_bytes(rows) when is_list(rows) do
     with :ok <- validate_uniqueness(rows),
@@ -139,6 +233,66 @@ defmodule AllbertAssist.Pack.Projection do
       {:ok, encoded} -> {:ok, Enum.reverse(encoded)}
       error -> error
     end
+  end
+
+  defp validate_closed_shape(closed) do
+    if Enum.sort(Map.keys(closed)) == @closed_keys,
+      do: :ok,
+      else: invalid(:closed_shape)
+  end
+
+  defp validate_closed_schema(%Closed{schema_version: 1}), do: :ok
+  defp validate_closed_schema(_closed), do: invalid(:closed_schema_version)
+
+  defp validate_application_list(applications, reason) when is_list(applications) do
+    valid? =
+      Enum.all?(applications, &Identity.canonical_application?/1) and
+        MapSet.size(MapSet.new(applications)) == length(applications)
+
+    if valid?, do: :ok, else: invalid(reason)
+  end
+
+  defp validate_application_list(_applications, reason), do: invalid(reason)
+
+  defp validate_pack_application_closure(%Closed{} = closed) do
+    row_applications = Enum.map(closed.rows, & &1.application)
+    row_application_set = MapSet.new(row_applications)
+    pack_application_set = MapSet.new(closed.pack_applications)
+
+    expected_pack_applications =
+      Enum.filter(closed.closed_applications, &MapSet.member?(row_application_set, &1))
+
+    valid? =
+      length(row_applications) == MapSet.size(row_application_set) and
+        MapSet.equal?(row_application_set, pack_application_set) and
+        closed.pack_applications == expected_pack_applications
+
+    if valid?, do: :ok, else: invalid(:closed_application_closure)
+  end
+
+  defp closure_digest(closed_applications, pack_applications, projection_sha256) do
+    bytes =
+      IO.iodata_to_binary([
+        ~s({"closed_applications":),
+        encode_application_list(closed_applications),
+        ~s(,"pack_applications":),
+        encode_application_list(pack_applications),
+        ~s(,"projection_sha256":"),
+        projection_sha256,
+        ~s(","schema_version":1})
+      ])
+
+    @closure_domain
+    |> Kernel.<>(bytes)
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  defp encode_application_list(applications) do
+    applications
+    |> Enum.map(fn application -> [?\", Atom.to_string(application), ?\"] end)
+    |> Enum.intersperse(",")
+    |> then(&["[", &1, "]"])
   end
 
   defp reconcile_rows(

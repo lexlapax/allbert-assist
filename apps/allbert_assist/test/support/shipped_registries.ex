@@ -14,16 +14,38 @@ defmodule AllbertAssist.TestSupport.ShippedRegistries do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
+  alias AllbertAssist.Plugin.Paths, as: PluginPaths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+
+  @shipped_discovery_settings %{
+    "enabled" => [],
+    "disabled" => [],
+    "scan_paths" => ["./plugins", "<ALLBERT_HOME>/plugins"],
+    "trusted_project_roots" => [],
+    "load_policy" => "shipped_and_skill_only"
+  }
 
   @doc "Clear both global registries and restore the full shipped baseline."
   def restore! do
     PluginRegistry.clear()
 
-    PluginDiscovery.shipped_modules()
-    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
-    |> Enum.each(fn {_plugin_id, module} ->
-      {:ok, _plugin_id} = PluginRegistry.register_module(module)
+    shipped_modules = PluginDiscovery.shipped_modules() |> Map.values() |> MapSet.new()
+
+    PluginDiscovery.discover(
+      project_root: PluginPaths.project_root(),
+      settings: @shipped_discovery_settings
+    )
+    |> Enum.each(fn
+      {:module, module, opts} ->
+        if MapSet.member?(shipped_modules, module) do
+          {:ok, _plugin_id} = PluginRegistry.register_module(module, opts)
+        end
+
+      {:diagnostic, key, diagnostics} ->
+        :ok = PluginRegistry.put_diagnostics(to_string(key), diagnostics)
+
+      {:entry, _entry} ->
+        :ok
     end)
 
     AppRegistry.clear()

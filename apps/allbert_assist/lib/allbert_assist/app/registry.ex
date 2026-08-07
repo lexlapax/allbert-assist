@@ -113,6 +113,12 @@ defmodule AllbertAssist.App.Registry do
     call(opts, :registered_apps, [])
   end
 
+  @doc "Return a read-only snapshot of all normalized entries in registration order."
+  @spec ordered_entries(keyword()) :: {:ok, [app_entry()]} | {:error, :unavailable}
+  def ordered_entries(opts \\ []) do
+    call(opts, :ordered_entries, {:error, :unavailable})
+  end
+
   @spec registered_surfaces(keyword()) :: [map()]
   def registered_surfaces(opts \\ []) do
     call(opts, :registered_surfaces, [])
@@ -275,6 +281,9 @@ defmodule AllbertAssist.App.Registry do
     do: {:reply, lookup_entry(app_id, state), state}
 
   def handle_call(:registered_apps, _from, state), do: {:reply, entries_in_order(state), state}
+
+  def handle_call(:ordered_entries, _from, state),
+    do: {:reply, {:ok, entries_in_order(state)}, state}
 
   def handle_call(:registered_surfaces, _from, state) do
     surfaces = state |> entries_in_order() |> Enum.flat_map(&entry_surfaces/1)

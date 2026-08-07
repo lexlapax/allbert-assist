@@ -33,6 +33,10 @@ defmodule AllbertAssist.Marketplace.SurfaceProvider do
   end
 
   def intent_descriptors do
+    # CoreApp owns the effective install descriptor. A second descriptor for
+    # the same {app_id, action_name} was never observable because the legacy
+    # registry kept the first match; retaining it would make Pack capture
+    # depend on silent conflict resolution.
     [
       %{
         app_id: :allbert,
@@ -45,16 +49,6 @@ defmodule AllbertAssist.Marketplace.SurfaceProvider do
           "what's in the marketplace"
         ],
         synonyms: ["marketplace", "reviewed skills", "reviewed templates"],
-        required_slots: [],
-        handoff_required?: false
-      },
-      %{
-        app_id: :allbert,
-        action_name: "install_marketplace_bundle",
-        label: "Install reviewed marketplace bundle",
-        destination: "workspace:marketplace",
-        examples: ["install the allbert/research-helpers skill"],
-        synonyms: ["install marketplace skill", "install reviewed bundle"],
         required_slots: [],
         handoff_required?: false
       },

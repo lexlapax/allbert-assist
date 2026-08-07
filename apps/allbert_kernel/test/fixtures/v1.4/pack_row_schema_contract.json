@@ -1,0 +1,2832 @@
+{
+  "normalization": "v14_pack_row_schema_contract_v1",
+  "schema_contract": [
+    {
+      "callback": "apps",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "app_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "contract_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "app_id",
+        "namespace": "app_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "app_descriptor_v1",
+      "reference_digest_field": "contract_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {
+          "app_action_ref_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "module",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "module_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "name",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "binding_sha256",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "lowercase_sha256",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "app_signals_v1": {
+            "fields": [
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "emits",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "subscribes",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "intent_ref_authority_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "intent_id",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "projection_sha256",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "lowercase_sha256",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "memory_namespace_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "app_id",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "namespace",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "writable",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "description",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "string",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "settings_fragment_ref_authority_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "fragment_id",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "projection_sha256",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "lowercase_sha256",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "skill_root_ref_authority_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "owner_id",
+                "nullable": false,
+                "owner_reference": "packaging_owner",
+                "owner_reference_source": "owner.id",
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "root_id",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "projection_sha256",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "lowercase_sha256",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "surface_catalog_entry_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "component",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "allowed_props",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "allowed_bindings",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "surface_ref_authority_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "surface_id",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "projection_sha256",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "lowercase_sha256",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          }
+        },
+        "fields": [
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "app_id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "module",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "module_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "display_name",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "version",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "actions",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "app_action_ref_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "agents",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "module_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "signals",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "app_signals_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "memory_namespace",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "memory_namespace_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "surface_provider",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "module_string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "surface_refs",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "surface_ref_authority_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "surface_catalog",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "surface_catalog_entry_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "skill_root_refs",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "skill_root_ref_authority_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "settings_fragment_refs",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "settings_fragment_ref_authority_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "intent_descriptor_refs",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "intent_ref_authority_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "child_id",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_child_id",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "metadata",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "closed_safe_term_v1",
+            "values": []
+          }
+        ],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "actions",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "name",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "registry_order",
+          "nullable": true,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "non_neg_integer",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "binding_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "name",
+        "namespace": "action_name"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "action_ref_v1",
+      "reference_digest_field": "binding_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {
+          "normalized_capability_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "app_id",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "confirmation",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "execution_mode",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "exposure",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "notes",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "permission",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "plugin_id",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "resumable?",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "retry_safety",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "skill_backed?",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          }
+        },
+        "fields": [
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "kind",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "action"
+            ]
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "module",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "module_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "name",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "normalized_capability",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "normalized_capability_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "input_schema_sha256",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "lowercase_sha256",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "output_schema_sha256",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "lowercase_sha256",
+            "values": []
+          }
+        ],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "settings_fragments",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "fragment_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "owner_id",
+          "nullable": false,
+          "owner_reference": "packaging_owner",
+          "owner_reference_source": "owner.id",
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "schema_version",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "positive_integer",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "fragment_id",
+        "namespace": "fragment_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "settings_fragment_ref_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {
+          "settings_schema_entry_v1": {
+            "kind": "settings_schema_entry",
+            "optional_fields": [
+              "allowed_values",
+              "min",
+              "max",
+              "deprecated?",
+              "deprecation_reason",
+              "surface"
+            ],
+            "required_fields": [
+              "type",
+              "default",
+              "writable?",
+              "sensitive?"
+            ]
+          },
+          "settings_schema_map_v1": {
+            "key_type": "canonical_string",
+            "kind": "variable_map",
+            "value_type": "settings_schema_entry_v1"
+          }
+        },
+        "fields": [
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "fragment_id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "legacy_owner_id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "source",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "core",
+              "app",
+              "plugin"
+            ]
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "group",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "schema_version",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "positive_integer",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "schema",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "settings_schema_map_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "defaults",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "safe_setting_value_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "safe_write_keys",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "metadata",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "closed_safe_term_v1",
+            "values": []
+          }
+        ],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "settings_migrations",
+      "fields": [],
+      "identity": null,
+      "order": {
+        "kind": "none",
+        "namespaces": []
+      },
+      "payload_schema": "settings_migration_ref_v1",
+      "reference_digest_field": null,
+      "reserved_empty": true,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "none",
+        "nullable": true
+      }
+    },
+    {
+      "callback": "channels",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "channel_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "channel_id",
+        "namespace": "channel_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "channel_descriptor_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {
+          "descriptor_child_spec_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "kind",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "enum",
+                "values": [
+                  "module_options"
+                ]
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "module",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "module_string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "options",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "closed_safe_term_v1",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "session_option_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "key",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "value",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "closed_safe_term_v1",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "session_strategy_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "strategy",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "options",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "session_option_v1",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          }
+        },
+        "fields": [
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "plugin_id",
+            "nullable": false,
+            "owner_reference": "packaging_owner",
+            "owner_reference_source": "owner.id",
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "channel_id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "adapter",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "module_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "provider",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "source",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "shipped",
+              "project",
+              "home"
+            ]
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "status",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "enabled",
+              "disabled",
+              "invalid",
+              "rejected"
+            ]
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "settings_prefix",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "identity_map_key",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "primitives",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "button",
+              "typed_command",
+              "link",
+              "list"
+            ]
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "threading",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "native_threads",
+              "reply_chain",
+              "flat",
+              "rich"
+            ]
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "streaming",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "session_strategy",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "session_strategy_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "trust_class",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "e2ee_origin",
+              "server_readable",
+              "local"
+            ]
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "secret_refs",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "summary_fields",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "can_create_thread",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "boolean",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "reply_key_type",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "enum",
+            "values": [
+              "opaque_id",
+              "timestamp"
+            ]
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "quote_ttl_ms",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "non_neg_integer",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "status_update_mode",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "child_spec",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "descriptor_child_spec_v1",
+            "values": []
+          }
+        ],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "surfaces",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "surface_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": true,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "surface_id",
+        "namespace": "surface_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "surface_ref_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {
+          "surface_binding_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "action_name",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "action_module",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "module_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "permission",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "app_id",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "plugin_id",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "confirmation_required?",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "surface_node_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "id",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "component",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "props",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "safe_surface_map_v1",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "bindings",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "surface_binding_v1",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "children",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "surface_node_v1",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          }
+        },
+        "fields": [
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "app_id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "label",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "path",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "kind",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "zone",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "status",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "nodes",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "surface_node_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "fallback_text",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "metadata",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "safe_surface_map_v1",
+            "values": []
+          }
+        ],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "skill_roots",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "root_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "relative_path",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "confined_relative_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "trust_policy",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "root_id",
+        "namespace": "root_id"
+      },
+      "order": {
+        "kind": "lexical",
+        "namespaces": [
+          "lexical"
+        ]
+      },
+      "payload_schema": "skill_root_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "home_roots",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "root_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "relative_path",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "confined_relative_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "durability",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "enum",
+          "values": [
+            "durable",
+            "regenerable",
+            "ephemeral"
+          ]
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "backup",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "enum",
+          "values": [
+            "include",
+            "exclude"
+          ]
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "export",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "enum",
+          "values": [
+            "include",
+            "exclude"
+          ]
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "rebuild",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "enum",
+          "values": [
+            "required",
+            "optional",
+            "none"
+          ]
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "root_id",
+        "namespace": "root_id"
+      },
+      "order": {
+        "kind": "lexical",
+        "namespaces": [
+          "lexical"
+        ]
+      },
+      "payload_schema": "home_root_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "jobs",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "job_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "job_id",
+        "namespace": "job_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "job_ref_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "stores",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "store_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "store_id",
+        "namespace": "store_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "store_ref_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "prompt_rules",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "rule_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": true,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "rule_id",
+        "namespace": "rule_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "prompt_rule_ref_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "intent_descriptors",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "intent_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "intent_id",
+        "namespace": "intent_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "intent_descriptor_ref_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {
+          "intent_slot_extractor_v1": {
+            "kind": "enum",
+            "values": [
+              "ticker_symbol",
+              "title_phrase",
+              "body_phrase",
+              "memory_phrase",
+              "note_path_phrase",
+              "email_address",
+              "message_body_phrase",
+              "channel_name_phrase",
+              "channel_target_phrase",
+              "calendar_title_phrase",
+              "calendar_start_phrase",
+              "url_phrase"
+            ]
+          },
+          "intent_vocabulary_v1": {
+            "fields": [
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "phrases",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "negative_phrases",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "selection_phrases",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "selection_negative_phrases",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "string",
+                "values": []
+              },
+              {
+                "list_semantics": "ordered",
+                "min_items": 0,
+                "name": "clarification_phrases",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "allow_single_token_match",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "allow_required_slot_selection",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "normalized_capability_v1": {
+            "fields": [
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "name",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "module",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "module_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "registered?",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "permission",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "exposure",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "execution_mode",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "skill_backed?",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "confirmation",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "resumable?",
+                "nullable": false,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "boolean",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "retry_safety",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "app_id",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              },
+              {
+                "list_semantics": "scalar",
+                "min_items": null,
+                "name": "plugin_id",
+                "nullable": true,
+                "owner_reference": "none",
+                "owner_reference_source": null,
+                "required": true,
+                "type": "canonical_string",
+                "values": []
+              }
+            ],
+            "kind": "exact_object"
+          },
+          "slot_extractor_map_v1": {
+            "key_type": "canonical_string",
+            "kind": "variable_map",
+            "value_type": "intent_slot_extractor_v1"
+          }
+        },
+        "fields": [
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "intent_id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "app_id",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "action_name",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "label",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "source",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "source_module",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "module_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "destination",
+            "nullable": true,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "selection_policy",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "examples",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "synonyms",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "required_slots",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "ordered",
+            "min_items": 0,
+            "name": "optional_slots",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "canonical_string",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "slot_extractors",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "slot_extractor_map_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "vocabulary",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "intent_vocabulary_v1",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "handoff_required",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "boolean",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "routable_by_default",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "boolean",
+            "values": []
+          },
+          {
+            "list_semantics": "scalar",
+            "min_items": null,
+            "name": "capability",
+            "nullable": false,
+            "owner_reference": "none",
+            "owner_reference_source": null,
+            "required": true,
+            "type": "normalized_capability_v1",
+            "values": []
+          }
+        ],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "cli_groups",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "group_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "ordered",
+          "min_items": 1,
+          "name": "command_path",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "group_id",
+        "namespace": "group_id"
+      },
+      "order": {
+        "kind": "numeric",
+        "namespaces": [
+          "legacy_index",
+          "registry_order"
+        ]
+      },
+      "payload_schema": "cli_group_ref_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    },
+    {
+      "callback": "release_assets",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "asset_id",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "relative_path",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "confined_relative_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "kind",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "component",
+          "nullable": false,
+          "owner_reference": "packaging_owner",
+          "owner_reference_source": "descriptor.provenance.component",
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "source_sha256",
+          "nullable": true,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "asset_id",
+        "namespace": "asset_id"
+      },
+      "order": {
+        "kind": "lexical",
+        "namespaces": [
+          "lexical"
+        ]
+      },
+      "payload_schema": "release_asset_v1",
+      "reference_digest_field": null,
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "none",
+        "nullable": true
+      }
+    },
+    {
+      "callback": "test_lanes",
+      "fields": [
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "owner_id",
+          "nullable": false,
+          "owner_reference": "packaging_owner",
+          "owner_reference_source": "owner.id",
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "application",
+          "nullable": false,
+          "owner_reference": "application_reference",
+          "owner_reference_source": "owner.application",
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "cwd",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "confined_repository_relative_string",
+          "values": []
+        },
+        {
+          "list_semantics": "set",
+          "min_items": 0,
+          "name": "production_roots",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "confined_repository_relative_string",
+          "values": []
+        },
+        {
+          "list_semantics": "set",
+          "min_items": 0,
+          "name": "test_roots",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "confined_repository_relative_string",
+          "values": []
+        },
+        {
+          "list_semantics": "set",
+          "min_items": 0,
+          "name": "support_roots",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "confined_repository_relative_string",
+          "values": []
+        },
+        {
+          "list_semantics": "set",
+          "min_items": 0,
+          "name": "allowed_primary_lanes",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "aggregate_policy",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "target_resolver_module",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "module_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "target_resolver_function",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "set",
+          "min_items": 0,
+          "name": "historical_metrics_aliases",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "canonical_string",
+          "values": []
+        },
+        {
+          "list_semantics": "scalar",
+          "min_items": null,
+          "name": "projection_sha256",
+          "nullable": false,
+          "owner_reference": "none",
+          "owner_reference_source": null,
+          "required": true,
+          "type": "lowercase_sha256",
+          "values": []
+        }
+      ],
+      "identity": {
+        "field": "owner_id",
+        "namespace": "owner_id"
+      },
+      "order": {
+        "kind": "lexical",
+        "namespaces": [
+          "lexical"
+        ]
+      },
+      "payload_schema": "test_lane_v1",
+      "reference_digest_field": "projection_sha256",
+      "reserved_empty": false,
+      "source_authority": {
+        "definitions": {},
+        "fields": [],
+        "kind": "exact_object",
+        "nullable": false
+      }
+    }
+  ],
+  "schema_contract_sha256": "21fb7b8e08faa4c9644f762500517ee0ec4a6d09b18914b801786495b93b3ec5",
+  "schema_version": 1
+}

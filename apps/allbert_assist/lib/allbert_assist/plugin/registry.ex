@@ -111,6 +111,12 @@ defmodule AllbertAssist.Plugin.Registry do
     |> Enum.filter(&(&1.status == :enabled))
   end
 
+  @doc "Return a read-only snapshot of all normalized entries in registration order."
+  @spec ordered_entries(keyword()) :: {:ok, [Entry.t()]} | {:error, :unavailable}
+  def ordered_entries(opts \\ []) do
+    call(opts, :ordered_entries, {:error, :unavailable})
+  end
+
   @spec lookup(String.t(), keyword()) :: {:ok, Entry.t()} | {:error, :not_found}
   def lookup(plugin_id, opts \\ [])
 
@@ -232,6 +238,10 @@ defmodule AllbertAssist.Plugin.Registry do
 
   def handle_call(:registered_plugins, _from, state) do
     {:reply, entries_in_order(state), state}
+  end
+
+  def handle_call(:ordered_entries, _from, state) do
+    {:reply, {:ok, entries_in_order(state)}, state}
   end
 
   def handle_call({:lookup, plugin_id}, _from, state) do

@@ -5,6 +5,7 @@ defmodule AllbertAssist.Plugin.RegistryTest do
   alias AllbertAssist.Plugin.Bootstrap
   alias AllbertAssist.Plugin.ChildSupervisor
   alias AllbertAssist.Plugin.Discovery
+  alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Registry
 
   defmodule ValidPlugin do
@@ -121,6 +122,33 @@ defmodule AllbertAssist.Plugin.RegistryTest do
     assert {:ok, entry} = Registry.lookup("example.registry", server: registry)
     assert entry.module == ValidPlugin
     assert entry.source == :shipped
+  end
+
+  test "ordered entry snapshots preserve disabled entries and registration order without mutation",
+       %{
+         registry: registry
+       } do
+    disabled = plugin_entry("example.disabled", :disabled)
+    enabled = plugin_entry("example.enabled", :enabled)
+
+    assert {:ok, "example.disabled"} =
+             Registry.register_entry(disabled, server: registry, side_effects: false)
+
+    assert {:ok, "example.enabled"} =
+             Registry.register_entry(enabled, server: registry, side_effects: false)
+
+    before = :sys.get_state(registry)
+
+    assert {:ok, [^disabled, ^enabled]} = Registry.ordered_entries(server: registry)
+    assert [%Entry{plugin_id: "example.enabled"}] = Registry.registered_plugins(server: registry)
+    assert :sys.get_state(registry) == before
+  end
+
+  test "ordered entry snapshots report an unavailable selected registry" do
+    assert Process.whereis(:plugin_registry_missing_snapshot_server) == nil
+
+    assert {:error, :unavailable} =
+             Registry.ordered_entries(server: :plugin_registry_missing_snapshot_server)
   end
 
   test "records duplicate plugin ids as diagnostics", %{registry: registry} do
@@ -305,4 +333,16 @@ defmodule AllbertAssist.Plugin.RegistryTest do
   end
 
   defp repo_root, do: Path.expand("../../../../../", __DIR__)
+
+  defp plugin_entry(plugin_id, status) do
+    %Entry{
+      plugin_id: plugin_id,
+      display_name: plugin_id,
+      version: "1.0.0",
+      kind: "skills",
+      source: :shipped,
+      status: status,
+      trust_status: :trusted
+    }
+  end
 end

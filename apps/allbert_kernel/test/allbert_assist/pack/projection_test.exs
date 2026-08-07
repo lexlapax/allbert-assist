@@ -23,6 +23,7 @@ defmodule AllbertAssist.Pack.ProjectionTest do
   alias AllbertAssist.Pack.OTPMetadata.ReleaseApplication
   alias AllbertAssist.Pack.OTPMetadata.ReleaseSpec
   alias AllbertAssist.Pack.Projection
+  alias AllbertAssist.Pack.Projection.Closed
   alias AllbertAssist.Pack.Projection.Row
   alias AllbertAssist.Pack.ProjectionTest.NativePack
 
@@ -172,6 +173,155 @@ defmodule AllbertAssist.Pack.ProjectionTest do
 
     assert {:error, {:invalid_projection, :canonical_row}} =
              Projection.canonical_bytes([Map.put(kernel_row, :unknown, true)])
+  end
+
+  test "sealed reconciliation can bind its complete application closure" do
+    kernel_sha = String.duplicate("a", 64)
+    native_sha = String.duplicate("b", 64)
+
+    applications = [
+      app(:allbert_kernel, Kernel, kernel_sha),
+      app(:native_pack, NativePack, native_sha),
+      app(:allbert_composition, nil, String.duplicate("c", 64))
+    ]
+
+    source_rows = [
+      source_row(
+        "beam-native-pack",
+        "native_pack",
+        "native_pack",
+        NativePack,
+        "native_effectful",
+        100,
+        native_sha
+      ),
+      source_row(
+        "beam-allbert-kernel",
+        "allbert_kernel",
+        "allbert_kernel",
+        Kernel,
+        "kernel_prerequisite",
+        0,
+        kernel_sha
+      )
+    ]
+
+    opts = [
+      sealed: true,
+      closed_applications: application_names(applications),
+      effective_env_fetcher: env_fetcher(applications)
+    ]
+
+    assert {:ok,
+            %Closed{
+              schema_version: 1,
+              closed_applications: [:allbert_kernel, :native_pack, :allbert_composition],
+              pack_applications: [:allbert_kernel, :native_pack],
+              rows: rows,
+              projection_sha256: projection_sha256,
+              closure_sha256: closure_sha256
+            } = closed} =
+             Projection.reconcile_closed(
+               source_rows,
+               applications,
+               release_for(applications),
+               opts
+             )
+
+    assert {:ok, ^rows} =
+             Projection.reconcile(source_rows, applications, release_for(applications), opts)
+
+    assert {:ok, ^projection_sha256} = Projection.digest(rows)
+    assert projection_sha256 =~ ~r/^[0-9a-f]{64}$/
+    assert closure_sha256 =~ ~r/^[0-9a-f]{64}$/
+    assert :ok = Projection.validate_closed(closed)
+
+    assert {:error, {:invalid_projection, :closed_projection_digest}} =
+             closed
+             |> Map.update!(:rows, &tl/1)
+             |> Projection.validate_closed()
+
+    subset_rows = tl(rows)
+    assert {:ok, subset_sha256} = Projection.digest(subset_rows)
+
+    assert {:error, {:invalid_projection, :closed_application_closure}} =
+             closed
+             |> Map.put(:rows, subset_rows)
+             |> Map.put(:projection_sha256, subset_sha256)
+             |> Projection.validate_closed()
+
+    extra_component = "beam-extra-pack"
+    extra_id = "extra_pack"
+    extra_order = 200
+    template_row = List.last(rows)
+
+    extra_descriptor = %{
+      template_row.descriptor
+      | application: :extra_pack,
+        id: extra_id,
+        provenance: %{source: :signed_release, component: extra_component},
+        registry_order: extra_order
+    }
+
+    extra_row = %{
+      template_row
+      | component: extra_component,
+        application: :extra_pack,
+        id: extra_id,
+        descriptor_module: __MODULE__,
+        registry_order: extra_order,
+        descriptor: extra_descriptor
+    }
+
+    rows_with_extra = [extra_row | rows]
+    assert {:ok, extra_projection_sha256} = Projection.digest(rows_with_extra)
+
+    assert {:error, {:invalid_projection, :closed_application_closure}} =
+             closed
+             |> Map.put(:rows, rows_with_extra)
+             |> Map.put(:projection_sha256, extra_projection_sha256)
+             |> Map.put(
+               :closure_sha256,
+               closure_digest(
+                 closed.closed_applications,
+                 closed.pack_applications,
+                 extra_projection_sha256
+               )
+             )
+             |> Projection.validate_closed()
+
+    reversed_pack_applications = Enum.reverse(closed.pack_applications)
+
+    assert {:error, {:invalid_projection, :closed_application_closure}} =
+             closed
+             |> Map.put(:pack_applications, reversed_pack_applications)
+             |> Map.put(
+               :closure_sha256,
+               closure_digest(
+                 closed.closed_applications,
+                 reversed_pack_applications,
+                 closed.projection_sha256
+               )
+             )
+             |> Projection.validate_closed()
+
+    assert {:error, {:invalid_projection, :closed_closure_digest}} =
+             closed
+             |> Map.put(:closure_sha256, String.duplicate("f", 64))
+             |> Projection.validate_closed()
+
+    assert {:error, {:invalid_projection, :closed_shape}} =
+             closed
+             |> Map.put(:unexpected, true)
+             |> Projection.validate_closed()
+
+    assert {:error, {:invalid_projection, :closed_requires_sealed}} =
+             Projection.reconcile_closed(
+               source_rows,
+               applications,
+               release_for(applications),
+               Keyword.put(opts, :sealed, false)
+             )
   end
 
   test "canonical projection rejects a descriptor that drifts from its reconciled row" do
@@ -556,5 +706,29 @@ defmodule AllbertAssist.Pack.ProjectionTest do
           }
         end)
     }
+  end
+
+  defp closure_digest(closed_applications, pack_applications, projection_sha256) do
+    encode_applications = fn applications ->
+      applications
+      |> Enum.map(fn application -> [?\", Atom.to_string(application), ?\"] end)
+      |> Enum.intersperse(",")
+      |> then(&["[", &1, "]"])
+    end
+
+    bytes =
+      IO.iodata_to_binary([
+        ~s({"closed_applications":),
+        encode_applications.(closed_applications),
+        ~s(,"pack_applications":),
+        encode_applications.(pack_applications),
+        ~s(,"projection_sha256":"),
+        projection_sha256,
+        ~s(","schema_version":1})
+      ])
+
+    ("allbert.pack.projection-closure.v1\0" <> bytes)
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
   end
 end

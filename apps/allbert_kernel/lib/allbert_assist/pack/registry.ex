@@ -1,0 +1,297 @@
+defmodule AllbertAssist.Pack.Registry do
+  @moduledoc """
+  Atomic owner of the collecting/finalized Pack snapshot lifecycle.
+
+  This is a plain GenServer because it owns bounded lifecycle state and an
+  immutable snapshot. It performs no model reasoning, Skill composition,
+  permission decision, or Pack effect.
+  """
+
+  use GenServer
+
+  alias AllbertAssist.Pack.Canonical
+  alias AllbertAssist.Pack.{CompatibilityDiagnostic, ValidationDiagnostic}
+  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
+
+  @default_coordinator :allbert_pack_composition_owner
+  @call_timeout 30_000
+  @start_option_keys [:name, :publication, :coordinator]
+
+  defstruct phase: :collecting,
+            publication: :shadow,
+            coordinator: @default_coordinator,
+            candidate: nil,
+            snapshot: nil,
+            canonical_bytes: nil,
+            diagnostics: []
+
+  @type phase :: :collecting | :finalized
+  @type publication :: :shadow | :authoritative
+
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts \\ []) do
+    with :ok <- validate_start_options(opts) do
+      case Keyword.get(opts, :publication, :shadow) do
+        :shadow ->
+          start_shadow_registry(opts)
+
+        publication ->
+          {:error, {:unsupported_publication, publication}}
+      end
+    end
+  end
+
+  defp start_shadow_registry(opts) do
+    case Keyword.get(opts, :name, __MODULE__) do
+      nil -> GenServer.start_link(__MODULE__, opts)
+      name -> GenServer.start_link(__MODULE__, opts, name: name)
+    end
+  end
+
+  @impl true
+  def init(opts) do
+    {:ok,
+     %__MODULE__{
+       publication: Keyword.get(opts, :publication, :shadow),
+       coordinator: Keyword.get(opts, :coordinator, @default_coordinator)
+     }}
+  end
+
+  @spec status(keyword()) ::
+          {:ok,
+           %{
+             phase: phase(),
+             publication: publication(),
+             behavior_digest: String.t() | nil
+           }}
+          | {:error, :unavailable}
+  def status(opts \\ []), do: call(opts, :status)
+
+  @spec snapshot(keyword()) :: {:ok, Snapshot.t()} | {:error, :collecting | :unavailable}
+  def snapshot(opts \\ []), do: call(opts, :snapshot)
+
+  @spec finalize(Candidate.t(), keyword()) ::
+          {:ok, Snapshot.t()}
+          | {:error, :unavailable}
+          | {:error, {:not_coordinator, ValidationDiagnostic.t()}}
+          | {:error, {:invalid_candidate, [ValidationDiagnostic.t()]}}
+          | {:error, {:already_finalized, String.t()}}
+  def finalize(candidate, opts \\ []) do
+    call(opts, {:finalize, candidate})
+  end
+
+  @spec diagnostics(keyword()) :: {:ok, [CompatibilityDiagnostic.t()]} | {:error, :unavailable}
+  def diagnostics(opts \\ []), do: call(opts, :diagnostics)
+
+  @impl true
+  def handle_call(:status, _from, state) do
+    digest = if state.snapshot, do: state.snapshot.behavior_digest
+
+    {:reply,
+     {:ok,
+      %{
+        phase: state.phase,
+        publication: state.publication,
+        behavior_digest: digest
+      }}, state}
+  end
+
+  def handle_call(:snapshot, _from, %{phase: :collecting} = state),
+    do: {:reply, {:error, :collecting}, state}
+
+  def handle_call(:snapshot, _from, state), do: {:reply, {:ok, state.snapshot}, state}
+
+  def handle_call(:diagnostics, _from, state), do: {:reply, {:ok, state.diagnostics}, state}
+
+  def handle_call({:finalize, candidate}, {caller, _tag}, %{phase: :collecting} = state) do
+    if coordinator?(state.coordinator, caller) do
+      case canonicalize_candidate(candidate, state.publication) do
+        {:ok, snapshot, bytes} ->
+          {:reply, {:ok, snapshot},
+           %{
+             state
+             | phase: :finalized,
+               candidate: candidate,
+               snapshot: snapshot,
+               canonical_bytes: bytes,
+               diagnostics: snapshot.compatibility_diagnostics
+           }}
+
+        {:error, reason} ->
+          {:reply, {:error, {:invalid_candidate, reason}}, state}
+      end
+    else
+      {:reply, not_coordinator_error(), state}
+    end
+  end
+
+  def handle_call({:finalize, candidate}, {caller, _tag}, %{phase: :finalized} = state) do
+    cond do
+      not coordinator?(state.coordinator, caller) ->
+        {:reply, not_coordinator_error(), state}
+
+      candidate == state.candidate ->
+        {:reply, {:ok, state.snapshot}, state}
+
+      true ->
+        case canonicalize_candidate(candidate, state.publication) do
+          {:ok, candidate_snapshot, candidate_bytes}
+          when candidate_bytes == state.canonical_bytes and
+                 candidate_snapshot.behavior_digest == state.snapshot.behavior_digest ->
+            {:reply, {:ok, state.snapshot}, state}
+
+          {:ok, _candidate_snapshot, _candidate_bytes} ->
+            {:reply, {:error, {:already_finalized, state.snapshot.behavior_digest}}, state}
+
+          {:error, reason} ->
+            {:reply, {:error, {:invalid_candidate, reason}}, state}
+        end
+    end
+  end
+
+  defp call(opts, message) when is_list(opts) do
+    if Keyword.keyword?(opts) and Keyword.keys(opts) == Enum.uniq(Keyword.keys(opts)) and
+         Enum.all?(Keyword.keys(opts), &(&1 == :server)) do
+      server = Keyword.get(opts, :server, __MODULE__)
+
+      if valid_call_server?(server) do
+        try do
+          GenServer.call(server, message, @call_timeout)
+        rescue
+          _error -> {:error, :unavailable}
+        catch
+          _kind, _reason -> {:error, :unavailable}
+        end
+      else
+        {:error, :unavailable}
+      end
+    else
+      {:error, :unavailable}
+    end
+  end
+
+  defp call(_opts, _message), do: {:error, :unavailable}
+
+  defp coordinator?(coordinator, caller) when is_pid(coordinator), do: coordinator == caller
+
+  defp coordinator?(coordinator, caller) do
+    try do
+      GenServer.whereis(coordinator) == caller
+    rescue
+      _error -> false
+    catch
+      _kind, _reason -> false
+    end
+  end
+
+  defp canonicalize_candidate(candidate, publication) do
+    try do
+      with {:ok, snapshot} <- Canonical.build_snapshot(candidate, publication),
+           {:ok, bytes} <- Canonical.snapshot_bytes(snapshot) do
+        {:ok, snapshot, bytes}
+      else
+        {:error, [%ValidationDiagnostic{} | _diagnostics]} = error -> error
+        _error -> canonicalization_rejection()
+      end
+    rescue
+      _error -> canonicalization_rejection()
+    catch
+      _kind, _reason -> canonicalization_rejection()
+    end
+  end
+
+  defp canonicalization_rejection do
+    {:error,
+     [
+       %ValidationDiagnostic{
+         schema_version: 1,
+         code: :canonicalization_rejected,
+         path: [],
+         owner: nil,
+         detail: %{value_kind: "candidate"}
+       }
+     ]}
+  end
+
+  defp validate_start_options(opts) when is_list(opts) do
+    cond do
+      not Keyword.keyword?(opts) ->
+        {:error, {:invalid_options, :not_keyword}}
+
+      duplicate = duplicate_option(opts) ->
+        {:error, {:invalid_options, {:duplicate, duplicate}}}
+
+      unknown = Enum.find(Keyword.keys(opts), &(&1 not in @start_option_keys)) ->
+        {:error, {:invalid_options, {:unknown, unknown}}}
+
+      not valid_registration_name?(Keyword.get(opts, :name, __MODULE__)) ->
+        {:error, {:invalid_options, {:invalid, :name}}}
+
+      not valid_coordinator?(Keyword.get(opts, :coordinator, @default_coordinator)) ->
+        {:error, {:invalid_options, {:invalid, :coordinator}}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_start_options(_opts), do: {:error, {:invalid_options, :not_keyword}}
+
+  defp duplicate_option(opts) do
+    opts
+    |> Keyword.keys()
+    |> Enum.frequencies()
+    |> Enum.filter(fn {_key, count} -> count > 1 end)
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.sort()
+    |> List.first()
+  end
+
+  defp valid_coordinator?(coordinator) when is_pid(coordinator), do: true
+
+  defp valid_coordinator?(coordinator)
+       when is_atom(coordinator) and coordinator not in [nil, true, false],
+       do: true
+
+  defp valid_coordinator?({:global, _term}), do: true
+
+  defp valid_coordinator?({:via, module, _term}) when is_atom(module),
+    do: via_lookup_module?(module)
+
+  defp valid_coordinator?(_coordinator), do: false
+
+  defp valid_call_server?(server) when is_pid(server), do: true
+  defp valid_call_server?(server), do: valid_registration_name?(server) and not is_nil(server)
+
+  defp valid_registration_name?(nil), do: true
+
+  defp valid_registration_name?(server)
+       when is_atom(server) and server not in [true, false],
+       do: true
+
+  defp valid_registration_name?({:global, _term}), do: true
+
+  defp valid_registration_name?({:via, module, _term}) when is_atom(module) do
+    via_lookup_module?(module) and
+      Enum.all?([{:register_name, 2}, {:unregister_name, 1}, {:send, 2}], fn {function, arity} ->
+        function_exported?(module, function, arity)
+      end)
+  end
+
+  defp valid_registration_name?(_server), do: false
+
+  defp via_lookup_module?(module),
+    do: Code.ensure_loaded?(module) and function_exported?(module, :whereis_name, 1)
+
+  defp not_coordinator_error do
+    {:error,
+     {:not_coordinator,
+      %ValidationDiagnostic{
+        schema_version: 1,
+        code: :not_coordinator,
+        path: [],
+        owner: nil,
+        detail: %{expected: :registered_coordinator, actual: :different_process}
+      }}}
+  end
+end
