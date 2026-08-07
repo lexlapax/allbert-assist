@@ -105,29 +105,48 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
     ])
   end
 
-  test "asset build cleans first and accepts only the newly reachable digest set", %{root: root} do
+  test "asset build preserves only allowlisted repository gzip bytes", %{root: root} do
     web_path = Path.join(root, "web")
     static_root = Path.join(web_path, "priv/static")
-    File.mkdir_p!(Path.join(static_root, "assets"))
+    File.mkdir_p!(Path.join(static_root, "tracked"))
+    File.mkdir_p!(Path.join(static_root, "assets/generated"))
     File.write!(Path.join(static_root, "cache_manifest.json"), "old manifest")
     File.write!(Path.join(static_root, "assets/old-00000000000000000000000000000000.js"), "old")
     File.write!(Path.join(static_root, "assets/old.js.gz"), "old")
+    File.write!(Path.join(static_root, "tracked/app.js"), "current asset")
+    File.write!(Path.join(static_root, "assets/generated/app.js"), "generated asset")
+
+    preserved_gzip =
+      "current asset"
+      |> :zlib.gzip()
+      |> then(fn <<prefix::binary-size(9), _os, rest::binary>> ->
+        <<prefix::binary, 255, rest::binary>>
+      end)
+
+    generated_gzip = :zlib.gzip("generated asset")
+
+    File.write!(Path.join(static_root, "tracked/app.js.gz"), preserved_gzip)
+    File.chmod!(Path.join(static_root, "tracked/app.js.gz"), 0o600)
+    File.write!(Path.join(static_root, "assets/generated/app.js.gz"), generated_gzip)
 
     runner = fn
       "mix", ["phx.digest.clean", "--all", "--output", ^static_root], opts ->
         send(self(), {:asset_command, :clean, opts})
         File.rm!(Path.join(static_root, "cache_manifest.json"))
         File.rm!(Path.join(static_root, "assets/old-00000000000000000000000000000000.js"))
+        File.rm!(Path.join(static_root, "tracked/app.js.gz"))
         {"", 0}
 
       "mix", ["assets.npm"], opts ->
         send(self(), {:asset_command, :npm, opts})
         refute File.exists?(Path.join(static_root, "assets/old.js.gz"))
+        refute File.exists?(Path.join(static_root, "tracked/app.js.gz"))
+        refute File.exists?(Path.join(static_root, "assets/generated/app.js.gz"))
         {"", 0}
 
       "mix", ["assets.deploy"], opts ->
         send(self(), {:asset_command, :deploy, opts})
-        write_asset_manifest!(static_root, "assets/app.js", "current asset")
+        write_asset_manifest!(static_root, "tracked/app.js", "current asset")
         {"", 0}
     end
 
@@ -136,6 +155,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
     assert ^release =
              FinalArtifact.build_web_assets(release,
                web_path: web_path,
+               tracked_logical_gzip_paths: ["tracked/app.js.gz"],
                command_runner: runner
              )
 
@@ -146,6 +166,201 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
 
     assert %{logical_count: 1, digest_count: 1} =
              FinalArtifact.verify_web_digest_tree!(static_root)
+
+    tracked_gzip = Path.join(static_root, "tracked/app.js.gz")
+    assert File.read!(tracked_gzip) == preserved_gzip
+    assert Bitwise.band(File.stat!(tracked_gzip).mode, 0o777) == 0o600
+    refute File.exists?(Path.join(static_root, "assets/generated/app.js.gz"))
+  end
+
+  test "asset build rejects a symlinked Web root before invoking commands", %{root: root} do
+    external_web = Path.join(root, "external-web")
+    external_static = Path.join(external_web, "priv/static")
+    web_path = Path.join(root, "web-link")
+    sentinel = Path.join(external_static, "keep.txt")
+
+    File.mkdir_p!(external_static)
+    File.write!(sentinel, "keep")
+    File.ln_s!(external_web, web_path)
+
+    assert_raise Mix.Error, ~r/unsafe release\/static root is symlink/, fn ->
+      FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
+        web_path: web_path,
+        tracked_logical_gzip_paths: [],
+        command_runner: fn _executable, _args, _opts -> flunk("command must not run") end
+      )
+    end
+
+    assert File.read!(sentinel) == "keep"
+  end
+
+  test "asset build rejects a symlinked static-root ancestor before invoking commands", %{
+    root: root
+  } do
+    web_path = Path.join(root, "web")
+    external_priv = Path.join(root, "external-priv")
+    external_static = Path.join(external_priv, "static")
+    sentinel = Path.join(external_static, "keep.txt")
+
+    File.mkdir_p!(web_path)
+    File.mkdir_p!(external_static)
+    File.write!(sentinel, "keep")
+    File.ln_s!(external_priv, Path.join(web_path, "priv"))
+
+    assert_raise Mix.Error, ~r/path ancestor is symlink/, fn ->
+      FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
+        web_path: web_path,
+        tracked_logical_gzip_paths: [],
+        command_runner: fn _executable, _args, _opts -> flunk("command must not run") end
+      )
+    end
+
+    assert File.read!(sentinel) == "keep"
+  end
+
+  test "asset command failure restores allowlisted gzip bytes and mode", %{root: root} do
+    web_path = Path.join(root, "web")
+    static_root = Path.join(web_path, "priv/static")
+    gzip_path = Path.join(static_root, "tracked/app.js.gz")
+    gzip = write_logical_gzip!(static_root, "tracked/app.js", "current asset", 0o600)
+
+    runner = fn
+      "mix", ["phx.digest.clean", "--all", "--output", ^static_root], _opts ->
+        File.rm!(gzip_path)
+        {"clean exploded", 9}
+    end
+
+    assert_raise Mix.Error, ~r/mix failed \(9\): clean exploded/, fn ->
+      FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
+        web_path: web_path,
+        tracked_logical_gzip_paths: ["tracked/app.js.gz"],
+        command_runner: runner
+      )
+    end
+
+    assert File.read!(gzip_path) == gzip
+    assert Bitwise.band(File.stat!(gzip_path).mode, 0o777) == 0o600
+  end
+
+  test "restore failure retains the original asset-command diagnostic", %{root: root} do
+    web_path = Path.join(root, "web")
+    static_root = Path.join(web_path, "priv/static")
+    source_path = Path.join(static_root, "tracked/app.js")
+    gzip_path = source_path <> ".gz"
+    write_logical_gzip!(static_root, "tracked/app.js", "current asset", 0o600)
+
+    runner = fn
+      "mix", ["phx.digest.clean", "--all", "--output", ^static_root], _opts ->
+        File.rm!(gzip_path)
+        File.rm!(source_path)
+        {"clean exploded", 9}
+    end
+
+    assert_raise Mix.Error,
+                 ~r/web asset build failed: mix failed \(9\): clean exploded; tracked gzip restoration also failed:/,
+                 fn ->
+                   FinalArtifact.build_web_assets(
+                     %Mix.Release{path: Path.join(root, "release")},
+                     web_path: web_path,
+                     tracked_logical_gzip_paths: ["tracked/app.js.gz"],
+                     command_runner: runner
+                   )
+                 end
+  end
+
+  test "asset build rejects source drift instead of restoring stale gzip", %{root: root} do
+    web_path = Path.join(root, "web")
+    static_root = Path.join(web_path, "priv/static")
+    gzip_path = Path.join(static_root, "tracked/app.js.gz")
+    write_logical_gzip!(static_root, "tracked/app.js", "current asset", 0o600)
+
+    runner = fn
+      "mix", ["phx.digest.clean", "--all", "--output", ^static_root], _opts ->
+        {"", 0}
+
+      "mix", ["assets.npm"], _opts ->
+        {"", 0}
+
+      "mix", ["assets.deploy"], _opts ->
+        write_asset_manifest!(static_root, "tracked/app.js", "changed asset")
+        {"", 0}
+    end
+
+    assert_raise Mix.Error, ~r/logical asset changed while preserving its tracked gzip/, fn ->
+      FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
+        web_path: web_path,
+        tracked_logical_gzip_paths: ["tracked/app.js.gz"],
+        command_runner: runner
+      )
+    end
+
+    refute File.exists?(gzip_path)
+  end
+
+  test "asset build refuses a symlink collision at the tracked gzip target", %{root: root} do
+    web_path = Path.join(root, "web")
+    static_root = Path.join(web_path, "priv/static")
+    gzip_path = Path.join(static_root, "tracked/app.js.gz")
+    external = Path.join(root, "outside.gz")
+    File.write!(external, "outside")
+    write_logical_gzip!(static_root, "tracked/app.js", "current asset", 0o600)
+
+    runner = fn
+      "mix", ["phx.digest.clean", "--all", "--output", ^static_root], _opts ->
+        {"", 0}
+
+      "mix", ["assets.npm"], _opts ->
+        {"", 0}
+
+      "mix", ["assets.deploy"], _opts ->
+        write_asset_manifest!(static_root, "tracked/app.js", "current asset")
+        File.ln_s!(external, gzip_path)
+        {"", 0}
+    end
+
+    assert_raise Mix.Error, ~r/unsafe release\/static path is symlink/, fn ->
+      FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
+        web_path: web_path,
+        tracked_logical_gzip_paths: ["tracked/app.js.gz"],
+        command_runner: runner
+      )
+    end
+
+    assert File.read!(external) == "outside"
+  end
+
+  test "tracked gzip allowlist rejects a repeated gzip suffix", %{root: root} do
+    web_path = Path.join(root, "web")
+    static_root = Path.join(web_path, "priv/static")
+    File.mkdir_p!(Path.join(static_root, "tracked"))
+    File.write!(Path.join(static_root, "tracked/archive.gz"), "source")
+    File.write!(Path.join(static_root, "tracked/archive.gz.gz"), :zlib.gzip("source"))
+
+    assert_raise Mix.Error, ~r/allowlist must be sorted, unique canonical paths/, fn ->
+      FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
+        web_path: web_path,
+        tracked_logical_gzip_paths: ["tracked/archive.gz.gz"],
+        command_runner: fn _executable, _args, _opts -> flunk("command must not run") end
+      )
+    end
+  end
+
+  test "asset build rejects a crashed atomic-restore residue before commands", %{root: root} do
+    web_path = Path.join(root, "web")
+    static_root = Path.join(web_path, "priv/static")
+    residue = Path.join(static_root, "workspace-sw.js.gz.allbert-restore-42")
+    File.mkdir_p!(static_root)
+    File.write!(residue, "partial gzip")
+
+    assert_raise Mix.Error, ~r/atomic gzip restore residue/, fn ->
+      FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
+        web_path: web_path,
+        tracked_logical_gzip_paths: [],
+        command_runner: fn _executable, _args, _opts -> flunk("command must not run") end
+      )
+    end
+
+    assert File.read!(residue) == "partial gzip"
   end
 
   test "asset checks reject leftovers after clean and orphan digest output", %{root: root} do
@@ -212,6 +427,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
     assert_raise Mix.Error, ~r/mix failed \(9\): see streamed command output/, fn ->
       FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},
         web_path: web_path,
+        tracked_logical_gzip_paths: [],
         command_runner: runner
       )
     end
@@ -642,6 +858,17 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
 
     File.write!(Path.join(static_root, "cache_manifest.json"), Jason.encode!(manifest))
     digested_path
+  end
+
+  defp write_logical_gzip!(static_root, logical_path, contents, mode) do
+    source = Path.join(static_root, logical_path)
+    gzip = source <> ".gz"
+    File.mkdir_p!(Path.dirname(source))
+    File.write!(source, contents)
+    compressed = :zlib.gzip(contents)
+    File.write!(gzip, compressed)
+    File.chmod!(gzip, mode)
+    compressed
   end
 
   defp openssl_runner(nif, source, destination) do

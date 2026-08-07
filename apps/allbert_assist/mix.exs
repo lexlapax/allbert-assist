@@ -23,7 +23,8 @@ defmodule AllbertAssist.MixProject do
   def application do
     [
       mod: {AllbertAssist.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools],
+      env: [allbert_pack: AllbertAssist.Pack.Residual]
     ]
   end
 
@@ -65,6 +66,7 @@ defmodule AllbertAssist.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:allbert_kernel, in_umbrella: true},
       {:dns_cluster, "~> 0.2.0"},
       {:phoenix_pubsub, "~> 2.1"},
       {:ecto_sql, "~> 3.13"},

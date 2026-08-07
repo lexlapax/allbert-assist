@@ -8,6 +8,15 @@ defmodule AllbertAssist.Release.FinalArtifact do
 
   @manifest_name "cache_manifest.json"
   @digest_file ~r/(?:^|\/)[^\/]+-[0-9a-f]{32}\.[^\/]+$/
+  @tracked_logical_gzip_paths ~w[
+    images/allbert-mark.svg.gz
+    images/allbert-og.svg.gz
+    robots.txt.gz
+    workspace-offline.html.gz
+    workspace-sw.js.gz
+  ]
+  @generated_logical_gzip_prefixes ["assets/"]
+  @gzip_restore_residue ~r/\.gz\.allbert-restore-[1-9][0-9]*\z/
   @openssl_dylib ~r/^lib(?:crypto|ssl)(?:[._-][A-Za-z0-9._-]+)?\.dylib$/
   @catalogued_openssl "libcrypto.3.dylib"
   @catalogued_openssl_loader "@loader_path/libcrypto.3.dylib"
@@ -23,7 +32,14 @@ defmodule AllbertAssist.Release.FinalArtifact do
     web_path =
       Keyword.get(opts, :web_path, Path.join([File.cwd!(), "apps", "allbert_assist_web"]))
 
+    web_path = Path.expand(web_path)
     static_root = Path.join(web_path, "priv/static")
+    validate_web_asset_boundary!(web_path, static_root)
+    reject_gzip_restore_residue!(static_root)
+
+    tracked_logical_gzip_paths =
+      Keyword.get(opts, :tracked_logical_gzip_paths, @tracked_logical_gzip_paths)
+
     runner = Keyword.get(opts, :command_runner, @system_command)
 
     command_opts = [
@@ -32,24 +48,19 @@ defmodule AllbertAssist.Release.FinalArtifact do
       into: IO.stream(:stdio, :line)
     ]
 
-    Mix.shell().info("==> cleaning and rebuilding web assets")
-    # An umbrella Mix invocation resolves the task from the umbrella root even
-    # when the subprocess cwd is the web child. Bind the output explicitly so
-    # cleanup and the cleanliness assertion always inspect the same tree.
-    run_command!(
-      runner,
-      "mix",
-      ["phx.digest.clean", "--all", "--output", static_root],
-      command_opts
-    )
+    logical_gzip_snapshots =
+      snapshot_logical_gzip_variants!(static_root, tracked_logical_gzip_paths)
 
-    # `phx.digest.clean` can restore tracked logical `.gz` siblings while its
-    # nested Mix task rebuilds umbrella structure. They are generated output,
-    # so remove the complete bounded generated set before rebuilding it.
-    remove_generated_web_output!(static_root)
-    assert_web_digest_tree_clean!(static_root)
-    run_command!(runner, "mix", ["assets.npm"], command_opts)
-    run_command!(runner, "mix", ["assets.deploy"], command_opts)
+    Mix.shell().info("==> cleaning and rebuilding web assets")
+
+    try do
+      rebuild_web_assets!(runner, static_root, command_opts)
+    rescue
+      error ->
+        restore_or_reraise!(static_root, logical_gzip_snapshots, error, __STACKTRACE__)
+    end
+
+    restore_logical_gzip_variants!(static_root, logical_gzip_snapshots)
     verify_web_digest_tree!(static_root)
 
     release
@@ -85,6 +96,195 @@ defmodule AllbertAssist.Release.FinalArtifact do
   defp generated_web_output?(relative) do
     relative == @manifest_name or digested_asset?(relative) or
       String.ends_with?(relative, ".gz")
+  end
+
+  defp rebuild_web_assets!(runner, static_root, command_opts) do
+    # An umbrella Mix invocation resolves the task from the umbrella root even
+    # when the subprocess cwd is the web child. Bind the output explicitly so
+    # cleanup and the cleanliness assertion always inspect the same tree.
+    run_command!(
+      runner,
+      "mix",
+      ["phx.digest.clean", "--all", "--output", static_root],
+      command_opts
+    )
+
+    # Logical gzip siblings participate in the bounded clean rebuild, but the
+    # explicit repository-owned subset is restored after source equality has
+    # been checked. Ignored asset-build gzip output is deliberately not input.
+    remove_generated_web_output!(static_root)
+    assert_web_digest_tree_clean!(static_root)
+    run_command!(runner, "mix", ["assets.npm"], command_opts)
+    run_command!(runner, "mix", ["assets.deploy"], command_opts)
+  end
+
+  defp snapshot_logical_gzip_variants!(static_root, tracked_paths) do
+    validate_tracked_logical_gzip_paths!(tracked_paths)
+
+    existing_paths =
+      static_root
+      |> static_files()
+      |> Enum.filter(&(String.ends_with?(&1, ".gz") and not digested_asset?(&1)))
+
+    missing_paths = tracked_paths -- existing_paths
+
+    if missing_paths != [] do
+      Mix.raise("tracked logical gzip allowlist is missing: #{Enum.join(missing_paths, ", ")}")
+    end
+
+    unclassified_paths =
+      existing_paths
+      |> Kernel.--(tracked_paths)
+      |> Enum.reject(&generated_logical_gzip?/1)
+
+    if unclassified_paths != [] do
+      Mix.raise(
+        "logical gzip is neither repository-owned nor generated: " <>
+          Enum.join(unclassified_paths, ", ")
+      )
+    end
+
+    Enum.map(tracked_paths, &snapshot_logical_gzip!(static_root, &1))
+  end
+
+  defp snapshot_logical_gzip!(static_root, relative) do
+    source_path = safe_static_file!(static_root, gzip_source_relative(relative))
+    gzip_path = safe_static_file!(static_root, relative)
+    source = File.read!(source_path)
+    gzip = File.read!(gzip_path)
+
+    unless gunzip_matches?(gzip, source) do
+      Mix.raise("tracked logical gzip does not match its source: #{relative}")
+    end
+
+    %{
+      relative: relative,
+      source: source,
+      gzip: gzip,
+      mode: Bitwise.band(File.lstat!(gzip_path).mode, 0o777)
+    }
+  end
+
+  defp validate_tracked_logical_gzip_paths!(paths) when is_list(paths) do
+    canonical? = Enum.all?(paths, &canonical_tracked_logical_gzip_path?/1)
+
+    unless canonical? and paths == Enum.sort(Enum.uniq(paths)) do
+      Mix.raise("tracked logical gzip allowlist must be sorted, unique canonical paths")
+    end
+  end
+
+  defp validate_tracked_logical_gzip_paths!(_paths) do
+    Mix.raise("tracked logical gzip allowlist must be a list")
+  end
+
+  defp canonical_tracked_logical_gzip_path?(path) when is_binary(path) do
+    String.ends_with?(path, ".gz") and not String.ends_with?(path, ".gz.gz") and
+      Path.type(path) == :relative and path not in ["", "."] and
+      not String.starts_with?(path, "../") and
+      Path.relative_to(Path.expand(path, "/"), "/") == path and not digested_asset?(path)
+  end
+
+  defp canonical_tracked_logical_gzip_path?(_path), do: false
+
+  defp restore_logical_gzip_variants!(static_root, snapshots) do
+    Enum.each(snapshots, fn %{relative: relative, source: source, gzip: gzip, mode: mode} ->
+      source_path = safe_static_file!(static_root, gzip_source_relative(relative))
+
+      unless File.read!(source_path) == source do
+        Mix.raise("logical asset changed while preserving its tracked gzip: #{relative}")
+      end
+
+      gzip_path = safe_static_output_file!(static_root, relative)
+      atomic_replace_file!(static_root, relative, gzip_path, gzip, mode)
+    end)
+  end
+
+  defp restore_or_reraise!(static_root, snapshots, original_error, original_stacktrace) do
+    restoration =
+      try do
+        restore_logical_gzip_variants!(static_root, snapshots)
+        :ok
+      rescue
+        restore_error -> {:error, restore_error}
+      end
+
+    case restoration do
+      :ok ->
+        reraise(original_error, original_stacktrace)
+
+      {:error, restore_error} ->
+        Mix.raise(
+          "web asset build failed: #{Exception.message(original_error)}; " <>
+            "tracked gzip restoration also failed: #{Exception.message(restore_error)}"
+        )
+    end
+  end
+
+  defp atomic_replace_file!(static_root, relative, target, contents, mode) do
+    suffix = System.unique_integer([:positive, :monotonic])
+    temporary_relative = "#{relative}.allbert-restore-#{suffix}"
+    temporary = safe_static_output_file!(static_root, temporary_relative)
+    ensure_restore_temporary_missing!(temporary)
+
+    try do
+      File.write!(temporary, contents, [:binary, :exclusive])
+      File.chmod!(temporary, mode)
+      File.rename!(temporary, target)
+      verify_atomic_restore!(relative, target, contents, mode)
+    after
+      cleanup_restore_temporary!(temporary)
+    end
+  end
+
+  defp ensure_restore_temporary_missing!(temporary) do
+    case File.lstat(temporary) do
+      {:error, :enoent} -> :ok
+      {:ok, _stat} -> Mix.raise("tracked gzip restore temporary path already exists")
+      {:error, reason} -> Mix.raise("tracked gzip restore temporary path failed: #{reason}")
+    end
+  end
+
+  defp verify_atomic_restore!(relative, target, contents, mode) do
+    restored? =
+      File.read!(target) == contents and Bitwise.band(File.stat!(target).mode, 0o777) == mode
+
+    unless restored?,
+      do: Mix.raise("tracked gzip atomic restoration verification failed: #{relative}")
+  end
+
+  defp cleanup_restore_temporary!(temporary) do
+    case File.lstat(temporary) do
+      {:ok, %File.Stat{type: :regular}} -> File.rm!(temporary)
+      {:error, :enoent} -> :ok
+      _other -> :ok
+    end
+  end
+
+  defp gzip_source_relative(relative), do: String.replace_suffix(relative, ".gz", "")
+
+  defp generated_logical_gzip?(relative) do
+    Enum.any?(@generated_logical_gzip_prefixes, &String.starts_with?(relative, &1))
+  end
+
+  defp reject_gzip_restore_residue!(static_root) do
+    residues =
+      static_root |> static_files() |> Enum.filter(&Regex.match?(@gzip_restore_residue, &1))
+
+    if residues != [] do
+      Mix.raise("atomic gzip restore residue requires removal: #{Enum.join(residues, ", ")}")
+    end
+  end
+
+  defp gunzip_matches?(gzip, source) do
+    :zlib.gunzip(gzip) == source
+  rescue
+    ErlangError -> false
+  end
+
+  defp validate_web_asset_boundary!(web_path, static_root) do
+    {^web_path, :directory} = assert_boundary_path!(web_path, web_path, :directory)
+    {^static_root, :directory} = assert_boundary_path!(web_path, static_root, :directory)
+    :ok
   end
 
   @doc false
@@ -398,6 +598,22 @@ defmodule AllbertAssist.Release.FinalArtifact do
 
     unless path_within?(path, root), do: Mix.raise("Phoenix asset path escapes the static root")
     {path, :regular} = assert_boundary_path!(root, path, :regular)
+    path
+  end
+
+  defp safe_static_output_file!(root, relative) do
+    normalized = relative |> Path.expand(root) |> Path.relative_to(root)
+
+    unless relative == normalized and Path.type(relative) == :relative and
+             relative not in ["", "."] and
+             not String.starts_with?(relative, "../") do
+      Mix.raise("Phoenix asset output contains an unsafe path")
+    end
+
+    path = Path.expand(relative, root)
+
+    unless path_within?(path, root), do: Mix.raise("Phoenix asset output escapes the static root")
+    {path, _type} = assert_boundary_path!(root, path, :regular_or_missing)
     path
   end
 

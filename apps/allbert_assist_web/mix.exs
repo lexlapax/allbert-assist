@@ -66,6 +66,7 @@ defmodule AllbertAssistWeb.MixProject do
       {:gettext, "~> 1.0"},
       {:plug, "~> 1.19"},
       {:swoosh, "~> 1.16"},
+      {:allbert_composition, in_umbrella: true},
       {:allbert_assist, in_umbrella: true},
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"}

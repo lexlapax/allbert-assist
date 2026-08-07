@@ -80,7 +80,10 @@ stale guidance.
   components; it is not a complete SBOM, universal ownership scanner, or legal-
   compliance guarantee. Dependency metadata, source license files, generated
   target evidence, and direct artifact inspection remain complementary rather
-  than a single complete authority.
+  than a single complete authority. The Pack subset is deliberately stricter:
+  first-party descriptor-bearing `beam_app` rows form an exact closed projection,
+  and finalization binds each row to its raw packaged `.app` SHA-256. That exact
+  Pack claim does not turn the surrounding component inventory into an SBOM.
 - Run `mix allbert.licenses --check` after dependency, packaged payload, license
   metadata, or catalog changes. The check is deterministic and offline; it
   validates the reviewed catalog/text digests and committed union without
@@ -196,7 +199,9 @@ ADR 0050 before changing dependencies.
 | Commit | Fast commit-time confidence. | `mix allbert.test commit`; `mix precommit` is a compatibility shortcut for this gate after v0.45.1. Not release evidence. |
 | Prepush | High-coverage local handoff before sharing. | `mix allbert.test prepush`; runs the partitioned high-coverage local gate with timing evidence. |
 | Fast local | Daily development feedback after v0.41 implementation. | `mix allbert.test fast-local`; add `--core-lanes --stocksage-lanes --web-lanes --partitions N` for the high-coverage local gate. |
-| Serial core | VM-global lanes (SQLite, app env, Allbert Home, global processes, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial within a partition, parallel across OS partitions. Security evals stay single-VM. |
+| Serial owner | Owner-CWD VM-global lanes (SQLite, app env, Allbert Home, global processes, LiveView). | `mix allbert.test serial-owner --owner <owner> --lane <lane> --partitions N`; owner and lane must exist in the checked contract. Serial within a partition, parallel across OS partitions; security eval and external-runtime lanes stay single-VM. |
+| Serial core alias | Compatibility spelling for core-owned serial lanes. | `mix allbert.test serial-core --lane <lane> --partitions N` retains the historical `serial-core` metrics identity while selecting the same files as `serial-owner --owner core`. |
+| Release assembly | Exact-clean packaged topology/finalizer checkpoint. | `mix allbert.test release-assembly --checkpoint <checkpoint>` is preflight-guarded, builds from a disposable Home, and verifies through packaged `$RELEASE_ROOT/bin/allbert eval` without starting release applications. |
 | Release | Manual validation/release closeout. | `mix allbert.test release`: explicit full-suite phases plus Dialyzer and per-phase timing/evidence. |
 | External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, opt in. |
 
@@ -243,8 +248,12 @@ for the coding agent to guess later.
 
 ## Repository Map
 
+- `apps/allbert_kernel/`: dependency-minimal kernel OTP app and the compiled Pack
+  contract, descriptor, and trusted OTP projection substrate.
 - `apps/allbert_assist/`: core OTP app, runtime, agents, actions, memory,
   security, settings, execution policy/specs, and Mix tasks.
+- `apps/allbert_composition/`: descriptorless composition OTP app; the release
+  host above kernel and residual capability applications.
 - `apps/allbert_assist_web/`: Phoenix web app and LiveView operator surfaces,
   including the v0.26 `/agent` workspace shell.
 - `config/`: Phoenix, repo, release, and bootstrap configuration.

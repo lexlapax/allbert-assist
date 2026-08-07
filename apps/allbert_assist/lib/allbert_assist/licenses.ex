@@ -18,6 +18,12 @@ defmodule AllbertAssist.Licenses do
   @packaged_catalog "licenses/catalog.json"
   @packaged_text_root "licenses/texts"
   @schema_version 1
+  @pack_source_keys ~w(descriptor_module id registry_order schema_version startup_role)
+  @pack_manifest_keys ~w(app_sha256 descriptor_module id registry_order schema_version startup_role)
+  @pack_startup_roles ~w(kernel_prerequisite native_effectful native_passive)
+  @allbert_repository "https://github.com/lexlapax/allbert-assist"
+  @pack_id_regex ~r/\A[a-z][a-z0-9]*(?:_[a-z0-9]+)*\z/
+  @pack_descriptor_module_regex ~r/\AElixir\.[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*\z/
   @max_metadata_bytes 5_000_000
   @supported_targets ~w(linux-x64 linux-arm64 macos-arm64)
   @target_keys ~w(elixir_version erts_version otp_version triple)
@@ -104,6 +110,7 @@ defmodule AllbertAssist.Licenses do
 
       Enum.each(components, &validate_component!(&1, text_index))
       validate_unique_beam_applications!(components)
+      validate_unique_packs!(components)
       catalog
     end)
   end
@@ -320,6 +327,7 @@ defmodule AllbertAssist.Licenses do
     validate_component_license!(id, expression, ids, text_index)
     validate_targets!(component["targets"], id)
     validate_component_kind!(kind, component, id, bundled)
+    validate_pack!(component, id)
     validate_presence!(kind, component, id)
     validate_mpl_scope!(component, id, expression)
   end
@@ -479,6 +487,22 @@ defmodule AllbertAssist.Licenses do
       do: fail!(:duplicate_application, "catalog contains duplicate BEAM applications")
   end
 
+  defp validate_unique_packs!(components) do
+    packs =
+      components
+      |> Enum.filter(&is_map(&1["pack"]))
+      |> Enum.map(fn component ->
+        Map.put(component["pack"], "application", component["application"])
+      end)
+
+    Enum.each(~w(id descriptor_module registry_order application), fn field ->
+      values = Enum.map(packs, & &1[field])
+
+      if length(values) != length(Enum.uniq(values)),
+        do: fail!(:duplicate_pack, "catalog Pack projection contains duplicate #{field}")
+    end)
+  end
+
   defp validate_component_text_id!(text_id, component_id, known_text_ids) do
     require_identifier!(text_id, "#{component_id}.text_ids")
 
@@ -511,6 +535,64 @@ defmodule AllbertAssist.Licenses do
     |> Map.get("forbidden_paths", [])
     |> require_list!("#{id}.forbidden_paths")
     |> Enum.each(&normalize_relative!(&1, "#{id}.forbidden_paths"))
+  end
+
+  defp validate_pack!(component, id) do
+    case Map.fetch(component, "pack") do
+      :error ->
+        :ok
+
+      {:ok, pack} ->
+        pack = require_map!(pack, "#{id}.pack")
+
+        first_party? =
+          match?(
+            %{"ecosystem" => "allbert", "repository" => @allbert_repository},
+            component["provenance"]
+          )
+
+        unless component["kind"] == "beam_app" and first_party? do
+          fail!(
+            :invalid_schema,
+            "#{id}.Pack requires an exact first-party BEAM application row"
+          )
+        end
+
+        unless Enum.sort(Map.keys(pack)) == @pack_source_keys,
+          do: fail!(:invalid_schema, "#{id}.pack has unexpected fields")
+
+        require_equal!(pack["schema_version"], @schema_version, "#{id}.pack.schema_version")
+        require_pack_id!(pack["id"], "#{id}.pack.id")
+
+        require_pack_descriptor_module!(
+          pack["descriptor_module"],
+          "#{id}.pack.descriptor_module"
+        )
+
+        require_one_of!(
+          pack["startup_role"],
+          @pack_startup_roles,
+          "#{id}.pack.startup_role"
+        )
+
+        require_nonnegative_integer!(pack["registry_order"], "#{id}.pack.registry_order", 1)
+    end
+  end
+
+  defp require_pack_id!(value, field) do
+    value = require_nonempty_string!(value, field)
+
+    if byte_size(value) <= 64 and Regex.match?(@pack_id_regex, value),
+      do: value,
+      else: fail!(:invalid_schema, "#{field} is not a canonical Pack id")
+  end
+
+  defp require_pack_descriptor_module!(value, field) do
+    value = require_nonempty_string!(value, field)
+
+    if byte_size(value) <= 255 and Regex.match?(@pack_descriptor_module_regex, value),
+      do: value,
+      else: fail!(:invalid_schema, "#{field} is not a canonical Elixir module string")
   end
 
   defp validate_file_rule!(rule, id) do
@@ -775,7 +857,8 @@ defmodule AllbertAssist.Licenses do
     %{
       "application" => name,
       "version" => version,
-      "path" => Path.relative_to(app_root, release_root)
+      "path" => Path.relative_to(app_root, release_root),
+      "app_sha256" => app_file |> read_file!(:application_tree_invalid) |> sha256()
     }
   end
 
@@ -799,7 +882,9 @@ defmodule AllbertAssist.Licenses do
   end
 
   defp validate_declared_application_closure!(declared_apps, tree_apps) do
-    unless declared_apps == tree_apps,
+    comparable_tree_apps = Enum.map(tree_apps, &Map.take(&1, ~w(application path version)))
+
+    unless declared_apps == comparable_tree_apps,
       do:
         fail!(
           :application_input_mismatch,
@@ -901,7 +986,13 @@ defmodule AllbertAssist.Licenses do
   end
 
   defp materialize_component_kind!("beam_app", component, base, app_index, _root) do
-    Map.merge(base, Map.fetch!(app_index, component["application"]))
+    app = Map.fetch!(app_index, component["application"])
+    materialized = Map.merge(base, Map.take(app, ~w(application path version)))
+
+    case component["pack"] do
+      nil -> materialized
+      pack -> Map.put(materialized, "pack", Map.put(pack, "app_sha256", app["app_sha256"]))
+    end
   end
 
   defp materialize_component_kind!("managed_file", component, base, app_index, root) do
@@ -1279,7 +1370,7 @@ defmodule AllbertAssist.Licenses do
     )
   end
 
-  defp manifest_dynamic_keys("beam_app"), do: ~w(application bundled path version)
+  defp manifest_dynamic_keys("beam_app"), do: ~w(application bundled pack path version)
   defp manifest_dynamic_keys("managed_file"), do: ~w(bundled path sha256)
   defp manifest_dynamic_keys("external"), do: ~w(bundled forbidden_paths)
 
@@ -1292,6 +1383,7 @@ defmodule AllbertAssist.Licenses do
     require_equal!(record["path"], expected_path, "manifest.application.path", 3)
 
     assert_release_directory_path!(root, expected_path, 3)
+    validate_manifest_pack!(root, record, catalog, application, expected_path)
   end
 
   defp validate_manifest_component_kind!("managed_file", root, record, catalog, app_index) do
@@ -1321,6 +1413,62 @@ defmodule AllbertAssist.Licenses do
 
     if Enum.any?(expected_paths, &File.exists?(Path.join(root, &1))),
       do: fail!(:external_runtime_bundled, "manifest external runtime is present", 3)
+  end
+
+  defp validate_manifest_pack!(root, record, catalog, application, app_path) do
+    case {catalog["pack"], record["pack"]} do
+      {nil, nil} ->
+        :ok
+
+      {%{} = source_pack, %{} = materialized_pack} ->
+        unless Enum.sort(Map.keys(materialized_pack)) == @pack_manifest_keys,
+          do: fail!(:manifest_invalid, "manifest Pack object has unexpected fields", 3)
+
+        expected =
+          Map.put(
+            source_pack,
+            "app_sha256",
+            release_app_sha256!(root, app_path, application, 3)
+          )
+
+        unless materialized_pack == expected,
+          do: fail!(:manifest_invalid, "manifest Pack projection differs from raw application", 3)
+
+      {_source_pack, _materialized_pack} ->
+        fail!(:manifest_invalid, "manifest Pack closure differs from packaged catalog", 3)
+    end
+  end
+
+  defp release_app_sha256!(root, app_path, application, status) do
+    ebin_relative = Path.join(app_path, "ebin")
+    ebin = assert_release_directory_path!(root, ebin_relative, status)
+
+    app_files =
+      case File.ls(ebin) do
+        {:ok, entries} ->
+          Enum.filter(entries, &String.ends_with?(&1, ".app"))
+
+        {:error, _reason} ->
+          fail!(:manifest_invalid, "could not inspect packaged .app files", status)
+      end
+
+    expected_name = application <> ".app"
+
+    unless app_files == [expected_name],
+      do:
+        fail!(
+          :manifest_invalid,
+          "packaged application must contain exactly #{expected_name}",
+          status
+        )
+
+    root
+    |> read_release_regular_file!(
+      Path.join(ebin_relative, expected_name),
+      :manifest_invalid,
+      status
+    )
+    |> sha256()
   end
 
   defp validate_generated_path_set!(root, manifest) do

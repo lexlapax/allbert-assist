@@ -1321,7 +1321,9 @@ evidence, not as a parallel current workflow.
 | Commit | Fast commit-time confidence. | `mix allbert.test commit`; `mix precommit` is a compatibility shortcut for this gate after v0.45.1. Not release evidence. |
 | Prepush | High-coverage local handoff before sharing. | `mix allbert.test prepush`; uses partitioned local lanes and gate timing evidence. |
 | Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven pure async lanes. After M9, `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N` adds partitioned core DB/app-env/home/process lanes, StockSage DB/app-env/process lanes, and web `liveview_serial`. |
-| Serial core | VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial *within* a partition, parallel *across* OS partitions. Security evals + external smokes stay single-VM / opt-in. |
+| Serial owner | Owner-CWD VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-owner --owner <owner> --lane <lane> --partitions N`; owner/lane membership is checked, execution is serial *within* a partition and parallel *across* OS partitions, and security-eval/external-runtime lanes remain single-VM. |
+| Serial core alias | Historical core-owner entrypoint. | `mix allbert.test serial-core --lane <lane> --partitions N` selects the core owner's files through the same contract while retaining the historical `serial-core` metrics identity. |
+| Release assembly | Exact-clean packaged topology/finalizer checkpoint. | `mix allbert.test release-assembly --checkpoint <checkpoint>` requires a current preflight attestation, builds with an owned disposable Home, and runs the verifier through packaged `$RELEASE_ROOT/bin/allbert eval` in a clean VM without starting release applications. |
 | Release | Manual validation/release handoff. | `mix allbert.test release`: explicit full-suite phases plus Dialyzer and timing/evidence. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
 
@@ -1333,12 +1335,14 @@ gate-definition digest, and the Elixir/OTP tuple. Expensive commands refuse a
 missing, red, or stale attestation before spawning their first subprocess.
 Dirty development states may be fingerprinted exactly; release evidence also
 requires a clean tree. The guarded set is centrally enumerated: `prepush`,
-high-coverage `fast-local`, `serial-core`, every `release.v*`, `release`,
-external smokes, and real-provider/benchmark gates. The attestation is release
-evidence, never runtime authority. Schema 2 records the OTP release and full
-patch version separately, so `29.0.1` cannot be mistaken for another OTP 29
-runtime. Commands outside the central guarded and unguarded classifications are
-refused before dispatch; a new command must declare its class deliberately.
+high-coverage `fast-local`, `serial-owner`, `serial-core`, `release-assembly`,
+every `release.v*`, `release`, external smokes, and real-provider/benchmark
+gates. `release-assembly`, every `release.v*`, and `release` additionally require
+a clean tree. The attestation is release evidence, never runtime authority.
+Schema 2 records the OTP release and full patch version separately, so `29.0.1`
+cannot be mistaken for another OTP 29 runtime. Commands outside the central
+guarded and unguarded classifications are refused before dispatch; a new command
+must declare its class deliberately.
 
 The local two-minute budget contains one forced production-toolchain compile,
 not a local toolchain matrix. A separately recorded **advisory compatibility
@@ -1737,8 +1741,9 @@ handoff set. `B` records only `A`'s results, then runs exact-clean
 together before the successor. Dirty rows remain iteration diagnostics, never
 checkpoint evidence. After fixture reconciliation, M1.a1 runs the first bounded
 assembled-release finalizer smoke; M1.a3 reruns it for activated packaged entry
-topology. The frozen `release.v132` definition is not edited and repeats once at
-the M1.a3 implementation-SHA handoff.
+topology. The frozen `release.v132` definition is not edited; the fail-closed
+scope selector decides whether each exact-clean M1 implementation-SHA handoff
+repeats it.
 
 The same adjacent `A`/`B` protocol applies to every later v1.4 numbered
 implementation milestone and named source checkpoint. Artifact generations and
@@ -1749,17 +1754,42 @@ commit attempting to contain or test its own not-yet-known SHA.
 M1.a1 generalizes owner-lane execution as
 `mix allbert.test serial-owner --owner OWNER --lane LANE --partitions N`.
 Owners resolve from the checked owner/CWD inventory; `kernel` and `composition`
-join the existing owner set, unknown owner/lane pairs fail, and `serial-core`
-remains a compatibility alias for `serial-owner --owner core`. The existing
-per-partition temporary Home/database, sparse-empty, and structured-metrics
-contracts apply unchanged. `external_runtime_serial` and
-`security_eval_serial` remain single-VM lanes and reject any partition count
-other than one for every owner. An M1.a checkpoint records metric identities as the
-tuple of full SHA, gate, owner, lane, partition, and partition count. M1.a1's
-`release-assembly --checkpoint v14-m1a1` wrapper likewise owns its disposable
-Home and appends wall-time plus `.rel`, raw-`.app`, and sealed Pack-projection
-digests. M1.a3's `--checkpoint v14-m1a3` mode repeats those assertions and adds
-composition `.app`, ProductCLI/ProductBootstrap/Coordinator membership,
+join the existing owner set at `apps/allbert_kernel` and
+`apps/allbert_composition`; unknown owner/lane pairs fail, and `serial-core`
+remains a compatibility alias for `serial-owner --owner core` while preserving
+the historical metrics identity. The existing per-partition temporary
+Home/database, sparse-empty, and structured-metrics contracts apply unchanged.
+`external_runtime_serial` and `security_eval_serial` remain single-VM lanes and
+reject any partition count other than one for every owner. An M1.a checkpoint
+records metric identities as the tuple of full SHA, gate, owner, lane,
+partition, and partition count.
+
+M1.a1's guarded `release-assembly --checkpoint v14-m1a1` wrapper creates its own
+temporary root and Home, clears inherited Allbert root overrides, and accepts a
+release root only when it is the exact generated `_build/prod/rel/allbert` path
+or a strict descendant of that temporary root. Before `mix release --overwrite`
+it rejects symlink ancestry and removes only that resolved release root; the
+preclean is required because `--overwrite` can retain stale version directories.
+The finalizer preserves only a sorted repository-owned logical-gzip allowlist:
+it rejects Web/static symlink ancestry, verifies every allowlisted gzip against
+its source, deletes ignored prior-build gzip output, and atomically restores the
+allowlisted bytes and modes after asset success or failure. Reserved restore-temp
+residue fails before a later asset command can digest it. It then invokes
+packaged `$RELEASE_ROOT/bin/allbert eval` in a clean VM. The eval
+starts no Allbert application; the verifier may temporarily load sealed
+descriptor-bearing application specs and unloads those loaded solely by the
+verifier before it may emit exactly one canonical
+`ALLBERT_RELEASE_ASSEMBLY_V1=<JSON>` marker after reconciliation; absence or
+duplication fails. The outer component/license inventory remains explicitly
+best-effort, while its first-party descriptor-bearing Pack subset is an exact
+closed projection bound to raw `.app` SHA-256 values.
+
+Build and verifier output is redacted into per-command logs under the temporary
+root. A successful run records wall time plus `.rel`, raw-`.app`, and sealed
+Pack-projection digests, then removes the temporary Home/root and logs. A failed
+run records failure and retains the temporary root and redacted logs for
+diagnosis. M1.a3's `--checkpoint v14-m1a3` mode repeats those assertions and
+adds composition `.app`, ProductCLI/ProductBootstrap/Coordinator membership,
 packaged launcher target, pure help/version no-state smoke, and entrypoint
 digests. Raw `mix release` output alone is not handoff evidence.
 

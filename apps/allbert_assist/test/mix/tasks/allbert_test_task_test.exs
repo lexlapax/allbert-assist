@@ -73,6 +73,395 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     refute_received {:phase, _, _, _}
   end
 
+  test "owner contract checks kernel and composition roots, CWDs, and declared lanes" do
+    owners = AllbertTestTask.owner_contract()
+
+    assert owners.kernel == %{
+             test_root: "apps/allbert_kernel/test",
+             cwd: "apps/allbert_kernel",
+             lanes: [
+               :pure_async,
+               :app_env_serial,
+               :home_fs_serial,
+               :global_process_serial
+             ]
+           }
+
+    assert owners.composition == %{
+             test_root: "apps/allbert_composition/test",
+             cwd: "apps/allbert_composition",
+             lanes: [
+               :pure_async,
+               :app_env_serial,
+               :global_process_serial,
+               :external_runtime_serial
+             ]
+           }
+
+    assert owners.core.test_root == "apps/allbert_assist/test"
+    assert owners.core.cwd == "apps/allbert_assist"
+    assert :security_eval_serial in owners.core.lanes
+    assert owners.web.cwd == "apps/allbert_assist_web"
+    assert :liveview_serial in owners.web.lanes
+
+    records = AllbertTestTask.inventory_records()
+
+    assert Enum.any?(records, fn record ->
+             record.owner == :kernel and
+               String.starts_with?(record.path, "apps/allbert_kernel/test/")
+           end)
+
+    assert Enum.any?(records, fn record ->
+             record.owner == :composition and
+               String.starts_with?(record.path, "apps/allbert_composition/test/")
+           end)
+
+    assert AllbertTestTask.owner_lane_contract_issues(records) == []
+
+    assert AllbertTestTask.owner_path_contract_issues(Path.expand("../../../../..", __DIR__)) ==
+             []
+  end
+
+  test "serial-owner rejects unknown owners and lanes outside the checked owner contract" do
+    assert_raise Mix.Error, "unknown serial owner stranger", fn ->
+      AllbertTestTask.run([
+        "serial-owner",
+        "--owner",
+        "stranger",
+        "--lane",
+        "app_env_serial"
+      ])
+    end
+
+    assert_raise Mix.Error,
+                 "lane db_serial is not declared for serial owner kernel; expected one of pure_async, app_env_serial, home_fs_serial, global_process_serial",
+                 fn ->
+                   AllbertTestTask.run([
+                     "serial-owner",
+                     "--owner",
+                     "kernel",
+                     "--lane",
+                     "db_serial"
+                   ])
+                 end
+
+    assert_raise Mix.Error,
+                 "external_runtime_serial must run as a single-VM serial or external smoke lane",
+                 fn ->
+                   AllbertTestTask.run([
+                     "serial-owner",
+                     "--owner",
+                     "composition",
+                     "--lane",
+                     "external_runtime_serial",
+                     "--partitions",
+                     "2"
+                   ])
+                 end
+  end
+
+  test "serial-owner runs checked core lanes and serial-core retains its metrics identity", %{
+    metrics_store: metrics_store
+  } do
+    original_runner = Application.get_env(:allbert_assist, :serial_owner_command_runner)
+    parent = self()
+
+    Application.put_env(:allbert_assist, :serial_owner_command_runner, fn command ->
+      send(parent, {:serial_command, command})
+
+      case command.id do
+        "prepare_database" ->
+          {"database ready\n", 0}
+
+        "run_tests" ->
+          {"Running ExUnit with seed: 1234, max_cases: 1\n2 tests, 0 failures\n", 0}
+      end
+    end)
+
+    on_exit(fn -> restore_app_env(:serial_owner_command_runner, original_runner) end)
+
+    capture_io(fn ->
+      assert :ok =
+               AllbertTestTask.run([
+                 "serial-owner",
+                 "--owner",
+                 "core",
+                 "--lane",
+                 "app_env_serial",
+                 "--partitions",
+                 "1"
+               ])
+    end)
+
+    assert_received {:serial_command,
+                     %{
+                       id: "prepare_database",
+                       cwd: cwd,
+                       executable: "mix",
+                       args: ["ecto.migrate.allbert", "--quiet"]
+                     }}
+
+    assert cwd == Path.join(Path.expand("../../../../..", __DIR__), "apps/allbert_assist")
+
+    assert_received {:serial_command,
+                     %{
+                       id: "run_tests",
+                       cwd: ^cwd,
+                       executable: "mix",
+                       args: [
+                         "allbert.test.raw",
+                         "--only",
+                         "app_env_serial",
+                         "--max-cases",
+                         "1",
+                         "--slowest",
+                         "25"
+                         | test_paths
+                       ]
+                     }}
+
+    assert test_paths != []
+
+    capture_io(fn ->
+      assert :ok =
+               AllbertTestTask.run([
+                 "serial-core",
+                 "--lane",
+                 "app_env_serial",
+                 "--partitions",
+                 "1"
+               ])
+    end)
+
+    records =
+      metrics_store
+      |> File.read!()
+      |> String.split("\n", trim: true)
+      |> Enum.map(&Jason.decode!/1)
+
+    assert Enum.map(records, & &1["gate"]) == ["serial-owner", "serial-core"]
+    assert Enum.map(records, & &1["owner"]) == ["core", "core"]
+    assert Enum.map(records, & &1["lane"]) == ["app_env_serial", "app_env_serial"]
+    assert Enum.all?(records, &(&1["partition"] == 1 and &1["partitions"] == 1))
+  end
+
+  test "composition serial-owner migrates the owned database before running from composition CWD" do
+    original_runner = Application.get_env(:allbert_assist, :serial_owner_command_runner)
+    parent = self()
+
+    Application.put_env(:allbert_assist, :serial_owner_command_runner, fn command ->
+      send(parent, {:composition_serial_command, command})
+      {"0 tests, 0 failures\n", 0}
+    end)
+
+    on_exit(fn -> restore_app_env(:serial_owner_command_runner, original_runner) end)
+
+    capture_io(fn ->
+      assert :ok =
+               AllbertTestTask.run([
+                 "serial-owner",
+                 "--owner",
+                 "composition",
+                 "--lane",
+                 "global_process_serial",
+                 "--partitions",
+                 "1"
+               ])
+    end)
+
+    repo_root = Path.expand("../../../../..", __DIR__)
+
+    assert_received {:composition_serial_command,
+                     %{
+                       id: "prepare_database",
+                       cwd: core_cwd,
+                       args: ["ecto.migrate.allbert", "--quiet"]
+                     }}
+
+    assert core_cwd == Path.join(repo_root, "apps/allbert_assist")
+
+    assert_received {:composition_serial_command,
+                     %{
+                       id: "run_tests",
+                       cwd: composition_cwd,
+                       args: [
+                         "allbert.test.raw",
+                         "--only",
+                         "global_process_serial",
+                         "--max-cases",
+                         "1",
+                         "--slowest",
+                         "25",
+                         "test/allbert_assist/pack/application_boundary_test.exs"
+                       ]
+                     }}
+
+    assert composition_cwd == Path.join(repo_root, "apps/allbert_composition")
+  end
+
+  test "kernel serial-owner runs from kernel CWD without residual database preparation" do
+    original_runner = Application.get_env(:allbert_assist, :serial_owner_command_runner)
+    parent = self()
+
+    Application.put_env(:allbert_assist, :serial_owner_command_runner, fn command ->
+      send(parent, {:kernel_serial_command, command})
+      {"0 tests, 0 failures\n", 0}
+    end)
+
+    on_exit(fn -> restore_app_env(:serial_owner_command_runner, original_runner) end)
+
+    capture_io(fn ->
+      assert :ok =
+               AllbertTestTask.run([
+                 "serial-owner",
+                 "--owner",
+                 "kernel",
+                 "--lane",
+                 "pure_async",
+                 "--partitions",
+                 "1"
+               ])
+    end)
+
+    refute_received {:kernel_serial_command, %{id: "prepare_database"}}
+
+    assert_received {:kernel_serial_command,
+                     %{
+                       id: "run_tests",
+                       cwd: kernel_cwd,
+                       args: [
+                         "test",
+                         "--only",
+                         "pure_async",
+                         "--max-cases",
+                         "1",
+                         "--slowest",
+                         "25"
+                         | test_paths
+                       ]
+                     }}
+
+    assert kernel_cwd == Path.join(Path.expand("../../../../..", __DIR__), "apps/allbert_kernel")
+    assert test_paths != []
+    assert Enum.all?(test_paths, &String.starts_with?(&1, "test/"))
+  end
+
+  test "release-assembly dispatches the clean guarded wrapper and records its checkpoint", %{
+    metrics_store: metrics_store
+  } do
+    original_runner = Application.get_env(:allbert_assist, :release_assembly_command_runner)
+
+    original_temp_root_factory =
+      Application.get_env(:allbert_assist, :release_assembly_temp_root_factory)
+
+    original_release_root =
+      Application.get_env(:allbert_assist, :release_assembly_release_root)
+
+    parent = self()
+    sha = String.duplicate("a", 64)
+    temp_root = temp_path("release-assembly-task")
+    release_root = Path.join(temp_root, "release")
+    stale_path = Path.join([release_root, "lib", "allbert_assist-1.2.6", "stale.beam"])
+
+    File.mkdir_p!(Path.dirname(stale_path))
+    File.write!(stale_path, "stale release byte")
+
+    verifier_line =
+      "ALLBERT_RELEASE_ASSEMBLY_V1=" <>
+        Jason.encode!(%{
+          "schema_version" => 1,
+          "status" => "PASS",
+          "checkpoint" => "v14-m1a1",
+          "rel_sha256" => sha,
+          "app_sha256" => %{
+            "allbert_kernel" => sha,
+            "allbert_assist" => sha
+          },
+          "pack_projection_sha256" => sha
+        }) <>
+        "\n"
+
+    Application.put_env(:allbert_assist, :preflight_attestation_verifier, fn _root,
+                                                                             _digest,
+                                                                             clean? ->
+      send(parent, {:release_assembly_preflight, clean?})
+      :ok
+    end)
+
+    Application.put_env(:allbert_assist, :release_assembly_command_runner, fn command ->
+      send(parent, {:release_assembly_command, command})
+
+      case command.id do
+        "build_release" ->
+          refute File.exists?(stale_path)
+          File.mkdir_p!(Path.join(release_root, "bin"))
+          File.write!(Path.join([release_root, "bin", "allbert"]), "packaged executable")
+          File.chmod!(Path.join([release_root, "bin", "allbert"]), 0o755)
+          {"release built\n", 0}
+
+        "verify_projection" ->
+          {verifier_line, 0}
+      end
+    end)
+
+    Application.put_env(:allbert_assist, :release_assembly_temp_root_factory, fn ->
+      File.mkdir_p!(temp_root)
+      temp_root
+    end)
+
+    Application.put_env(:allbert_assist, :release_assembly_release_root, release_root)
+
+    on_exit(fn ->
+      restore_app_env(:release_assembly_command_runner, original_runner)
+      restore_app_env(:release_assembly_temp_root_factory, original_temp_root_factory)
+      restore_app_env(:release_assembly_release_root, original_release_root)
+      File.rm_rf!(temp_root)
+    end)
+
+    output =
+      capture_io(fn ->
+        assert %{status: "passed", checkpoint: "v14-m1a1"} =
+                 AllbertTestTask.run([
+                   "release-assembly",
+                   "--checkpoint",
+                   "v14-m1a1"
+                 ])
+      end)
+
+    assert output =~ "release-assembly v14-m1a1 PASS"
+    assert_received {:release_assembly_preflight, true}
+
+    assert_received {:release_assembly_command,
+                     %{
+                       id: "build_release",
+                       env: build_env,
+                       args: ["release", "allbert", "--overwrite"]
+                     }}
+
+    temp_root = Map.new(build_env)["ALLBERT_RELEASE_ASSEMBLY_ROOT"]
+    refute File.exists?(temp_root)
+    assert Map.new(build_env)["ALLBERT_RELEASE_ROOT"] == release_root
+
+    assert_received {:release_assembly_command,
+                     %{
+                       id: "verify_projection",
+                       executable: verifier_executable,
+                       args: ["eval", _verifier_eval]
+                     }}
+
+    assert verifier_executable == Path.join(release_root, "bin/allbert")
+
+    assert [record] =
+             metrics_store
+             |> File.read!()
+             |> String.split("\n", trim: true)
+             |> Enum.map(&Jason.decode!/1)
+
+    assert record["gate"] == "release-assembly"
+    assert record["checkpoint"] == "v14-m1a1"
+    assert record["command"] == "release-assembly --checkpoint v14-m1a1"
+  end
+
   test "release runs explicit phases and does not delegate to precommit", %{
     evidence_root: root,
     metrics_store: metrics_store
@@ -403,6 +792,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   test "usage lists the latest release lanes" do
     error = assert_raise Mix.Error, fn -> AllbertTestTask.run(["unknown"]) end
 
+    assert error.message =~
+             "mix allbert.test serial-owner --owner OWNER --lane LANE [--partitions N]"
+
+    assert error.message =~ "mix allbert.test release-assembly --checkpoint CHECKPOINT"
     assert error.message =~ "mix allbert.test release.v050"
     assert error.message =~ "mix allbert.test release.v050b"
     assert error.message =~ "mix allbert.test release.v051"

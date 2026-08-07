@@ -51,8 +51,11 @@ defmodule AllbertAssist.DevGates.TestMetrics do
   Known keys: `:gate`, `:phase_or_step`, `:owner`, `:lane`, `:partition`,
   `:partitions`, `:wall_ms`, `:status` (`"passed"`/`"failed"`), the M8.10
   provenance/benchmark keys `:command`, `:corpus_id`, and `:stats`
-  (benchmark wall stats map), plus optional `:output` (raw gate output —
-  parsed for seed, summed ExUnit totals, and the `--slowest` report) and
+  (benchmark wall stats map), the release-assembly keys `:checkpoint`,
+  `:rel_sha256`, `:kernel_app_sha256`, `:residual_app_sha256`,
+  `:composition_app_sha256`, `:pack_projection_sha256`, `:overlay_sha256`,
+  and `:entrypoint_sha256`, plus optional `:output` (raw gate output — parsed
+  for seed, summed ExUnit totals, and the `--slowest` report) and
   explicit overrides for any derived field (`:seed`, `:tests`, `:failures`,
   `:excluded`, `:skipped`, `:slowest`, `:recorded_at`, `:git_sha`,
   `:full_sha`, `:dirty`, `:cwd`, `:host_class`). `:store` overrides the
@@ -242,6 +245,14 @@ defmodule AllbertAssist.DevGates.TestMetrics do
       lane: Map.get(attrs, :lane),
       partition: Map.get(attrs, :partition),
       partitions: Map.get(attrs, :partitions),
+      checkpoint: Map.get(attrs, :checkpoint),
+      rel_sha256: Map.get(attrs, :rel_sha256),
+      kernel_app_sha256: Map.get(attrs, :kernel_app_sha256),
+      residual_app_sha256: Map.get(attrs, :residual_app_sha256),
+      composition_app_sha256: Map.get(attrs, :composition_app_sha256),
+      pack_projection_sha256: Map.get(attrs, :pack_projection_sha256),
+      overlay_sha256: Map.get(attrs, :overlay_sha256),
+      entrypoint_sha256: Map.get(attrs, :entrypoint_sha256),
       seed: Map.get_lazy(attrs, :seed, fn -> parse_seed(output) end),
       tests: Map.get(attrs, :tests, totals.tests),
       failures: Map.get(attrs, :failures, totals.failures),

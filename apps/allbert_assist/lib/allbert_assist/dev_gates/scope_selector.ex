@@ -77,10 +77,33 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
     %{
       id: "release_workflow",
       class: "release_workflow",
-      exact: ["mix.exs", "mix.lock"],
+      exact: ["mix.exs", "mix.lock", "THIRD-PARTY-LICENSES.md"],
       prefixes: ["scripts/release/", ".github/workflows/", "config/"],
       owners: ["release"],
       lanes: ["external_runtime_serial"],
+      aggregate_required: true
+    },
+    %{
+      id: "kernel",
+      class: "shared_spine",
+      exact: [],
+      prefixes: ["apps/allbert_kernel/"],
+      owners: ["kernel"],
+      lanes: ["pure_async", "app_env_serial", "home_fs_serial", "global_process_serial"],
+      aggregate_required: true
+    },
+    %{
+      id: "composition",
+      class: "shared_spine",
+      exact: [],
+      prefixes: ["apps/allbert_composition/"],
+      owners: ["composition"],
+      lanes: [
+        "pure_async",
+        "app_env_serial",
+        "global_process_serial",
+        "external_runtime_serial"
+      ],
       aggregate_required: true
     },
     %{

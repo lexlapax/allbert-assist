@@ -48,7 +48,17 @@ defmodule AllbertAssist.DevGates.PreflightTest do
 
   test "expensive command classification is central and high-coverage fast-local is conditional" do
     assert PreflightGuard.guarded?(["prepush"])
+
+    assert PreflightGuard.guarded?([
+             "serial-owner",
+             "--owner",
+             "kernel",
+             "--lane",
+             "app_env_serial"
+           ])
+
     assert PreflightGuard.guarded?(["serial-core", "--lane", "db_serial"])
+    assert PreflightGuard.guarded?(["release-assembly", "--checkpoint", "v14-m1a1"])
     assert PreflightGuard.guarded?(["release"])
     assert PreflightGuard.guarded?(["release.v132"])
     assert PreflightGuard.guarded?(["external-smoke", "docker_sandbox"])
@@ -62,6 +72,20 @@ defmodule AllbertAssist.DevGates.PreflightTest do
     refute PreflightGuard.guarded?(["focused", "--", "test/example_test.exs"])
     refute PreflightGuard.guarded?(["fast-local"])
     refute PreflightGuard.guarded?(["external-smoke", "list"])
+
+    refute PreflightGuard.clean_required?([
+             "serial-owner",
+             "--owner",
+             "core",
+             "--lane",
+             "app_env_serial"
+           ])
+
+    assert PreflightGuard.clean_required?([
+             "release-assembly",
+             "--checkpoint",
+             "v14-m1a1"
+           ])
   end
 
   test "an unclassified future command is refused before it can dispatch" do

@@ -61,6 +61,123 @@ defmodule AllbertAssist.LicensesTest do
     ])
   end
 
+  test "finalization materializes the raw application digest inside the nested Pack object" do
+    fixture = fixture!(["alpha"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    pack = %{
+      "schema_version" => 1,
+      "id" => "allbert_alpha",
+      "descriptor_module" => "Elixir.AllbertAssist.Pack.Alpha",
+      "startup_role" => "native_passive",
+      "registry_order" => 100
+    }
+
+    components =
+      Enum.map(fixture.catalog["components"], fn
+        %{"application" => "alpha", "kind" => "beam_app"} = component ->
+          component
+          |> Map.put("provenance", %{
+            "ecosystem" => "allbert",
+            "repository" => "https://github.com/lexlapax/allbert-assist"
+          })
+          |> Map.put("pack", pack)
+
+        component ->
+          component
+      end)
+
+    fixture = %{fixture | catalog: %{fixture.catalog | "components" => components}}
+    write_union!(fixture)
+
+    assert {:ok, %{manifest: manifest} = finalized} = finalize(fixture)
+    beam = Enum.find(manifest["components"], &(&1["id"] == "beam-alpha"))
+
+    assert beam["pack"] == Map.put(pack, "app_sha256", digest(app_spec("alpha")))
+
+    assert Enum.sort(Map.keys(beam["pack"])) ==
+             ~w(app_sha256 descriptor_module id registry_order schema_version startup_role)
+
+    refute Map.has_key?(beam, "app_sha256")
+
+    assert {:ok, _verified} =
+             Licenses.verify(
+               release_root: fixture.release,
+               manifest_sha256: finalized.manifest_sha256
+             )
+
+    File.write!(
+      Path.join([fixture.release, "lib", "alpha-1.0.0", "ebin", "alpha.app"]),
+      "{application, alpha, [{vsn, \"1.0.0\"}, {modules, []}]}.\n"
+    )
+
+    assert {:error, %{code: :manifest_invalid, message: message}} =
+             Licenses.view([], release_root: fixture.release)
+
+    assert message =~ "Pack projection differs from raw application"
+  end
+
+  test "packaged evidence rejects missing, extra, changed, or undeclared Pack rows" do
+    fixture = fixture!(["alpha", "beta"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    pack = %{
+      "schema_version" => 1,
+      "id" => "allbert_alpha",
+      "descriptor_module" => "Elixir.AllbertAssist.Pack.Alpha",
+      "startup_role" => "native_passive",
+      "registry_order" => 100
+    }
+
+    components =
+      Enum.map(fixture.catalog["components"], fn
+        %{"application" => "alpha", "kind" => "beam_app"} = component ->
+          component
+          |> Map.put("provenance", %{
+            "ecosystem" => "allbert",
+            "repository" => "https://github.com/lexlapax/allbert-assist"
+          })
+          |> Map.put("pack", pack)
+
+        component ->
+          component
+      end)
+
+    fixture = %{fixture | catalog: %{fixture.catalog | "components" => components}}
+    write_union!(fixture)
+    assert {:ok, _finalized} = finalize(fixture)
+
+    manifest_path = Path.join(fixture.release, "THIRD-PARTY-MANIFEST.json")
+    manifest = manifest_path |> File.read!() |> Jason.decode!()
+    alpha_index = Enum.find_index(manifest["components"], &(&1["application"] == "alpha"))
+    beta_index = Enum.find_index(manifest["components"], &(&1["application"] == "beta"))
+    materialized_pack = get_in(manifest, ["components", Access.at(alpha_index), "pack"])
+
+    invalid_manifests = [
+      update_in(manifest, ["components", Access.at(alpha_index)], &Map.delete(&1, "pack")),
+      put_in(
+        manifest,
+        ["components", Access.at(alpha_index), "pack", "unexpected"],
+        true
+      ),
+      put_in(
+        manifest,
+        ["components", Access.at(alpha_index), "pack", "id"],
+        "allbert_changed"
+      ),
+      put_in(manifest, ["components", Access.at(beta_index), "pack"], materialized_pack)
+    ]
+
+    Enum.each(invalid_manifests, fn invalid_manifest ->
+      File.write!(manifest_path, Licenses.canonical_json(invalid_manifest))
+
+      assert {:error, %{code: :manifest_invalid, message: message}} =
+               Licenses.view([], release_root: fixture.release)
+
+      assert message =~ "Pack"
+    end)
+  end
+
   test "managed seams fail closed but arbitrary bytes only produce a bounded warning" do
     fixture = fixture!(["alpha"])
     on_exit(fn -> File.rm_rf(fixture.tmp) end)
@@ -252,6 +369,193 @@ defmodule AllbertAssist.LicensesTest do
              Licenses.validate_catalog(fixture.catalog, repo_root: fixture.repo)
   end
 
+  test "source Pack objects reject unknown keys" do
+    fixture = fixture!(["alpha"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    [beam | rest] = fixture.catalog["components"]
+
+    pack = %{
+      "schema_version" => 1,
+      "id" => "allbert_alpha",
+      "descriptor_module" => "Elixir.AllbertAssist.Pack.Alpha",
+      "startup_role" => "native_passive",
+      "registry_order" => 100,
+      "unexpected" => true
+    }
+
+    catalog = %{
+      fixture.catalog
+      | "components" => [
+          beam
+          |> Map.put("provenance", %{
+            "ecosystem" => "allbert",
+            "repository" => "https://github.com/lexlapax/allbert-assist"
+          })
+          |> Map.put("pack", pack)
+          | rest
+        ]
+    }
+
+    assert {:error, %{code: :invalid_schema, message: message}} =
+             Licenses.validate_catalog(catalog, repo_root: fixture.repo)
+
+    assert message =~ "pack has unexpected fields"
+  end
+
+  test "an explicit Pack field must contain an object" do
+    fixture = fixture!(["alpha"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    [beam | rest] = fixture.catalog["components"]
+    catalog = %{fixture.catalog | "components" => [Map.put(beam, "pack", nil) | rest]}
+
+    assert {:error, %{code: :invalid_schema, message: message}} =
+             Licenses.validate_catalog(catalog, repo_root: fixture.repo)
+
+    assert message =~ "pack must be an object"
+  end
+
+  test "source Pack object values are canonical and versioned" do
+    fixture = fixture!(["alpha"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    [beam | rest] = fixture.catalog["components"]
+
+    pack = %{
+      "schema_version" => 1,
+      "id" => "allbert_alpha",
+      "descriptor_module" => "Elixir.AllbertAssist.Pack.Alpha",
+      "startup_role" => "native_passive",
+      "registry_order" => 100
+    }
+
+    beam =
+      beam
+      |> Map.put("provenance", %{
+        "ecosystem" => "allbert",
+        "repository" => "https://github.com/lexlapax/allbert-assist"
+      })
+      |> Map.put("pack", pack)
+
+    catalog = %{fixture.catalog | "components" => [beam | rest]}
+    assert {:ok, _catalog} = Licenses.validate_catalog(catalog, repo_root: fixture.repo)
+
+    invalid_values = [
+      {"schema_version", 2},
+      {"id", "Allbert.Alpha"},
+      {"id", "a" <> String.duplicate("b", 64)},
+      {"descriptor_module", "AllbertAssist.Pack.Alpha"},
+      {"descriptor_module", "Elixir." <> String.duplicate("A", 249)},
+      {"startup_role", "native_unknown"},
+      {"registry_order", -1}
+    ]
+
+    Enum.each(invalid_values, fn {field, value} ->
+      invalid = put_in(catalog, ["components", Access.at(0), "pack", field], value)
+
+      assert {:error, %{code: :invalid_schema}} =
+               Licenses.validate_catalog(invalid, repo_root: fixture.repo)
+    end)
+  end
+
+  test "only exact first-party BEAM application rows may declare Packs" do
+    fixture = fixture!(["alpha"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    pack = %{
+      "schema_version" => 1,
+      "id" => "allbert_alpha",
+      "descriptor_module" => "Elixir.AllbertAssist.Pack.Alpha",
+      "startup_role" => "native_passive",
+      "registry_order" => 100
+    }
+
+    assert [beam, managed, external] = fixture.catalog["components"]
+
+    invalid_rows = [
+      Map.put(beam, "pack", pack),
+      beam
+      |> Map.put("provenance", %{
+        "ecosystem" => "allbert",
+        "repository" => "https://github.com/example/not-allbert"
+      })
+      |> Map.put("pack", pack),
+      managed
+      |> Map.put("provenance", %{
+        "ecosystem" => "allbert",
+        "repository" => "https://github.com/lexlapax/allbert-assist"
+      })
+      |> Map.put("pack", pack)
+    ]
+
+    Enum.each(invalid_rows, fn invalid_row ->
+      other_rows = Enum.reject([beam, managed, external], &(&1["id"] == invalid_row["id"]))
+      catalog = %{fixture.catalog | "components" => [invalid_row | other_rows]}
+
+      assert {:error, %{code: :invalid_schema, message: message}} =
+               Licenses.validate_catalog(catalog, repo_root: fixture.repo)
+
+      assert message =~ "Pack requires an exact first-party BEAM application row"
+    end)
+  end
+
+  test "source Pack identities, descriptor modules, and registry orders are globally unique" do
+    fixture = fixture!(["alpha", "beta"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    components =
+      Enum.map(fixture.catalog["components"], fn
+        %{"kind" => "beam_app", "application" => application} = component ->
+          suffix = String.capitalize(application)
+          order = if application == "alpha", do: 100, else: 200
+
+          component
+          |> Map.put("provenance", %{
+            "ecosystem" => "allbert",
+            "repository" => "https://github.com/lexlapax/allbert-assist"
+          })
+          |> Map.put("pack", %{
+            "schema_version" => 1,
+            "id" => "allbert_#{application}",
+            "descriptor_module" => "Elixir.AllbertAssist.Pack.#{suffix}",
+            "startup_role" => "native_passive",
+            "registry_order" => order
+          })
+
+        component ->
+          component
+      end)
+
+    catalog = %{fixture.catalog | "components" => components}
+    assert {:ok, _catalog} = Licenses.validate_catalog(catalog, repo_root: fixture.repo)
+
+    [alpha, beta] = Enum.filter(components, &(&1["kind"] == "beam_app"))
+
+    duplicate_values = [
+      {"id", alpha["pack"]["id"]},
+      {"descriptor_module", alpha["pack"]["descriptor_module"]},
+      {"registry_order", alpha["pack"]["registry_order"]}
+    ]
+
+    Enum.each(duplicate_values, fn {field, value} ->
+      duplicate_beta = put_in(beta, ["pack", field], value)
+
+      invalid = %{
+        catalog
+        | "components" =>
+            Enum.map(components, fn component ->
+              if component["id"] == beta["id"], do: duplicate_beta, else: component
+            end)
+      }
+
+      assert {:error, %{code: :duplicate_pack, message: message}} =
+               Licenses.validate_catalog(invalid, repo_root: fixture.repo)
+
+      assert message =~ field
+    end)
+  end
+
   test "bundled components require text and declared source availability" do
     fixture = fixture!(["alpha"])
     on_exit(fn -> File.rm_rf(fixture.tmp) end)
@@ -333,6 +637,64 @@ defmodule AllbertAssist.LicensesTest do
                },
                repo_root: fixture.repo
              )
+  end
+
+  test "the reviewed catalog binds the exact M1.a1 Pack projection" do
+    assert {:ok, catalog} = Licenses.load_catalog(repo_root: @repo_root)
+
+    first_party =
+      catalog["components"]
+      |> Enum.filter(
+        &(&1["kind"] == "beam_app" and
+            get_in(&1, ["provenance", "ecosystem"]) == "allbert")
+      )
+      |> Map.new(&{&1["application"], &1})
+
+    assert Map.fetch!(first_party, "allbert_kernel")["id"] == "beam-allbert-kernel"
+
+    assert Map.fetch!(first_party, "allbert_composition")["id"] ==
+             "beam-allbert-composition"
+
+    assert Map.fetch!(first_party, "allbert_assist_web")["pack"] == nil
+    assert Map.fetch!(first_party, "allbert_composition")["pack"] == nil
+
+    packs =
+      first_party
+      |> Enum.flat_map(fn {application, component} ->
+        case component["pack"] do
+          nil -> []
+          pack -> [Map.put(pack, "application", application)]
+        end
+      end)
+      |> Enum.sort_by(&{&1["registry_order"], &1["application"]})
+
+    assert packs == [
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_kernel",
+               "application" => "allbert_kernel",
+               "descriptor_module" => "Elixir.AllbertAssist.Pack.Kernel",
+               "startup_role" => "kernel_prerequisite",
+               "registry_order" => 0
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_assist",
+               "application" => "allbert_assist",
+               "descriptor_module" => "Elixir.AllbertAssist.Pack.Residual",
+               "startup_role" => "native_effectful",
+               "registry_order" => 100
+             }
+           ]
+
+    Enum.each(packs, fn pack ->
+      component = Map.fetch!(first_party, pack["application"])
+
+      assert component["provenance"] == %{
+               "ecosystem" => "allbert",
+               "repository" => "https://github.com/lexlapax/allbert-assist"
+             }
+    end)
   end
 
   test "the reviewed Castore CA exception binds one file, text, and immutable source" do

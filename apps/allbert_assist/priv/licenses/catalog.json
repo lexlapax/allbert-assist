@@ -25,6 +25,13 @@
       "kind": "beam_app",
       "license_expression": "Apache-2.0",
       "name": "allbert_assist",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertAssist.Pack.Residual",
+        "id": "allbert_assist",
+        "registry_order": 100,
+        "schema_version": 1,
+        "startup_role": "native_effectful"
+      },
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -40,6 +47,43 @@
       "kind": "beam_app",
       "license_expression": "Apache-2.0",
       "name": "allbert_assist_web",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_composition",
+      "bundled": true,
+      "id": "beam-allbert-composition",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_composition",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_kernel",
+      "bundled": true,
+      "id": "beam-allbert-kernel",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_kernel",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertAssist.Pack.Kernel",
+        "id": "allbert_kernel",
+        "registry_order": 0,
+        "schema_version": 1,
+        "startup_role": "kernel_prerequisite"
+      },
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"

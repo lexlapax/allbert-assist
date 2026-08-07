@@ -14,7 +14,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test prepush [--partitions N]
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
+      mix allbert.test serial-owner --owner OWNER --lane LANE [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
+      mix allbert.test release-assembly --checkpoint CHECKPOINT
       mix allbert.test param-contract-sweep
       mix allbert.test metrics [--ingest-campaign DIR] [--ingest-v13-latency FILE]
       mix allbert.test bench-decide
@@ -101,6 +103,7 @@ defmodule Mix.Tasks.Allbert.Test do
   alias AllbertAssist.DevGates.Preflight
   alias AllbertAssist.DevGates.PreflightAttestation
   alias AllbertAssist.DevGates.PreflightGuard
+  alias AllbertAssist.DevGates.ReleaseAssembly
   alias AllbertAssist.DevGates.ScopeSelector
   alias AllbertAssist.DevGates.TestLoad
   alias AllbertAssist.DevGates.TestManifest
@@ -110,43 +113,6 @@ defmodule Mix.Tasks.Allbert.Test do
   alias AllbertAssist.Objectives.CanonicalJSON
 
   @shortdoc "Run Allbert developer test gates"
-
-  @roots [
-    "apps/allbert_assist/test",
-    "apps/allbert_assist_web/test",
-    "plugins/stocksage/test",
-    "plugins/allbert.telegram/test",
-    "plugins/allbert.email/test",
-    "plugins/allbert.discord/test",
-    "plugins/allbert.slack/test",
-    "plugins/allbert.matrix/test",
-    "plugins/allbert.whatsapp/test",
-    "plugins/allbert.signal/test",
-    "plugins/allbert.notes_files/test",
-    "plugins/allbert.artifacts/test"
-  ]
-
-  @template_defaults %{
-    "AllbertAssist.DataCase" => :db_serial,
-    "AllbertAssistWeb.ConnCase" => :liveview_serial,
-    "AllbertAssist.SecurityEvalCase" => :security_eval_serial,
-    "StockSage.DataCase" => :db_serial
-  }
-
-  @owner_prefixes [
-    {"apps/allbert_assist_web/", :web},
-    {"apps/allbert_assist/", :core},
-    {"plugins/stocksage/", :stocksage},
-    {"plugins/allbert.telegram/", :telegram},
-    {"plugins/allbert.email/", :email},
-    {"plugins/allbert.discord/", :discord},
-    {"plugins/allbert.slack/", :slack},
-    {"plugins/allbert.matrix/", :matrix},
-    {"plugins/allbert.whatsapp/", :whatsapp},
-    {"plugins/allbert.signal/", :signal},
-    {"plugins/allbert.notes_files/", :notes_files},
-    {"plugins/allbert.artifacts/", :artifacts}
-  ]
 
   @lanes ~w[
     pure_async
@@ -159,6 +125,130 @@ defmodule Mix.Tasks.Allbert.Test do
     liveview_serial
     security_eval_serial
   ]a
+
+  @owner_order [
+    :kernel,
+    :composition,
+    :web,
+    :core,
+    :stocksage,
+    :telegram,
+    :email,
+    :discord,
+    :slack,
+    :matrix,
+    :whatsapp,
+    :signal,
+    :notes_files,
+    :artifacts
+  ]
+
+  @owner_contract %{
+    kernel: %{
+      prefix: "apps/allbert_kernel/",
+      test_root: "apps/allbert_kernel/test",
+      cwd: "apps/allbert_kernel",
+      test_task: "test",
+      lanes: [:pure_async, :app_env_serial, :home_fs_serial, :global_process_serial]
+    },
+    composition: %{
+      prefix: "apps/allbert_composition/",
+      test_root: "apps/allbert_composition/test",
+      cwd: "apps/allbert_composition",
+      lanes: [
+        :pure_async,
+        :app_env_serial,
+        :global_process_serial,
+        :external_runtime_serial
+      ]
+    },
+    web: %{
+      prefix: "apps/allbert_assist_web/",
+      test_root: "apps/allbert_assist_web/test",
+      cwd: "apps/allbert_assist_web",
+      lanes: @lanes
+    },
+    core: %{
+      prefix: "apps/allbert_assist/",
+      test_root: "apps/allbert_assist/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    stocksage: %{
+      prefix: "plugins/stocksage/",
+      test_root: "plugins/stocksage/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    telegram: %{
+      prefix: "plugins/allbert.telegram/",
+      test_root: "plugins/allbert.telegram/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    email: %{
+      prefix: "plugins/allbert.email/",
+      test_root: "plugins/allbert.email/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    discord: %{
+      prefix: "plugins/allbert.discord/",
+      test_root: "plugins/allbert.discord/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    slack: %{
+      prefix: "plugins/allbert.slack/",
+      test_root: "plugins/allbert.slack/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    matrix: %{
+      prefix: "plugins/allbert.matrix/",
+      test_root: "plugins/allbert.matrix/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    whatsapp: %{
+      prefix: "plugins/allbert.whatsapp/",
+      test_root: "plugins/allbert.whatsapp/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    signal: %{
+      prefix: "plugins/allbert.signal/",
+      test_root: "plugins/allbert.signal/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    notes_files: %{
+      prefix: "plugins/allbert.notes_files/",
+      test_root: "plugins/allbert.notes_files/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    },
+    artifacts: %{
+      prefix: "plugins/allbert.artifacts/",
+      test_root: "plugins/allbert.artifacts/test",
+      cwd: "apps/allbert_assist",
+      lanes: @lanes
+    }
+  }
+
+  @roots Enum.map(@owner_order, &get_in(@owner_contract, [&1, :test_root]))
+
+  @template_defaults %{
+    "AllbertAssist.DataCase" => :db_serial,
+    "AllbertAssistWeb.ConnCase" => :liveview_serial,
+    "AllbertAssist.SecurityEvalCase" => :security_eval_serial,
+    "StockSage.DataCase" => :db_serial
+  }
+
+  @owner_prefixes Enum.map(
+                    @owner_order,
+                    &{get_in(@owner_contract, [&1, :prefix]), &1}
+                  )
 
   @impl true
   def run(args) do
@@ -183,7 +273,9 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["prepush" | rest]), do: prepush(rest)
   defp do_run(["fast-local" | rest]), do: fast_local(rest)
   defp do_run(["partition-smoke" | rest]), do: partition_smoke(rest)
+  defp do_run(["serial-owner" | rest]), do: serial_owner(rest)
   defp do_run(["serial-core" | rest]), do: serial_core(rest)
+  defp do_run(["release-assembly" | rest]), do: release_assembly(rest)
   defp do_run(["param-contract-sweep"]), do: param_contract_sweep()
   defp do_run(["metrics" | rest]), do: metrics(rest)
   defp do_run(["bench-decide"]), do: bench_decide()
@@ -308,21 +400,31 @@ defmodule Mix.Tasks.Allbert.Test do
     env = owned_env("preflight-test-load-#{owner}", 0)
 
     try do
-      cwd = app_cwd(owner)
-      relative_files = Enum.map(files, &relative_test_path(&1, owner))
-
-      {output, status} =
-        System.cmd("mix", TestLoad.command(relative_files),
-          cd: cwd,
-          env: env,
-          stderr_to_stdout: true
-        )
-
-      TestLoad.result(label, output, status)
+      load_owner_tests_command(label, owner, files, env)
     after
       cleanup_owned_env(env)
     end
   end
+
+  defp load_owner_tests_command(label, owner, files, env) do
+    cwd = app_cwd(owner)
+    relative_files = Enum.map(files, &relative_test_path(&1, owner))
+
+    with {prepare_output, 0} <- prepare_owner_test_load(owner, env),
+         {output, status} <-
+           System.cmd("mix", TestLoad.command(relative_files),
+             cd: cwd,
+             env: env,
+             stderr_to_stdout: true
+           ) do
+      TestLoad.result(label, prepare_output <> output, status)
+    else
+      {output, status} -> TestLoad.result(label, output, status)
+    end
+  end
+
+  defp prepare_owner_test_load(:composition, env), do: run_core_test_migration(env)
+  defp prepare_owner_test_load(_owner, _env), do: {"", 0}
 
   defp preflight_fixture(id) do
     FixtureRegistry.validate!(root(), &app_cwd/1)
@@ -937,10 +1039,7 @@ defmodule Mix.Tasks.Allbert.Test do
     reject_invalid!(invalid)
     reject_rest!(rest)
 
-    lane =
-      opts
-      |> Keyword.get(:lane, nil)
-      |> parse_lane!()
+    lane = opts |> Keyword.get(:lane) |> parse_lane!("serial-core")
 
     partitions = Keyword.get(opts, :partitions, 1)
     validate_partitions!(partitions)
@@ -950,6 +1049,42 @@ defmodule Mix.Tasks.Allbert.Test do
     end
 
     run_serial_partitions!("serial-core", :core, lane, partitions)
+  end
+
+  defp serial_owner(args) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [owner: :string, lane: :string, partitions: :integer]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    owner = opts |> Keyword.get(:owner) |> parse_owner!()
+    validate_owner_paths!(owner)
+    lane = opts |> Keyword.get(:lane) |> parse_lane!("serial-owner")
+    validate_owner_lane!(owner, lane)
+
+    partitions = Keyword.get(opts, :partitions, 1)
+    validate_partitions!(partitions)
+
+    if lane in [:security_eval_serial, :external_runtime_serial] and partitions != 1 do
+      Mix.raise("#{lane} must run as a single-VM serial or external smoke lane")
+    end
+
+    run_serial_partitions!("serial-owner", owner, lane, partitions)
+  end
+
+  defp release_assembly(args) do
+    {opts, rest, invalid} = OptionParser.parse(args, strict: [checkpoint: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    checkpoint =
+      Keyword.get(opts, :checkpoint) || Mix.raise("release-assembly requires --checkpoint")
+
+    ReleaseAssembly.run!(checkpoint, root: root(), command: gate_command())
   end
 
   defp run_serial_partitions!(gate, owner, lane, partitions) do
@@ -10351,29 +10486,24 @@ defmodule Mix.Tasks.Allbert.Test do
   # the per-partition owned-env naming contract.
   defp run_serial_partition_cmd(label, owner, lane, env, test_paths) do
     with {migrate_output, 0} <-
-           System.cmd(
-             "mix",
-             ["ecto.migrate.allbert", "--quiet"],
-             cd: app_cwd(:core),
-             env: env,
-             stderr_to_stdout: true
-           ),
+           prepare_serial_owner(owner, env),
          {test_output, status} <-
-           System.cmd(
-             "mix",
-             [
-               "allbert.test.raw",
-               "--only",
-               Atom.to_string(lane),
-               "--max-cases",
-               "1",
-               "--slowest",
-               "25"
-             ] ++ test_paths,
-             cd: app_cwd(owner),
-             env: env,
-             stderr_to_stdout: true
-           ) do
+           run_serial_owner_command(%{
+             id: "run_tests",
+             cwd: app_cwd(owner),
+             executable: "mix",
+             args:
+               [
+                 serial_owner_test_task(owner),
+                 "--only",
+                 Atom.to_string(lane),
+                 "--max-cases",
+                 "1",
+                 "--slowest",
+                 "25"
+               ] ++ test_paths,
+             env: env
+           }) do
       cond do
         status == 0 ->
           {:ok, label, migrate_output <> test_output}
@@ -10387,6 +10517,43 @@ defmodule Mix.Tasks.Allbert.Test do
     else
       {output, status} -> {:error, label, status, output}
     end
+  end
+
+  defp prepare_serial_owner(:kernel, _env), do: {"", 0}
+
+  defp prepare_serial_owner(_owner, env), do: run_core_test_migration(env)
+
+  defp serial_owner_test_task(owner) do
+    @owner_contract |> Map.fetch!(owner) |> Map.get(:test_task, "allbert.test.raw")
+  end
+
+  defp run_core_test_migration(env) do
+    run_serial_owner_command(%{
+      id: "prepare_database",
+      cwd: app_cwd(:core),
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      env: env
+    })
+  end
+
+  defp run_serial_owner_command(command) do
+    runner =
+      Application.get_env(
+        :allbert_assist,
+        :serial_owner_command_runner,
+        &run_serial_owner_system_command/1
+      )
+
+    runner.(command)
+  end
+
+  defp run_serial_owner_system_command(command) do
+    System.cmd(command.executable, command.args,
+      cd: command.cwd,
+      env: command.env,
+      stderr_to_stdout: true
+    )
   end
 
   # M8.8: cost-balanced explicit partition lists. Measured per-file costs
@@ -10492,6 +10659,8 @@ defmodule Mix.Tasks.Allbert.Test do
     if failures != [] do
       Mix.raise("one or more parallel test gates failed")
     end
+
+    :ok
   end
 
   defp run_cmd!(label, cwd, executable, args, env, opts \\ []) do
@@ -10571,6 +10740,13 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Enum.map(&inventory_record/1)
   end
 
+  @doc false
+  def owner_contract do
+    Map.new(@owner_contract, fn {owner, contract} ->
+      {owner, Map.take(contract, [:test_root, :cwd, :lanes])}
+    end)
+  end
+
   defp inventory_record(path) do
     text = File.read!(Path.join(root(), path))
     {template, async} = template_and_async(text)
@@ -10593,7 +10769,9 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp check_lane_tags!(records) do
-    issues = lane_reconciliation_issues(records)
+    issues =
+      lane_reconciliation_issues(records) ++
+        owner_lane_contract_issues(records) ++ owner_path_contract_issues(root())
 
     if issues != [] do
       Mix.raise("""
@@ -10611,6 +10789,59 @@ defmodule Mix.Tasks.Allbert.Test do
   def lane_reconciliation_issues(records, source_reader \\ nil) when is_list(records) do
     source_reader = source_reader || (&File.read!(Path.join(root(), &1)))
     Enum.flat_map(records, &lane_reconciliation_issue(&1, source_reader))
+  end
+
+  @doc false
+  def owner_lane_contract_issues(records) when is_list(records) do
+    Enum.flat_map(records, &owner_lane_contract_issue/1)
+  end
+
+  defp owner_lane_contract_issue(record) do
+    case Map.fetch(@owner_contract, record.owner) do
+      :error ->
+        ["#{record.path}: owner #{inspect(record.owner)} is absent from the owner/CWD contract"]
+
+      {:ok, contract} ->
+        undeclared_owner_lane_issues(record, contract.lanes)
+    end
+  end
+
+  defp undeclared_owner_lane_issues(record, declared_lanes) do
+    tagged_lanes =
+      ~r/:([a-z_]+)\b/
+      |> Regex.scan(record.tags)
+      |> Enum.map(fn [_, tag] -> parse_lane_tag(tag) end)
+      |> Enum.reject(&is_nil/1)
+
+    [record.primary_lane | tagged_lanes]
+    |> Enum.uniq()
+    |> Enum.reject(&(&1 in declared_lanes))
+    |> Enum.map(fn lane ->
+      "#{record.path}: lane :#{lane} is not declared for owner #{record.owner}"
+    end)
+  end
+
+  @doc false
+  def owner_path_contract_issues(base) when is_binary(base) do
+    Enum.flat_map(@owner_order, fn owner ->
+      owner_path_issues(owner, Map.fetch!(@owner_contract, owner), base)
+    end)
+  end
+
+  defp owner_path_issues(owner, contract, base) do
+    structural =
+      if String.starts_with?(contract.test_root, contract.prefix) do
+        []
+      else
+        ["owner #{owner} test root is outside its owned prefix: #{contract.test_root}"]
+      end
+
+    missing =
+      [cwd: contract.cwd, test_root: contract.test_root]
+      |> Enum.reject(fn {_kind, path} -> File.dir?(Path.join(base, path)) end)
+      |> Enum.map(fn {kind, path} -> "owner #{owner} #{kind} directory is missing: #{path}" end)
+
+    structural ++ missing
   end
 
   defp lane_reconciliation_issue(
@@ -10928,33 +11159,15 @@ defmodule Mix.Tasks.Allbert.Test do
     end)
   end
 
-  defp app_cwd(owner)
-       when owner in [
-              :core,
-              :stocksage,
-              :telegram,
-              :email,
-              :discord,
-              :slack,
-              :matrix,
-              :whatsapp,
-              :signal,
-              :notes_files,
-              :artifacts
-            ] do
-    Path.join(root(), "apps/allbert_assist")
+  defp app_cwd(owner) do
+    case Map.fetch(@owner_contract, owner) do
+      {:ok, contract} -> Path.join(root(), contract.cwd)
+      :error -> Mix.raise("unknown test owner #{inspect(owner)}")
+    end
   end
 
-  defp app_cwd(:web), do: Path.join(root(), "apps/allbert_assist_web")
-
-  defp relative_test_path(path, :core),
-    do: String.replace_prefix(path, "apps/allbert_assist/", "")
-
-  defp relative_test_path(path, :web),
-    do: String.replace_prefix(path, "apps/allbert_assist_web/", "")
-
-  defp relative_test_path(path, _owner),
-    do: Path.relative_to(Path.join(root(), path), app_cwd(:core))
+  defp relative_test_path(path, owner),
+    do: Path.relative_to(Path.join(root(), path), app_cwd(owner))
 
   defp owned_env(lane, partition) do
     root_path =
@@ -11011,12 +11224,39 @@ defmodule Mix.Tasks.Allbert.Test do
     |> String.replace(~r/[^A-Za-z0-9_.-]+/, "-")
   end
 
-  defp parse_lane!(nil), do: Mix.raise("serial-core requires --lane")
+  defp parse_owner!(nil), do: Mix.raise("serial-owner requires --owner")
 
-  defp parse_lane!(lane) do
+  defp parse_owner!(owner) do
+    case Enum.find(@owner_order, &(Atom.to_string(&1) == owner)) do
+      nil -> Mix.raise("unknown serial owner #{owner}")
+      owner -> owner
+    end
+  end
+
+  defp parse_lane!(nil, command), do: Mix.raise("#{command} requires --lane")
+
+  defp parse_lane!(lane, _command) do
     case Enum.find(@lanes, &(Atom.to_string(&1) == lane)) do
       nil -> Mix.raise("unknown lane #{lane}; expected one of #{Enum.join(@lanes, ", ")}")
       lane -> lane
+    end
+  end
+
+  defp validate_owner_lane!(owner, lane) do
+    lanes = get_in(@owner_contract, [owner, :lanes])
+
+    unless lane in lanes do
+      Mix.raise(
+        "lane #{lane} is not declared for serial owner #{owner}; expected one of #{Enum.join(lanes, ", ")}"
+      )
+    end
+  end
+
+  defp validate_owner_paths!(owner) do
+    issues = owner_path_issues(owner, Map.fetch!(@owner_contract, owner), root())
+
+    if issues != [] do
+      Mix.raise("serial owner contract invalid:\n#{Enum.map_join(issues, "\n", &"  - #{&1}")}")
     end
   end
 
@@ -11068,7 +11308,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test prepush [--partitions N]
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
+      mix allbert.test serial-owner --owner OWNER --lane LANE [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
+      mix allbert.test release-assembly --checkpoint CHECKPOINT
       mix allbert.test param-contract-sweep
       mix allbert.test metrics [--ingest-campaign DIR] [--ingest-v13-latency FILE]
       mix allbert.test bench-decide

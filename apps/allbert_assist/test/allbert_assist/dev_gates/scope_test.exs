@@ -24,6 +24,13 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
     assert manifest["aggregate_required"]
     assert manifest["matched_rules"] == ["documentation", "gate_definitions"]
 
+    license_union = ScopeSelector.classify_paths(["THIRD-PARTY-LICENSES.md"])
+    assert license_union["aggregate_required"]
+    assert license_union["matched_rules"] == ["release_workflow"]
+    assert license_union["owners"] == ["release"]
+    assert license_union["lanes"] == ["external_runtime_serial"]
+    assert license_union["diagnostics"] == []
+
     unknown = ScopeSelector.classify_paths(["unexpected/new-root.txt"])
     assert unknown["aggregate_required"]
     assert unknown["matched_rules"] == []
@@ -40,6 +47,38 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
     assert artifacts["owners"] == ["artifacts"]
     assert artifacts["lanes"] == ["db_serial", "global_process_serial"]
     assert artifacts["diagnostics"] == []
+
+    kernel =
+      ScopeSelector.classify_paths([
+        "apps/allbert_kernel/lib/allbert_assist/pack/kernel.ex"
+      ])
+
+    assert kernel["aggregate_required"]
+    assert kernel["matched_rules"] == ["kernel"]
+    assert kernel["owners"] == ["kernel"]
+
+    assert kernel["lanes"] == [
+             "app_env_serial",
+             "global_process_serial",
+             "home_fs_serial",
+             "pure_async"
+           ]
+
+    composition =
+      ScopeSelector.classify_paths([
+        "apps/allbert_composition/lib/allbert_assist/pack/product_bootstrap.ex"
+      ])
+
+    assert composition["aggregate_required"]
+    assert composition["matched_rules"] == ["composition"]
+    assert composition["owners"] == ["composition"]
+
+    assert composition["lanes"] == [
+             "app_env_serial",
+             "external_runtime_serial",
+             "global_process_serial",
+             "pure_async"
+           ]
   end
 
   test "selector includes committed, staged, unstaged, rename, deletion, and untracked paths" do

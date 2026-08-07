@@ -26,14 +26,16 @@ defmodule AllbertAssist.Umbrella.MixProject do
     ]
   end
 
-  # v0.62 M0/M1 — the packaged `allbert` OTP release: both umbrella apps, ERTS
+  # v0.62 M0/M1 — the packaged `allbert` OTP release: ordered umbrella apps, ERTS
   # bundled (the spike/hand-wrapped mechanism; wrapper choice recorded in the
   # v0.62 plan M0 as-built). Web assets are built by the pre-assembly steps.
   defp releases do
     [
       allbert: [
         applications: [
+          allbert_kernel: :permanent,
           allbert_assist: :permanent,
+          allbert_composition: :permanent,
           allbert_assist_web: :permanent
         ],
         include_executables_for: [:unix],

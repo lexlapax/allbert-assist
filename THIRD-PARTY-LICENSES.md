@@ -109,6 +109,24 @@ the offline drift check can pass.
 - Application: `allbert_assist_web`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
+### `beam-allbert-composition` — allbert_composition
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_composition`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
+### `beam-allbert-kernel` — allbert_kernel
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_kernel`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
 ### `beam-bandit` — bandit
 
 - Kind: `beam_app`

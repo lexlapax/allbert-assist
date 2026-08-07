@@ -16,7 +16,14 @@ defmodule AllbertAssist.DevGates.PreflightGuard do
     bench-v13-fanout
     qualify-head
   ]
-  @always_guarded_commands ~w[prepush serial-core release compatibility]
+  @always_guarded_commands ~w[
+    prepush
+    serial-owner
+    serial-core
+    release-assembly
+    release
+    compatibility
+  ]
   @unguarded_commands ~w[
     docs
     preflight
@@ -79,6 +86,8 @@ defmodule AllbertAssist.DevGates.PreflightGuard do
   def classification(_args), do: :unclassified
 
   def clean_required?(["release"]), do: true
+
+  def clean_required?(["release-assembly" | _args]), do: true
 
   def clean_required?([command]) when is_binary(command),
     do: String.starts_with?(command, "release.v")
