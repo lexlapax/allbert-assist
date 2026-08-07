@@ -15,6 +15,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     original_changed_files = Application.get_env(:allbert_assist, :gate_changed_files)
     original_metrics_store = Application.get_env(:allbert_assist, :test_metrics_store)
 
+    original_focused_runner =
+      Application.get_env(:allbert_assist, :focused_command_runner)
+
     original_preflight_verifier =
       Application.get_env(:allbert_assist, :preflight_attestation_verifier)
 
@@ -45,6 +48,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       restore_app_env(:gate_evidence_root, original_evidence_root)
       restore_app_env(:gate_changed_files, original_changed_files)
       restore_app_env(:test_metrics_store, original_metrics_store)
+      restore_app_env(:focused_command_runner, original_focused_runner)
       restore_app_env(:preflight_attestation_verifier, original_preflight_verifier)
       File.rm_rf!(evidence_root)
       File.rm_rf!(Path.dirname(metrics_store))
@@ -53,6 +57,136 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     end)
 
     {:ok, evidence_root: evidence_root, metrics_store: metrics_store}
+  end
+
+  test "focused records one structured metrics row per owner", %{
+    metrics_store: metrics_store
+  } do
+    parent = self()
+
+    invocation = [
+      "focused",
+      "--",
+      "apps/allbert_kernel/test/allbert_assist/pack/data_contract_test.exs",
+      "apps/allbert_assist/test/allbert_assist/actions/multiply_test.exs",
+      "apps/allbert_assist/test/allbert_assist/actions/resource_refs_test.exs"
+    ]
+
+    Application.put_env(:allbert_assist, :focused_command_runner, fn command ->
+      send(parent, {:focused_command, command})
+
+      seed = if command.owner == :kernel, do: 41_001, else: 41_002
+
+      {"""
+       Running ExUnit with seed: #{seed}, max_cases: 40
+
+       ..
+       Finished in 0.1 seconds (0.1s async, 0.00s sync)
+       2 tests, 0 failures
+
+       Top 1 slowest (0.05s), 50.0% of total time:
+
+         * records metrics (50.0ms) [test/example_test.exs:1]
+       """, 0}
+    end)
+
+    capture_io(fn ->
+      assert :ok = AllbertTestTask.run(invocation)
+    end)
+
+    assert_received {:focused_command,
+                     %{
+                       id: "focused-kernel",
+                       owner: :kernel,
+                       executable: "mix",
+                       args: [
+                         "test",
+                         "--slowest",
+                         "25",
+                         "test/allbert_assist/pack/data_contract_test.exs"
+                       ]
+                     } = kernel_command}
+
+    assert_received {:focused_command,
+                     %{
+                       id: "focused-core",
+                       owner: :core,
+                       executable: "mix",
+                       args: [
+                         "test",
+                         "--slowest",
+                         "25",
+                         "test/allbert_assist/actions/multiply_test.exs",
+                         "test/allbert_assist/actions/resource_refs_test.exs"
+                       ]
+                     } = core_command}
+
+    assert kernel_command.cwd == Path.join(repo_root(), "apps/allbert_kernel")
+    assert core_command.cwd == Path.join(repo_root(), "apps/allbert_assist")
+
+    Enum.each([kernel_command, core_command], fn command ->
+      home = command.env |> Map.new() |> Map.fetch!("ALLBERT_HOME")
+      refute File.exists?(home)
+    end)
+
+    records = read_metrics!(metrics_store)
+    records_by_owner = Map.new(records, &{&1["owner"], &1})
+
+    assert Enum.map(records, & &1["gate"]) == ["focused", "focused"]
+    assert Enum.sort(Enum.map(records, & &1["owner"])) == ["core", "kernel"]
+
+    assert Enum.sort(Enum.map(records, & &1["phase_or_step"])) == [
+             "focused-core",
+             "focused-kernel"
+           ]
+
+    assert Enum.sort(Enum.map(records, & &1["seed"])) == [41_001, 41_002]
+    assert Enum.all?(records, &(&1["status"] == "passed"))
+    assert Enum.all?(records, &(&1["tests"] == 2 and &1["failures"] == 0))
+    assert Enum.all?(records, &(is_integer(&1["wall_ms"]) and &1["wall_ms"] >= 0))
+    assert Enum.all?(records, &match?([%{"ms" => 50.0}], &1["slowest"]))
+    assert Enum.all?(records, &(&1["command"] == Enum.join(invocation, " ")))
+    assert Enum.all?(records, &is_binary(&1["host_class"]))
+    assert Enum.all?(records, &is_boolean(&1["dirty"]))
+    assert Enum.all?(records, &Regex.match?(~r/^[0-9a-f]{40}$/, &1["full_sha"]))
+    assert Enum.all?(records, &is_nil(&1["lane"]))
+    assert Enum.all?(records, &is_nil(&1["partition"]))
+    assert Enum.all?(records, &is_nil(&1["partitions"]))
+    assert records_by_owner["kernel"]["cwd"] == "apps/allbert_kernel"
+    assert records_by_owner["core"]["cwd"] == "apps/allbert_assist"
+  end
+
+  test "focused records a failed owner before raising", %{metrics_store: metrics_store} do
+    parent = self()
+
+    Application.put_env(:allbert_assist, :focused_command_runner, fn command ->
+      send(parent, {:failed_focused_command, command})
+      {"Running ExUnit with seed: 41003, max_cases: 40\n1 test, 1 failure\n", 2}
+    end)
+
+    assert_raise Mix.Error, ~r/^focused (core|kernel) failed with status 2$/, fn ->
+      capture_io(fn ->
+        AllbertTestTask.run([
+          "focused",
+          "--",
+          "apps/allbert_kernel/test/allbert_assist/pack/data_contract_test.exs",
+          "apps/allbert_assist/test/allbert_assist/actions/multiply_test.exs"
+        ])
+      end)
+    end
+
+    assert_received {:failed_focused_command, attempted_command}
+    refute_received {:failed_focused_command, _second_command}
+
+    assert [record] = read_metrics!(metrics_store)
+    assert record["gate"] == "focused"
+    assert record["phase_or_step"] == "focused-#{attempted_command.owner}"
+    assert record["owner"] == Atom.to_string(attempted_command.owner)
+    assert record["cwd"] == Path.relative_to(attempted_command.cwd, repo_root())
+    assert record["status"] == "failed"
+    assert record["seed"] == 41_003
+    assert record["tests"] == 1
+    assert record["failures"] == 1
   end
 
   test "a stale preflight refuses an expensive gate before any phase starts" do
@@ -1448,6 +1582,15 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       0 -> acc
     end
   end
+
+  defp read_metrics!(path) do
+    path
+    |> File.read!()
+    |> String.split("\n", trim: true)
+    |> Enum.map(&Jason.decode!/1)
+  end
+
+  defp repo_root, do: Path.expand("../../../../..", __DIR__)
 
   defp temp_path(name) do
     Path.join(

@@ -890,7 +890,12 @@ defmodule Mix.Tasks.Allbert.Test do
     files
     |> group_files()
     |> Enum.each(fn {owner, owner_files} ->
-      run_test_files!("focused #{owner}", owner, owner_files, owned_env("focused-#{owner}", 0))
+      run_focused_files!(
+        "focused #{owner}",
+        owner,
+        owner_files,
+        owned_env("focused-#{owner}", 0)
+      )
     end)
   end
 
@@ -10388,9 +10393,27 @@ defmodule Mix.Tasks.Allbert.Test do
     )
   end
 
-  defp run_test_files!(label, owner, files, env) do
-    {output, status} = test_files_command(owner, files, env, false)
+  defp run_focused_files!(label, owner, files, env) do
+    started = System.monotonic_time(:millisecond)
+
+    {output, status} =
+      test_files_command(owner, files, env, false, ["--slowest", "25"],
+        runner: :focused_command_runner,
+        id: "focused-#{owner}"
+      )
+
     print_output(label, output)
+
+    TestMetrics.record(%{
+      gate: "focused",
+      command: gate_command(),
+      cwd: Path.relative_to(app_cwd(owner), root()),
+      phase_or_step: "focused-#{owner}",
+      owner: Atom.to_string(owner),
+      status: if(status == 0, do: "passed", else: "failed"),
+      wall_ms: System.monotonic_time(:millisecond) - started,
+      output: output
+    })
 
     if status != 0 do
       Mix.raise("#{label} failed with status #{status}")
@@ -10407,19 +10430,39 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
-  defp test_files_command(owner, files, env, raw?, test_args \\ []) do
+  defp test_files_command(owner, files, env, raw?, test_args \\ [], opts \\ []) do
     try do
       cwd = app_cwd(owner)
       relative_files = Enum.map(files, &relative_test_path(&1, owner))
       task = if raw?, do: "allbert.test.raw", else: "test"
+      args = [task | test_args ++ relative_files]
 
-      System.cmd("mix", [task | test_args ++ relative_files],
-        cd: cwd,
-        env: env,
-        stderr_to_stdout: true
-      )
+      command = %{
+        id: Keyword.get(opts, :id, "test-files"),
+        owner: owner,
+        cwd: cwd,
+        executable: "mix",
+        args: args,
+        env: env
+      }
+
+      run_test_files_command(command, Keyword.get(opts, :runner))
     after
       cleanup_owned_env(env)
+    end
+  end
+
+  defp run_test_files_command(command, runner_key) do
+    case runner_key && Application.get_env(:allbert_assist, runner_key) do
+      runner when is_function(runner, 1) ->
+        runner.(command)
+
+      _other ->
+        System.cmd(command.executable, command.args,
+          cd: command.cwd,
+          env: command.env,
+          stderr_to_stdout: true
+        )
     end
   end
 

@@ -950,6 +950,15 @@ logic sprawl (AGENTS.md Workflow). Known limits: ingestion does not dedup;
 historical v042–v066 gate step runners and the pure_async group runner do
 not record (their runs surface via the release gate's phase records).
 
+`mix allbert.test focused -- FILE...` groups the requested paths by owner and
+records exactly one row per owner VM. Its stable identity is full SHA, gate
+`focused`, phase `focused-<owner>`, owner, exact invocation, and owner-relative
+CWD; lane and partition fields remain null because focused execution is not a
+classified lane. Seed, totals, exclusions/skips, and the `--slowest 25` sample
+come from that owner's output. A normal nonzero result records `failed` before
+the task raises; a command that never starts does not fabricate a completed-run
+row. Each owner run uses and removes its own temporary Allbert Home.
+
 v1.3 extends the same store with three focused evidence producers. The
 `bench-v13-latency` rows bind consumer, host, source/package mode, artifact
 SHA-256 when packaged, corpus/query counts, p50/p95/p99, and frozen limits.
