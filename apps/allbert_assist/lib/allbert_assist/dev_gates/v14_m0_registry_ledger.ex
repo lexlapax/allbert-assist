@@ -9,6 +9,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
 
   alias AllbertAssist.Objectives.CanonicalJSON
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.Registry, as: AppRegistry
@@ -34,7 +35,6 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   end
 
   @doc "Build the normalized live registry snapshot."
-  @spec snapshot() :: map()
   def snapshot do
     :ok = AppBootstrap.await_ready()
 
@@ -69,9 +69,12 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   end
 
   @doc "Load and self-validate the immutable element-level M0 fixture."
-  @spec load_frozen!() :: map()
   def load_frozen! do
-    frozen = fixture_path() |> File.read!() |> Jason.decode!()
+    frozen =
+      case fixture_path() |> File.read!() |> Jason.decode!() do
+        %{} = decoded -> decoded
+        _other -> raise "invalid v1.4 M0 registry ledger fixture"
+      end
 
     valid? =
       frozen["schema_version"] == @schema_version and
@@ -98,7 +101,6 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   end
 
   @doc "Regenerate the immutable fixture at the current Git SHA."
-  @spec write_frozen!(Path.t()) :: map()
   def write_frozen!(path \\ fixture_path()) do
     frozen =
       snapshot()
@@ -456,8 +458,8 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         ActionsOverlay.register_many(
           [
             %{
-              name: AllbertAssist.Actions.Intent.DirectAnswer.name(),
-              module: AllbertAssist.Actions.Intent.DirectAnswer,
+              name: DirectAnswer.name(),
+              module: DirectAnswer,
               slug: "v14-m0-collision",
               revision: "1",
               exposure: :agent
