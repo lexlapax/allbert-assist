@@ -14,6 +14,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   alias AllbertAssist.Channels.Signal.Parser
   alias AllbertAssist.Channels.Signal.Renderer
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
 
@@ -58,7 +59,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   def handle_call({:handle_notification, notification, auth_context}, _from, state) do
     {reply, state} =
       case ensure_live_use_allowed(auth_context) do
-        :ok -> process_notification(notification, auth_context, state)
+        :ok -> process_ready_notification(notification, auth_context, state)
         {:error, reason} -> {{:error, reason}, state}
       end
 
@@ -69,7 +70,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   def handle_cast({:handle_notification, notification, auth_context}, state) do
     {_reply, state} =
       case ensure_live_use_allowed(auth_context) do
-        :ok -> process_notification(notification, auth_context, state)
+        :ok -> process_ready_notification(notification, auth_context, state)
         {:error, _reason} -> {{:error, :live_use_denied}, state}
       end
 
@@ -107,8 +108,25 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       enabled?: Map.get(settings, "enabled", false),
       settings: settings,
       client_opts: Keyword.get(opts, :client_opts, default_client_opts(settings)),
-      diagnostics: AllbertSignal.Settings.Fragment.required_when_enabled(settings)
+      diagnostics: AllbertSignal.Settings.Fragment.required_when_enabled(settings),
+      effect_guard_opts: effect_guard_opts(opts)
     }
+  end
+
+  defp process_ready_notification(notification, auth_context, state) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
+         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+      process_notification(notification, auth_context, Map.put(state, :effect_epoch, epoch))
+    else
+      {:error, _reason} -> {{:error, :product_not_ready}, state}
+    end
+  end
+
+  defp effect_guard_opts(opts) do
+    case Keyword.fetch(opts, :readiness_server) do
+      {:ok, server} -> [server: server]
+      :error -> []
+    end
   end
 
   defp default_client_opts(settings) do
@@ -149,7 +167,14 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
 
     case insert_received_event(fields, "inbound") do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        handle_text_event(event, fields, auth_context, state, text, new_thread?)
+        handle_text_event(
+          event,
+          carry_epoch(fields, state),
+          auth_context,
+          state,
+          text,
+          new_thread?
+        )
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -317,8 +342,11 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input()
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
+
+  defp carry_epoch(fields, state),
+    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -550,7 +578,8 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   # recipient (ACI/number per the account's identity policy).
   @doc false
   def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
-    with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "signal"}) do
+    with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "signal"}),
+         :ok <- validate_outbound_epoch(opts) do
       case AllbertAssist.Channels.channel_settings("signal") do
         {:ok, settings} ->
           account = Map.get(settings, "account_identifier")
@@ -563,6 +592,15 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
         _other ->
           {:error, :signal_not_configured}
       end
+    end
+  end
+
+  defp validate_outbound_epoch(opts) do
+    with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
+         :ok <- EffectGuard.validate(epoch) do
+      :ok
+    else
+      _error -> {:error, :product_not_ready}
     end
   end
 end

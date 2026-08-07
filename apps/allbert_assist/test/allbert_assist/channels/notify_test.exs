@@ -24,6 +24,28 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias Jido.Signal.Bus
 
+  defmodule EpochGuard do
+    def admit_ready(agent) do
+      Agent.get_and_update(agent, fn state ->
+        send(state.test_pid, {:notify_epoch_admitted, state.epoch})
+        {{:ok, state.epoch}, Map.update!(state, :admit_count, &(&1 + 1))}
+      end)
+    end
+
+    def validate(agent, epoch) do
+      Agent.get_and_update(agent, fn state ->
+        send(state.test_pid, {:notify_epoch_validated, epoch})
+
+        result =
+          if epoch == state.replacement,
+            do: :ok,
+            else: {:error, :stale_epoch}
+
+        {result, Map.update!(state, :validate_count, &(&1 + 1))}
+      end)
+    end
+  end
+
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_notify = Application.get_env(:allbert_assist, Notify)
@@ -547,6 +569,60 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     send(consumer, :reconcile_completion_outbox)
     refute_receive {:startup_replay_sent, _parent_id}, 200
+  end
+
+  test "same-digest replacement skips completion replay before provider delivery" do
+    parent = fanout!("alice", "1013-stale") |> join_parent!()
+    enable_notify!("alice-ext")
+    digest = String.duplicate("b", 64)
+    barrier_one = spawn(fn -> Process.sleep(:infinity) end)
+    barrier_two = spawn(fn -> Process.sleep(:infinity) end)
+    epoch = %{barrier_pid: barrier_one, snapshot_digest: digest}
+    test_pid = self()
+
+    on_exit(fn ->
+      if Process.alive?(barrier_one), do: Process.exit(barrier_one, :kill)
+      if Process.alive?(barrier_two), do: Process.exit(barrier_two, :kill)
+    end)
+
+    guard =
+      start_supervised!(
+        {Agent,
+         fn ->
+           %{
+             epoch: epoch,
+             replacement: %{barrier_pid: barrier_two, snapshot_digest: digest},
+             test_pid: test_pid,
+             admit_count: 0,
+             validate_count: 0
+           }
+         end}
+      )
+
+    consumer =
+      start_supervised!(
+        {NotifyConsumer,
+         name: nil,
+         effect_guard: {EpochGuard, guard},
+         whereis_fun: fn _bus -> flunk("stale epoch must not look up the signal bus") end,
+         notify_opts: [
+           outbound_fun: fn _, _, _, _ ->
+             flunk("stale epoch must not reach provider delivery")
+           end
+         ]}
+      )
+
+    send(consumer, :reconcile_completion_outbox)
+
+    assert_receive {:notify_epoch_admitted, ^epoch}, 1_000
+    assert_receive {:notify_epoch_validated, ^epoch}, 1_000
+
+    assert eventually(fn ->
+             Agent.get(guard, &(&1.admit_count >= 2 and &1.validate_count >= 2))
+           end)
+
+    assert {:ok, pending} = Objectives.get_objective(parent.id)
+    assert pending.report_delivery_state == "pending"
   end
 
   test "periodic durable reconcile delivers a selected pending report without a signal" do

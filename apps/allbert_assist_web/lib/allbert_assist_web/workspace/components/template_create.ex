@@ -8,6 +8,8 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
 
   use AllbertAssistWeb, :live_component
 
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Marketplace.Templates, as: MarketplaceTemplates
   alias AllbertAssist.Surfaces.ContextBuilder
@@ -18,7 +20,17 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   @default_allowed_patterns ~w[plugin app llm_tool flow objective]
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     socket = assign(socket, assigns)
     context = action_context(socket.assigns)
     settings = resolved_settings_snapshot(context)
@@ -606,9 +618,11 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   end
 
   defp action_context(assigns) do
-    assigns
-    |> Map.get(:renderer_context, %{})
+    renderer_context = Map.get(assigns, :renderer_context, %{})
+
+    renderer_context
     |> ContextBuilder.live_view_context(surface: "/workspace")
+    |> Map.put(:allbert_pack_epoch, Map.get(renderer_context, :allbert_pack_epoch))
   end
 
   defp resolved_settings_snapshot(context) do

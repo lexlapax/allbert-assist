@@ -8,6 +8,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyCap
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyReader
   alias AllbertAssistWeb.Plugs.PublicProtocolWebhookAuth
+  alias AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController
 
   @phone_number_id "15551234567"
   @app_secret_ref "secret://channels/whatsapp/app_secret"
@@ -60,6 +61,17 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
            ]
 
     assert get_resp_header(conn, "cache-control") == ["no-store"]
+  end
+
+  test "direct webhook dispatch without the HTTPGate-carried epoch is frozen unavailable" do
+    conn =
+      WhatsAppWebhookController.handle(
+        Phoenix.ConnTest.build_conn(:post, "/webhooks/whatsapp/#{@phone_number_id}", ""),
+        %{"object" => "whatsapp_business_account"}
+      )
+
+    assert conn.status == 503
+    assert json_response(conn, 503)["error"]["code"] == "product_not_ready"
   end
 
   test "challenge rejects an invalid verify token", %{conn: conn} do

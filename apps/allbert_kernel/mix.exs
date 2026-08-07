@@ -17,6 +17,7 @@ defmodule AllbertKernel.MixProject do
 
   def application do
     [
+      mod: {AllbertKernel.Application, []},
       extra_applications: [:crypto],
       env: [allbert_pack: AllbertAssist.Pack.Kernel]
     ]

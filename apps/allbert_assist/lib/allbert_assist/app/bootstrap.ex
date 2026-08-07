@@ -4,6 +4,7 @@ defmodule AllbertAssist.App.Bootstrap do
   use GenServer
 
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
   require Logger
 
@@ -21,20 +22,50 @@ defmodule AllbertAssist.App.Bootstrap do
     GenServer.call(server, :await_ready, timeout)
   end
 
-  @impl true
-  def init(opts), do: {:ok, opts, {:continue, :register_apps}}
+  @doc false
+  @spec completion_token(GenServer.server(), timeout()) ::
+          {:ok, %{pid: pid(), generation: pos_integer(), completion_token: reference()}}
+          | {:error, :unavailable}
+  def completion_token(server \\ __MODULE__, timeout \\ 30_000) do
+    GenServer.call(server, :completion_token, timeout)
+  catch
+    :exit, _reason -> {:error, :unavailable}
+  end
 
   @impl true
-  def handle_continue(:register_apps, opts) do
+  def init(opts) do
+    {:ok, %{opts: opts, generation: 0, completion_token: nil}, {:continue, :register_apps}}
+  end
+
+  @impl true
+  def handle_continue(:register_apps, state) do
+    opts = state.opts
+
     if Application.get_env(:allbert_assist, :apps_bootstrap, true) do
       register_configured_apps(opts)
     end
 
-    {:noreply, Map.new(opts)}
+    # Plugin discovery and App registration are intentionally metadata-only,
+    # so their ordinary public registration side effects do not run. Flush the
+    # derived Settings composition once, after both metadata sources are
+    # complete, so no pre-bootstrap partial schema can survive into readiness.
+    SettingsFragments.clear_cache()
+
+    {:noreply, %{state | generation: 1, completion_token: make_ref()}}
   end
 
   @impl true
   def handle_call(:await_ready, _from, state), do: {:reply, :ok, state}
+
+  def handle_call(:completion_token, _from, state) do
+    reply = %{
+      pid: self(),
+      generation: state.generation,
+      completion_token: state.completion_token
+    }
+
+    {:reply, {:ok, reply}, state}
+  end
 
   defp register_configured_apps(opts) do
     registry = Keyword.get(opts, :registry, AllbertAssist.App.Registry)
@@ -57,9 +88,9 @@ defmodule AllbertAssist.App.Bootstrap do
   end
 
   defp register_app(module, registry) do
-    case AllbertAssist.App.Registry.register(module, server: registry) do
+    case AllbertAssist.App.Registry.register_metadata(module, server: registry) do
       {:ok, app_id} ->
-        Logger.info("App registered: #{app_id}")
+        Logger.info("App metadata registered: #{app_id}")
 
       {:error, reason} ->
         Logger.warning("App registration failed: #{inspect(module)}: #{inspect(reason)}")

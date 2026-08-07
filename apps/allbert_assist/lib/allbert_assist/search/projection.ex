@@ -14,6 +14,7 @@ defmodule AllbertAssist.Search.Projection do
   alias AllbertAssist.Conversations.SourceEnvelope
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Paths
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Projection.PromoteProtocol
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Search.Control
@@ -37,7 +38,9 @@ defmodule AllbertAssist.Search.Projection do
             ready?: false,
             diagnostics: [],
             purge_control: nil,
-            bootstrap_jobs?: false
+            bootstrap_jobs?: false,
+            effect_guard: EffectGuard,
+            effect_guard_opts: []
 
   @type state :: %__MODULE__{}
 
@@ -99,7 +102,7 @@ defmodule AllbertAssist.Search.Projection do
 
     case Control.load(root) do
       {:ok, purge_control} ->
-        init_with_purge_control(root, purge_control, bootstrap_jobs?)
+        init_with_purge_control(root, purge_control, bootstrap_jobs?, opts)
 
       {:error, reason} ->
         state = %__MODULE__{
@@ -107,7 +110,9 @@ defmodule AllbertAssist.Search.Projection do
           control: read_control(root),
           diagnostics: [%{code: error_code(reason)}],
           purge_control: :invalid,
-          bootstrap_jobs?: bootstrap_jobs?
+          bootstrap_jobs?: bootstrap_jobs?,
+          effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+          effect_guard_opts: Keyword.get(opts, :effect_guard_opts, [])
         }
 
         {:ok, state}
@@ -116,13 +121,14 @@ defmodule AllbertAssist.Search.Projection do
 
   @impl true
   def handle_continue(:bootstrap_jobs, state) do
-    diagnostics = bootstrap_managed_jobs(state) ++ state.diagnostics
+    diagnostics = bootstrap_if_ready(state) ++ state.diagnostics
     {:noreply, %{state | diagnostics: diagnostics}}
   end
 
   def handle_continue(:resume_purge, state) do
-    case continue_purge(state, "local") do
+    case with_effect_epoch(state, fn -> continue_purge(state, "local") end) do
       {:ok, _result, next} -> maybe_continue_bootstrap(next)
+      {:error, :product_not_ready, next} -> {:noreply, next}
       {:error, reason, next} -> {:noreply, purge_failed(next, reason)}
     end
   end
@@ -131,8 +137,11 @@ defmodule AllbertAssist.Search.Projection do
   def handle_call(:status, _from, state), do: {:reply, status_map(state), state}
 
   def handle_call({:purge, params, operator_id, confirmation_id}, _from, state) do
-    case begin_or_continue_purge(state, params, operator_id, confirmation_id) do
+    case with_effect_epoch(state, fn ->
+           begin_or_continue_purge(state, params, operator_id, confirmation_id)
+         end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
+      {:error, :product_not_ready, next} -> {:reply, {:error, :product_not_ready}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, purge_failed(next, reason)}
     end
   end
@@ -148,21 +157,21 @@ defmodule AllbertAssist.Search.Projection do
     do: {:reply, {:ok, purge_scope_map(state)}, state}
 
   def handle_call({:rebuild, operator_id}, _from, state) do
-    case rebuild_generation(state, operator_id) do
+    case with_effect_epoch(state, fn -> rebuild_generation(state, operator_id) end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
   end
 
   def handle_call({:rebuild_step, operator_id}, _from, state) do
-    case rebuild_generation_step(state, operator_id) do
+    case with_effect_epoch(state, fn -> rebuild_generation_step(state, operator_id) end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
   end
 
   def handle_call({:ingest, operator_id}, _from, %{ready?: true} = state) do
-    case ingest_generation(state, operator_id) do
+    case with_effect_epoch(state, fn -> ingest_generation(state, operator_id) end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
@@ -172,7 +181,7 @@ defmodule AllbertAssist.Search.Projection do
     do: {:reply, {:error, :search_not_ready}, state}
 
   def handle_call({:maintain, operator_id}, _from, %{ready?: true} = state) do
-    case maintain_generation(state, operator_id) do
+    case with_effect_epoch(state, fn -> maintain_generation(state, operator_id) end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
@@ -182,7 +191,11 @@ defmodule AllbertAssist.Search.Projection do
     do: {:reply, {:error, :search_not_ready}, state}
 
   def handle_call({:upsert, envelope}, _from, %{ready?: true} = state) do
-    case mutate_current(state, fn conn, revision -> upsert_envelope(conn, envelope, revision) end) do
+    case with_effect_epoch(state, fn ->
+           mutate_current(state, fn conn, revision ->
+             upsert_envelope(conn, envelope, revision)
+           end)
+         end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
@@ -192,7 +205,9 @@ defmodule AllbertAssist.Search.Projection do
     do: {:reply, {:error, :search_not_ready}, state}
 
   def handle_call({:delete, source_id}, _from, %{ready?: true} = state) do
-    case mutate_current(state, fn conn, revision -> delete_source(conn, source_id, revision) end) do
+    case with_effect_epoch(state, fn ->
+           mutate_current(state, fn conn, revision -> delete_source(conn, source_id, revision) end)
+         end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
@@ -210,21 +225,25 @@ defmodule AllbertAssist.Search.Projection do
 
   @impl true
   def handle_cast({:queue_repair, _reasons}, %{purge_control: :invalid} = state) do
-    _ = Managed.kick("search-index", "local")
+    _ = kick_if_ready(state, "search-index")
     {:noreply, state}
   end
 
   def handle_cast({:queue_repair, _reasons}, %{purge_control: %{"phase" => phase}} = state)
       when phase != "complete" do
-    _ = Managed.kick("search-index", "local")
+    _ = kick_if_ready(state, "search-index")
     {:noreply, state}
   end
 
   def handle_cast({:queue_repair, reasons}, state) do
-    safe = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
-    control = state.control |> Map.put("dirty", true) |> Map.put("repair_reasons", safe)
-    _ = write_control(state.root, control)
-    {:noreply, %{state | control: control}}
+    with {:ok, _epoch} <- ready_epoch(state) do
+      safe = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
+      control = state.control |> Map.put("dirty", true) |> Map.put("repair_reasons", safe)
+      _ = write_control(state.root, control)
+      {:noreply, %{state | control: control}}
+    else
+      {:error, _reason} -> {:noreply, state}
+    end
   end
 
   @impl true
@@ -233,7 +252,7 @@ defmodule AllbertAssist.Search.Projection do
     :ok
   end
 
-  defp init_with_purge_control(root, %{"phase" => "complete"} = purge_control, bootstrap?) do
+  defp init_with_purge_control(root, %{"phase" => "complete"} = purge_control, bootstrap?, opts) do
     {conn, control, diagnostics} = load_generation(root)
 
     state = %__MODULE__{
@@ -243,19 +262,23 @@ defmodule AllbertAssist.Search.Projection do
       ready?: not is_nil(conn),
       diagnostics: diagnostics,
       purge_control: purge_control,
-      bootstrap_jobs?: bootstrap?
+      bootstrap_jobs?: bootstrap?,
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+      effect_guard_opts: Keyword.get(opts, :effect_guard_opts, [])
     }
 
     if bootstrap?, do: {:ok, state, {:continue, :bootstrap_jobs}}, else: {:ok, state}
   end
 
-  defp init_with_purge_control(root, purge_control, bootstrap?) do
+  defp init_with_purge_control(root, purge_control, bootstrap?, opts) do
     state = %__MODULE__{
       root: root,
       control: read_control(root),
       diagnostics: [%{code: "search_purge_in_progress"}],
       purge_control: purge_control,
-      bootstrap_jobs?: bootstrap?
+      bootstrap_jobs?: bootstrap?,
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+      effect_guard_opts: Keyword.get(opts, :effect_guard_opts, [])
     }
 
     {:ok, state, {:continue, :resume_purge}}
@@ -265,6 +288,43 @@ defmodule AllbertAssist.Search.Projection do
     do: {:noreply, state, {:continue, :bootstrap_jobs}}
 
   defp maybe_continue_bootstrap(state), do: {:noreply, state}
+
+  # Every projection mutation and managed-job handoff obtains one readiness
+  # epoch at handler entry. The validation immediately preceding the operation
+  # deliberately never retries admission, so an E1 -> E2 replacement fails
+  # closed instead of executing against E2.
+  defp with_effect_epoch(state, fun) do
+    with {:ok, _epoch} <- ready_epoch(state) do
+      fun.()
+    else
+      {:error, _reason} -> {:error, :product_not_ready, state}
+    end
+  end
+
+  defp ready_epoch(state) do
+    with {:ok, epoch} <- state.effect_guard.admit_ready(state.effect_guard_opts),
+         :ok <- state.effect_guard.validate(epoch, state.effect_guard_opts) do
+      {:ok, epoch}
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp bootstrap_if_ready(state) do
+    with {:ok, _epoch} <- ready_epoch(state) do
+      bootstrap_managed_jobs(state)
+    else
+      {:error, _reason} -> [%{code: "product_not_ready"}]
+    end
+  end
+
+  defp kick_if_ready(state, identity) do
+    with {:ok, _epoch} <- ready_epoch(state) do
+      Managed.kick(identity, "local")
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
 
   defp begin_or_continue_purge(state, params, operator_id, confirmation_id) do
     with {:ok, target} <- Control.normalize_target(params),

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "normalization": "v14_m1a3_release_eval_inventory_v1",
+  "rows": [
+    {"path":"apps/allbert_assist/.github/workflows/release-artifacts.yml","line":79,"line_sha256":"57061873fe9bb82bbef1396331c1d2178c15fc518728877bc5cccb2eea2ce34a","classification":"runtime_free","reason":"release identity expression only"},
+    {"path":"docs/operator/release-rehearsal.md","line":357,"line_sha256":"a23cb39b0dc54caec70e8b201fcf1b765fcc6d5b640e9db7294e05af9a6763d4","classification":"runtime_bearing_bootstrapped","reason":"browser-doctor operator validation"},
+    {"path":"docs/operator/release-rehearsal.md","line":658,"line_sha256":"9557dd96f2c1109d262011a4d0bad21dcee3d53f1d15c254f170e13f75f797fa","classification":"runtime_bearing_bootstrapped","reason":"browser-doctor operator validation"},
+    {"path":"homebrew/allbert.rb","line":101,"line_sha256":"6b3cf57f17f88b907263d0ebbf361897f66b3afbe933f978513b5dd5220cbfae","classification":"runtime_free","reason":"formula installation identity expression only"},
+    {"path":"rel/overlays/bin/allbert-dispatch","line":32,"line_sha256":"ebb517c2296b089dcfaa890c0cc674d60ff798d61a8ec76af880a6f47a3b52af","classification":"unsafe_operator_passthrough","reason":"explicit raw OTP eval verb remains an operator-controlled launcher passthrough"},
+    {"path":"rel/overlays/bin/allbert-dispatch","line":49,"line_sha256":"78d1a2261a9325720908bee3abe915e101a9a91e49b637d58dbb4e7b68665b16","classification":"attach_only_daemon_guarded","reason":"TUI launcher is an attach-only client; the daemon validates product readiness"},
+    {"path":"rel/overlays/bin/allbert-dispatch","line":52,"line_sha256":"de95f6918949cd7c8a7f6c56c9eb26f579db021f6806db04a896cff344e07874","classification":"runtime_bearing_product_entry","reason":"default packaged dispatch enters composition-owned ProductCLI, which owns ProductBootstrap"},
+    {"path":"scripts/smoke/artifact_smoke.sh","line":102,"line_sha256":"c39eff2928b947d22961d5806a1a845fcbb76a619d6b3bc3fffc75d66ac937ee","classification":"runtime_free","reason":"packaged CoreApp version expression only"},
+    {"path":"scripts/smoke/artifact_smoke.sh","line":109,"line_sha256":"c8b05018a8074d6d5cff7cb65260a8963e883dd08e78d5d81d0d9b26319ea792","classification":"runtime_bearing_bootstrapped","reason":"packaged registry smoke"},
+    {"path":"scripts/smoke/artifact_smoke.sh","line":136,"line_sha256":"21bb0a7f303b610d550fb9ac6f78ce736be84ab029d9219edf39055f6b443178","classification":"runtime_bearing_bootstrapped","reason":"packaged browser-doctor smoke"},
+    {"path":"scripts/smoke/artifact_smoke.sh","line":204,"line_sha256":"0724b4acd7406cdd0f7522802ff250fe21f3660f2512c3e2da9130ba1c809022","classification":"runtime_bearing_bootstrapped","reason":"packaged SQLite capability smoke"},
+    {"path":"scripts/smoke/linux_rehearsal.sh","line":144,"line_sha256":"2f94dc59cf2ba3bceb13b402e4a0e0468e33ce19b98fe9c0d764ff41e807ad47","classification":"runtime_bearing_bootstrapped","reason":"packaged browser-doctor rehearsal"}
+  ]
+}

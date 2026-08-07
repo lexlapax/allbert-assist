@@ -48,17 +48,74 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
        subscribe_fun: fn AllbertAssist.SignalBus, pattern ->
          send(parent, {:subscribed, pattern})
          {:ok, pattern}
-       end}
+       end,
+       validate_fun: fn _epoch -> :ok end}
     )
+
+    SignalBridge.open(name, epoch())
+    assert_open(name)
 
     assert_receive {:subscribed, "allbert.objective.**"}
     assert_receive {:subscribed, "allbert.objectives.**"}
     assert_receive {:subscribed, "allbert.workspace.**"}
   end
 
+  test "a partial subscription failure closes every subscription and refuses the bridge" do
+    parent = self()
+    name = :"signal_bridge_partial_#{System.unique_integer([:positive])}"
+
+    start_supervised!(
+      {SignalBridge,
+       name: name,
+       subscribe_fun: fn AllbertAssist.SignalBus, pattern ->
+         if pattern == "allbert.workspace.**", do: {:error, :unavailable}, else: {:ok, pattern}
+       end,
+       unsubscribe_fun: fn AllbertAssist.SignalBus, subscription_id ->
+         send(parent, {:unsubscribed, subscription_id})
+         :ok
+       end,
+       validate_fun: fn _epoch -> :ok end}
+    )
+
+    assert {:error, :unavailable} = SignalBridge.open(name, epoch())
+    assert_receive {:unsubscribed, "allbert.objective.**"}
+    assert_receive {:unsubscribed, "allbert.objectives.**"}
+    assert %{epoch: nil, subscription_ids: %{}} = :sys.get_state(name)
+  end
+
+  test "retires subscriptions before the epoch bridge terminates" do
+    parent = self()
+    name = :"signal_bridge_retire_#{System.unique_integer([:positive])}"
+
+    pid =
+      start_supervised!(
+        {SignalBridge,
+         name: name,
+         subscribe_fun: fn AllbertAssist.SignalBus, pattern -> {:ok, pattern} end,
+         unsubscribe_fun: fn AllbertAssist.SignalBus, subscription_id ->
+           send(parent, {:unsubscribed, subscription_id})
+           :ok
+         end,
+         validate_fun: fn _epoch -> :ok end}
+      )
+
+    SignalBridge.open(name, epoch())
+    assert_open(name)
+    ref = Process.monitor(pid)
+
+    SignalBridge.close(name)
+
+    assert_receive {:unsubscribed, "allbert.objective.**"}
+    assert_receive {:unsubscribed, "allbert.objectives.**"}
+    assert_receive {:unsubscribed, "allbert.workspace.**"}
+    assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+  end
+
   test "routes plural fan-out signals through durable objective ownership" do
     name = :"signal_bridge_fanout_#{System.unique_integer([:positive])}"
-    start_supervised!({SignalBridge, name: name})
+    start_supervised!({SignalBridge, name: name, validate_fun: fn _epoch -> :ok end})
+    SignalBridge.open(name, epoch())
+    assert_open(name)
 
     test_pid = self()
 
@@ -113,7 +170,9 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
 
   test "broadcasts objective events, fragment envelopes, and generic workspace signals" do
     name = :"signal_bridge_#{System.unique_integer([:positive])}"
-    start_supervised!({SignalBridge, name: name})
+    start_supervised!({SignalBridge, name: name, validate_fun: fn _epoch -> :ok end})
+    SignalBridge.open(name, epoch())
+    assert_open(name)
 
     user_topic = SignalBridge.topic_for("alice")
     workspace_topic = SignalBridge.workspace_topic_for("alice", "thread-signal-bridge")
@@ -181,7 +240,9 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
 
   test "does not raise on malformed fragment payloads" do
     name = :"signal_bridge_malformed_#{System.unique_integer([:positive])}"
-    start_supervised!({SignalBridge, name: name})
+    start_supervised!({SignalBridge, name: name, validate_fun: fn _epoch -> :ok end})
+    SignalBridge.open(name, epoch())
+    assert_open(name)
 
     topic = SignalBridge.workspace_topic_for("alice", "thread-signal-bridge")
     Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, topic)
@@ -208,7 +269,8 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
          name: name,
          subscribe_fun: fn AllbertAssist.SignalBus, _pattern ->
            {:error, :bus_unavailable}
-         end}
+         end,
+         validate_fun: fn _epoch -> :ok end}
       )
 
     assert Process.alive?(pid)
@@ -245,6 +307,23 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
 
     envelope
   end
+
+  defp epoch do
+    %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}
+  end
+
+  defp assert_open(name, attempts \\ 20)
+
+  defp assert_open(name, attempts) when attempts > 0 do
+    if map_size(:sys.get_state(name).subscription_ids) == 3 do
+      :ok
+    else
+      Process.sleep(10)
+      assert_open(name, attempts - 1)
+    end
+  end
+
+  defp assert_open(_name, 0), do: flunk("signal bridge did not open its epoch subscriptions")
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

@@ -10,6 +10,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.PublicProtocol.Acp.Mapping
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surface.EventRecorder
@@ -153,7 +154,9 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     with :ok <- ensure_initialized(state),
          :ok <- ensure_surface_enabled(),
          {:ok, session} <- fetch_session(params, state),
-         {:ok, text} <- Mapping.flatten_prompt(params) do
+         {:ok, text} <- Mapping.flatten_prompt(params),
+         {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
       event =
         EventRecorder.record_inbound(Mapping.surface(), %{
           external_event_id: "#{Mapping.surface()}:prompt:#{Ecto.UUID.generate()}",
@@ -164,14 +167,17 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
         })
 
       with {:ok, runtime_response} <-
-             Runtime.submit_user_input(Mapping.runtime_request(text, session)),
-           :ok <- persist_and_acknowledge(event, runtime_response),
+             Runtime.submit_user_input(
+               Mapping.runtime_request(text, session),
+               allbert_pack_epoch: epoch
+             ),
+           :ok <- persist_and_acknowledge(event, runtime_response, epoch),
            {:ok, final_response} <- await_response(runtime_response),
            {:ok, outbound} <- Mapping.prompt_outbound(final_response, session, request_id) do
         {:ok, outbound, %{state | report_deliveries: report_delivery_ids(final_response)}}
       else
         {:error, reason} ->
-          EventRecorder.mark_failed(event, reason)
+          maybe_mark_failed(event, reason, epoch)
           {:error, prompt_error(reason), state}
       end
     else
@@ -201,15 +207,26 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     {:error, error, state}
   end
 
-  defp persist_and_acknowledge(event, response) do
-    case EventRecorder.mark_result_durable(event, response) do
-      :ok ->
-        Runtime.acknowledge_kickoff_delivery(response, %{channel: "acp_stdio"})
+  defp persist_and_acknowledge(event, response, epoch) do
+    with :ok <- EffectGuard.validate(epoch) do
+      case EventRecorder.mark_result_durable(event, response) do
+        :ok ->
+          with :ok <- EffectGuard.validate(epoch) do
+            Runtime.acknowledge_kickoff_delivery(response, %{channel: "acp_stdio"})
+          end
 
-      {:error, _reason} = error ->
-        _ = Runtime.delivery_failed(response, %{channel: "acp_stdio"})
-        error
+        {:error, _reason} = error ->
+          if EffectGuard.validate(epoch) == :ok,
+            do: Runtime.delivery_failed(response, %{channel: "acp_stdio"})
+
+          error
+      end
     end
+  end
+
+  defp maybe_mark_failed(event, reason, epoch) do
+    if EffectGuard.validate(epoch) == :ok, do: EventRecorder.mark_failed(event, reason)
+    :ok
   end
 
   defp await_response(%{status: :needs_confirmation} = response), do: {:ok, response}

@@ -54,7 +54,13 @@ defmodule AllbertAssist.Tools.Discovery.Scan do
     with :ok <- require_enabled(),
          {:ok, job} <- ensure_job(Map.put(opts, :query, query || query(opts))),
          {:ok, job} <- refresh_job(job, Map.put(opts, :query, query || query(opts))) do
-      Runner.run_now(job, action_context: Map.get(opts, :action_context, %{}))
+      action_context = Map.get(opts, :action_context, %{})
+
+      Runner.run_now(job,
+        action_context: action_context,
+        allbert_pack_epoch:
+          Map.get(opts, :allbert_pack_epoch) || Map.get(action_context, :allbert_pack_epoch)
+      )
     end
   end
 

@@ -13,7 +13,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   alias AllbertAssist.Pack.OTPMetadata
   alias AllbertAssist.Pack.Projection
 
-  @checkpoint "v14-m1a1"
+  @checkpoints ~w[v14-m1a1 v14-m1a3]
   @marker_prefix "ALLBERT_RELEASE_ASSEMBLY_V1="
   @manifest_name "THIRD-PARTY-MANIFEST.json"
   @max_manifest_bytes 5_000_000
@@ -33,6 +33,13 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     allbert_composition: nil,
     allbert_assist_web: nil
   }
+  @composition_modules [
+    AllbertAssist.Pack.CompositionCoordinator,
+    AllbertAssist.Pack.ProductBootstrap,
+    AllbertAssist.Pack.ProductCLI
+  ]
+  @default_launcher_target "AllbertAssist.Pack.ProductCLI.main(System.argv())"
+  @max_overlay_bytes 1_000_000
   @dependencies %{
     allbert_kernel: [],
     allbert_assist: [:allbert_kernel],
@@ -99,7 +106,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   end
 
   defp verify_release!(release_root, checkpoint, require_clean_start?) do
-    unless checkpoint == @checkpoint,
+    unless checkpoint in @checkpoints,
       do: raise(ArgumentError, "unsupported release-assembly checkpoint: #{inspect(checkpoint)}")
 
     if require_clean_start?, do: validate_no_started_allbert_applications!()
@@ -112,7 +119,14 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
 
     marker =
       try do
-        verify_marker!(root, release, release_applications, require_clean_start?, snapshot)
+        verify_marker!(
+          root,
+          checkpoint,
+          release,
+          release_applications,
+          require_clean_start?,
+          snapshot
+        )
       after
         restore_application_state!(snapshot)
       end
@@ -122,7 +136,14 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     :ok
   end
 
-  defp verify_marker!(root, release, release_applications, require_clean_start?, snapshot) do
+  defp verify_marker!(
+         root,
+         checkpoint,
+         release,
+         release_applications,
+         require_clean_start?,
+         snapshot
+       ) do
     components = read_manifest_components!(root)
     component_index = validate_first_party_closure!(components)
     applications = read_applications!(root, release_applications, component_index)
@@ -156,7 +177,23 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
       end)
 
     if require_clean_start?, do: validate_started_application_state_unchanged!(snapshot)
-    build_marker(release, rows, pack_projection_sha256)
+
+    m1a3 =
+      if checkpoint == "v14-m1a3" do
+        composition = Enum.find(applications, &(&1.application == :allbert_composition))
+        residual = Enum.find(applications, &(&1.application == :allbert_assist))
+
+        validate_composition_release!(root, composition)
+        validate_residual_composition_boundary!(root, residual)
+
+        %{
+          composition_app_sha256: composition.sha256,
+          overlay_sha256: validate_default_launcher!(root),
+          entrypoint_sha256: sha256(@default_launcher_target)
+        }
+      end
+
+    build_marker(checkpoint, release, rows, pack_projection_sha256, m1a3)
   end
 
   defp validate_no_started_allbert_applications! do
@@ -941,22 +978,116 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     _error -> fail!(:application_environment_snapshot)
   end
 
-  defp build_marker(release, rows, pack_projection_sha256) do
+  defp validate_composition_release!(root, composition) do
+    missing_modules = @composition_modules -- composition.modules
+
+    unless missing_modules == [],
+      do: fail!({:composition_modules, missing_modules})
+
+    Enum.each(@composition_modules, fn module ->
+      path = Path.join(Path.dirname(composition.path), "#{module}.beam")
+      ensure_regular_release_file!(root, path, {:composition_beam, module})
+      validate_beam_module!(path, module, :composition_beam)
+    end)
+  end
+
+  defp validate_residual_composition_boundary!(root, residual) do
+    owned_modules = Enum.filter(residual.modules, &(&1 in @composition_modules))
+
+    unless owned_modules == [],
+      do: fail!({:residual_composition_modules, owned_modules})
+
+    Enum.each(residual.modules, fn module ->
+      path = Path.join(Path.dirname(residual.path), "#{module}.beam")
+      ensure_regular_release_file!(root, path, {:residual_beam, module})
+      validate_beam_module!(path, module, :residual_beam)
+
+      imports =
+        case :beam_lib.chunks(String.to_charlist(path), [:imports]) do
+          {:ok, {^module, [imports: imports]}} when is_list(imports) -> imports
+          _other -> fail!({:residual_beam_imports, module})
+        end
+
+      upward_references =
+        Enum.filter(imports, fn
+          {target, _function, _arity} -> target in @composition_modules
+          _other -> false
+        end)
+
+      unless upward_references == [],
+        do: fail!({:residual_composition_reference, module, upward_references})
+    end)
+  end
+
+  defp validate_beam_module!(path, module, label) do
+    case :beam_lib.chunks(String.to_charlist(path), [:exports]) do
+      {:ok, {^module, [exports: _exports]}} -> :ok
+      _other -> fail!({label, module})
+    end
+  end
+
+  defp validate_default_launcher!(root) do
+    path = Path.join([root, "bin", "allbert"])
+    ensure_regular_release_file!(root, path, :default_launcher)
+    bytes = read_bounded_file!(path, @max_overlay_bytes, :default_launcher)
+
+    expected = ~s(exec "$RELEASE_BIN" eval "#{@default_launcher_target}" "$@")
+
+    matches =
+      bytes
+      |> String.split(~r/\R/, trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.filter(&(&1 == expected))
+
+    unless matches == [expected],
+      do: fail!({:default_launcher_target, @default_launcher_target})
+
+    sha256(bytes)
+  end
+
+  defp build_marker(checkpoint, release, rows, pack_projection_sha256, m1a3) do
     app_sha256 = Map.new(rows, &{Atom.to_string(&1.application), &1.app_sha256})
 
+    app_sha256 =
+      case m1a3 do
+        %{composition_app_sha256: composition_app_sha256} ->
+          Map.put(app_sha256, "allbert_composition", composition_app_sha256)
+
+        nil ->
+          app_sha256
+      end
+
+    expected_applications =
+      if checkpoint == "v14-m1a3",
+        do: @pack_applications ++ [:allbert_composition],
+        else: @pack_applications
+
     unless Enum.sort(Map.keys(app_sha256)) ==
-             Enum.sort(Enum.map(@pack_applications, &Atom.to_string/1)),
+             Enum.sort(Enum.map(expected_applications, &Atom.to_string/1)),
            do: fail!({:marker_application_closure, Map.keys(app_sha256)})
 
-    %{
+    marker = %{
       "schema_version" => 1,
       "status" => "PASS",
-      "checkpoint" => @checkpoint,
+      "checkpoint" => checkpoint,
       "rel_sha256" => release.sha256,
       "app_sha256" => app_sha256,
       "pack_projection_sha256" => pack_projection_sha256
     }
+
+    case m1a3 do
+      %{overlay_sha256: overlay_sha256, entrypoint_sha256: entrypoint_sha256} ->
+        Map.merge(marker, %{
+          "overlay_sha256" => overlay_sha256,
+          "entrypoint_sha256" => entrypoint_sha256
+        })
+
+      nil ->
+        marker
+    end
   end
+
+  defp sha256(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
   defp application_path(root, application, version) do
     Path.join([root, "lib", "#{application}-#{version}", "ebin", "#{application}.app"])

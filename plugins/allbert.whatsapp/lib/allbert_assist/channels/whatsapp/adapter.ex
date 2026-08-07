@@ -15,6 +15,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   alias AllbertAssist.Channels.WhatsApp.Parser
   alias AllbertAssist.Channels.WhatsApp.Renderer
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings.Secrets
@@ -31,14 +32,20 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   end
 
   def handle_webhook_payload(payload, auth_context \\ %{}, opts \\ []) do
-    with {:ok, server} <- server(opts),
+    with {:ok, epoch} <- admitted_epoch(opts),
+         {:ok, server} <- server(opts),
          {:ok, server} <- live_server(server) do
-      GenServer.call(server, {:handle_webhook_payload, payload, auth_context})
+      GenServer.call(server, {:handle_webhook_payload, payload, auth_context, epoch})
     end
   end
 
   def simulate_webhook_event(server \\ __MODULE__, payload) do
-    GenServer.call(server, {:handle_webhook_payload, payload, %{surface: "whatsapp_simulate"}})
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      GenServer.call(
+        server,
+        {:handle_webhook_payload, payload, %{surface: "whatsapp_simulate"}, epoch}
+      )
+    end
   end
 
   def status(server \\ __MODULE__) do
@@ -60,10 +67,13 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
     {:reply, channel_status(state), state}
   end
 
-  def handle_call({:handle_webhook_payload, payload, auth_context}, _from, state) do
+  def handle_call({:handle_webhook_payload, payload, auth_context, epoch}, _from, state) do
     {reply, state} =
-      case ensure_live_use_allowed(auth_context) do
-        :ok -> process_webhook(payload, auth_context, state)
+      with :ok <- ensure_live_use_allowed(auth_context),
+           :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+        process_webhook(payload, auth_context, Map.put(state, :effect_epoch, epoch))
+      else
+        {:error, :stale_epoch} -> {{:error, :product_not_ready}, state}
         {:error, reason} -> {{:error, reason}, state}
       end
 
@@ -122,8 +132,31 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
       settings: settings,
       access_token: access_token,
       req_options: Keyword.get(opts, :req_options, []),
-      diagnostics: AllbertWhatsApp.Settings.Fragment.required_when_enabled(settings)
+      diagnostics: AllbertWhatsApp.Settings.Fragment.required_when_enabled(settings),
+      effect_guard_opts: effect_guard_opts(opts)
     }
+  end
+
+  defp admitted_epoch(opts) do
+    guard_opts = effect_guard_opts(opts)
+
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} ->
+        case EffectGuard.validate(epoch, guard_opts) do
+          :ok -> {:ok, epoch}
+          {:error, _reason} -> {:error, :product_not_ready}
+        end
+
+      :error ->
+        EffectGuard.admit_ready(guard_opts)
+    end
+  end
+
+  defp effect_guard_opts(opts) do
+    case Keyword.fetch(opts, :readiness_server) do
+      {:ok, server} -> [server: server]
+      :error -> []
+    end
   end
 
   defp resolve_access_token(secret_ref) do
@@ -174,7 +207,15 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
 
     case insert_received_event(fields, event_direction(command)) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        handle_text_event(event, fields, auth_context, state, text, new_thread?, command)
+        handle_text_event(
+          event,
+          carry_epoch(fields, state),
+          auth_context,
+          state,
+          text,
+          new_thread?,
+          command
+        )
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -470,8 +511,11 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input()
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
+
+  defp carry_epoch(fields, state),
+    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -833,11 +877,21 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
          {:ok, token} <-
            AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "access_token_ref")),
          phone_id when is_binary(phone_id) <- Map.get(settings, "phone_number_id"),
+         :ok <- validate_outbound_epoch(opts),
          {:ok, result} <- Client.send_text(token, phone_id, target, body, client_opts) do
       {:ok, %{channel: "whatsapp", target: target, result: result}}
     else
       {:error, reason} -> {:error, reason}
       _other -> {:error, :whatsapp_not_configured}
+    end
+  end
+
+  defp validate_outbound_epoch(opts) do
+    with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
+         :ok <- EffectGuard.validate(epoch) do
+      :ok
+    else
+      _error -> {:error, :product_not_ready}
     end
   end
 end

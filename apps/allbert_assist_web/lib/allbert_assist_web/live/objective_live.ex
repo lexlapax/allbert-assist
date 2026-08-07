@@ -189,7 +189,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
               module={WorkspaceRenderer}
               id="objective-summary-renderer"
               surface={objective_summary_surface(@objective, @steps)}
-              renderer_context={%{user_id: @user_id, page: :objectives}}
+              renderer_context={
+                %{user_id: @user_id, page: :objectives, allbert_pack_epoch: @allbert_pack_epoch}
+              }
               workspace_state={%{}}
             />
           </Patterns.elevated_card>
@@ -199,7 +201,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
               module={WorkspaceRenderer}
               id="objective-actions-renderer"
               surface={objective_actions_surface(@objective)}
-              renderer_context={%{user_id: @user_id, page: :objectives}}
+              renderer_context={
+                %{user_id: @user_id, page: :objectives, allbert_pack_epoch: @allbert_pack_epoch}
+              }
               workspace_state={%{}}
             />
           </section>
@@ -333,7 +337,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
               module={WorkspaceRenderer}
               id="objective-acceptance-renderer"
               surface={objective_acceptance_surface(@objective)}
-              renderer_context={%{user_id: @user_id, page: :objectives}}
+              renderer_context={
+                %{user_id: @user_id, page: :objectives, allbert_pack_epoch: @allbert_pack_epoch}
+              }
               workspace_state={%{}}
             />
           </section>
@@ -345,7 +351,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
                 module={WorkspaceRenderer}
                 id="objective-steps-renderer"
                 surface={objective_steps_surface(@steps)}
-                renderer_context={%{user_id: @user_id, page: :objectives}}
+                renderer_context={
+                  %{user_id: @user_id, page: :objectives, allbert_pack_epoch: @allbert_pack_epoch}
+                }
                 workspace_state={%{}}
               />
             </div>
@@ -356,7 +364,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
             module={PlanRunProgressPanel}
             id="objective-plan-run-progress"
             node={plan_run_progress_node(@objective, @steps, @events)}
-            renderer_context={%{user_id: @user_id, channel: :live_view}}
+            renderer_context={
+              %{user_id: @user_id, channel: :live_view, allbert_pack_epoch: @allbert_pack_epoch}
+            }
             workspace_state={%{}}
           />
 
@@ -367,7 +377,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
                 module={WorkspaceRenderer}
                 id="objective-events-renderer"
                 surface={objective_events_surface(@events)}
-                renderer_context={%{user_id: @user_id, page: :objectives}}
+                renderer_context={
+                  %{user_id: @user_id, page: :objectives, allbert_pack_epoch: @allbert_pack_epoch}
+                }
                 workspace_state={%{}}
               />
             </div>
@@ -378,7 +390,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
               module={WorkspaceRenderer}
               id="objective-missing-renderer"
               surface={objective_missing_surface()}
-              renderer_context={%{user_id: @user_id, page: :objectives}}
+              renderer_context={
+                %{user_id: @user_id, page: :objectives, allbert_pack_epoch: @allbert_pack_epoch}
+              }
               workspace_state={%{}}
             />
           </section>
@@ -696,7 +710,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   end
 
   defp context(socket) do
-    ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.ObjectiveLive")
+    socket
+    |> ContextBuilder.live_view_context(surface: "AllbertAssistWeb.ObjectiveLive")
+    |> Map.put(:allbert_pack_epoch, socket.assigns.allbert_pack_epoch)
   end
 
   defp response_error(response), do: ErrorExtraction.from_response(response)

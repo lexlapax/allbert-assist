@@ -354,7 +354,7 @@ allbert admin status
 allbert admin vault
 command -v node
 allbert admin settings set browser.enabled true
-allbert eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli}) do {:ok, %{doctor: doctor}} -> IO.inspect(doctor, limit: :infinity, pretty: true); other -> IO.inspect(other, limit: :infinity, pretty: true) end'
+allbert eval '{:ok, epoch} = AllbertAssist.Pack.ProductBootstrap.ensure_ready([]); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli, allbert_pack_epoch: epoch}) do {:ok, %{doctor: doctor}} -> IO.inspect(doctor, limit: :infinity, pretty: true); other -> IO.inspect(other, limit: :infinity, pretty: true) end'
 ```
 
 Then attest first chat against a real configured local model, one warm thin-TUI
@@ -655,7 +655,7 @@ allbert admin settings set browser.driver.node_module_path \
   "$ALLBERT_PLAYWRIGHT_ROOT/node_modules"
 allbert admin settings set browser.driver.version_pin "$PLAYWRIGHT_VERSION"
 allbert admin settings set browser.driver.binary_path "$BROWSER_BINARY_PATH"
-allbert eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli}) do {:ok, %{doctor: doctor}} -> IO.inspect(doctor, limit: :infinity, pretty: true); other -> IO.inspect(other, limit: :infinity, pretty: true) end' \
+allbert eval '{:ok, epoch} = AllbertAssist.Pack.ProductBootstrap.ensure_ready([]); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli, allbert_pack_epoch: epoch}) do {:ok, %{doctor: doctor}} -> IO.inspect(doctor, limit: :infinity, pretty: true); other -> IO.inspect(other, limit: :infinity, pretty: true) end' \
   | tee "$EVIDENCE_ROOT/${VERSION}-browser-doctor.log"
 rg 'live_check_status: :ok|"live_check_status":"ok"' \
   "$EVIDENCE_ROOT/${VERSION}-browser-doctor.log"

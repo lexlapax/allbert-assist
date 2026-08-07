@@ -1,5 +1,4 @@
 ExUnit.start()
-Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)
 
 # v0.63 F2: provider credentials now resolve through the tier vault including the env tier
 # (so an env-provided key is usable by the runtime and doctor — matching the readiness the
@@ -64,3 +63,42 @@ end
 unless AllbertAssist.App.Registry.known_app_id?(:stocksage) do
   {:ok, :stocksage} = AllbertAssist.App.Registry.register(StockSage.App)
 end
+
+# v1.4 M1.a3: owner-scoped core test runs start the residual application but
+# not its upward composition host. Start the test-only product owner explicitly
+# after suite-wide metadata fixtures are present, then wait for its first exact
+# epoch. Tests that exercise collecting/unavailable phases use private readiness
+# servers and remain unaffected.
+product_test_ebins =
+  Enum.map(["allbert_assist_web", "allbert_composition"], fn application ->
+    Path.join([Mix.Project.build_path(), "lib", application, "ebin"])
+  end)
+
+unless Enum.all?(product_test_ebins, &Code.prepend_path/1) do
+  raise "could not add test Pack product code paths: #{inspect(product_test_ebins)}"
+end
+
+case Application.ensure_all_started(:allbert_composition) do
+  {:ok, _started} -> :ok
+  {:error, reason} -> raise "could not start test Pack composition: #{inspect(reason)}"
+end
+
+pack_ready_deadline = System.monotonic_time(:millisecond) + 60_000
+
+pack_ready_wait = fn wait ->
+  case AllbertAssist.Pack.Readiness.status(timeout: 1_000) do
+    {:ok, %{phase: :ready}} ->
+      :ok
+
+    _other ->
+      if System.monotonic_time(:millisecond) < pack_ready_deadline do
+        Process.sleep(25)
+        wait.(wait)
+      else
+        raise "Pack readiness did not open after suite bootstrap"
+      end
+  end
+end
+
+pack_ready_wait.(pack_ready_wait)
+Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)

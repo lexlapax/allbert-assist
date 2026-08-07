@@ -230,6 +230,28 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     def recover_composition(_owner), do: exit(:invalid_store_contract)
   end
 
+  defmodule EpochGuard do
+    def admit_ready(agent) do
+      Agent.get_and_update(agent, fn state ->
+        send(state.test_pid, {:epoch_admitted, state.epoch})
+        {{:ok, state.epoch}, Map.update!(state, :admit_count, &(&1 + 1))}
+      end)
+    end
+
+    def validate(agent, epoch) do
+      Agent.get_and_update(agent, fn state ->
+        send(state.test_pid, {:epoch_validated, epoch})
+
+        result =
+          if epoch == state.replacement,
+            do: :ok,
+            else: {:error, :stale_epoch}
+
+        {result, Map.update!(state, :validate_count, &(&1 + 1))}
+      end)
+    end
+  end
+
   defmodule ProcessModels do
     def for(:fanout_synthesis, _context) do
       {:ok,
@@ -1033,6 +1055,52 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert_receive :claim_after_recovery, 1_000
     assert_selected_fallback(store, claim, :model_disabled)
     assert Process.alive?(composer_pid)
+  end
+
+  test "same-digest replacement after composer admission skips recovery without re-admission" do
+    digest = String.duplicate("a", 64)
+    barrier_one = spawn(fn -> Process.sleep(:infinity) end)
+    barrier_two = spawn(fn -> Process.sleep(:infinity) end)
+
+    on_exit(fn ->
+      if Process.alive?(barrier_one), do: Process.exit(barrier_one, :kill)
+      if Process.alive?(barrier_two), do: Process.exit(barrier_two, :kill)
+    end)
+
+    epoch = %{barrier_pid: barrier_one, snapshot_digest: digest}
+    test_pid = self()
+
+    guard =
+      start_supervised!(
+        {Agent,
+         fn ->
+           %{
+             epoch: epoch,
+             replacement: %{barrier_pid: barrier_two, snapshot_digest: digest},
+             test_pid: test_pid,
+             admit_count: 0,
+             validate_count: 0
+           }
+         end}
+      )
+
+    store = process_store([])
+
+    composer_pid =
+      start_process_composer(
+        store: {ProcessStore, store},
+        effect_guard: {EpochGuard, guard},
+        model_enabled?: false,
+        reconcile_interval_ms: 5_000
+      )
+
+    assert_receive {:epoch_admitted, ^epoch}, 1_000
+    assert_receive {:epoch_validated, ^epoch}, 1_000
+    assert Process.alive?(composer_pid)
+    assert Agent.get(store, & &1.recoveries) == 0
+    assert Agent.get(guard, & &1.admit_count) == 1
+    assert Agent.get(guard, & &1.validate_count) == 1
+    refute_receive {:epoch_admitted, _replacement}, 100
   end
 
   test "transient recover, claim, and select failures retry without restart or a second model call" do

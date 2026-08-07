@@ -38,7 +38,8 @@ defmodule AllbertAssist.TestSupport.ShippedRegistries do
     |> Enum.each(fn
       {:module, module, opts} ->
         if MapSet.member?(shipped_modules, module) do
-          {:ok, _plugin_id} = PluginRegistry.register_module(module, opts)
+          {:ok, _plugin_id} =
+            PluginRegistry.register_module(module, Keyword.put(opts, :side_effects, false))
         end
 
       {:diagnostic, key, diagnostics} ->
@@ -57,7 +58,7 @@ defmodule AllbertAssist.TestSupport.ShippedRegistries do
     [AllbertAssist.App.CoreApp | plugin_apps]
     |> Enum.uniq()
     |> Enum.each(fn module ->
-      {:ok, _app_id} = AppRegistry.register(module)
+      {:ok, _app_id} = AppRegistry.register_metadata(module)
     end)
 
     :ok

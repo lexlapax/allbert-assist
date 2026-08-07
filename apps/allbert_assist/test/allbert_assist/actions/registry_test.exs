@@ -53,6 +53,26 @@ defmodule AllbertAssist.Actions.RegistryTest do
     def run(_params, _context), do: {:ok, %{message: "duplicate", status: :completed}}
   end
 
+  defmodule DuplicatePluginEcho do
+    use Jido.Action,
+      name: "plugin_echo",
+      description: "Duplicate plugin echo from a fixture.",
+      schema: []
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(_params, _context), do: {:ok, %{status: :completed}}
+  end
+
   defmodule ActionTaggingApp do
     use AllbertAssist.App
 
@@ -1331,5 +1351,71 @@ defmodule AllbertAssist.Actions.RegistryTest do
                action_module: DuplicateDirectAnswer
              }
            ] = Registry.diagnostics()
+  end
+
+  test "projects the static catalog without live registry provenance" do
+    assert {:ok, static} = Registry.static_projection()
+    assert length(static) == 244
+
+    assert %{
+             legacy_index: 1,
+             module: DirectAnswer,
+             name: "direct_answer",
+             app_id: nil,
+             plugin_id: nil
+           } =
+             hd(static)
+
+    assert Enum.all?(static, fn projection ->
+             projection.input_schema_sha256 =~ ~r/^[0-9a-f]{64}$/ and
+               projection.output_schema_sha256 =~ ~r/^[0-9a-f]{64}$/
+           end)
+  end
+
+  test "projects effective actions, every plugin declaration, and precedence aliases from supplied entries" do
+    assert {:ok, static} = Registry.static_projection()
+
+    app_entries = [%{app_id: :candidate_app, actions: [DirectAnswer]}]
+
+    plugin_entries = [
+      %{plugin_id: "candidate.module", status: :enabled, actions: [DirectAnswer]},
+      %{plugin_id: "candidate.name", status: :enabled, actions: [DuplicateDirectAnswer]},
+      %{plugin_id: "candidate.one", status: :enabled, actions: [PluginEcho]},
+      %{plugin_id: "candidate.two", status: :enabled, actions: [DuplicatePluginEcho]}
+    ]
+
+    assert {:ok, projection} = Registry.candidate_projection(static, app_entries, plugin_entries)
+    assert length(projection.effective) == 244
+    assert length(projection.plugin_declarations) == 4
+
+    assert Enum.map(projection.alias_sources, & &1.disposition) == [
+             :static_module,
+             :static_name,
+             :duplicate_plugin_name,
+             :duplicate_plugin_name
+           ]
+
+    assert Enum.at(projection.effective, 0).app_id == :candidate_app
+  end
+
+  test "rejects dangling and ambiguous supplied action membership" do
+    assert {:ok, static} = Registry.static_projection()
+
+    assert {:error, [%{detail: %{reason: :dangling_app_action_membership}}]} =
+             Registry.candidate_projection(
+               static,
+               [%{app_id: :candidate_app, actions: [__MODULE__]}],
+               []
+             )
+
+    assert {:error, [%{detail: %{reason: :ambiguous_app_action_membership}}]} =
+             Registry.candidate_projection(
+               static,
+               [
+                 %{app_id: :candidate_one, actions: [DirectAnswer]},
+                 %{app_id: :candidate_two, actions: [DirectAnswer]}
+               ],
+               []
+             )
   end
 end

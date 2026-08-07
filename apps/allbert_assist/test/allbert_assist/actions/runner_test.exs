@@ -12,7 +12,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures
 
   defmodule PluginEcho do
     use Jido.Action,
@@ -54,6 +54,99 @@ defmodule AllbertAssist.Actions.RunnerTest do
     def run(_params, _context), do: {:error, :boom}
   end
 
+  defmodule EpochRaceAction do
+    def name, do: "runner_epoch_race"
+    def description, do: "Deterministic Runner epoch replacement fixture."
+    def schema, do: []
+    def output_schema, do: []
+
+    def __action_metadata__ do
+      %{
+        name: name(),
+        description: description(),
+        schema: schema(),
+        output_schema: output_schema()
+      }
+    end
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    # Pause after Runner's registry/signal/preflight work and at the end of
+    # ParamContract validation. The test replaces E1 before Runner may call
+    # the action body, avoiding timing sleeps.
+    def validate_params(params) do
+      owner = Application.fetch_env!(:allbert_assist, :runner_epoch_race_owner)
+      send(owner, {:runner_epoch_params_validated, self()})
+
+      receive do
+        :continue_runner_epoch_race -> {:ok, params}
+      end
+    end
+
+    def run(_params, _context) do
+      owner = Application.fetch_env!(:allbert_assist, :runner_epoch_race_owner)
+      send(owner, :runner_epoch_action_executed)
+      {:ok, %{status: :completed}}
+    end
+  end
+
+  defmodule EpochReadiness do
+    use GenServer
+
+    def start_link(opts),
+      do: GenServer.start_link(__MODULE__, opts, name: Keyword.fetch!(opts, :name))
+
+    def rotate(server), do: GenServer.call(server, :rotate)
+
+    def status_calls(server, caller), do: GenServer.call(server, {:status_calls, caller})
+
+    @impl true
+    def init(_opts) do
+      {:ok, %{epoch: :e1, e1: spawn_epoch_pid(), e2: spawn_epoch_pid(), status_calls: %{}}}
+    end
+
+    @impl true
+    def handle_call(:status, {caller, _tag}, state) do
+      status_calls = Map.update(state.status_calls, caller, 1, &(&1 + 1))
+      {:reply, {:ok, status(state)}, %{state | status_calls: status_calls}}
+    end
+
+    def handle_call({:status_calls, caller}, _from, state),
+      do: {:reply, Map.get(state.status_calls, caller, 0), state}
+
+    def handle_call(:rotate, _from, state), do: {:reply, :ok, %{state | epoch: :e2}}
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.e1, :kill)
+      Process.exit(state.e2, :kill)
+    end
+
+    defp status(state) do
+      barrier_pid = Map.fetch!(state, state.epoch)
+
+      %{
+        phase: :ready,
+        barrier_pid: barrier_pid,
+        snapshot_digest: String.duplicate("a", 64),
+        expected_ids: [],
+        subscribed_ids: [],
+        acked_ids: [],
+        diagnostics: []
+      }
+    end
+
+    defp spawn_epoch_pid, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
+
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -69,7 +162,8 @@ defmodule AllbertAssist.Actions.RunnerTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    PluginRegistry.clear()
+    registry = RegistryIsolationFixtures.start_isolated_registries(:runner)
+    Process.put(:runner_registry, registry)
     configure_external()
     Logger.configure(level: :info)
 
@@ -78,7 +172,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
       restore_env(Memory, original_memory_config)
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      ShippedRegistries.restore!()
+      Process.delete(:runner_registry)
       File.rm_rf!(root)
     end)
 
@@ -167,16 +261,19 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   test "runs plugin-contributed actions through the normal runner boundary" do
     assert {:ok, "example.runner_actions"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.runner_actions",
-               display_name: "Example Runner Actions",
-               version: "0.1.0",
-               kind: "actions",
-               source: :project,
-               status: :enabled,
-               trust_status: :trusted,
-               actions: [PluginEcho]
-             })
+             PluginRegistry.register_entry(
+               %PluginEntry{
+                 plugin_id: "example.runner_actions",
+                 display_name: "Example Runner Actions",
+                 version: "0.1.0",
+                 kind: "actions",
+                 source: :project,
+                 status: :enabled,
+                 trust_status: :trusted,
+                 actions: [PluginEcho]
+               },
+               plugin_registry_opts()
+             )
 
     assert {:ok, response} = Runner.run("runner_plugin_echo", %{text: "hello"}, context())
 
@@ -189,27 +286,30 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   test "blocks explicitly unreleased action refs without blocking undeclared actions" do
     assert {:ok, "example.runner_actions"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.runner_actions",
-               display_name: "Example Runner Actions",
-               version: "0.1.0",
-               kind: "actions",
-               source: :project,
-               status: :enabled,
-               trust_status: :trusted,
-               actions: [PluginEcho],
-               release_availability: [
-                 %{
-                   kind: :action,
-                   id: "runner_plugin_echo",
-                   release_status: :implemented_not_released,
-                   live_use_allowed?: false,
-                   decision: "Implemented, but not released for live use.",
-                   decision_ref: "docs/plans/example.md",
-                   future_features_ref: nil
-                 }
-               ]
-             })
+             PluginRegistry.register_entry(
+               %PluginEntry{
+                 plugin_id: "example.runner_actions",
+                 display_name: "Example Runner Actions",
+                 version: "0.1.0",
+                 kind: "actions",
+                 source: :project,
+                 status: :enabled,
+                 trust_status: :trusted,
+                 actions: [PluginEcho],
+                 release_availability: [
+                   %{
+                     kind: :action,
+                     id: "runner_plugin_echo",
+                     release_status: :implemented_not_released,
+                     live_use_allowed?: false,
+                     decision: "Implemented, but not released for live use.",
+                     decision_ref: "docs/plans/example.md",
+                     future_features_ref: nil
+                   }
+                 ]
+               },
+               plugin_registry_opts()
+             )
 
     assert {:ok, blocked} = Runner.run("runner_plugin_echo", %{text: "hello"}, context())
 
@@ -250,16 +350,19 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   test "action errors are returned as structured error responses" do
     assert {:ok, "example.runner_failure"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.runner_failure",
-               display_name: "Example Runner Failure",
-               version: "0.1.0",
-               kind: "actions",
-               source: :project,
-               status: :enabled,
-               trust_status: :trusted,
-               actions: [PluginFailure]
-             })
+             PluginRegistry.register_entry(
+               %PluginEntry{
+                 plugin_id: "example.runner_failure",
+                 display_name: "Example Runner Failure",
+                 version: "0.1.0",
+                 kind: "actions",
+                 source: :project,
+                 status: :enabled,
+                 trust_status: :trusted,
+                 actions: [PluginFailure]
+               },
+               plugin_registry_opts()
+             )
 
     assert {:ok, response} =
              Runner.run("runner_plugin_failure", %{}, context())
@@ -271,6 +374,59 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert metadata.action_name == "runner_plugin_failure"
   end
 
+  test "same-digest E1 replacement before action invocation returns product_not_ready without re-admission" do
+    assert {:ok, "example.runner_epoch_race"} =
+             PluginRegistry.register_entry(
+               %PluginEntry{
+                 plugin_id: "example.runner_epoch_race",
+                 display_name: "Example Runner Epoch Race",
+                 version: "0.1.0",
+                 kind: "actions",
+                 source: :project,
+                 status: :enabled,
+                 trust_status: :trusted,
+                 actions: [EpochRaceAction]
+               },
+               plugin_registry_opts()
+             )
+
+    original_readiness = Process.whereis(AllbertAssist.Pack.Readiness)
+    assert is_pid(original_readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+
+    {:ok, replacement_readiness} =
+      EpochReadiness.start_link(name: AllbertAssist.Pack.Readiness)
+
+    Application.put_env(:allbert_assist, :runner_epoch_race_owner, self())
+
+    on_exit(fn ->
+      Application.delete_env(:allbert_assist, :runner_epoch_race_owner)
+
+      unregister_if_current(replacement_readiness)
+
+      if Process.alive?(replacement_readiness), do: GenServer.stop(replacement_readiness)
+
+      if Process.alive?(original_readiness) and
+           is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+         do: Process.register(original_readiness, AllbertAssist.Pack.Readiness)
+    end)
+
+    runner_context = context()
+    task = Task.async(fn -> Runner.run("runner_epoch_race", %{}, runner_context) end)
+
+    assert_receive {:runner_epoch_params_validated, runner_pid}
+    assert 2 == EpochReadiness.status_calls(replacement_readiness, runner_pid)
+    assert :ok = EpochReadiness.rotate(replacement_readiness)
+    send(runner_pid, :continue_runner_epoch_race)
+
+    assert {:ok, response} = Task.await(task)
+    assert response.status == :unavailable
+    assert response.error == :product_not_ready
+    assert is_nil(response.runner_metadata.completed_signal_id)
+    assert 3 == EpochReadiness.status_calls(replacement_readiness, runner_pid)
+    refute_received :runner_epoch_action_executed
+  end
+
   defp context do
     %{
       request: %{
@@ -278,12 +434,29 @@ defmodule AllbertAssist.Actions.RunnerTest do
         operator_id: "local",
         channel: :test
       },
-      agent: __MODULE__
+      agent: __MODULE__,
+      registry: Process.get(:runner_registry)
     }
+  end
+
+  defp plugin_registry_opts do
+    Process.get(:runner_registry)
+    |> Keyword.fetch!(:plugin)
+    |> Keyword.put(:side_effects, false)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp unregister_if_current(pid) do
+    if Process.whereis(AllbertAssist.Pack.Readiness) == pid do
+      try do
+        Process.unregister(AllbertAssist.Pack.Readiness)
+      rescue
+        ArgumentError -> :ok
+      end
+    end
+  end
 
   defp configure_external do
     assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})

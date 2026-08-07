@@ -17,6 +17,7 @@ defmodule AllbertAssist.Memory.Projection do
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Memory.Lexical
   alias AllbertAssist.Paths
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Projection.PromoteProtocol
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias Exqlite.Sqlite3
@@ -31,7 +32,9 @@ defmodule AllbertAssist.Memory.Projection do
             serving_conn: nil,
             diagnostics: [],
             tombstones: [],
-            ready?: false
+            ready?: false,
+            effect_guard: EffectGuard,
+            effect_guard_opts: []
 
   @type state :: %__MODULE__{}
 
@@ -92,7 +95,9 @@ defmodule AllbertAssist.Memory.Projection do
       serving_conn: serving_conn,
       diagnostics: diagnostics,
       tombstones: tombstones,
-      ready?: not is_nil(serving_conn)
+      ready?: not is_nil(serving_conn),
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+      effect_guard_opts: Keyword.get(opts, :effect_guard_opts, [])
     }
 
     # Forget recovery kicks the same managed rebuild, so it already covers the
@@ -122,24 +127,15 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   def handle_call(:rebuild, _from, state) do
-    case rebuild_generation(state, []) do
-      {:ok, result, state} -> {:reply, {:ok, result}, state}
-      {:error, reason, state} -> {:reply, {:error, reason}, state}
-    end
+    reply_effect(state, fn -> rebuild_generation(state, []) end)
   end
 
   def handle_call({:rebuild, opts}, _from, state) do
-    case rebuild_generation(state, opts) do
-      {:ok, result, state} -> {:reply, {:ok, result}, state}
-      {:error, reason, state} -> {:reply, {:error, reason}, state}
-    end
+    reply_effect(state, fn -> rebuild_generation(state, opts) end)
   end
 
   def handle_call({:refresh_claim, claim_id}, _from, %{ready?: true} = state) do
-    case refresh_canonical_claim(state, claim_id) do
-      {:ok, result, state} -> {:reply, {:ok, result}, state}
-      {:error, reason, state} -> {:reply, {:error, reason}, state}
-    end
+    reply_effect(state, fn -> refresh_canonical_claim(state, claim_id) end)
   end
 
   def handle_call({:refresh_claim, _claim_id}, _from, state) do
@@ -147,20 +143,22 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   def handle_call({:replace_after_forgets, claim_ids}, _from, state) do
-    case rebuild_generation(state) do
-      {:ok, _result, rebuilt} ->
-        with :ok <- retire_noncurrent_generations(rebuilt.root),
-             control = Map.put(rebuilt.control, "previous_generation_id", nil),
-             :ok <- write_control(rebuilt.root, control),
-             {:ok, tombstones} <- Forget.load_tombstones() do
-          {:reply, :ok, %{rebuilt | control: control, tombstones: tombstones}}
-        else
-          {:error, reason} -> {:reply, {:error, reason}, mark_dirty(rebuilt, reason)}
-        end
+    with_effect_reply(state, fn ->
+      case rebuild_generation(state) do
+        {:ok, _result, rebuilt} ->
+          with :ok <- retire_noncurrent_generations(rebuilt.root),
+               control = Map.put(rebuilt.control, "previous_generation_id", nil),
+               :ok <- write_control(rebuilt.root, control),
+               {:ok, tombstones} <- Forget.load_tombstones() do
+            {:reply, :ok, %{rebuilt | control: control, tombstones: tombstones}}
+          else
+            {:error, reason} -> {:reply, {:error, reason}, mark_dirty(rebuilt, reason)}
+          end
 
-      {:error, reason, failed} ->
-        {:reply, {:error, {:forget_projection_rebuild_failed, claim_ids, reason}}, failed}
-    end
+        {:error, reason, failed} ->
+          {:reply, {:error, {:forget_projection_rebuild_failed, claim_ids, reason}}, failed}
+      end
+    end)
   end
 
   def handle_call({:history, claim_id}, _from, %{ready?: true} = state) do
@@ -181,16 +179,21 @@ defmodule AllbertAssist.Memory.Projection do
 
   @impl true
   def handle_cast({:queue_repair, reasons}, state) do
-    safe_reasons = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
-    state = mark_dirty(state, {:canonical_revalidation_failed, safe_reasons})
+    with {:ok, epoch} <- admit_epoch(state),
+         :ok <- validate_epoch(state, epoch) do
+      safe_reasons = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
+      state = mark_dirty(state, {:canonical_revalidation_failed, safe_reasons})
 
-    if repair_owner?(), do: send(self(), :kick_projection_repair)
-    {:noreply, state}
+      if repair_owner?(), do: send(self(), :kick_projection_repair)
+      {:noreply, state}
+    else
+      {:error, _reason} -> {:noreply, state}
+    end
   end
 
   @impl true
   def handle_continue(:bootstrap_projection, state) do
-    case kick_forget_recovery() do
+    case kick_if_ready(state) do
       {:ok, _result} ->
         {:noreply, state}
 
@@ -202,7 +205,7 @@ defmodule AllbertAssist.Memory.Projection do
 
   @impl true
   def handle_info(:kick_forget_recovery, state) do
-    case kick_forget_recovery() do
+    case kick_if_ready(state) do
       {:ok, _result} ->
         {:noreply, state}
 
@@ -213,7 +216,7 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   def handle_info(:kick_projection_repair, state) do
-    case kick_forget_recovery() do
+    case kick_if_ready(state) do
       {:ok, _result} ->
         {:noreply, state}
 
@@ -237,6 +240,38 @@ defmodule AllbertAssist.Memory.Projection do
       false
     end
   end
+
+  defp reply_effect(state, fun) do
+    with_effect_reply(state, fn ->
+      case fun.() do
+        {:ok, result, next} -> {:reply, {:ok, result}, next}
+        {:error, reason, next} -> {:reply, {:error, reason}, next}
+      end
+    end)
+  end
+
+  defp with_effect_reply(state, fun) do
+    with {:ok, epoch} <- admit_epoch(state),
+         :ok <- validate_epoch(state, epoch) do
+      fun.()
+    else
+      {:error, _reason} -> {:reply, {:error, :product_not_ready}, state}
+    end
+  end
+
+  defp kick_if_ready(state) do
+    with {:ok, epoch} <- admit_epoch(state),
+         :ok <- validate_epoch(state, epoch) do
+      kick_forget_recovery()
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp admit_epoch(%{effect_guard: guard, effect_guard_opts: opts}), do: guard.admit_ready(opts)
+
+  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts}, epoch),
+    do: guard.validate(epoch, opts)
 
   # v1.3 M9.b.11.c. This used to be `WriterLockHolder.enabled?()`, which reads
   # the `ALLBERT_HOLD_WRITER_LOCK` environment variable. That variable describes

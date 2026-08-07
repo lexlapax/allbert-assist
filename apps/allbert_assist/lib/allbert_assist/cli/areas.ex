@@ -11,6 +11,9 @@ defmodule AllbertAssist.CLI.Areas do
   `AllbertAssist.CLI`).
   """
 
+  alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Surfaces.ContextBuilder
+
   @doc """
   Run an area dispatcher from a Mix task: print output on success, raise on
   failure.
@@ -22,7 +25,25 @@ defmodule AllbertAssist.CLI.Areas do
   """
   @spec run(module(), [String.t()]) :: :ok
   def run(area_module, argv) do
-    case area_module.dispatch(argv, nil) do
+    case EffectGuard.admit_ready() do
+      {:ok, epoch} ->
+        context =
+          ContextBuilder.cli_context(
+            surface: "mix #{inspect(area_module)}",
+            allbert_pack_epoch: epoch
+          )
+
+        run(area_module, argv, context)
+
+      {:error, :product_not_ready} ->
+        Mix.raise("Allbert product is not ready; retry the command.")
+    end
+  end
+
+  @doc false
+  @spec run(module(), [String.t()], map() | nil) :: :ok
+  def run(area_module, argv, context) do
+    case area_module.dispatch(argv, context) do
       {output, 0} ->
         if output != "", do: Mix.shell().info(output)
         :ok

@@ -47,6 +47,43 @@ defmodule AllbertAssist.Channels.DiscordTest do
     end
   end
 
+  defmodule RotatingReadiness do
+    use GenServer
+
+    def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok)
+    def status_calls(server), do: GenServer.call(server, :status_calls)
+
+    @impl true
+    def init(:ok), do: {:ok, %{calls: 0, e1: barrier(), e2: barrier()}}
+
+    @impl true
+    def handle_call(:status, _from, state) do
+      barrier_pid = if state.calls == 0, do: state.e1, else: state.e2
+
+      {:reply,
+       {:ok,
+        %{
+          phase: :ready,
+          barrier_pid: barrier_pid,
+          snapshot_digest: String.duplicate("a", 64),
+          expected_ids: [],
+          subscribed_ids: [],
+          acked_ids: [],
+          diagnostics: []
+        }}, %{state | calls: state.calls + 1}}
+    end
+
+    def handle_call(:status_calls, _from, state), do: {:reply, state.calls, state}
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.e1, :kill)
+      Process.exit(state.e2, :kill)
+    end
+
+    defp barrier, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
+
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -519,6 +556,31 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
     assert Enum.any?(refs, &(&1.direction == "in"))
     assert Enum.any?(refs, &(&1.direction == "out"))
+  end
+
+  test "same-digest epoch replacement rejects inbound dispatch before runtime effect" do
+    readiness = start_supervised!(RotatingReadiness)
+
+    assert {:ok, adapter} =
+             Adapter.start_link(
+               name: nil,
+               client_opts: [mode: :stub],
+               readiness_server: readiness
+             )
+
+    event =
+      Parser.simulated_message_event(%{
+        guild_id: "987654321",
+        channel_id: "22222",
+        user_id: "11111",
+        application_id: "123456",
+        text: "must not reach runtime"
+      })
+
+    assert {:error, :product_not_ready} = Adapter.simulate_gateway_event(adapter, event)
+    assert 2 == RotatingReadiness.status_calls(readiness)
+    refute_received {:runtime_request, _request}
+    GenServer.stop(adapter)
   end
 
   test "adapter rejects unmapped users and non-allowlisted channels before runtime" do

@@ -8,6 +8,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.StdioServer do
   """
 
   alias AllbertAssist.App.CoreApp
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.PublicProtocol.Mcp.{ProtocolVersions, Runtime, Schema}
   alias AllbertAssist.Surfaces.ContextBuilder
 
@@ -119,7 +120,10 @@ defmodule AllbertAssist.PublicProtocol.Mcp.StdioServer do
     arguments = Map.get(params, "arguments", %{})
 
     with :ok <- ensure_initialized(state),
-         {:ok, payload} <- Runtime.call_tool(name, arguments, context(state), "mcp_stdio") do
+         {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch),
+         {:ok, payload} <-
+           Runtime.call_tool(name, arguments, context(state, epoch), "mcp_stdio") do
       {:ok, tool_result(payload), state}
     else
       {:error, error = {_code, _message, _data}} ->
@@ -144,7 +148,9 @@ defmodule AllbertAssist.PublicProtocol.Mcp.StdioServer do
 
   defp dispatch("resources/read", %{"uri" => uri}, _request_id, state) when is_binary(uri) do
     with :ok <- ensure_initialized(state),
-         {:ok, payload} <- Runtime.read_resource(uri, context(state), "mcp_stdio") do
+         {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch),
+         {:ok, payload} <- Runtime.read_resource(uri, context(state, epoch), "mcp_stdio") do
       {:ok,
        %{
          "contents" => [
@@ -225,8 +231,10 @@ defmodule AllbertAssist.PublicProtocol.Mcp.StdioServer do
     }
   end
 
-  defp context(state) do
-    ContextBuilder.public_protocol_context("mcp_stdio", state.client_id)
+  defp context(state, epoch) do
+    ContextBuilder.public_protocol_context("mcp_stdio", state.client_id,
+      allbert_pack_epoch: epoch
+    )
   end
 
   defp client_id(%{"clientInfo" => %{"name" => name}}) when is_binary(name) and name != "",

@@ -7,9 +7,20 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssistWeb.Workspace.Components.Base
   alias AllbertAssistWeb.Workspace.Components.Patterns
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
+
+  @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
 
   @impl true
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     node = Map.fetch!(assigns, :node)
     props = node.props || %{}
 
@@ -252,6 +263,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
     socket.assigns
     |> Map.get(:renderer_context, %{})
     |> ContextBuilder.live_view_context(surface: "/workspace")
+    |> Map.put(:allbert_pack_epoch, Map.get(socket.assigns, :allbert_pack_epoch))
   end
 
   defp preview_title(preview, node) do

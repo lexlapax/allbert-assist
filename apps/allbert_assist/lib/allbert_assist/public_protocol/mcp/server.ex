@@ -9,6 +9,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Server do
   """
 
   alias AllbertAssist.App.CoreApp
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
   alias AllbertAssist.PublicProtocol.Mcp.Runtime
   alias AllbertAssist.Surfaces.ContextBuilder
@@ -35,25 +36,35 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Server do
 
   @impl true
   def handle_tool_call(name, arguments, frame) do
-    context = context(frame)
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      case Runtime.call_tool(name, arguments, context(frame, epoch)) do
+        {:ok, payload} ->
+          {:reply, Response.json(Response.tool(), payload), frame}
 
-    case Runtime.call_tool(name, arguments, context) do
-      {:ok, payload} ->
-        {:reply, Response.json(Response.tool(), payload), frame}
-
-      {:error, reason} ->
-        {:reply, Response.error(Response.tool(), error_message(reason)), frame}
+        {:error, reason} ->
+          {:reply, Response.error(Response.tool(), error_message(reason)), frame}
+      end
+    else
+      {:error, _reason} ->
+        {:reply, Response.error(Response.tool(), error_message(:product_not_ready)), frame}
     end
   end
 
   @impl true
   def handle_resource_read(uri, frame) do
-    case Runtime.read_resource(uri, context(frame)) do
-      {:ok, payload} ->
-        {:reply, Response.json(Response.resource(), payload), frame}
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      case Runtime.read_resource(uri, context(frame, epoch)) do
+        {:ok, payload} ->
+          {:reply, Response.json(Response.resource(), payload), frame}
 
-      {:error, reason} ->
-        {:error, Error.resource(:not_found, %{message: error_message(reason)}), frame}
+        {:error, reason} ->
+          {:error, Error.resource(:not_found, %{message: error_message(reason)}), frame}
+      end
+    else
+      {:error, _reason} ->
+        {:error, Error.resource(:not_found, %{message: error_message(:product_not_ready)}), frame}
     end
   end
 
@@ -85,14 +96,14 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Server do
     end
   end
 
-  defp context(frame) do
+  defp context(frame, epoch) do
     client_id =
       Map.get(frame.assigns, :public_protocol_client_id) ||
         get_in(frame.private, [:client_info, "name"]) ||
         get_in(frame.private, [:client_info, :name]) ||
         "stdio-client"
 
-    ContextBuilder.public_protocol_context("mcp_stdio", client_id)
+    ContextBuilder.public_protocol_context("mcp_stdio", client_id, allbert_pack_epoch: epoch)
   end
 
   defp client_id(%{"name" => name}) when is_binary(name) and name != "", do: name

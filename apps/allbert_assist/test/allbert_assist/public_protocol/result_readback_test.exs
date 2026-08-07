@@ -8,6 +8,20 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackTest do
 
   @now ~U[2026-06-09 12:00:00Z]
 
+  defmodule SameDigestReplacementGuard do
+    def admit_ready(_opts),
+      do: {:ok, %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}}
+
+    def validate(_epoch, _opts), do: {:error, :stale_epoch}
+  end
+
+  defmodule SweepProbe do
+    def sweep_expired(opts) do
+      send(Keyword.fetch!(opts, :notify), :readback_sweep_effect)
+      {:ok, 0}
+    end
+  end
+
   test "client gets pending before approval and approved result after confirmation resolution" do
     assert {:ok, call_result} =
              ResultReadback.create(
@@ -198,6 +212,21 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackTest do
              updated = Repo.get!(CallResult, call_result.id)
              updated.status == "expired" and updated.result == %{} and updated.error == %{}
            end)
+  end
+
+  test "same-digest replacement rejects the admitted sweep epoch before the durable sweep" do
+    name = :"result_readback_epoch_#{System.unique_integer([:positive])}"
+
+    start_supervised!(
+      {ResultReadbackSweeper,
+       name: name,
+       schedule?: false,
+       result_readback: SweepProbe,
+       effect_guard: SameDigestReplacementGuard}
+    )
+
+    assert {:error, :product_not_ready} = ResultReadbackSweeper.run_once(name, notify: self())
+    refute_received :readback_sweep_effect
   end
 
   defp eventually(fun, attempts \\ 20)

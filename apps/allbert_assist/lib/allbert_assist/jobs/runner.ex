@@ -3,7 +3,7 @@ defmodule AllbertAssist.Jobs.Runner do
   Manual and scheduler execution boundary for scheduled jobs.
 
   The runner does not execute job targets directly. Runtime prompt jobs flow
-  through `AllbertAssist.Runtime.submit_user_input/1`; registered action jobs
+  through `AllbertAssist.Runtime.submit_user_input/2`; registered action jobs
   flow through `AllbertAssist.Actions.Runner.run/3`.
   """
 
@@ -15,6 +15,7 @@ defmodule AllbertAssist.Jobs.Runner do
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
@@ -30,12 +31,17 @@ defmodule AllbertAssist.Jobs.Runner do
   def run_now(job_or_id, opts \\ []) do
     opts = to_map(opts)
 
-    with {:ok, job} <- resolve_job(job_or_id),
-         :ok <- reject_blocked_job(job),
-         {:ok, admission} <-
-           Jobs.admit_run(job, %{trigger: "manual", due_at: Map.get(opts, :due_at)}) do
-      run_admission(job, admission, opts)
-    end
+    result =
+      with {:ok, epoch, opts} <- require_carried_epoch(opts),
+           :ok <- EffectGuard.validate(epoch),
+           {:ok, job} <- resolve_job(job_or_id),
+           :ok <- reject_blocked_job(job),
+           {:ok, admission} <-
+             Jobs.admit_run(job, %{trigger: "manual", due_at: Map.get(opts, :due_at)}) do
+        run_admission(job, admission, opts)
+      end
+
+    normalize_product_not_ready(result)
   end
 
   defp run_admission(job, %Run{} = run, opts), do: execute_run(job, run, opts)
@@ -55,12 +61,17 @@ defmodule AllbertAssist.Jobs.Runner do
     started_at = utc_now()
     started_monotonic = System.monotonic_time(:millisecond)
 
-    with {:ok, running_run} <-
-           Jobs.update_run(run, %{status: "running", started_at: started_at}) do
-      job
-      |> execute_target(running_run, opts)
-      |> finish_run(job, running_run, started_at, started_monotonic)
-    end
+    result =
+      with {:ok, epoch, opts} <- require_carried_epoch(opts),
+           :ok <- EffectGuard.validate(epoch),
+           {:ok, running_run} <-
+             Jobs.update_run(run, %{status: "running", started_at: started_at}) do
+        job
+        |> execute_target(running_run, opts)
+        |> finish_run(job, running_run, started_at, started_monotonic, epoch)
+      end
+
+    normalize_product_not_ready(result)
   end
 
   def execute_run(_job, _run, _opts), do: {:error, :invalid_run}
@@ -77,7 +88,9 @@ defmodule AllbertAssist.Jobs.Runner do
   defp execute_target(%Job{target_type: "runtime_prompt"} = job, run, opts) do
     with :ok <- validate_runtime_thread(job),
          {:ok, request} <- runtime_request(job, run, opts) do
-      Runtime.submit_user_input(request)
+      Runtime.submit_user_input(request,
+        allbert_pack_epoch: Map.fetch!(opts, :allbert_pack_epoch)
+      )
     end
   end
 
@@ -162,7 +175,9 @@ defmodule AllbertAssist.Jobs.Runner do
       agent: __MODULE__
     }
 
-    Map.merge(base_context, action_context_overlay(opts))
+    base_context
+    |> Map.merge(action_context_overlay(opts))
+    |> Map.put(:allbert_pack_epoch, Map.fetch!(opts, :allbert_pack_epoch))
   end
 
   defp action_context_overlay(%{action_context: context}) when is_map(context), do: context
@@ -179,7 +194,7 @@ defmodule AllbertAssist.Jobs.Runner do
     }
   end
 
-  defp finish_run({:ok, response}, job, run, _started_at, started_monotonic) do
+  defp finish_run({:ok, response}, job, run, _started_at, started_monotonic, epoch) do
     duration_ms = System.monotonic_time(:millisecond) - started_monotonic
 
     attrs =
@@ -187,17 +202,20 @@ defmodule AllbertAssist.Jobs.Runner do
       |> success_run_attrs(duration_ms, run)
       |> Map.put(:finished_at, utc_now())
 
-    with {:ok, finished_run} <-
+    with :ok <- EffectGuard.validate(epoch),
+         {:ok, finished_run} <-
            Runtime.track_delivery(response, %{channel: :job}, fn ->
              Jobs.update_run(run, attrs)
            end),
+         :ok <- EffectGuard.validate(epoch),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: :job}),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, updated_job} <- update_job_after_run(job, finished_run, response) do
       {:ok, %{job: updated_job, run: finished_run, response: response}}
     end
   end
 
-  defp finish_run({:error, reason}, job, run, _started_at, started_monotonic) do
+  defp finish_run({:error, reason}, job, run, _started_at, started_monotonic, epoch) do
     duration_ms = System.monotonic_time(:millisecond) - started_monotonic
 
     attrs = %{
@@ -211,7 +229,9 @@ defmodule AllbertAssist.Jobs.Runner do
       "scheduled job run failed job_id=#{job.id} run_id=#{run.id} reason=#{inspect(reason)}"
     )
 
-    with {:ok, failed_run} <- Jobs.update_run(run, attrs),
+    with :ok <- EffectGuard.validate(epoch),
+         {:ok, failed_run} <- Jobs.update_run(run, attrs),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, updated_job} <- update_job_after_run(job, failed_run, nil) do
       {:ok, %{job: updated_job, run: failed_run, response: nil}}
     end
@@ -349,6 +369,18 @@ defmodule AllbertAssist.Jobs.Runner do
   defp to_map(opts) when is_map(opts), do: opts
   defp to_map(opts) when is_list(opts), do: Map.new(opts)
   defp to_map(_opts), do: %{}
+
+  defp require_carried_epoch(%{allbert_pack_epoch: epoch} = opts) do
+    with :ok <- EffectGuard.validate(epoch), do: {:ok, epoch, opts}
+  end
+
+  defp require_carried_epoch(_opts), do: {:error, :product_not_ready}
+
+  defp normalize_product_not_ready({:error, reason})
+       when reason in [:product_not_ready, :stale_epoch],
+       do: {:error, :product_not_ready}
+
+  defp normalize_product_not_ready(result), do: result
 
   defp drop_nil_values(map), do: Map.reject(map, fn {_key, value} -> is_nil(value) end)
 

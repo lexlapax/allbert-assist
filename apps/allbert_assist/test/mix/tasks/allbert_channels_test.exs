@@ -5,9 +5,11 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.CLI.Areas.Channels, as: ChannelsArea
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
   alias AllbertAssist.Plugins.Email, as: EmailPlugin
@@ -26,6 +28,42 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
 
   setup {Req.Test, :verify_on_exit!}
+
+  defmodule EpochReadiness do
+    use GenServer
+
+    def start_link(opts),
+      do: GenServer.start_link(__MODULE__, :ok, name: Keyword.fetch!(opts, :name))
+
+    def rotate(server), do: GenServer.call(server, :rotate)
+
+    @impl true
+    def init(:ok), do: {:ok, %{epoch: :e1, e1: spawn_epoch(), e2: spawn_epoch()}}
+
+    @impl true
+    def handle_call(:status, _from, state), do: {:reply, {:ok, status(state)}, state}
+    def handle_call(:rotate, _from, state), do: {:reply, :ok, %{state | epoch: :e2}}
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.e1, :kill)
+      Process.exit(state.e2, :kill)
+    end
+
+    defp status(state) do
+      %{
+        phase: :ready,
+        barrier_pid: Map.fetch!(state, state.epoch),
+        snapshot_digest: String.duplicate("a", 64),
+        expected_ids: [],
+        subscribed_ids: [],
+        acked_ids: [],
+        diagnostics: []
+      }
+    end
+
+    defp spawn_epoch, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
 
   defmodule FakeDoctorImapClient do
     def connect(_host, _port, opts), do: {:ok, %{opts: opts}}
@@ -837,6 +875,46 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
            ) == {:error, :not_mapped}
   end
 
+  test "rejects a same-digest stale epoch before a telegram simulation records an event" do
+    original_readiness = Process.whereis(AllbertAssist.Pack.Readiness)
+    assert is_pid(original_readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+
+    {:ok, replacement_readiness} = EpochReadiness.start_link(name: AllbertAssist.Pack.Readiness)
+
+    on_exit(fn ->
+      unregister_if_current(replacement_readiness)
+
+      if Process.alive?(replacement_readiness), do: GenServer.stop(replacement_readiness)
+
+      if Process.alive?(original_readiness) and
+           is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+         do: Process.register(original_readiness, AllbertAssist.Pack.Readiness)
+    end)
+
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    assert :ok = EpochReadiness.rotate(replacement_readiness)
+    before_count = Repo.aggregate(Event, :count, :id)
+
+    assert {output, 1} =
+             ChannelsArea.dispatch(
+               [
+                 "telegram",
+                 "simulate",
+                 "--external-user",
+                 "stale",
+                 "--chat",
+                 "stale",
+                 "no write"
+               ],
+               %{allbert_pack_epoch: epoch}
+             )
+
+    assert output =~ ":product_not_ready"
+    assert Repo.aggregate(Event, :count, :id) == before_count
+    refute_received {:runtime_request, _request}
+  end
+
   test "maps identities and simulates both channels without provider access" do
     capture_io(fn ->
       assert :ok =
@@ -1266,6 +1344,16 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+
+  defp unregister_if_current(pid) do
+    if Process.whereis(AllbertAssist.Pack.Readiness) == pid do
+      try do
+        Process.unregister(AllbertAssist.Pack.Readiness)
+      rescue
+        ArgumentError -> :ok
+      end
+    end
+  end
 
   defp json(conn, body) do
     status = conn.status || 200

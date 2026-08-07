@@ -141,6 +141,11 @@ business-logic debugging, code review, or repository-specific architecture revie
   triage. Rejoin every worker at the root and require Sol review before a
   milestone commit or push; Luna never owns cross-milestone judgment or final
   acceptance. Use the project-scoped agents in `.codex/agents/`.
+- Publish every implementation milestone in two recoverable commits: first an
+  explicitly non-acceptance implementation checkpoint after the worktree is
+  quiescent, formatted, warning-free compiling, and bounded focused tests pass;
+  then the milestone acceptance/evidence commit after review, remediation, the
+  complete planned gates, and documentation updates. Push both checkpoints.
 - Strict no-doc proliferation: do not create new release-planning docs, sidecar
   handoff docs, or extra milestone docs without explicit user permission. Fold
   milestone detail into the active plan, request-flow, and relevant ADRs.

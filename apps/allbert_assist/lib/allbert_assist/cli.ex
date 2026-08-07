@@ -17,39 +17,16 @@ defmodule AllbertAssist.CLI do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Ask
   alias AllbertAssist.CLI.Commands
+  alias AllbertAssist.CLI.EntryPlan
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.FirstRun.Presentation
   alias AllbertAssist.Licenses
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Portability.Export
   alias AllbertAssist.Portability.Import
-  alias AllbertAssist.Runtime.{Attach, WriterLock}
+  alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Surfaces.ContextBuilder
-
-  @doc """
-  Print + halt entry called by the release launcher.
-
-  Commands that reach the runtime (actions and DB-backed reads) need the OTP
-  apps started — under `eval` they are only loaded. `main/1` first tries the
-  local daemon attach transport. If no daemon is reachable, it starts the
-  embedded fallback under the single-writer lock (Locked Decision 5); if the
-  lock is held and attach is unavailable, it fails fast with repair guidance.
-  Pure commands (help, version, licenses, first-run detection) skip runtime entirely.
-  """
-  @spec main([String.t()]) :: no_return()
-  def main(argv) do
-    configure_logging()
-    {stream, output, code} = run_entry(argv)
-
-    if output != "" do
-      case stream do
-        :stderr -> IO.puts(:stderr, output)
-        :stdout -> IO.puts(output)
-      end
-    end
-
-    System.halt(code)
-  end
 
   # v0.63 (operator-validation F1): a packaged CLI command boots the embedded runtime,
   # whose :info plugin/registration/migration logs would otherwise flood the operator's
@@ -92,63 +69,40 @@ defmodule AllbertAssist.CLI do
   end
 
   @doc false
-  @spec run_entry([String.t()]) :: {:stdout | :stderr, String.t(), non_neg_integer()}
-  def run_entry(["licenses" | args]) do
-    case Licenses.view(args) do
-      {:ok, %{output: output}} -> {:stdout, output, 0}
-      {:error, %{message: message, exit_status: status}} -> {:stderr, message, status}
-    end
-  end
+  @spec run_attached([String.t()]) ::
+          {String.t(), non_neg_integer()}
+          | {:error, {:command_rejected, :product_not_ready}}
+  def run_attached(argv) do
+    plan = entry_plan(argv)
 
-  def run_entry(argv) do
-    # v0.63 M8.1: under `mix release` `eval`, OTP apps are LOADED but not STARTED. Pure /
-    # first-run commands skip the DB runtime, but still make HTTP calls (the Ollama
-    # first-model probe on the post-completion `detect` path → Req), which need Req's
-    # `Req.Finch` pool started by `Req.Application.start/2`. Start the HTTP client here —
-    # idempotent, HTTP-only (no DB, no writer lock), so it does not breach the
-    # "pure commands skip the runtime" invariant; `:req` is the HTTP client, not the
-    # Allbert runtime. Runtime-needing commands already get it transitively.
-    _ = Application.ensure_all_started(:req)
+    case plan.disposition do
+      :runtime_required ->
+        with {:ok, epoch} <- EffectGuard.admit_ready(),
+             result <- run_attached(argv, allbert_pack_epoch: epoch) do
+          result
+        else
+          _error -> {:error, {:command_rejected, :product_not_ready}}
+        end
 
-    case ensure_runtime(argv) do
-      {:attached, output, code} ->
-        maybe_attach_marker()
-        {:stdout, output, code}
-
-      :ok ->
-        {output, code} = run(argv)
-        {:stdout, output, code}
-
-      {:error, message} ->
-        {:stderr, message, 3}
-    end
-  end
-
-  # v0.62 M8.9: prove attach vs embedded to the smoke harness / debugging without
-  # polluting normal stdout — emit a one-line stderr marker only when asked.
-  defp maybe_attach_marker do
-    if System.get_env("ALLBERT_ATTACH_DEBUG") in ["1", "true"] do
-      IO.puts(:stderr, "allbert: served by the running daemon (attached)")
+      _runtime_free ->
+        run_attached(argv, [])
     end
   end
 
   @doc false
-  @spec run_attached([String.t()]) :: {String.t(), non_neg_integer()}
-  def run_attached(argv), do: run(argv)
+  @spec run_attached([String.t()], keyword()) ::
+          {String.t(), non_neg_integer()}
+          | {:error, {:command_rejected, :product_not_ready}}
+  def run_attached(argv, opts) do
+    plan = entry_plan(argv)
 
-  # Start the OTP apps (embedded fallback) only when the resolved command needs
-  # the runtime; guard with the writer lock so we never open a second writer
-  # against a database a daemon already owns.
-  defp ensure_runtime(argv) do
-    if needs_runtime?(argv) do
-      db = AllbertAssist.Database.repo_database_path()
-
-      case classify_attach(Attach.run(argv)) do
-        :fallback -> embedded_runtime(db)
-        resolved -> resolved
-      end
+    with :ok <- validate_local_options(opts),
+         :ok <- validate_plan_epoch(plan, opts) do
+      {_stream, output, code} = run_classified(plan, opts)
+      {output, code}
     else
-      :ok
+      {:error, reason} when reason in [:invalid_options, :product_not_ready, :stale_epoch] ->
+        {:error, {:command_rejected, :product_not_ready}}
     end
   end
 
@@ -195,26 +149,13 @@ defmodule AllbertAssist.CLI do
   def classify_attach({:error, :busy}),
     do: {:error, "The running Allbert daemon is busy; please retry the command."}
 
+  def classify_attach({:error, {:command_rejected, :product_not_ready}}),
+    do: {:error, "Allbert product is not ready; retry the command."}
+
   # Transport failed before any reply (:not_available/:closed/:timeout/
   # :econnrefused/:enoent/posix) — the command did NOT run on the daemon, so the
   # embedded fallback is safe.
   def classify_attach({:error, _reason}), do: :fallback
-
-  defp embedded_runtime(db) do
-    cond do
-      is_nil(db) ->
-        start_apps()
-
-      WriterLock.held_by_another?(db) ->
-        {:error,
-         "Another Allbert runtime is using this database, but the attach " <>
-           "transport is unavailable. Stop `allbert serve`, or repair the " <>
-           "daemon's Allbert Home runtime socket."}
-
-      true ->
-        start_apps()
-    end
-  end
 
   defp needs_runtime?(argv) do
     case run_routing(argv) do
@@ -254,43 +195,153 @@ defmodule AllbertAssist.CLI do
     end
   end
 
-  defp start_apps do
-    # F4: mark this as a one-off CLI embedded boot so app registration can skip the heavy,
-    # web-only surface population (marketplace catalog actions, discovery DB query, MCP
-    # config resolves) whose rendered content a headless command never uses. `serve` boots
-    # via `bin/allbert start` and never reaches here, so it keeps full surfacing.
-    Application.put_env(:allbert_assist, :cli_oneshot?, true)
+  @doc "Classify one invocation without starting applications or probing a provider."
+  @spec entry_plan([String.t()]) :: EntryPlan.t()
+  def entry_plan(argv) when is_list(argv) do
+    case argv do
+      ["licenses" | _args] ->
+        %EntryPlan{
+          schema_version: 1,
+          argv: argv,
+          disposition: :license_view,
+          route: :licenses,
+          first_run_state: :not_applicable
+        }
 
-    case Application.ensure_all_started(:allbert_assist) do
-      {:ok, _started} -> :ok
-      {:error, reason} -> {:error, "failed to start runtime: #{inspect(reason)}"}
+      [] ->
+        first_run_entry_plan()
+
+      _other ->
+        %EntryPlan{
+          schema_version: 1,
+          argv: argv,
+          disposition: if(needs_runtime?(argv), do: :runtime_required, else: :runtime_free),
+          route: :command,
+          first_run_state: :not_applicable
+        }
     end
   end
 
-  @doc "Pure dispatch: argv -> {rendered_output, exit_code}."
+  @doc "Execute an already-classified invocation without attach or composition startup."
+  @spec run_local(EntryPlan.t(), keyword()) ::
+          {:stdout | :stderr, String.t(), non_neg_integer()}
+  def run_local(%EntryPlan{} = plan, opts \\ []) do
+    with :ok <- validate_local_options(opts),
+         :ok <- validate_plan_epoch(plan, opts) do
+      run_classified(plan, opts)
+    else
+      {:error, :invalid_options} ->
+        {:stderr, "Invalid CLI readiness options.", 3}
+
+      {:error, :product_not_ready} ->
+        {:stderr, "Allbert product is not ready; retry the command.", 3}
+
+      {:error, :stale_epoch} ->
+        {:stderr, "Allbert product is not ready; retry the command.", 3}
+    end
+  end
+
+  @doc "Compatibility dispatch: admit one current epoch for runtime-bearing commands."
   @spec run([String.t()]) :: {String.t(), non_neg_integer()}
   def run(argv) do
+    plan = entry_plan(argv)
+
+    opts =
+      case plan.disposition do
+        :runtime_required ->
+          case EffectGuard.admit_ready() do
+            {:ok, epoch} -> [allbert_pack_epoch: epoch]
+            {:error, :product_not_ready} -> :unavailable
+          end
+
+        _runtime_free ->
+          []
+      end
+
+    case opts do
+      :unavailable ->
+        {"Allbert product is not ready; retry the command.", 3}
+
+      local_opts ->
+        {_stream, output, code} = run_local(plan, local_opts)
+        {output, code}
+    end
+  end
+
+  defp first_run_entry_plan do
+    state =
+      case FirstRun.detect(first_model_state: :local_ready) do
+        state when state in [:home_missing, :schema_incompatible, :onboarding_incomplete] -> state
+        _post_onboarding -> :provider_probe_required
+      end
+
+    %EntryPlan{
+      schema_version: 1,
+      argv: [],
+      disposition:
+        if(state == :provider_probe_required, do: :runtime_required, else: :runtime_free),
+      route: :first_run,
+      first_run_state: state
+    }
+  end
+
+  defp validate_local_options([]), do: :ok
+  defp validate_local_options([{:allbert_pack_epoch, _epoch}]), do: :ok
+  defp validate_local_options(_opts), do: {:error, :invalid_options}
+
+  defp validate_plan_epoch(%EntryPlan{disposition: :runtime_required}, opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> EffectGuard.validate(epoch)
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp validate_plan_epoch(%EntryPlan{}, []), do: :ok
+  defp validate_plan_epoch(%EntryPlan{}, [_carrier]), do: {:error, :invalid_options}
+
+  defp run_classified(%EntryPlan{route: :licenses, argv: ["licenses" | args]}, _opts) do
+    case Licenses.view(args) do
+      {:ok, %{output: output}} -> {:stdout, output, 0}
+      {:error, %{message: message, exit_status: status}} -> {:stderr, message, status}
+    end
+  end
+
+  defp run_classified(%EntryPlan{route: :first_run, first_run_state: state}, _opts)
+       when state in [:home_missing, :schema_incompatible, :onboarding_incomplete] do
+    {:stdout, first_run_state_message(state, :ready), 0}
+  end
+
+  defp run_classified(%EntryPlan{route: :first_run}, _opts) do
+    {output, code} = first_run()
+    {:stdout, output, code}
+  end
+
+  defp run_classified(%EntryPlan{route: :command, argv: argv}, opts) do
+    {output, code} = legacy_dispatch(argv, opts)
+    {:stdout, output, code}
+  end
+
+  defp legacy_dispatch(argv, opts) do
     case argv do
-      [] -> first_run()
       ["--help"] -> {help(), 0}
       ["-h"] -> {help(), 0}
       ["help"] -> {help(), 0}
       ["--version"] -> {version(), 0}
       ["version"] -> {version(), 0}
-      _other -> dispatch(argv)
+      _other -> dispatch(argv, opts)
     end
   end
 
   # -- routing ---------------------------------------------------------------
 
-  defp dispatch(argv) do
+  defp dispatch(argv, opts) do
     {path, rest} = resolve_path(argv)
 
     case Commands.lookup(path) do
-      {:ok, {:action, name}} -> run_action(name, rest)
+      {:ok, {:action, name}} -> run_action(name, rest, opts)
       {:ok, {:read, mod, fun}} -> run_read(mod, fun, rest)
-      {:ok, {:area, module}} -> run_area(module, rest)
-      {:ok, :builtin} -> run_builtin(path, rest)
+      {:ok, {:area, module}} -> run_area(module, rest, opts)
+      {:ok, :builtin} -> run_builtin(path, rest, opts)
       {:ok, :mix_only} -> {mix_only_message(path), 2}
       :error -> unknown(path)
     end
@@ -298,8 +349,13 @@ defmodule AllbertAssist.CLI do
 
   # v0.62 M8.7: an area dispatcher owns its subcommands and returns
   # {output, exit_code} from a release-safe module shared with the Mix task.
-  defp run_area(module, rest) do
-    module.dispatch(rest, ContextBuilder.cli_context(%{surface: "cli", channel: :cli}))
+  defp run_area(module, rest, opts) do
+    context =
+      %{surface: "cli", channel: :cli}
+      |> ContextBuilder.cli_context()
+      |> Map.merge(Map.new(opts))
+
+    module.dispatch(rest, context)
   rescue
     error -> {"error: #{Exception.message(error)}", 1}
   end
@@ -325,8 +381,12 @@ defmodule AllbertAssist.CLI do
     end)
   end
 
-  defp run_action(name, rest) do
-    context = ContextBuilder.cli_context(%{surface: "cli", channel: :cli})
+  defp run_action(name, rest, opts) do
+    context =
+      %{surface: "cli", channel: :cli}
+      |> ContextBuilder.cli_context()
+      |> Map.merge(Map.new(opts))
+
     {:ok, result} = Runner.run(name, params_from(name, rest), context)
     status = Map.get(result, :status)
     # The action result map carries the status; a non-completed status is a
@@ -356,12 +416,12 @@ defmodule AllbertAssist.CLI do
     error -> {"error: #{Exception.message(error)}", 1}
   end
 
-  defp run_builtin(["serve"], _rest),
+  defp run_builtin(["serve"], _rest, _opts),
     do: {"`allbert serve` is handled by the release launcher.", 0}
 
-  defp run_builtin(["ask"], rest), do: Ask.run(rest)
+  defp run_builtin(["ask"], rest, opts), do: Ask.run(rest, opts)
 
-  defp run_builtin(["licenses"], rest) do
+  defp run_builtin(["licenses"], rest, _opts) do
     case Licenses.view(rest) do
       {:ok, %{output: output}} -> {output, 0}
       {:error, %{message: message, exit_status: status}} -> {message, status}
@@ -372,12 +432,12 @@ defmodule AllbertAssist.CLI do
   # real TTY via `AllbertAssist.CLI.Tui.launch/0`. Reaching this pure clause
   # means it was invoked outside the launcher (e.g. `eval`), where a blocking
   # console cannot own the terminal — point the operator at the entry.
-  defp run_builtin(["tui"], _rest),
+  defp run_builtin(["tui"], _rest, _opts),
     do: {"Run `allbert tui` from the installed binary (the launcher owns the TTY).", 0}
 
-  defp run_builtin(["chat"], _rest), do: {chat_message(), 0}
+  defp run_builtin(["chat"], _rest, _opts), do: {chat_message(), 0}
 
-  defp run_builtin(["admin", "home", "export"], rest) do
+  defp run_builtin(["admin", "home", "export"], rest, _opts) do
     opts = if out = out_flag(rest), do: [out: out], else: []
 
     case Export.build(opts) do
@@ -386,7 +446,7 @@ defmodule AllbertAssist.CLI do
     end
   end
 
-  defp run_builtin(["admin", "home", "import"], rest) do
+  defp run_builtin(["admin", "home", "import"], rest, _opts) do
     case rest do
       [path | _] ->
         case Import.dry_run(path) do
@@ -399,7 +459,7 @@ defmodule AllbertAssist.CLI do
     end
   end
 
-  defp run_builtin(_path, _rest), do: {help(), 0}
+  defp run_builtin(_path, _rest, _opts), do: {help(), 0}
 
   defp chat_message do
     port = System.get_env("PORT") || "4000"

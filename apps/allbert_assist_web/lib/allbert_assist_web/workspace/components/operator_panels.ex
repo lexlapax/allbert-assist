@@ -12,7 +12,7 @@ defmodule AllbertAssistWeb.Workspace.Components.OperatorPanels do
 
     renderer_context
     |> ContextBuilder.live_view_context(surface: "/workspace")
-    |> Map.merge(Map.take(renderer_context, [:audit?, :req_options]))
+    |> Map.merge(Map.take(renderer_context, [:audit?, :req_options, :allbert_pack_epoch]))
   end
 
   @spec open?(map(), String.t()) :: boolean()
@@ -77,6 +77,7 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
 
   alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:intents"
@@ -88,7 +89,17 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
   }
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     loaded? = Map.get(socket.assigns, :intents_loaded?, false)
 
     socket =
@@ -374,18 +385,35 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Onboarding
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:models"
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   # v0.64.3: the parent WorkspaceLive forwards each streamed pull-progress frame here
   # via `send_update(@myself, model_pull_frame: frame)`; append and re-render live.
-  def update(%{model_pull_frame: frame}, socket) do
-    {:ok, assign(socket, :model_pull_progress, socket.assigns.model_pull_progress ++ [frame])}
+  def update(%{model_pull_frame: frame} = assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, _assigns, socket} ->
+        {:ok, assign(socket, :model_pull_progress, socket.assigns.model_pull_progress ++ [frame])}
+
+      {:error, socket} ->
+        {:ok, socket}
+    end
   end
 
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     loaded? = Map.get(socket.assigns, :models_loaded?, false)
 
     socket =
@@ -1007,12 +1035,23 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
 
   alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:surface_policy"
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     loaded? = Map.get(socket.assigns, :surface_policy_loaded?, false)
 
     socket =
@@ -1222,12 +1261,23 @@ defmodule AllbertAssistWeb.Workspace.Components.ChannelsPanel do
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.Actions.Helper, as: ActionHelper
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:channels"
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     loaded? = Map.get(socket.assigns, :channels_loaded?, false)
 
     socket =
@@ -1369,6 +1419,7 @@ defmodule AllbertAssistWeb.Workspace.Components.NotesPanel do
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @app_id :notes_files
@@ -1376,7 +1427,17 @@ defmodule AllbertAssistWeb.Workspace.Components.NotesPanel do
   @default_limit 25
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     loaded? = Map.get(socket.assigns, :notes_loaded?, false)
 
     socket =
@@ -1612,13 +1673,24 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:memory"
   @candidate_limit 50
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     loaded? = Map.get(socket.assigns, :memory_loaded?, false)
 
     socket =

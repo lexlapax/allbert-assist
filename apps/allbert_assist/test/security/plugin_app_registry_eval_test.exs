@@ -7,6 +7,7 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Runner, as: JobsRunner
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
@@ -202,7 +203,10 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
                 user_id: "alice"
               })
 
-            {:ok, %{run: run, response: job_response}} = JobsRunner.run_now(job)
+            {:ok, epoch} = EffectGuard.admit_ready()
+
+            {:ok, %{run: run, response: job_response}} =
+              JobsRunner.run_now(job, allbert_pack_epoch: epoch)
 
             %{
               decision:
@@ -316,7 +320,10 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
                app_id: "stocksage"
              })
 
-    assert {:ok, %{run: run, response: response}} = JobsRunner.run_now(job)
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+
+    assert {:ok, %{run: run, response: response}} =
+             JobsRunner.run_now(job, allbert_pack_epoch: epoch)
 
     assert response.status == :needs_confirmation
     assert run.status == "needs_confirmation"

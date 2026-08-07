@@ -8,6 +8,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
   alias AllbertAssist.Search.Projection
   alias AllbertAssist.Settings
@@ -205,7 +206,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert open_run_id == admitted.id
 
     assert {:ok, %{outcome: :coalesced, run: %Run{id: ^open_run_id}, response: nil}} =
-             Runner.run_now(resumed)
+             run_now(resumed)
 
     assert {:ok, second_kick} = Managed.kick("search-index", "local")
     assert second_kick.dirty_seq == 2
@@ -334,7 +335,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
 
     assert consolidation.metadata["feature_enabled"]
 
-    assert {:ok, %{run: run, response: response}} = Runner.run_now(consolidation)
+    assert {:ok, %{run: run, response: response}} = run_now(consolidation)
     assert run.status == "completed"
     assert response.status == :completed
     assert response.result.created == 1
@@ -440,7 +441,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     rebuild = managed_job("search-rebuild")
 
     assert {:ok, %{run: first_run, job: continued, response: first_response}} =
-             Runner.run_now(rebuild)
+             run_now(rebuild)
 
     assert first_run.status == "completed"
     assert first_response.result.status == :incomplete
@@ -448,7 +449,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert continued.next_due_at == first_response.continuation_due_at
 
     assert {:ok, %{run: second_run, job: completed, response: second_response}} =
-             Runner.run_now(continued)
+             run_now(continued)
 
     assert second_run.status == "completed"
     assert second_response.result.status == :complete
@@ -466,4 +467,9 @@ defmodule AllbertAssist.Jobs.ManagedTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp run_now(job) do
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    Runner.run_now(job, allbert_pack_epoch: epoch)
+  end
 end

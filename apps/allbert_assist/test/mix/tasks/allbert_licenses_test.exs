@@ -147,7 +147,7 @@ defmodule Mix.Tasks.Allbert.LicensesTest do
     code_paths = Path.wildcard(Path.join(project_root, "_build/test/lib/*/ebin"))
 
     script = """
-    {_stream, _output, code} = AllbertAssist.CLI.run_entry(["licenses", "--json"])
+    {_stream, _output, code} = AllbertAssist.Pack.ProductCLI.run_entry(["licenses", "--json"])
     forbidden =
       Application.started_applications()
       |> Enum.map(&elem(&1, 0))

@@ -22,6 +22,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
   alias Jido.Signal
@@ -1670,19 +1671,29 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp process_inbound_text(text, opts, state) do
-    fields = fields(text, opts, state)
-    command = ConfirmationCallback.parse_typed_command(fields.text)
-    direction = if command == :ignore, do: "inbound", else: "callback"
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      fields = fields(text, opts, state)
+      command = ConfirmationCallback.parse_typed_command(fields.text)
+      direction = if command == :ignore, do: "inbound", else: "callback"
 
-    case received_event(fields, direction, opts) do
-      {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        handle_received_event(event, fields, command, state)
+      case received_event(fields, direction, opts) do
+        {:ok, %AllbertAssist.Channels.Event{} = event} ->
+          handle_received_event(
+            event,
+            Map.put(fields, :allbert_pack_epoch, epoch),
+            command,
+            state
+          )
 
-      {:ok, :duplicate} ->
-        {{:ok, :duplicate}, clear_live_status(state)}
+        {:ok, :duplicate} ->
+          {{:ok, :duplicate}, clear_live_status(state)}
 
-      {:error, reason} ->
-        {{:error, reason}, clear_live_status(state)}
+        {:error, reason} ->
+          {{:error, reason}, clear_live_status(state)}
+      end
+    else
+      {:error, _reason} -> {{:error, :product_not_ready}, clear_live_status(state)}
     end
   end
 
@@ -2179,11 +2190,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),
          :ok <- emit_confirmation_handoff(response, rendered, state),
+         :ok <- EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)),
          :ok <-
            Runtime.track_delivery(response, %{channel: @channel}, fn ->
              emit_delivery(rendered, state)
            end),
          :ok <- handoff_attended_turn(response, state),
+         :ok <- EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: @channel}),
          state <- reconcile_tracked_fanout_after_kickoff_ack(response, state),
          {:ok, event} <- mark_processed(event, response, user_id, session_id) do
@@ -2192,7 +2205,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       {:error, {:inbound_admission_failed, _kind} = reason} ->
         state = clear_live_status(state)
         Logger.warning("tui inbound admission failed")
-        {:ok, _event} = mark_inbound_admission_failed(event)
+
+        if EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)) == :ok,
+          do: mark_inbound_admission_failed(event)
 
         :ok =
           emit_rendered(
@@ -2205,7 +2220,10 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       {:error, reason} ->
         state = clear_live_status(state)
         Logger.debug("tui event rejected: #{inspect(Redactor.redact(reason))}")
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+
+        if EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)) == :ok,
+          do: mark_rejected_or_failed(event, reason)
+
         :ok = emit_callback_rejection(command, reason, state)
         {{:ok, :rejected}, state}
     end
@@ -2359,7 +2377,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     |> maybe_put(:coding_turn?, fields.coding_turn?)
     |> maybe_put(:coding_turn_id, fields.coding_turn_id)
     |> maybe_put(:coding_req_llm_context, fields.coding_req_llm_context)
-    |> Runtime.submit_user_input()
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
 
   defp channel_thread_ref(fields) do

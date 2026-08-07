@@ -14,6 +14,7 @@ defmodule AllbertAssist.Intent.Router.Index do
 
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Embedder
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertAssist.SignalBus
   alias Jido.Signal.Bus, as: JidoSignalBus
@@ -35,7 +36,9 @@ defmodule AllbertAssist.Intent.Router.Index do
             built_at: nil,
             error: nil,
             subscription_id: nil,
-            rebuild_timer: nil
+            rebuild_timer: nil,
+            effect_guard: EffectGuard,
+            effect_guard_opts: []
 
   @type entry :: %{
           action_name: String.t(),
@@ -94,12 +97,21 @@ defmodule AllbertAssist.Intent.Router.Index do
   # ── GenServer ────────────────────────────────────────────────────────────────
 
   @impl true
-  def init(_opts), do: {:ok, subscribe(%__MODULE__{})}
+  def init(opts) do
+    state = %__MODULE__{
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+      effect_guard_opts: Keyword.get(opts, :effect_guard_opts, [])
+    }
+
+    {:ok, subscribe(state)}
+  end
 
   @impl true
   def handle_call(:rebuild, _from, state) do
-    built = build()
-    {:reply, built, %{built | subscription_id: state.subscription_id}}
+    case rebuild_with_epoch(state) do
+      {:ok, built} -> {:reply, built, retain_runtime_state(built, state)}
+      {:error, :product_not_ready} -> {:reply, unavailable_state(state), state}
+    end
   end
 
   def handle_call(:state, _from, state), do: {:reply, state, state}
@@ -112,8 +124,10 @@ defmodule AllbertAssist.Intent.Router.Index do
   end
 
   def handle_info(:rebuild_debounced, state) do
-    built = build()
-    {:noreply, %{built | subscription_id: state.subscription_id}}
+    case rebuild_with_epoch(state) do
+      {:ok, built} -> {:noreply, retain_runtime_state(built, state)}
+      {:error, :product_not_ready} -> {:noreply, unavailable_state(state)}
+    end
   end
 
   def handle_info(:retry_subscribe, %__MODULE__{subscription_id: nil} = state),
@@ -181,6 +195,32 @@ defmodule AllbertAssist.Intent.Router.Index do
   defp reschedule(timer) do
     Process.cancel_timer(timer)
     Process.send_after(self(), :rebuild_debounced, @rebuild_debounce_ms)
+  end
+
+  # A delayed rebuild is a provider-facing operation. It admits one epoch only
+  # when the message is handled and validates that same epoch immediately before
+  # embedding; a replacement readiness epoch is never substituted.
+  defp rebuild_with_epoch(state) do
+    with {:ok, epoch} <- state.effect_guard.admit_ready(state.effect_guard_opts),
+         :ok <- state.effect_guard.validate(epoch, state.effect_guard_opts) do
+      {:ok, build()}
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp retain_runtime_state(built, state) do
+    %{
+      built
+      | subscription_id: state.subscription_id,
+        rebuild_timer: nil,
+        effect_guard: state.effect_guard,
+        effect_guard_opts: state.effect_guard_opts
+    }
+  end
+
+  defp unavailable_state(state) do
+    %{state | status: :unavailable, error: :product_not_ready, rebuild_timer: nil}
   end
 
   defp build do

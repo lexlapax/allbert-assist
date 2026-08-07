@@ -12,6 +12,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   alias AllbertAssist.Channels.Matrix.Parser
   alias AllbertAssist.Channels.Matrix.Renderer
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings.Secrets
 
@@ -65,7 +66,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       sync_poll_interval_ms: 2000,
       sync_timeout_ms: 30_000,
       sync_timeline_limit: @default_sync_timeline_limit,
-      req_options: Keyword.get(opts, :req_options, [])
+      req_options: Keyword.get(opts, :req_options, []),
+      effect_guard_opts: effect_guard_opts(opts)
     }
 
     with {:ok, settings} <- Channels.channel_settings("matrix"),
@@ -116,20 +118,35 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   defp poll(%{enabled?: false} = state), do: {{:error, :disabled}, state}
 
   defp poll(%{enabled?: true} = state) do
-    case Client.sync(
-           state.homeserver_url,
-           state.access_token,
-           state.since,
-           state.sync_timeout_ms,
-           sync_req_options(state)
-         ) do
-      {:ok, sync} ->
-        {summary, next_since} = process_sync(sync, state)
-        {{:ok, summary}, %{state | since: next_since || state.since, backoff_ms: 0}}
+    # Do not let a stale process poll a replacement epoch, even if the snapshot
+    # digest is unchanged.
+    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
+         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+      case Client.sync(
+             state.homeserver_url,
+             state.access_token,
+             state.since,
+             state.sync_timeout_ms,
+             sync_req_options(state)
+           ) do
+        {:ok, sync} ->
+          state = Map.put(state, :effect_epoch, epoch)
+          {summary, next_since} = process_sync(sync, state)
+          {{:ok, summary}, %{state | since: next_since || state.since, backoff_ms: 0}}
 
-      {:error, reason} ->
-        Logger.warning("matrix sync failed: #{inspect(redact(reason))}")
-        {{:error, reason}, %{state | backoff_ms: next_backoff(state.backoff_ms)}}
+        {:error, reason} ->
+          Logger.warning("matrix sync failed: #{inspect(redact(reason))}")
+          {{:error, reason}, %{state | backoff_ms: next_backoff(state.backoff_ms)}}
+      end
+    else
+      {:error, _reason} -> {{:error, :product_not_ready}, state}
+    end
+  end
+
+  defp effect_guard_opts(opts) do
+    case Keyword.fetch(opts, :readiness_server) do
+      {:ok, server} -> [server: server]
+      :error -> []
     end
   end
 
@@ -226,7 +243,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
     case insert_received_event(fields, event_direction(command)) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        handle_text_event(event, fields, text, new_thread?, command, state)
+        handle_text_event(event, carry_epoch(fields, state), text, new_thread?, command, state)
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -509,8 +526,11 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input()
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
+
+  defp carry_epoch(fields, state),
+    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -627,22 +647,31 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
       req_options = Keyword.get(opts, :req_options, [])
 
-      case Client.send_message(homeserver_url, access_token, target, txn_id, content, req_options) do
-        {:ok, %{"event_id" => event_id} = result} ->
-          {:ok,
-           %{
-             channel: "matrix",
-             target: target,
-             event_id: event_id,
-             txn_id: txn_id,
-             result: result
-           }}
+      with :ok <- validate_outbound_epoch(opts) do
+        case Client.send_message(
+               homeserver_url,
+               access_token,
+               target,
+               txn_id,
+               content,
+               req_options
+             ) do
+          {:ok, %{"event_id" => event_id} = result} ->
+            {:ok,
+             %{
+               channel: "matrix",
+               target: target,
+               event_id: event_id,
+               txn_id: txn_id,
+               result: result
+             }}
 
-        {:ok, result} ->
-          {:error, {:missing_event_id, result}}
+          {:ok, result} ->
+            {:error, {:missing_event_id, result}}
 
-        {:error, reason} ->
-          {:error, reason}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end
     end
   end
@@ -657,32 +686,43 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
       req_options = Keyword.get(opts, :req_options, [])
 
-      case Client.replace_message(
-             homeserver_url,
-             access_token,
-             target,
-             txn_id,
-             provider_message_id,
-             body,
-             req_options
-           ) do
-        {:ok, %{"event_id" => edit_event_id} = result} ->
-          {:ok,
-           %{
-             channel: "matrix",
-             target: target,
-             provider_message_id: provider_message_id,
-             edit_event_id: edit_event_id,
-             txn_id: txn_id,
-             result: result
-           }}
+      with :ok <- validate_outbound_epoch(opts) do
+        case Client.replace_message(
+               homeserver_url,
+               access_token,
+               target,
+               txn_id,
+               provider_message_id,
+               body,
+               req_options
+             ) do
+          {:ok, %{"event_id" => edit_event_id} = result} ->
+            {:ok,
+             %{
+               channel: "matrix",
+               target: target,
+               provider_message_id: provider_message_id,
+               edit_event_id: edit_event_id,
+               txn_id: txn_id,
+               result: result
+             }}
 
-        {:ok, result} ->
-          {:error, {:missing_event_id, result}}
+          {:ok, result} ->
+            {:error, {:missing_event_id, result}}
 
-        {:error, reason} ->
-          {:error, reason}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end
+    end
+  end
+
+  defp validate_outbound_epoch(opts) do
+    with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
+         :ok <- EffectGuard.validate(epoch) do
+      :ok
+    else
+      _error -> {:error, :product_not_ready}
     end
   end
 

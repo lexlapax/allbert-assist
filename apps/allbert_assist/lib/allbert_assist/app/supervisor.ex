@@ -11,27 +11,21 @@ defmodule AllbertAssist.App.Supervisor do
 
   @impl true
   def init(opts) do
-    registry = Keyword.get(opts, :registry, AllbertAssist.App.Registry)
+    metadata_opts =
+      opts
+      |> Keyword.delete(:name)
+      |> maybe_name_metadata_supervisor(opts)
 
-    dynamic_supervisor =
-      Keyword.get(opts, :dynamic_supervisor, AllbertAssist.App.DynamicSupervisor)
+    Supervisor.init([{AllbertAssist.App.MetadataSupervisor, metadata_opts}],
+      strategy: :one_for_one
+    )
+  end
 
-    bootstrap = Keyword.get(opts, :bootstrap, AllbertAssist.App.Bootstrap)
-    plugin_registry = Keyword.get(opts, :plugin_registry, AllbertAssist.Plugin.Registry)
-    table_name = Keyword.get(opts, :table_name, :allbert_app_registry)
-    enabled? = Keyword.get(opts, :enabled?, true)
-
-    children = [
-      {AllbertAssist.App.Registry,
-       name: registry,
-       table_name: table_name,
-       enabled?: enabled?,
-       dynamic_supervisor: dynamic_supervisor},
-      {AllbertAssist.App.DynamicSupervisor, name: dynamic_supervisor},
-      {AllbertAssist.App.Bootstrap,
-       name: bootstrap, registry: registry, plugin_registry: plugin_registry}
-    ]
-
-    Supervisor.init(children, strategy: :one_for_all)
+  defp maybe_name_metadata_supervisor(metadata_opts, opts) do
+    if Keyword.get(opts, :name, __MODULE__) == __MODULE__ do
+      Keyword.put_new(metadata_opts, :name, AllbertAssist.App.MetadataSupervisor)
+    else
+      Keyword.put_new(metadata_opts, :name, nil)
+    end
   end
 end

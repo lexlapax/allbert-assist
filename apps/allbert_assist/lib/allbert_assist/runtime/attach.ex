@@ -367,6 +367,8 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.Runtime.Attach.TUISession
+  alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.CLI
 
   @accept_timeout 1_000
   @recv_timeout 5_000
@@ -408,6 +410,7 @@ defmodule AllbertAssist.Runtime.Attach.Server do
       session: nil,
       session_module: Keyword.get(opts, :session_module, TUISession),
       session_opts: Keyword.get(opts, :session_opts, []),
+      effect_guard_opts: effect_guard_opts(opts),
       status: :up,
       status_reason: nil
     }
@@ -545,9 +548,9 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   defp route_command(request, state) do
     case Attach.validate_request(request, state.token) do
       :ok ->
-        case start_command_task(state.task_sup, request.argv) do
-          {:ok, task_pid} -> {{:handoff, task_pid}, state}
-          {:error, _reason} -> {{:reply_and_close, {:error, :busy}}, state}
+        case CLI.entry_plan(request.argv).disposition do
+          :runtime_required -> route_runtime_command(request.argv, state)
+          _runtime_free -> route_runtime_free_command(request.argv, state)
         end
 
       {:error, reason} ->
@@ -571,11 +574,39 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
         case TUIProtocol.validate_open(request, expected) do
           {:ok, open} ->
-            start_tui_session(open, worker, state)
+            with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
+                 :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+              start_tui_session(open, worker, state)
+            else
+              {:error, _reason} ->
+                reject_open(:runtime_unavailable, "Allbert product is not ready.", state)
+            end
 
           {:error, reason} ->
             reject_open(reason, "TUI session open rejected.", state)
         end
+    end
+  end
+
+  # The daemon's static attach routes deliberately remain runtime-free. Every
+  # runtime-bearing command captures E1 here and carries it directly to the
+  # residual CLI boundary; neither this listener nor the CLI may substitute a
+  # replacement epoch mid-request.
+  defp route_runtime_command(argv, state) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts) do
+      case start_command_task(state.task_sup, argv, epoch, state.effect_guard_opts) do
+        {:ok, task_pid} -> {{:handoff, task_pid}, state}
+        {:error, _reason} -> {{:reply_and_close, {:error, :busy}}, state}
+      end
+    else
+      {:error, _reason} -> {{:reply_and_close, {:error, :product_not_ready}}, state}
+    end
+  end
+
+  defp route_runtime_free_command(argv, state) do
+    case start_command_task(state.task_sup, argv, nil, []) do
+      {:ok, task_pid} -> {{:handoff, task_pid}, state}
+      {:error, _reason} -> {{:reply_and_close, {:error, :busy}}, state}
     end
   end
 
@@ -613,11 +644,11 @@ defmodule AllbertAssist.Runtime.Attach.Server do
     end
   end
 
-  defp start_command_task(task_sup, argv) do
+  defp start_command_task(task_sup, argv, epoch, effect_guard_opts) do
     Task.Supervisor.start_child(task_sup, fn ->
       receive do
         {:attach_socket, socket} ->
-          send_response_and_close(socket, run_attached_isolated(argv))
+          send_response_and_close(socket, run_attached_isolated(argv, epoch, effect_guard_opts))
       after
         @recv_timeout -> :ok
       end
@@ -626,12 +657,31 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   # Run the attached command with a crash barrier so a failing command returns a
   # structured error instead of taking down the task/listener.
-  defp run_attached_isolated(argv) do
+  defp run_attached_isolated(argv, nil, _effect_guard_opts) do
     {:ok, AllbertAssist.CLI.run_attached(argv)}
   rescue
     error -> {:error, {:command_crashed, Exception.message(error)}}
   catch
     kind, value -> {:error, {:command_crashed, inspect({kind, value})}}
+  end
+
+  defp run_attached_isolated(argv, epoch, effect_guard_opts) do
+    with :ok <- EffectGuard.validate(epoch, effect_guard_opts) do
+      {:ok, AllbertAssist.CLI.run_attached(argv, allbert_pack_epoch: epoch)}
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  rescue
+    error -> {:error, {:command_crashed, Exception.message(error)}}
+  catch
+    kind, value -> {:error, {:command_crashed, inspect({kind, value})}}
+  end
+
+  defp effect_guard_opts(opts) do
+    case Keyword.fetch(opts, :readiness_server) do
+      {:ok, server} -> [server: server]
+      :error -> []
+    end
   end
 
   defp send_response_and_close(socket, response) do

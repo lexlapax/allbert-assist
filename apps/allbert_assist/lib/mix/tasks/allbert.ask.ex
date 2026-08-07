@@ -33,6 +33,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Session
@@ -93,11 +94,15 @@ defmodule Mix.Tasks.Allbert.Ask do
     voice_result = maybe_transcribe_voice!(voice_file, opts)
     prompt = prompt_with_voice(prompt, voice_result)
 
-    result = submit(prompt, opts, voice_result)
-    speech_result = maybe_synthesize_speech!(result, opts)
+    case submit(prompt, opts, voice_result) do
+      {:ok, result, epoch} ->
+        speech_result = maybe_synthesize_speech!(result, opts)
+        print_result(result, epoch)
+        print_speech_result(speech_result)
 
-    print_result(result)
-    print_speech_result(speech_result)
+      {:error, reason} ->
+        print_result({:error, reason})
+    end
   end
 
   defp render_disclosure_before_transport! do
@@ -136,10 +141,22 @@ defmodule Mix.Tasks.Allbert.Ask do
       })
       |> merge_metadata(voice_request_metadata(voice_result))
 
-    event = EventRecorder.record_inbound(:cli, surface_event_attrs(request, prompt, user_id))
-    result = Runtime.submit_user_input(request)
-    EventRecorder.mark_result(event, result)
-    result
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      event = EventRecorder.record_inbound(:cli, surface_event_attrs(request, prompt, user_id))
+      result = Runtime.submit_user_input(request, allbert_pack_epoch: epoch)
+
+      case EffectGuard.validate(epoch) do
+        :ok ->
+          EventRecorder.mark_result(event, result)
+          {:ok, result, epoch}
+
+        {:error, _reason} ->
+          {:error, :product_not_ready}
+      end
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
   end
 
   defp surface_event_attrs(request, prompt, user_id) do
@@ -165,7 +182,8 @@ defmodule Mix.Tasks.Allbert.Ask do
     end
   end
 
-  defp print_result({:ok, response}) do
+  defp print_result({:ok, response}, epoch) do
+    ensure_current_epoch!(epoch)
     Mix.shell().info("Status: #{response.status}")
     Mix.shell().info("")
     Mix.shell().info(SurfaceRenderer.response_text(response, %{payload: :surface_payload}))
@@ -187,11 +205,21 @@ defmodule Mix.Tasks.Allbert.Ask do
       Enum.each(response.actions, &print_action/1)
     end
 
+    ensure_current_epoch!(epoch)
     Runtime.acknowledge_deliveries(response, %{channel: response_channel(response)})
   end
 
+  defp print_result({:error, reason}, _epoch), do: print_result({:error, reason})
+
   defp print_result({:error, reason}) do
     Mix.raise("Allbert request failed: #{inspect(reason)}")
+  end
+
+  defp ensure_current_epoch!(epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> :ok
+      {:error, _reason} -> Mix.raise("Allbert request failed: :product_not_ready")
+    end
   end
 
   defp response_channel(response), do: Map.get(response, :channel, :cli)

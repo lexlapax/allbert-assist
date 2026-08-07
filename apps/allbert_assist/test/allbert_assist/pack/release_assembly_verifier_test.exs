@@ -9,6 +9,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifierTest do
 
   @version "1.3.2"
   @checkpoint "v14-m1a1"
+  @m1a3_checkpoint "v14-m1a3"
   @repository "https://github.com/lexlapax/allbert-assist"
   @repo_root Path.expand("../../../../..", __DIR__)
   @support_applications ~w(kernel stdlib elixir logger crypto)a
@@ -123,12 +124,101 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifierTest do
     assert output == ""
   end
 
-  test "accepts only the M1.a1 checkpoint before reading the release", %{root: root} do
+  test "accepts only known checkpoints before reading the release", %{root: root} do
     output =
       capture_io(fn ->
         assert_raise ArgumentError, ~r/unsupported release-assembly checkpoint/, fn ->
-          ReleaseAssemblyVerifier.verify!(root, "v14-m1a3")
+          ReleaseAssemblyVerifier.verify!(root, "v14-m2")
         end
+      end)
+
+    assert output == ""
+  end
+
+  test "verifies M1.a3 composition ownership and default ProductCLI launcher", %{root: root} do
+    write_m1a3_release_fixture!(root)
+
+    output =
+      capture_io(fn ->
+        with_packaged_descriptors!(root, fn ->
+          assert :ok = ReleaseAssemblyVerifier.verify_fixture!(root, @m1a3_checkpoint)
+        end)
+      end)
+
+    assert ["ALLBERT_RELEASE_ASSEMBLY_V1=" <> encoded] = String.split(output, "\n", trim: true)
+    marker = Jason.decode!(encoded)
+
+    assert Map.keys(marker["app_sha256"]) |> Enum.sort() ==
+             ~w[allbert_assist allbert_composition allbert_kernel]
+
+    assert marker["checkpoint"] == @m1a3_checkpoint
+    assert marker["overlay_sha256"] == sha256(File.read!(Path.join([root, "bin", "allbert"])))
+
+    assert marker["entrypoint_sha256"] ==
+             sha256("AllbertAssist.Pack.ProductCLI.main(System.argv())")
+  end
+
+  test "M1.a3 rejects a launcher without the exact ProductCLI default branch", %{root: root} do
+    write_m1a3_release_fixture!(root)
+    File.write!(Path.join([root, "bin", "allbert"]), "#!/bin/sh\nexit 0\n")
+
+    output =
+      capture_io(fn ->
+        with_packaged_descriptors!(root, fn ->
+          assert_raise RuntimeError, ~r/default_launcher_target/, fn ->
+            ReleaseAssemblyVerifier.verify_fixture!(root, @m1a3_checkpoint)
+          end
+        end)
+      end)
+
+    assert output == ""
+  end
+
+  test "M1.a3 rejects a composition application missing an owned module", %{root: root} do
+    write_m1a3_release_fixture!(root)
+    path = app_path(root, :allbert_composition)
+    contents = File.read!(path)
+
+    File.write!(
+      path,
+      String.replace(contents, ", 'Elixir.AllbertAssist.Pack.ProductCLI'", "")
+    )
+
+    output =
+      capture_io(fn ->
+        with_packaged_descriptors!(root, fn ->
+          assert_raise RuntimeError, ~r/composition_modules/, fn ->
+            ReleaseAssemblyVerifier.verify_fixture!(root, @m1a3_checkpoint)
+          end
+        end)
+      end)
+
+    assert output == ""
+  end
+
+  test "M1.a3 rejects a composition-owned module packaged with residual", %{root: root} do
+    write_m1a3_release_fixture!(root)
+    path = app_path(root, :allbert_assist)
+    contents = File.read!(path)
+
+    File.write!(
+      path,
+      String.replace(
+        contents,
+        "['Elixir.AllbertAssist.Pack.Residual']",
+        "['Elixir.AllbertAssist.Pack.Residual', 'Elixir.AllbertAssist.Pack.ProductCLI']"
+      )
+    )
+
+    update_pack_field!(root, "allbert_assist", "app_sha256", path |> File.read!() |> sha256())
+
+    output =
+      capture_io(fn ->
+        with_packaged_descriptors!(root, fn ->
+          assert_raise RuntimeError, ~r/residual_composition_modules/, fn ->
+            ReleaseAssemblyVerifier.verify_fixture!(root, @m1a3_checkpoint)
+          end
+        end)
       end)
 
     assert output == ""
@@ -377,6 +467,41 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifierTest do
     File.write!(Path.join(root, "THIRD-PARTY-MANIFEST.json"), Jason.encode!(manifest))
 
     %{rel_sha256: sha256(rel), app_sha256: app_sha256}
+  end
+
+  defp write_m1a3_release_fixture!(root) do
+    write_release_fixture!(root)
+
+    composition_modules = [
+      AllbertAssist.Pack.CompositionCoordinator,
+      AllbertAssist.Pack.ProductBootstrap,
+      AllbertAssist.Pack.ProductCLI
+    ]
+
+    composition_ebin = Path.dirname(app_path(root, :allbert_composition))
+
+    File.write!(
+      app_path(root, :allbert_composition),
+      application_spec(
+        :allbert_composition,
+        Enum.map(composition_modules, &"'#{&1}'"),
+        ~w(kernel stdlib elixir logger allbert_kernel allbert_assist)a,
+        "[]"
+      )
+    )
+
+    Enum.each(composition_modules, fn module ->
+      {^module, bytes, _path} = :code.get_object_code(module)
+      File.write!(Path.join(composition_ebin, "#{module}.beam"), bytes)
+    end)
+
+    launcher = Path.join([root, "bin", "allbert"])
+    File.mkdir_p!(Path.dirname(launcher))
+
+    File.write!(
+      launcher,
+      "#!/bin/sh\nexec \"$RELEASE_BIN\" eval \"AllbertAssist.Pack.ProductCLI.main(System.argv())\" \"$@\"\n"
+    )
   end
 
   defp component(application, id, pack \\ nil) do

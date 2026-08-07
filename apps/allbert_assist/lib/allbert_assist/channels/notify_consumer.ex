@@ -16,6 +16,7 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   alias AllbertAssist.Channels.NotifyDelivery
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias Jido.Signal
   alias Jido.Signal.Bus
@@ -50,24 +51,26 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
       unsubscribe_fun: Keyword.get(opts, :unsubscribe_fun, &Bus.unsubscribe/2),
       whereis_fun: Keyword.get(opts, :whereis_fun, &Bus.whereis/1),
       notify_opts: Keyword.get(opts, :notify_opts, []),
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
       retry_delay_ms: Keyword.get(opts, :retry_delay_ms, @retry_delay_ms),
       reconcile_interval_ms:
         bounded_reconcile_interval(Keyword.get(opts, :reconcile_interval_ms)),
       reconcile_batch_size: bounded_reconcile_batch_size(Keyword.get(opts, :reconcile_batch_size))
     }
 
-    {:ok, state |> connect_bus() |> schedule_reconcile()}
+    send(self(), :connect_signal_bus)
+    {:ok, schedule_reconcile(state)}
   end
 
   @impl true
   def handle_info({:signal, %Signal{} = signal}, state) do
-    state = safely(fn -> handle_signal(signal, state) end, state)
+    state = safely(fn -> with_ready_epoch(state, &handle_signal(signal, state, &1)) end, state)
     {:noreply, state}
   end
 
   def handle_info(:reconcile_completion_outbox, state) do
     state = cancel_reconcile_timer(state)
-    state = safely(fn -> reconcile_outbox(state) end, state)
+    state = safely(fn -> with_ready_epoch(state, &reconcile_outbox(state, &1)) end, state)
     state = schedule_reconcile(state)
     {:noreply, state}
   end
@@ -78,10 +81,12 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
     state =
       safely(
         fn ->
-          case Objectives.get_objective(parent_id) do
-            {:ok, parent} -> reconcile_parent(parent, state)
-            {:error, _reason} -> state
-          end
+          with_ready_epoch(state, fn epoch ->
+            case Objectives.get_objective(parent_id) do
+              {:ok, parent} -> reconcile_parent(parent, state, epoch)
+              {:error, _reason} -> state
+            end
+          end)
         end,
         state
       )
@@ -90,7 +95,12 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   end
 
   def handle_info(:connect_signal_bus, state) do
-    {:noreply, connect_bus(%{state | reconnect_timer: nil})}
+    state = %{state | reconnect_timer: nil}
+
+    case admit_ready_epoch(state) do
+      {:ok, epoch} -> {:noreply, connect_bus(state, epoch)}
+      {:error, _reason} -> {:noreply, schedule_reconnect(state)}
+    end
   end
 
   def handle_info(
@@ -116,26 +126,37 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
     :ok
   end
 
-  defp connect_bus(%{subscription_id: id, bus_pid: pid} = state)
+  defp connect_bus(%{subscription_id: id, bus_pid: pid} = state, _epoch)
        when not is_nil(id) and is_pid(pid),
        do: state
 
-  defp connect_bus(state) do
-    with {:ok, bus_pid} <- state.whereis_fun.(state.bus),
-         true <- Process.alive?(bus_pid),
-         {:ok, subscription_id} <- state.subscribe_fun.(state.bus, @signal_path) do
-      monitor = Process.monitor(bus_pid)
-      send(self(), :reconcile_completion_outbox)
+  defp connect_bus(state, epoch) do
+    case validate_epoch(epoch, state) do
+      :ok ->
+        with {:ok, bus_pid} <- state.whereis_fun.(state.bus),
+             true <- Process.alive?(bus_pid),
+             :ok <- validate_epoch(epoch, state),
+             {:ok, subscription_id} <- state.subscribe_fun.(state.bus, @signal_path) do
+          monitor = Process.monitor(bus_pid)
+          send(self(), :reconcile_completion_outbox)
 
-      %{
+          %{
+            state
+            | bus_pid: bus_pid,
+              bus_monitor: monitor,
+              subscription_id: subscription_id,
+              reconnect_timer: nil
+          }
+        else
+          {:error, :stale_epoch} -> state
+          _reason -> schedule_reconnect(state)
+        end
+
+      {:error, :stale_epoch} ->
         state
-        | bus_pid: bus_pid,
-          bus_monitor: monitor,
-          subscription_id: subscription_id,
-          reconnect_timer: nil
-      }
-    else
-      _reason -> schedule_reconnect(state)
+
+      {:error, :product_not_ready} ->
+        schedule_reconnect(state)
     end
   end
 
@@ -166,28 +187,33 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
     %{state | reconcile_timer: nil}
   end
 
-  defp reconcile_outbox(state) do
+  defp reconcile_outbox(state, epoch) do
     state.reconcile_batch_size
     |> Notify.pending_completion_work()
-    |> Enum.reduce(state, &reconcile_parent/2)
+    |> Enum.reduce(state, &reconcile_parent(&1, &2, epoch))
   end
 
   defp handle_signal(
          %Signal{type: "allbert.objectives.fanout.joined", data: data},
-         state
+         state,
+         epoch
        ) do
     parent_id = field(data, :parent_id)
 
     case Objectives.get_objective(parent_id) do
       {:ok, %{fanout_role: "parent", report_delivery_state: "pending"} = parent} ->
-        reconcile_parent(parent, state)
+        reconcile_parent(parent, state, epoch)
 
       _other ->
         state
     end
   end
 
-  defp handle_signal(%Signal{type: "allbert.objectives.run.blocked", data: data, id: id}, state) do
+  defp handle_signal(
+         %Signal{type: "allbert.objectives.run.blocked", data: data, id: id},
+         state,
+         epoch
+       ) do
     child_id = field(data, :child_id)
 
     with {:ok, child} <- Objectives.get_objective(child_id),
@@ -199,21 +225,23 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
             "Approval needed for #{child.title}. " <>
               "Reply ALLBERT:SHOW:#{confirmation_id}, ALLBERT:APPROVE:#{confirmation_id}, or ALLBERT:DENY:#{confirmation_id}."
 
-          _ =
-            Notify.deliver(parent, :confirmation_request, body,
-              child_objective_id: child.id,
-              event_key: "confirmation:#{confirmation_id}"
-            )
+          if :ok == validate_epoch(epoch, state) do
+            _ =
+              Notify.deliver(parent, :confirmation_request, body,
+                child_objective_id: child.id,
+                event_key: "confirmation:#{confirmation_id}"
+              )
+          end
 
         _other ->
-          status(parent, child, "blocked", id)
+          status(parent, child, "blocked", id, state, epoch)
       end
     end
 
     state
   end
 
-  defp handle_signal(%Signal{type: type, data: data, id: id}, state)
+  defp handle_signal(%Signal{type: type, data: data, id: id}, state, epoch)
        when type in [
               "allbert.objectives.run.started",
               "allbert.objectives.run.progress",
@@ -225,19 +253,37 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
 
     with {:ok, child} <- Objectives.get_objective(child_id),
          {:ok, parent} <- Objectives.get_objective(child.parent_objective_id) do
-      status(parent, child, String.replace_prefix(type, "allbert.objectives.run.", ""), id)
+      status(
+        parent,
+        child,
+        String.replace_prefix(type, "allbert.objectives.run.", ""),
+        id,
+        state,
+        epoch
+      )
     end
 
     state
   end
 
-  defp handle_signal(_signal, state), do: state
+  defp handle_signal(_signal, state, _epoch), do: state
 
-  defp reconcile_parent(parent, state) do
+  defp reconcile_parent(parent, state, epoch) do
+    case validate_epoch(epoch, state) do
+      :ok -> reconcile_parent_when_ready(parent, state, epoch)
+      {:error, _reason} -> state
+    end
+  end
+
+  defp reconcile_parent_when_ready(parent, state, epoch) do
     case Notify.recover_completion(parent, state.notify_opts) do
       {:ok, %NotifyDelivery{state: "delivered"}} ->
-        _ = acknowledge_report(parent)
-        clear_retry(parent.id, state)
+        if :ok == validate_epoch(epoch, state) do
+          _ = acknowledge_report(parent)
+          clear_retry(parent.id, state)
+        else
+          state
+        end
 
       {:ok, %NotifyDelivery{state: "failed", attempt_count: attempts}} when attempts < 2 ->
         schedule_retry(parent.id, state)
@@ -250,8 +296,12 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
           "channel completion audit failed after durable delivery parent=#{parent.id} reason=#{inspect(reason)}"
         )
 
-        _ = acknowledge_report(parent)
-        clear_retry(parent.id, state)
+        if :ok == validate_epoch(epoch, state) do
+          _ = acknowledge_report(parent)
+          clear_retry(parent.id, state)
+        else
+          state
+        end
 
       {:error, {:audit_failed, reason, %NotifyDelivery{state: "failed", attempt_count: attempts}}}
       when attempts < 2 ->
@@ -308,12 +358,14 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
     })
   end
 
-  defp status(parent, child, status, signal_id) do
-    _ =
-      Notify.deliver(parent, :status, "#{parent.title}: #{child.title} — #{status}",
-        child_objective_id: child.id,
-        event_key: signal_id || "#{child.id}:#{status}"
-      )
+  defp status(parent, child, status, signal_id, state, epoch) do
+    if :ok == validate_epoch(epoch, state) do
+      _ =
+        Notify.deliver(parent, :status, "#{parent.title}: #{child.title} — #{status}",
+          child_objective_id: child.id,
+          event_key: signal_id || "#{child.id}:#{status}"
+        )
+    end
 
     :ok
   end
@@ -329,6 +381,22 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
       Logger.warning("channel notify consumer failed: #{inspect({kind, reason})}")
       fallback
   end
+
+  defp with_ready_epoch(state, fun) do
+    case admit_ready_epoch(state) do
+      {:ok, epoch} -> fun.(epoch)
+      {:error, _reason} -> state
+    end
+  end
+
+  defp admit_ready_epoch(state), do: effect_guard_call(state.effect_guard, :admit_ready, [])
+
+  defp validate_epoch(epoch, state), do: effect_guard_call(state.effect_guard, :validate, [epoch])
+
+  defp effect_guard_call({module, owner}, function, args),
+    do: apply(module, function, [owner | args])
+
+  defp effect_guard_call(module, function, args), do: apply(module, function, args)
 
   defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 

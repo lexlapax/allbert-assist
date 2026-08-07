@@ -75,4 +75,20 @@ defmodule AllbertAssist.Surfaces.ContextBuilderTest do
     assert context.request.user_id == "local-user"
     assert context.request.source == "telegram_callback"
   end
+
+  test "preserves the exact Pack epoch across every first-party context builder" do
+    epoch = %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}
+
+    assert ContextBuilder.cli_context(allbert_pack_epoch: epoch).allbert_pack_epoch == epoch
+
+    assert ContextBuilder.live_view_context(%{assigns: %{allbert_pack_epoch: epoch}}).allbert_pack_epoch ==
+             epoch
+
+    assert ContextBuilder.channel_context("telegram", "local-user", allbert_pack_epoch: epoch).allbert_pack_epoch ==
+             epoch
+
+    assert ContextBuilder.public_protocol_context("mcp_stdio", "claude",
+             allbert_pack_epoch: epoch
+           ).allbert_pack_epoch == epoch
+  end
 end

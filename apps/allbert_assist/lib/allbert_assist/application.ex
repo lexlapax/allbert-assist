@@ -30,7 +30,6 @@ defmodule AllbertAssist.Application do
         # the single-writer lock so a second `allbert` command refuses to boot
         # a competing writer (Locked Decision 5). Absent in dev/test.
         writer_lock_child(),
-        {DNSCluster, query: Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
         {Registry, keys: :unique, name: AllbertAssist.Coding.TurnRegistry},
@@ -38,30 +37,20 @@ defmodule AllbertAssist.Application do
         {Registry, keys: :unique, name: AllbertAssist.Execution.ProcessRegistry},
         AllbertAssist.Execution.ProcessOwners,
         AllbertAssist.Settings.Supervisor,
-        first_run_enablement_child(),
-        report_composer_child(),
-        notify_consumer_child(),
+        AllbertAssist.FirstRun.Enablement.Latch,
         AllbertAssist.Artifacts.GC,
         AllbertAssist.PublicProtocol.RateLimiter,
-        AllbertAssist.PublicProtocol.ResultReadbackSweeper,
         AllbertAssist.Objectives.AgentRegistry,
         {Registry, keys: :unique, name: AllbertAssist.Objectives.Runs.Registry},
-        AllbertAssist.Objectives.Runs.Supervisor,
-        AllbertAssist.Objectives.Runs.Scheduler,
-        AllbertAssist.Intent.Router.Index,
         AllbertAssist.Intent.Router.PendingStore,
         AllbertAssist.Jido
       ]
       |> Enum.reject(&is_nil/1)
       |> maybe_add_plugin_supervisor()
       |> maybe_add_app_supervisor()
-      |> maybe_add_dynamic_plugins_supervisor()
       |> maybe_add_workspace_fragment_guard()
-      |> maybe_add_jido_backed_supervisor()
-      |> maybe_add_projection_owners()
       |> maybe_add_session_scratchpad()
-      |> maybe_add_channels_supervisor()
-      |> maybe_add_attach_server()
+      |> add_activation_gate()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: AllbertAssist.Supervisor)
   end
@@ -90,7 +79,7 @@ defmodule AllbertAssist.Application do
 
   defp first_run_enablement_child do
     if Application.get_env(:allbert_assist, :first_run_enablement_boot?, true) do
-      {BootWorker, []}
+      {BootWorker, latch: AllbertAssist.FirstRun.Enablement.Latch}
     end
   end
 
@@ -118,6 +107,78 @@ defmodule AllbertAssist.Application do
     opts = Application.get_env(:allbert_assist, AllbertAssist.Plugin.Registry, [])
     children ++ [{AllbertAssist.Plugin.Supervisor, opts}]
   end
+
+  defp add_activation_gate(children) do
+    children ++
+      [
+        {AllbertAssist.Pack.ActivationGate,
+         effect_supervisor_opts: residual_effect_supervisor_opts()}
+      ]
+  end
+
+  defp residual_effect_supervisor_opts do
+    app_opts = Application.get_env(:allbert_assist, AllbertAssist.App.Registry, [])
+    plugin_opts = Application.get_env(:allbert_assist, AllbertAssist.Plugin.Registry, [])
+
+    [
+      app_registry: Keyword.get(app_opts, :name, AllbertAssist.App.Registry),
+      app_dynamic_supervisor:
+        Keyword.get(app_opts, :dynamic_supervisor, AllbertAssist.App.DynamicSupervisor),
+      plugin_registry: Keyword.get(plugin_opts, :name, AllbertAssist.Plugin.Registry),
+      plugin_child_supervisor:
+        Keyword.get(plugin_opts, :child_supervisor, AllbertAssist.Plugin.ChildSupervisor),
+      effect_children: residual_effect_children()
+    ]
+  end
+
+  defp residual_effect_children do
+    []
+    |> maybe_add_dns_discovery()
+    |> maybe_add_first_run_enablement()
+    |> maybe_add_report_composer()
+    |> maybe_add_notify_consumer()
+    |> maybe_add_result_readback_sweeper()
+    |> maybe_add_objective_runtime()
+    |> maybe_add_intent_index()
+    |> maybe_add_dynamic_plugins_supervisor()
+    |> maybe_add_jido_backed_supervisor()
+    |> maybe_add_projection_owners()
+    |> maybe_add_channels_supervisor()
+    |> maybe_add_attach_server()
+  end
+
+  defp maybe_add_dns_discovery(children) do
+    case Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore do
+      :ignore -> children
+      query -> children ++ [{DNSCluster, query: query}]
+    end
+  end
+
+  defp maybe_add_first_run_enablement(children) do
+    case first_run_enablement_child() do
+      nil -> children
+      child -> children ++ [child]
+    end
+  end
+
+  defp maybe_add_report_composer(children), do: children ++ [report_composer_child()]
+
+  defp maybe_add_notify_consumer(children) do
+    case notify_consumer_child() do
+      nil -> children
+      child -> children ++ [child]
+    end
+  end
+
+  defp maybe_add_result_readback_sweeper(children),
+    do: children ++ [AllbertAssist.PublicProtocol.ResultReadbackSweeper]
+
+  defp maybe_add_objective_runtime(children) do
+    children ++
+      [AllbertAssist.Objectives.Runs.Supervisor, AllbertAssist.Objectives.Runs.Scheduler]
+  end
+
+  defp maybe_add_intent_index(children), do: children ++ [AllbertAssist.Intent.Router.Index]
 
   defp maybe_add_session_scratchpad(children) do
     opts = Application.get_env(:allbert_assist, AllbertAssist.Session.Scratchpad, [])

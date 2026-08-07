@@ -13,6 +13,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   alias AllbertAssist.Channels.Telegram.Parser
   alias AllbertAssist.Channels.Telegram.Renderer
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime
@@ -68,7 +69,8 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
       backoff_ms: 0,
       poll_interval_ms: 2000,
       poll_timeout_seconds: 25,
-      req_options: Keyword.get(opts, :req_options, [])
+      req_options: Keyword.get(opts, :req_options, []),
+      effect_guard_opts: effect_guard_opts(opts)
     }
 
     with {:ok, settings} <- Channels.channel_settings("telegram"),
@@ -102,19 +104,34 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp poll(%{enabled?: false} = state), do: {{:error, :disabled}, state}
 
   defp poll(%{enabled?: true} = state) do
-    case Client.get_updates(
-           state.token,
-           state.offset,
-           state.poll_timeout_seconds,
-           state.req_options
-         ) do
-      {:ok, updates} when is_list(updates) ->
-        {summary, offset} = process_updates(updates, state, state.offset)
-        {{:ok, summary}, %{state | offset: offset, backoff_ms: 0}}
+    # Capture E1 once per polling cycle and prove that exact epoch immediately
+    # before the Bot API request. A same-digest replacement is not admitted.
+    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
+         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+      case Client.get_updates(
+             state.token,
+             state.offset,
+             state.poll_timeout_seconds,
+             state.req_options
+           ) do
+        {:ok, updates} when is_list(updates) ->
+          state = Map.put(state, :effect_epoch, epoch)
+          {summary, offset} = process_updates(updates, state, state.offset)
+          {{:ok, summary}, %{state | offset: offset, backoff_ms: 0}}
 
-      {:error, reason} ->
-        Logger.warning("telegram poll failed: #{inspect(redact(reason))}")
-        {{:error, reason}, %{state | backoff_ms: next_backoff(state.backoff_ms)}}
+        {:error, reason} ->
+          Logger.warning("telegram poll failed: #{inspect(redact(reason))}")
+          {{:error, reason}, %{state | backoff_ms: next_backoff(state.backoff_ms)}}
+      end
+    else
+      {:error, _reason} -> {{:error, :product_not_ready}, state}
+    end
+  end
+
+  defp effect_guard_opts(opts) do
+    case Keyword.fetch(opts, :readiness_server) do
+      {:ok, server} -> [server: server]
+      :error -> []
     end
   end
 
@@ -156,25 +173,40 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp process_text_update(fields, state) do
     case insert_received_event(fields, "inbound") do
-      {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_text_message(event, fields, state)
-      {:ok, :duplicate} -> {:ok, :duplicate}
-      {:error, reason} -> {:error, reason}
+      {:ok, %AllbertAssist.Channels.Event{} = event} ->
+        handle_text_message(event, carry_epoch(fields, state), state)
+
+      {:ok, :duplicate} ->
+        {:ok, :duplicate}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp process_voice_update(fields, state) do
     case insert_received_event(fields, "inbound") do
-      {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_voice_message(event, fields, state)
-      {:ok, :duplicate} -> {:ok, :duplicate}
-      {:error, reason} -> {:error, reason}
+      {:ok, %AllbertAssist.Channels.Event{} = event} ->
+        handle_voice_message(event, carry_epoch(fields, state), state)
+
+      {:ok, :duplicate} ->
+        {:ok, :duplicate}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp process_callback_update(fields, state) do
     case insert_received_event(fields, "callback") do
-      {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_callback(event, fields, state)
-      {:ok, :duplicate} -> {:ok, :duplicate}
-      {:error, reason} -> {:error, reason}
+      {:ok, %AllbertAssist.Channels.Event{} = event} ->
+        handle_callback(event, carry_epoch(fields, state), state)
+
+      {:ok, :duplicate} ->
+        {:ok, :duplicate}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -486,8 +518,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
         |> Map.merge(extra_metadata)
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input()
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
+
+  defp carry_epoch(fields, state),
+    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -959,6 +994,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("telegram"),
          {:ok, token} <- resolve_token(settings),
+         :ok <- validate_outbound_epoch(opts),
          {:ok, result} <- Client.send_message(token, target, body, client_opts) do
       {:ok, %{channel: "telegram", target: target, result: result}}
     end
@@ -975,6 +1011,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("telegram"),
          {:ok, token} <- resolve_token(settings),
          {:ok, message_id} <- telegram_message_id(provider_message_id),
+         :ok <- validate_outbound_epoch(opts),
          {:ok, result} <-
            Client.edit_message(token, target, message_id, body, client_opts) do
       {:ok,
@@ -991,6 +1028,15 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     case Integer.parse(value) do
       {id, ""} when id > 0 -> {:ok, id}
       _other -> {:error, :invalid_telegram_message_id}
+    end
+  end
+
+  defp validate_outbound_epoch(opts) do
+    with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
+         :ok <- EffectGuard.validate(epoch) do
+      :ok
+    else
+      _error -> {:error, :product_not_ready}
     end
   end
 end

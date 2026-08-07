@@ -16,6 +16,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.{Coordinator, Supervisor}
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
@@ -36,7 +37,9 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
             recovery_attempts: %{},
             rehydration_retry_count: 0,
             rehydration_loader: nil,
-            coordinator_starter: nil
+            coordinator_starter: nil,
+            effect_guard: EffectGuard,
+            effect_guard_opts: []
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
@@ -120,7 +123,9 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
           setting("objectives.fanout.max_concurrent_runs_per_fanout", @default_per_fanout)
         end),
       rehydration_loader: Keyword.get(opts, :rehydration_loader, &load_rehydration_snapshot/0),
-      coordinator_starter: Keyword.get(opts, :coordinator_starter, &start_coordinator/1)
+      coordinator_starter: Keyword.get(opts, :coordinator_starter, &start_coordinator/1),
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+      effect_guard_opts: Keyword.get(opts, :effect_guard_opts, [])
     }
 
     if Keyword.get(opts, :rehydrate?, true),
@@ -130,7 +135,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   @impl true
   def handle_continue(:reconcile, state) do
-    {:noreply, reconcile_runnable_parents(state)}
+    {:noreply, reconcile_if_ready(state)}
   end
 
   @impl true
@@ -152,20 +157,25 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   def handle_call({:start_fanout, parent_id, opts}, _from, state) do
     result =
-      case Objectives.get_objective(parent_id) do
-        {:ok,
-         %{
-           fanout_role: "parent",
-           kickoff_delivery_state: "acknowledged",
-           report_delivery_state: "not_ready"
-         }} ->
-          state.coordinator_starter.(Keyword.merge(opts, parent_id: parent_id))
+      with {:ok, epoch} <- admit_epoch(state),
+           :ok <- validate_epoch(state, epoch) do
+        case Objectives.get_objective(parent_id) do
+          {:ok,
+           %{
+             fanout_role: "parent",
+             kickoff_delivery_state: "acknowledged",
+             report_delivery_state: "not_ready"
+           }} ->
+            state.coordinator_starter.(Keyword.merge(opts, parent_id: parent_id))
 
-        {:ok, _objective} ->
-          {:error, :kickoff_not_acknowledged}
+          {:ok, _objective} ->
+            {:error, :kickoff_not_acknowledged}
 
-        {:error, _reason} ->
-          {:error, :fanout_not_found}
+          {:error, _reason} ->
+            {:error, :fanout_not_found}
+        end
+      else
+        {:error, _reason} -> {:error, :product_not_ready}
       end
 
     {:reply, normalize_start(result), state}
@@ -236,7 +246,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   @impl true
   def handle_info(:retry_rehydrate, state) do
-    {:noreply, reconcile_runnable_parents(state)}
+    {:noreply, reconcile_if_ready(state)}
   end
 
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
@@ -276,6 +286,16 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
   end
 
   def handle_info({:recover_coordinator, parent_id}, state) do
+    case ready_epoch(state) do
+      {:error, _reason} ->
+        {:noreply, schedule_recovery_retry(state, parent_id)}
+
+      {:ok, _epoch} ->
+        recover_coordinator(parent_id, state)
+    end
+  end
+
+  defp recover_coordinator(parent_id, state) do
     case recovery_required(parent_id) do
       {:ok, true} ->
         case state.coordinator_starter.(parent_id: parent_id, recovery?: true) do
@@ -298,6 +318,27 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
         {:noreply, schedule_recovery_retry(state, parent_id)}
     end
   end
+
+  defp reconcile_if_ready(state) do
+    case ready_epoch(state) do
+      {:ok, _epoch} -> reconcile_runnable_parents(state)
+      {:error, _reason} -> schedule_rehydration_retry(state)
+    end
+  end
+
+  defp ready_epoch(state) do
+    with {:ok, epoch} <- admit_epoch(state),
+         :ok <- validate_epoch(state, epoch) do
+      {:ok, epoch}
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp admit_epoch(%{effect_guard: guard, effect_guard_opts: opts}), do: guard.admit_ready(opts)
+
+  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts}, epoch),
+    do: guard.validate(epoch, opts)
 
   defp normalize_start({:ok, pid}), do: {:ok, pid}
   defp normalize_start({:error, {:already_started, pid}}), do: {:ok, pid}

@@ -34,7 +34,7 @@ defmodule AllbertAssist.Actions.Jobs.RunJob do
   @impl true
   def run(params, context) do
     Control.run("run_job", params, context, fn job ->
-      case Runner.run_now(job) do
+      case Runner.run_now(job, allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)) do
         {:ok, %{run: run}} -> {:ok, "Run #{run.id} #{run.status}"}
         {:error, reason} -> {:error, reason}
       end

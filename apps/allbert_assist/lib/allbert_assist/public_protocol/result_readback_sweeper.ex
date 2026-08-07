@@ -12,6 +12,7 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackSweeper do
   require Logger
 
   alias AllbertAssist.PublicProtocol.ResultReadback
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
 
   @default_interval_ms 60_000
@@ -36,6 +37,8 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackSweeper do
       interval_ms: Keyword.get(opts, :interval_ms, settings_interval_ms()),
       timer_ref: nil,
       result_readback: Keyword.get(opts, :result_readback, ResultReadback),
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+      effect_guard_opts: Keyword.get(opts, :effect_guard_opts, []),
       schedule?: Keyword.get(opts, :schedule?, default_schedule?())
     }
 
@@ -53,7 +56,17 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackSweeper do
     {:noreply, maybe_schedule_next(%{state | timer_ref: nil})}
   end
 
-  defp sweep(%{result_readback: result_readback}, opts) do
+  defp sweep(state, opts) do
+    with {:ok, epoch} <- admit_epoch(state),
+         :ok <- validate_epoch(state, epoch) do
+      sweep_expired(state.result_readback, opts)
+    else
+      {:error, :product_not_ready} -> {:error, :product_not_ready}
+      {:error, :stale_epoch} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp sweep_expired(result_readback, opts) do
     case result_readback.sweep_expired(opts) do
       {:ok, _count} = ok ->
         ok
@@ -70,6 +83,12 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackSweeper do
 
       {:error, exception}
   end
+
+  defp admit_epoch(%{effect_guard: guard, effect_guard_opts: opts}),
+    do: guard.admit_ready(opts)
+
+  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts}, epoch),
+    do: guard.validate(epoch, opts)
 
   defp maybe_schedule_next(%{schedule?: true} = state), do: schedule_next(state)
   defp maybe_schedule_next(state), do: state

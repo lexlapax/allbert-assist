@@ -14,6 +14,7 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertAssist.Signals
   alias Jido.Signal
@@ -60,17 +61,24 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
 
   @doc false
   def maybe_reconcile_managed(%{managed_reconcile_on_start?: true}),
-    do: Managed.reconcile("local")
+    do: reconcile_managed_if_ready()
 
   def maybe_reconcile_managed(_state), do: {:ok, []}
 
   @doc false
   def maybe_cleanup_on_start(state, now) do
-    if state.cleanup_on_start? do
-      cleanup_stale_runs_for_state(state, now)
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      maybe_cleanup_on_start(state, now, epoch)
     else
-      {:ok, 0}
+      {:error, _reason} -> {:ok, 0}
     end
+  end
+
+  defp maybe_cleanup_on_start(state, now, epoch) do
+    if state.cleanup_on_start?,
+      do: cleanup_stale_runs_for_state(state, now, epoch),
+      else: {:ok, 0}
   end
 
   @doc false
@@ -79,9 +87,18 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
   end
 
   def poll_once(state, now) when is_map(state) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      poll_once(state, now, epoch)
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  def poll_once(state, now, epoch) when is_map(state) do
     case Settings.get("jobs.schedule_policy") do
       {:ok, "operator_approved"} ->
-        run_due_jobs(state, now)
+        run_due_jobs(state, now, epoch)
 
       {:ok, "paused"} ->
         {:ok, base_summary("paused")}
@@ -98,28 +115,49 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
 
   @doc false
   def cleanup_stale_runs_for_state(state, now) when is_map(state) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      cleanup_stale_runs_for_state(state, now, epoch)
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  def cleanup_stale_runs_for_state(state, now, epoch) when is_map(state) do
     stale_before = DateTime.add(now, -state.stale_run_ms, :millisecond)
-    Jobs.fail_stale_running_runs(stale_before)
+
+    with :ok <- EffectGuard.validate(epoch) do
+      Jobs.fail_stale_running_runs(stale_before)
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
   end
 
   @doc false
   def utc_now, do: DateTime.utc_now() |> DateTime.truncate(:microsecond)
 
-  defp run_due_jobs(state, now) do
+  defp run_due_jobs(state, now, epoch) do
     now
     |> Jobs.due_jobs(state.batch_size)
     |> Enum.reduce(base_summary("operator_approved"), fn job, summary ->
-      merge_summary(summary, run_due_job(job, now))
+      merge_summary(summary, run_due_job(job, now, epoch))
     end)
     |> then(&{:ok, &1})
   end
 
-  defp run_due_job(%Job{} = job, now) do
+  defp run_due_job(%Job{} = job, now, epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> run_due_job_after_validation(job, now, epoch)
+      {:error, _reason} -> skipped_product_not_ready()
+    end
+  end
+
+  defp run_due_job_after_validation(%Job{} = job, now, epoch) do
     case Jobs.claim_due_job(job, now) do
       {:ok, %Run{} = run} ->
         emit_job_signal(:due, job, run)
         emit_job_signal(:started, job, run, %{started_at: utc_now()})
-        execute_claimed_run(job, run)
+        execute_claimed_run(job, run, epoch)
 
       {:ok, %{outcome: :coalesced} = admission} ->
         emit_job_signal(:skipped, job, nil, %{reason: "coalesced", admission: admission})
@@ -131,8 +169,15 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
     end
   end
 
-  defp execute_claimed_run(job, run) do
-    case Runner.execute_run(job, run) do
+  defp execute_claimed_run(job, run, epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> execute_claimed_run_after_validation(job, run, epoch)
+      {:error, _reason} -> skipped_product_not_ready()
+    end
+  end
+
+  defp execute_claimed_run_after_validation(job, run, epoch) do
+    case Runner.execute_run(job, run, allbert_pack_epoch: epoch) do
       {:ok, %{job: updated_job, run: finished_run}} ->
         maybe_advance_next_due(updated_job, finished_run)
         emit_final_signal(updated_job, finished_run)
@@ -197,6 +242,18 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
 
   defp summary_for_run(_run),
     do: %{claimed: 1, completed: 0, needs_confirmation: 0, failed: 0, skipped: 0}
+
+  defp skipped_product_not_ready,
+    do: %{claimed: 0, completed: 0, needs_confirmation: 0, failed: 0, skipped: 1}
+
+  defp reconcile_managed_if_ready do
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      Managed.reconcile("local")
+    else
+      {:error, _reason} -> {:ok, []}
+    end
+  end
 
   defp emit_job_signal(kind, job, run, extra \\ %{}) do
     type = Map.fetch!(@job_signals, kind)

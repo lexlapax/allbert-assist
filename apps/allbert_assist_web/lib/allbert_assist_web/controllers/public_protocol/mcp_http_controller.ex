@@ -11,6 +11,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.PublicProtocol.Mcp.{ProtocolVersions, Runtime, Schema}
   alias AllbertAssist.Surface.EventRecorder
+  alias AllbertAssistWeb.PackReadiness
+  alias AllbertAssistWeb.PackReadiness.HTTPGate
 
   @surface "mcp_http"
 
@@ -28,31 +30,43 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
 
       {:error, {status, code, message, data}} ->
         rpc_error(conn, status, id, code, message, data)
+
+      {:error, :product_not_ready} ->
+        HTTPGate.unavailable(conn)
     end
   end
 
   def handle(conn, request) do
     id = if is_map(request), do: Map.get(request, "id")
 
-    rpc_error(conn, 400, id, -32_600, "Invalid JSON-RPC request.", %{})
+    if current?(conn) do
+      rpc_error(conn, 400, id, -32_600, "Invalid JSON-RPC request.", %{})
+    else
+      HTTPGate.unavailable(conn)
+    end
   end
 
   def delete(conn, _params) do
-    conn
-    |> put_status(405)
-    |> json(%{
-      "error" => %{
-        "message" => "MCP HTTP session DELETE is not implemented in v0.51.",
-        "type" => "invalid_request_error",
-        "code" => "method_not_allowed"
-      }
-    })
+    if current?(conn) do
+      conn
+      |> put_status(405)
+      |> json(%{
+        "error" => %{
+          "message" => "MCP HTTP session DELETE is not implemented in v0.51.",
+          "type" => "invalid_request_error",
+          "code" => "method_not_allowed"
+        }
+      })
+    else
+      HTTPGate.unavailable(conn)
+    end
   end
 
-  defp dispatch("initialize", params, _conn) when is_map(params) do
+  defp dispatch("initialize", params, conn) when is_map(params) do
     requested = Map.get(params, "protocolVersion", ProtocolVersions.latest())
 
-    with :ok <- ProtocolVersions.validate(requested) do
+    with :ok <- current(conn),
+         :ok <- ProtocolVersions.validate(requested) do
       {:ok,
        %{
          "protocolVersion" => requested,
@@ -66,13 +80,17 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
          }
        }}
     else
+      {:error, :product_not_ready} ->
+        {:error, :product_not_ready}
+
       {:error, error} ->
         {:error, {400, -32_602, error.message, error.data}}
     end
   end
 
-  defp dispatch("tools/list", _params, _conn) do
-    with {:ok, tools} <- Runtime.enabled_tools(@surface) do
+  defp dispatch("tools/list", _params, conn) do
+    with :ok <- current(conn),
+         {:ok, tools} <- Runtime.enabled_tools(@surface) do
       {:ok,
        %{
          "tools" =>
@@ -90,17 +108,22 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
   defp dispatch("tools/call", %{"name" => name} = params, conn) when is_binary(name) do
     arguments = Map.get(params, "arguments", %{})
 
-    with {:ok, payload} <-
-           Runtime.call_tool(name, arguments, conn.assigns.public_protocol_context, @surface) do
+    with :ok <- current(conn),
+         {:ok, payload} <-
+           Runtime.call_tool(name, arguments, runtime_context(conn), @surface) do
       {:ok, tool_result(payload)}
     else
+      {:error, :product_not_ready} ->
+        {:error, :product_not_ready}
+
       {:error, reason} ->
         {:error, {400, -32_602, "MCP tool call failed.", %{reason: inspect(reason)}}}
     end
   end
 
-  defp dispatch("resources/list", _params, _conn) do
-    with {:ok, resources} <- Runtime.enabled_resources(@surface) do
+  defp dispatch("resources/list", _params, conn) do
+    with :ok <- current(conn),
+         {:ok, resources} <- Runtime.enabled_resources(@surface) do
       {:ok,
        %{
          "resources" =>
@@ -117,8 +140,9 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
   end
 
   defp dispatch("resources/read", %{"uri" => uri}, conn) when is_binary(uri) do
-    with {:ok, payload} <-
-           Runtime.read_resource(uri, conn.assigns.public_protocol_context, @surface) do
+    with :ok <- current(conn),
+         {:ok, payload} <-
+           Runtime.read_resource(uri, runtime_context(conn), @surface) do
       {:ok,
        %{
          "contents" => [
@@ -130,6 +154,9 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
          ]
        }}
     else
+      {:error, :product_not_ready} ->
+        {:error, :product_not_ready}
+
       {:error, reason} ->
         {:error, {404, -32_002, "MCP resource was not found.", %{reason: inspect(reason)}}}
     end
@@ -213,4 +240,15 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
   defp stringify_value(value) when is_tuple(value), do: value |> Tuple.to_list() |> json_safe()
   defp stringify_value(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify_value(value), do: value
+
+  defp current?(conn), do: current(conn) == :ok
+  defp current(conn), do: PackReadiness.validate_conn(conn)
+
+  defp runtime_context(conn) do
+    Map.put(
+      conn.assigns.public_protocol_context,
+      :allbert_pack_epoch,
+      conn.private[:allbert_pack_epoch]
+    )
+  end
 end

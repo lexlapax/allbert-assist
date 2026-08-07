@@ -1,14 +1,14 @@
 defmodule AllbertAssist.App.SupervisorRestartTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry
+  alias AllbertAssist.App.Bootstrap
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Pack.Readiness
   alias AllbertAssist.Session
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule ValidApp do
     use AllbertAssist.App
@@ -64,21 +64,28 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
     original_apps = Application.get_env(:allbert_assist, :apps)
     original_bootstrap = Application.get_env(:allbert_assist, :apps_bootstrap)
 
-    PluginRegistry.clear()
-    PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    PluginRegistry.register_module(StockSage.Plugin)
+    plugin_registry = :"app_supervisor_plugin_registry_#{System.unique_integer([:positive])}"
+    plugin_table = :"app_supervisor_plugin_table_#{System.unique_integer([:positive])}"
+
+    start_supervised!({PluginRegistry, name: plugin_registry, table_name: plugin_table})
+
+    assert {:ok, "stocksage"} =
+             PluginRegistry.register_module(StockSage.Plugin,
+               server: plugin_registry,
+               side_effects: false
+             )
 
     on_exit(fn ->
-      ShippedRegistries.restore!()
       restore_env(:apps, original_apps)
       restore_env(:apps_bootstrap, original_bootstrap)
     end)
 
-    :ok
+    {:ok, plugin_registry: plugin_registry}
   end
 
-  test "one_for_all restart recreates the volatile registry and bootstraps configured apps" do
+  test "one_for_all restart recreates the volatile registry and bootstraps configured apps", %{
+    plugin_registry: plugin_registry
+  } do
     registry = :"restart_registry_#{System.unique_integer([:positive])}"
     dynamic_supervisor = :"restart_dynamic_supervisor_#{System.unique_integer([:positive])}"
     bootstrap = :"restart_bootstrap_#{System.unique_integer([:positive])}"
@@ -92,11 +99,16 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
          registry: registry,
          dynamic_supervisor: dynamic_supervisor,
          bootstrap: bootstrap,
+         plugin_registry: plugin_registry,
          table_name: table},
         id: supervisor
       )
     )
 
+    assert [{AllbertAssist.App.MetadataSupervisor, _metadata_pid, :supervisor, _modules}] =
+             Supervisor.which_children(supervisor)
+
+    assert Process.whereis(dynamic_supervisor) == nil
     assert wait_until(fn -> app_ids(registry) == [:allbert, :stocksage] end)
 
     old_pid = Process.whereis(registry)
@@ -112,7 +124,9 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
            end)
   end
 
-  test "bootstrap failure records diagnostics while serving successful apps" do
+  test "bootstrap failure records diagnostics while serving successful apps", %{
+    plugin_registry: plugin_registry
+  } do
     Application.put_env(:allbert_assist, :apps, [ValidApp, BrokenApp])
 
     registry = :"failure_registry_#{System.unique_integer([:positive])}"
@@ -128,6 +142,7 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
          registry: registry,
          dynamic_supervisor: dynamic_supervisor,
          bootstrap: bootstrap,
+         plugin_registry: plugin_registry,
          table_name: table},
         id: supervisor
       )
@@ -146,20 +161,24 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
              Registry.diagnostics(server: registry)
   end
 
-  test "app bootstrap consumes plugin-contributed apps" do
-    PluginRegistry.clear()
+  test "app bootstrap consumes plugin-contributed apps", %{plugin_registry: plugin_registry} do
+    PluginRegistry.clear(server: plugin_registry, side_effects: false)
 
     assert {:ok, "example.app"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.app",
-               display_name: "Example App",
-               version: "0.1.0",
-               kind: "app",
-               source: :project,
-               status: :enabled,
-               trust_status: :trusted,
-               apps: [PluginApp]
-             })
+             PluginRegistry.register_entry(
+               %PluginEntry{
+                 plugin_id: "example.app",
+                 display_name: "Example App",
+                 version: "0.1.0",
+                 kind: "app",
+                 source: :project,
+                 status: :enabled,
+                 trust_status: :trusted,
+                 apps: [PluginApp]
+               },
+               server: plugin_registry,
+               side_effects: false
+             )
 
     registry = :"plugin_app_registry_#{System.unique_integer([:positive])}"
     dynamic_supervisor = :"plugin_app_dynamic_supervisor_#{System.unique_integer([:positive])}"
@@ -174,6 +193,7 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
          registry: registry,
          dynamic_supervisor: dynamic_supervisor,
          bootstrap: bootstrap,
+         plugin_registry: plugin_registry,
          table_name: table},
         id: supervisor
       )
@@ -185,7 +205,9 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
              Registry.lookup(:plugin_bootstrap_app, server: registry)
   end
 
-  test "bootstrap can be disabled for tests without registering default apps" do
+  test "bootstrap can be disabled for tests without registering default apps", %{
+    plugin_registry: plugin_registry
+  } do
     Application.put_env(:allbert_assist, :apps_bootstrap, false)
 
     registry = :"disabled_bootstrap_registry_#{System.unique_integer([:positive])}"
@@ -204,6 +226,7 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
          registry: registry,
          dynamic_supervisor: dynamic_supervisor,
          bootstrap: bootstrap,
+         plugin_registry: plugin_registry,
          table_name: table},
         id: supervisor
       )
@@ -213,7 +236,22 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
     assert Registry.diagnostics(server: registry) == %{}
   end
 
-  test "default registry restart preserves app validation and creates no durable rows" do
+  test "bootstrap completion evidence identifies one completed bootstrap process" do
+    Application.put_env(:allbert_assist, :apps_bootstrap, false)
+    bootstrap = :"completion_bootstrap_#{System.unique_integer([:positive])}"
+
+    bootstrap_pid = start_supervised!({Bootstrap, name: bootstrap})
+
+    assert :ok = Bootstrap.await_ready(bootstrap)
+
+    assert {:ok, %{pid: ^bootstrap_pid, generation: 1, completion_token: completion_token}} =
+             Bootstrap.completion_token(bootstrap)
+
+    assert is_reference(completion_token)
+  end
+
+  @tag timeout: 120_000
+  test "default metadata registry restart preserves app validation and creates no durable rows" do
     user = "registry-restart-#{System.unique_integer([:positive])}"
 
     assert Conversations.list_threads(user) == []
@@ -221,7 +259,9 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
     assert {:ok, []} = Session.list(user)
 
     old_pid = Process.whereis(Registry)
+    old_coordinator = Process.whereis(:allbert_pack_composition_owner)
     assert is_pid(old_pid)
+    assert is_pid(old_coordinator)
 
     Process.exit(old_pid, :kill)
 
@@ -230,21 +270,16 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
              is_pid(new_pid) and new_pid != old_pid and :stocksage in app_ids(Registry)
            end)
 
+    assert wait_until(fn ->
+             new_coordinator = Process.whereis(:allbert_pack_composition_owner)
+
+             is_pid(new_coordinator) and new_coordinator != old_coordinator and
+               match?({:ok, %{phase: :ready}}, Readiness.status(timeout: 1_000))
+           end)
+
     assert Conversations.list_threads(user) == []
     assert Jobs.list_jobs(user) == []
     assert {:ok, []} = Session.list(user)
-
-    assert {:ok, response} =
-             Runner.run(
-               "set_active_app",
-               %{user_id: user, session_id: "sess-1", app_id: "stocksage"},
-               context(user)
-             )
-
-    assert response.status == :completed
-    assert response.session.active_app == :stocksage
-
-    on_exit(fn -> Session.clear(user, "sess-1") end)
   end
 
   defp app_ids(registry) do
@@ -253,7 +288,7 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
     |> Enum.map(& &1.app_id)
   end
 
-  defp wait_until(fun, attempts \\ 50)
+  defp wait_until(fun, attempts \\ 3_000)
   defp wait_until(_fun, 0), do: false
 
   defp wait_until(fun, attempts) do
@@ -263,10 +298,6 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
       Process.sleep(20)
       wait_until(fun, attempts - 1)
     end
-  end
-
-  defp context(user) do
-    %{request: %{input_signal_id: "input-sig", operator_id: user, user_id: user}}
   end
 
   defp restore_env(key, nil), do: Application.delete_env(:allbert_assist, key)

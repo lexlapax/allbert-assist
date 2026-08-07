@@ -18,19 +18,33 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Theme.Status, as: ThemeStatus
   alias AllbertAssistWeb.Workspace.Components.Patterns
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
 
   @default_key "operator.communication_style"
+
+  @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
 
   @impl true
   # v1.0.1 M4.2.3: the parent LiveView forwards confirmation lifecycle events
   # (requested/resolved) here via `send_update/2` so the pending queue
   # live-updates instead of snapshotting at panel-open. The refresh re-runs the
   # same global-by-status `list_confirmations` read — no new authority.
-  def update(%{refresh_confirmations: _token}, socket) do
-    {:ok, refresh_confirmations(socket)}
+  def update(%{refresh_confirmations: _token} = assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, _assigns, socket} -> {:ok, refresh_confirmations(socket)}
+      {:error, socket} -> {:ok, socket}
+    end
   end
 
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     selected_key = Map.get(assigns, :selected_key, @default_key)
     context = Map.get(assigns, :renderer_context, %{})
     loaded? = Map.get(socket.assigns, :settings_loaded?, false)

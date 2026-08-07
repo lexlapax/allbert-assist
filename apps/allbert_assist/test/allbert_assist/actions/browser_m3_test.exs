@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Runner
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -158,7 +159,8 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     assert job.target["action_name"] == "browser_sweep_cache"
 
     assert {:ok, _artifact} = Cache.put("session-3", "extraction", "old", ext: ".txt")
-    assert {:ok, _run_result} = Runner.run_now(job)
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    assert {:ok, _run_result} = Runner.run_now(job, allbert_pack_epoch: epoch)
     assert [%{status: "completed"}] = Jobs.list_runs(job)
   end
 

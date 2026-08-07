@@ -8,7 +8,9 @@ defmodule AllbertAssist.Extensions.Registry do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.RegistryContext
 
@@ -84,6 +86,29 @@ defmodule AllbertAssist.Extensions.Registry do
     |> Enum.flat_map(&descriptors_from_source(&1, RegistryContext.take(opts)))
     |> Enum.uniq_by(&{&1.app_id, &1.action_name})
   end
+
+  @doc """
+  Normalize intent descriptors from sealed App/Plugin metadata entries.
+
+  The action capability lookup is built from the pure static and supplied
+  Plugin projections; this function never reads a live contribution registry.
+  Invalid compiled callbacks or descriptor rows reject the complete input.
+  """
+  @spec intent_descriptors_from_entries([map()], [map()]) ::
+          {:ok, [Descriptor.t()]} | {:error, [ValidationDiagnostic.t()]}
+  def intent_descriptors_from_entries(app_entries, plugin_entries)
+      when is_list(app_entries) and is_list(plugin_entries) do
+    with {:ok, static} <- ActionsRegistry.static_projection(),
+         {:ok, action_projection} <-
+           ActionsRegistry.candidate_projection(static, app_entries, plugin_entries),
+         {:ok, sources} <- descriptor_sources_from_entries(app_entries, plugin_entries),
+         {:ok, descriptors} <- normalize_descriptor_sources(sources, action_projection) do
+      {:ok, Enum.uniq_by(descriptors, &{&1.app_id, &1.action_name})}
+    end
+  end
+
+  def intent_descriptors_from_entries(_app_entries, _plugin_entries),
+    do: {:error, [candidate_diagnostic(:invalid_candidate_entries)]}
 
   @spec registered_actions(Keyword.t()) :: [map()]
   def registered_actions(opts \\ []) do
@@ -168,6 +193,148 @@ defmodule AllbertAssist.Extensions.Registry do
   end
 
   defp descriptors_from_source(_source, _registry), do: []
+
+  defp descriptor_sources_from_entries(app_entries, plugin_entries) do
+    with {:ok, app_sources, app_modules} <- app_descriptor_sources(app_entries),
+         {:ok, plugin_sources} <- plugin_descriptor_sources(plugin_entries, app_modules) do
+      {:ok, app_sources ++ plugin_sources}
+    end
+  end
+
+  defp app_descriptor_sources(entries) do
+    entries
+    |> Enum.reduce_while({:ok, [], %{}}, fn app, {:ok, sources, modules} ->
+      app_id = Map.get(app, :app_id)
+      module = Map.get(app, :module)
+
+      if is_atom(app_id) and is_atom(module) and not Map.has_key?(modules, module) do
+        source = %{app_id: app_id, module: module, source: :app}
+        {:cont, {:ok, [source | sources], Map.put(modules, module, app_id)}}
+      else
+        {:halt, {:error, [candidate_diagnostic(:invalid_app_descriptor_source)]}}
+      end
+    end)
+    |> then(fn
+      {:ok, sources, modules} -> {:ok, Enum.reverse(sources), modules}
+      error -> error
+    end)
+  end
+
+  defp plugin_descriptor_sources(entries, app_modules) do
+    entries
+    |> Enum.reduce_while({:ok, []}, fn plugin, {:ok, sources} ->
+      plugin_id = Map.get(plugin, :plugin_id)
+      apps = Map.get(plugin, :apps, [])
+
+      cond do
+        Map.get(plugin, :status) != :enabled ->
+          {:cont, {:ok, sources}}
+
+        not is_binary(plugin_id) or plugin_id == "" or not is_list(apps) ->
+          {:halt, {:error, [candidate_diagnostic(:invalid_plugin_descriptor_source)]}}
+
+        true ->
+          case Enum.reduce_while(apps, {:ok, sources}, fn module, {:ok, acc} ->
+                 case Map.fetch(app_modules, module) do
+                   {:ok, app_id} ->
+                     {:cont,
+                      {:ok,
+                       [
+                         %{app_id: app_id, module: module, plugin_id: plugin_id, source: :plugin}
+                         | acc
+                       ]}}
+
+                   :error ->
+                     {:halt, {:error, [candidate_diagnostic(:dangling_plugin_app)]}}
+                 end
+               end) do
+            {:ok, next} -> {:cont, {:ok, next}}
+            error -> {:halt, error}
+          end
+      end
+    end)
+    |> then(fn
+      {:ok, sources} -> {:ok, Enum.reverse(sources)}
+      error -> error
+    end)
+  end
+
+  defp normalize_descriptor_sources(sources, action_projection) do
+    capability_projection =
+      action_projection.effective
+      |> Map.new(fn action ->
+        capability =
+          action.normalized_capability
+          |> Map.put(:name, action.name)
+          |> Map.put(:module, action.module)
+          |> Map.put(:registered?, true)
+          |> Map.put(:app_id, action.app_id)
+          |> Map.put(:plugin_id, action.plugin_id)
+
+        {action.name, capability}
+      end)
+
+    sources
+    |> Enum.reduce_while({:ok, []}, fn %{module: module} = source, {:ok, descriptors} ->
+      cond do
+        not Code.ensure_loaded?(module) ->
+          {:halt, {:error, [candidate_diagnostic(:invalid_intent_descriptor_source)]}}
+
+        not function_exported?(module, :intent_descriptors, 0) ->
+          {:cont, {:ok, descriptors}}
+
+        true ->
+          case apply(module, :intent_descriptors, []) do
+            values when is_list(values) ->
+              normalized =
+                Descriptor.normalize_many(
+                  values,
+                  app_id: source.app_id,
+                  plugin_id: Map.get(source, :plugin_id),
+                  source: source.source,
+                  source_module: module,
+                  capability_projection: capability_projection,
+                  candidate_app_ids: sources |> Enum.map(& &1.app_id) |> Enum.uniq()
+                )
+
+              if ignorable_candidate_diagnostics?(normalized.diagnostics) do
+                {:cont, {:ok, descriptors ++ normalized.descriptors}}
+              else
+                {:halt, {:error, [candidate_diagnostic(:invalid_intent_descriptor)]}}
+              end
+
+            _other ->
+              {:halt, {:error, [candidate_diagnostic(:invalid_intent_descriptor_source)]}}
+          end
+      end
+    end)
+  rescue
+    _exception -> {:error, [candidate_diagnostic(:invalid_intent_descriptor_source)]}
+  catch
+    :exit, _reason -> {:error, [candidate_diagnostic(:invalid_intent_descriptor_source)]}
+  end
+
+  # M0 intentionally retains diagnostics for declarations that target
+  # internal-only actions while excluding those descriptors from the effective
+  # routing projection. Candidate construction preserves that frozen split;
+  # every other normalization diagnostic remains a fail-closed compiled-input
+  # error.
+  defp ignorable_candidate_diagnostics?(diagnostics) when is_list(diagnostics) do
+    Enum.all?(diagnostics, fn
+      %{reason: {:action_not_agent_exposed, name}} when is_binary(name) -> true
+      _other -> false
+    end)
+  end
+
+  defp candidate_diagnostic(reason) do
+    %ValidationDiagnostic{
+      schema_version: 1,
+      code: :invalid_value,
+      path: [%PathSegment{schema_version: 1, kind: :field, value: "intent_descriptors"}],
+      owner: nil,
+      detail: %{reason: reason}
+    }
+  end
 
   defp app_id_for_module(module) do
     if Code.ensure_loaded?(module) and function_exported?(module, :app_id, 0) do

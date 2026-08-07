@@ -45,17 +45,26 @@ defmodule AllbertAssistWeb.Router do
 
     get "/", PageController, :home
     get "/workspace/media/:message_id/:index", WorkspaceMediaController, :show
-    live "/workspace", WorkspaceLive
-    live "/jobs", JobsLive
-    live "/objectives", ObjectivesLive
-    live "/objectives/:id", ObjectiveLive
   end
 
-  scope "/" do
-    pipe_through :browser
+  live_session :allbert_pack,
+    on_mount: [{AllbertAssistWeb.PackReadiness, :live_session}],
+    session: {AllbertAssistWeb.PackReadiness, :live_session, []} do
+    scope "/", AllbertAssistWeb do
+      pipe_through :browser
 
-    live "/apps/artifacts/:sha", AllbertArtifactsWeb.ArtifactLive, :show
-    live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
+      live "/workspace", WorkspaceLive
+      live "/jobs", JobsLive
+      live "/objectives", ObjectivesLive
+      live "/objectives/:id", ObjectiveLive
+    end
+
+    scope "/" do
+      pipe_through :browser
+
+      live "/apps/artifacts/:sha", AllbertArtifactsWeb.ArtifactLive, :show
+      live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
+    end
   end
 
   # v0.61 M10.4 closeout: the disposable /preview/* walking-skeleton, visual-direction,

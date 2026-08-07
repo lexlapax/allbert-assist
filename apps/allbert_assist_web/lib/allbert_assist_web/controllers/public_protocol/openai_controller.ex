@@ -9,43 +9,60 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
   alias AllbertAssist.PublicProtocol.OpenAI.Mapping
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surface.EventRecorder
+  alias AllbertAssistWeb.PackReadiness
+  alias AllbertAssistWeb.PackReadiness.HTTPGate
 
   plug AllbertAssistWeb.Plugs.PublicProtocolOpenAIAuth,
        [surface: "openai_api"] when action in [:chat_completions, :models]
 
   def models(conn, _params) do
-    case Mapping.models_response() do
-      {:ok, body} -> json(conn, body)
-      {:error, error} -> send_error(conn, error)
+    if current?(conn) do
+      case Mapping.models_response() do
+        {:ok, body} -> json(conn, body)
+        {:error, error} -> send_error(conn, error)
+      end
+    else
+      HTTPGate.unavailable(conn)
     end
   end
 
   def chat_completions(conn, params) do
     auth = conn.assigns.public_protocol_auth
+    epoch = conn.private[:allbert_pack_epoch]
 
     case Mapping.parse_chat_request(params, auth) do
       {:ok, chat} ->
-        event =
-          EventRecorder.record_inbound("openai_api", %{
-            external_event_id: "openai_api:chat:#{Ecto.UUID.generate()}",
-            external_user_id: Map.fetch!(auth, :client_id),
-            user_id: chat.user_id,
-            session_id: Map.get(chat, :session_id),
-            thread_id: Map.get(chat, :thread_id),
-            payload_summary: "chat.completions #{chat.model}"
-          })
+        if current?(epoch) do
+          event =
+            EventRecorder.record_inbound("openai_api", %{
+              external_event_id: "openai_api:chat:#{Ecto.UUID.generate()}",
+              external_user_id: Map.fetch!(auth, :client_id),
+              user_id: chat.user_id,
+              session_id: Map.get(chat, :session_id),
+              thread_id: Map.get(chat, :thread_id),
+              payload_summary: "chat.completions #{chat.model}"
+            })
 
-        with {:ok, runtime_response} <-
-               Runtime.submit_user_input(Mapping.runtime_request(chat, auth)) do
-          deliver_chat_response(conn, chat, auth, event, runtime_response)
+          with :ok <- current(epoch),
+               {:ok, runtime_response} <-
+                 Runtime.submit_user_input(Mapping.runtime_request(chat, auth),
+                   allbert_pack_epoch: epoch
+                 ) do
+            deliver_chat_response(conn, chat, auth, event, runtime_response, epoch)
+          else
+            {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
+              HTTPGate.unavailable(conn)
+
+            {:error, %{status: _status} = error} ->
+              EventRecorder.mark_failed(event, error)
+              send_error(conn, error)
+
+            {:error, reason} ->
+              EventRecorder.mark_failed(event, reason)
+              send_error(conn, Mapping.runtime_error(reason))
+          end
         else
-          {:error, %{status: _status} = error} ->
-            EventRecorder.mark_failed(event, error)
-            send_error(conn, error)
-
-          {:error, reason} ->
-            EventRecorder.mark_failed(event, reason)
-            send_error(conn, Mapping.runtime_error(reason))
+          HTTPGate.unavailable(conn)
         end
 
       {:error, %{status: _status} = error} ->
@@ -60,40 +77,47 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
     end
   end
 
-  defp deliver_chat_response(conn, %{stream?: true} = chat, auth, event, response) do
-    with {:ok, kickoff} <- Mapping.chat_completion(response, chat, auth),
+  defp deliver_chat_response(conn, %{stream?: true} = chat, auth, event, response, epoch) do
+    with :ok <- current(epoch),
+         {:ok, kickoff} <- Mapping.chat_completion(response, chat, auth),
          {:ok, conn} <-
            conn
            |> put_resp_content_type("text/event-stream")
            |> send_chunked(200)
            |> chunk(Mapping.sse_chunk(kickoff)),
-         :ok <- persist_and_acknowledge(event, response),
+         :ok <- persist_and_acknowledge(event, response, epoch),
+         :ok <- current(epoch),
          {:ok, conn} <- chunk(conn, status_chunk(kickoff, "working")) do
-      finish_stream(conn, chat, auth, response)
+      finish_stream(conn, chat, auth, response, epoch)
     else
       {:error, :closed} ->
-        _ = Runtime.delivery_failed(response, %{channel: "openai_api"})
+        maybe_delivery_failed(response, epoch)
         conn
 
       {:error, reason} ->
-        _ = Runtime.delivery_failed(response, %{channel: "openai_api"})
-        EventRecorder.mark_failed(event, reason)
+        maybe_delivery_failed(response, epoch)
+        if current?(epoch), do: EventRecorder.mark_failed(event, reason)
         conn
     end
   end
 
-  defp deliver_chat_response(conn, chat, auth, event, response) do
-    with :ok <- persist_and_acknowledge(event, response),
-         {:ok, final_response} <- await_response(response),
+  defp deliver_chat_response(conn, chat, auth, event, response, epoch) do
+    with :ok <- persist_and_acknowledge(event, response, epoch),
+         {:ok, final_response} <- await_response(response, epoch),
+         :ok <- current(epoch),
          {:ok, body} <- Mapping.chat_completion(final_response, chat, auth) do
       conn = json(conn, body)
-      _ = acknowledge_join_report(final_response)
+      _ = acknowledge_join_report(final_response, epoch)
       conn
     else
       {:timeout, _kickoff} ->
-        with {:ok, body} <- Mapping.chat_completion(response, chat, auth) do
+        with :ok <- current(epoch),
+             {:ok, body} <- Mapping.chat_completion(response, chat, auth) do
           json(conn, body)
         end
+
+      {:error, reason} when reason in [:product_not_ready, :stale_epoch, :readiness_lost] ->
+        HTTPGate.unavailable(conn)
 
       {:error, %{status: _status} = error} ->
         send_error(conn, error)
@@ -104,48 +128,51 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
     end
   end
 
-  defp finish_stream(conn, chat, auth, response) do
-    case await_response(response) do
+  defp finish_stream(conn, chat, auth, response, epoch) do
+    case await_response(response, epoch) do
       {:ok, final_response} ->
-        with {:ok, completion} <- Mapping.chat_completion(final_response, chat, auth),
+        with :ok <- current(epoch),
+             {:ok, completion} <- Mapping.chat_completion(final_response, chat, auth),
              {:ok, conn} <- chunk(conn, Mapping.sse_chunk(completion, finish?: true)),
+             :ok <- current(epoch),
              {:ok, conn} <- chunk(conn, "data: [DONE]\n\n") do
-          _ = acknowledge_join_report(final_response)
+          _ = acknowledge_join_report(final_response, epoch)
           conn
         else
           _error -> conn
         end
 
       {:timeout, kickoff} ->
-        finish_timeout_stream(conn, chat, auth, response, kickoff)
+        finish_timeout_stream(conn, chat, auth, response, kickoff, epoch)
 
       {:error, _reason} ->
         conn
     end
   end
 
-  defp persist_and_acknowledge(event, response) do
-    case EventRecorder.mark_result_durable(event, response) do
-      :ok ->
-        Runtime.acknowledge_deliveries(response, %{channel: "openai_api"})
-
+  defp persist_and_acknowledge(event, response, epoch) do
+    with :ok <- current(epoch),
+         :ok <- EventRecorder.mark_result_durable(event, response),
+         :ok <- current(epoch) do
+      Runtime.acknowledge_deliveries(response, %{channel: "openai_api"})
+    else
       {:error, _reason} = error ->
-        _ = Runtime.delivery_failed(response, %{channel: "openai_api"})
+        maybe_delivery_failed(response, epoch)
         error
     end
   end
 
-  defp await_response(%{status: :needs_confirmation} = response), do: {:ok, response}
-
-  defp await_response(%{fanout: %{parent_id: parent_id}, user_id: user_id} = response) do
-    case Runtime.await_fanout(parent_id, user_id, Runtime.fanout_continuation_timeout_ms()) do
-      {:ok, report} -> {:ok, report_response(response, report)}
-      {:timeout, kickoff} -> {:timeout, kickoff}
-      {:error, reason} -> {:error, reason}
-    end
+  defp await_response(%{status: :needs_confirmation} = response, epoch) do
+    if current?(epoch), do: {:ok, response}, else: {:error, :readiness_lost}
   end
 
-  defp await_response(response), do: {:ok, response}
+  defp await_response(%{fanout: %{parent_id: parent_id}, user_id: user_id} = response, epoch) do
+    await_fanout_epoch(parent_id, user_id, response, epoch)
+  end
+
+  defp await_response(response, epoch) do
+    if current?(epoch), do: {:ok, response}, else: {:error, :readiness_lost}
+  end
 
   defp report_response(response, report) do
     report_body = Fanout.format_report(report)
@@ -156,7 +183,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
     |> Map.put(:surface_payload, report_body)
   end
 
-  defp acknowledge_join_report(%{fanout: %{parent_id: parent_id}} = response) do
+  defp acknowledge_join_report(%{fanout: %{parent_id: parent_id}} = response, epoch) do
     context =
       %{
         user_id: response.user_id,
@@ -165,12 +192,14 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
       }
       |> Map.merge(get_in(response, [:fanout, :delivery_context]) || %{})
 
-    parent_id
-    |> then(&Fanout.receipt_for(:report, &1))
-    |> Runtime.acknowledge_report_delivery(context)
+    if current?(epoch) do
+      parent_id
+      |> then(&Fanout.receipt_for(:report, &1))
+      |> Runtime.acknowledge_report_delivery(context)
+    end
   end
 
-  defp acknowledge_join_report(_response), do: :ok
+  defp acknowledge_join_report(_response, _epoch), do: :ok
 
   defp status_chunk(completion, status) do
     completion
@@ -186,9 +215,11 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
     |> Mapping.sse_chunk()
   end
 
-  defp finish_timeout_stream(conn, chat, auth, response, _kickoff) do
-    with {:ok, body} <- Mapping.chat_completion(response, chat, auth),
+  defp finish_timeout_stream(conn, chat, auth, response, _kickoff, epoch) do
+    with :ok <- current(epoch),
+         {:ok, body} <- Mapping.chat_completion(response, chat, auth),
          {:ok, conn} <- chunk(conn, Mapping.sse_chunk(body, finish?: true)),
+         :ok <- current(epoch),
          {:ok, conn} <- chunk(conn, "data: [DONE]\n\n") do
       conn
     else
@@ -200,5 +231,46 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
     conn
     |> put_status(Mapping.error_status(error))
     |> json(Mapping.error_body(error))
+  end
+
+  defp current?(epoch), do: current(epoch) == :ok
+  defp current(epoch), do: PackReadiness.validate(epoch)
+
+  defp maybe_delivery_failed(response, epoch) do
+    if current?(epoch), do: Runtime.delivery_failed(response, %{channel: "openai_api"})
+    :ok
+  end
+
+  defp await_fanout_epoch(parent_id, user_id, response, epoch) do
+    barrier_ref = Process.monitor(epoch.barrier_pid)
+
+    task =
+      Task.Supervisor.async_nolink(AllbertAssist.TaskSupervisor, fn ->
+        Runtime.await_fanout(parent_id, user_id, Runtime.fanout_continuation_timeout_ms())
+      end)
+
+    task_ref = task.ref
+
+    receive do
+      {:DOWN, ^barrier_ref, :process, _pid, _reason} ->
+        _ = Task.shutdown(task, :brutal_kill)
+        {:error, :readiness_lost}
+
+      {^task_ref, {:ok, report}} ->
+        Process.demonitor(barrier_ref, [:flush])
+        {:ok, report_response(response, report)}
+
+      {^task_ref, {:timeout, kickoff}} ->
+        Process.demonitor(barrier_ref, [:flush])
+        {:timeout, kickoff}
+
+      {^task_ref, {:error, reason}} ->
+        Process.demonitor(barrier_ref, [:flush])
+        {:error, reason}
+
+      {:DOWN, ^task_ref, :process, _pid, _reason} ->
+        Process.demonitor(barrier_ref, [:flush])
+        {:error, :fanout_unavailable}
+    end
   end
 end

@@ -15,6 +15,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
 
@@ -66,13 +67,13 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   end
 
   def handle_call({:simulate_gateway_event, event}, _from, state) do
-    {reply, state} = process_gateway_event(event, state)
+    {reply, state} = process_ready_gateway_event(event, state)
     {:reply, reply, state}
   end
 
   @impl true
   def handle_info({:discord_gateway_event, event}, state) do
-    {_reply, state} = process_gateway_event(event, state)
+    {_reply, state} = process_ready_gateway_event(event, state)
     {:noreply, state}
   end
 
@@ -103,8 +104,28 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       gateway_opts: Keyword.get(opts, :gateway_opts, []),
       gateway_port: nil,
       gateway_status: :not_started,
-      last_ready: nil
+      last_ready: nil,
+      effect_guard_opts: effect_guard_opts(opts)
     }
+  end
+
+  # Provider gateway messages may arrive while a replacement Pack is being
+  # assembled. Admit E1 once and validate it immediately before parser/ledger
+  # processing can reach its first durable write.
+  defp process_ready_gateway_event(event, state) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
+         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+      process_gateway_event(event, Map.put(state, :effect_epoch, epoch))
+    else
+      {:error, _reason} -> {{:error, :product_not_ready}, state}
+    end
+  end
+
+  defp effect_guard_opts(opts) do
+    case Keyword.fetch(opts, :readiness_server) do
+      {:ok, server} -> [server: server]
+      :error -> []
+    end
   end
 
   defp maybe_start_gateway(%{enabled?: false} = state), do: %{state | gateway_status: :disabled}
@@ -159,7 +180,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   defp handle_message(fields, state) do
     case insert_received_event(fields, "inbound") do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        process_received_message(event, fields, state)
+        process_received_message(event, carry_epoch(fields, state), state)
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -385,30 +406,36 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   end
 
   defp submit_runtime(fields, user_id, session_id, inbound_trust) do
-    Runtime.submit_user_input(%{
-      text: fields.text,
-      delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
-      channel: "discord",
-      user_id: user_id,
-      operator_id: user_id,
-      session_id: session_id,
-      channel_thread_ref: fields.channel_thread_ref,
-      conversation_scope: if(fields.dm?, do: :direct, else: :shared),
-      provider_message_id: fields.external_message_id,
-      metadata: %{
+    Runtime.submit_user_input(
+      %{
+        text: fields.text,
+        delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
         channel: "discord",
-        provider: @provider,
-        external_event_id: fields.external_event_id,
-        external_user_id: fields.external_user_id,
-        external_chat_id: fields.external_chat_id,
-        external_message_id: fields.external_message_id,
-        receiver_account_ref: fields.receiver_account_ref,
-        provider_thread_ref: fields.provider_thread_ref,
-        message_reference: fields.message_reference,
-        inbound_trust: inbound_trust
-      }
-    })
+        user_id: user_id,
+        operator_id: user_id,
+        session_id: session_id,
+        channel_thread_ref: fields.channel_thread_ref,
+        conversation_scope: if(fields.dm?, do: :direct, else: :shared),
+        provider_message_id: fields.external_message_id,
+        metadata: %{
+          channel: "discord",
+          provider: @provider,
+          external_event_id: fields.external_event_id,
+          external_user_id: fields.external_user_id,
+          external_chat_id: fields.external_chat_id,
+          external_message_id: fields.external_message_id,
+          receiver_account_ref: fields.receiver_account_ref,
+          provider_thread_ref: fields.provider_thread_ref,
+          message_reference: fields.message_reference,
+          inbound_trust: inbound_trust
+        }
+      },
+      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
+    )
   end
+
+  defp carry_epoch(fields, state),
+    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
 
   defp renderer_opts(state) do
     [
@@ -652,9 +679,11 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
 
         req_options = Keyword.get(opts, :req_options, [])
 
-        case Client.create_message(token_ref, target, payload, req_options) do
-          {:ok, result} -> {:ok, %{channel: "discord", target: target, result: result}}
-          {:error, reason} -> {:error, reason}
+        with :ok <- validate_outbound_epoch(opts) do
+          case Client.create_message(token_ref, target, payload, req_options) do
+            {:ok, result} -> {:ok, %{channel: "discord", target: target, result: result}}
+            {:error, reason} -> {:error, reason}
+          end
         end
 
       _other ->
@@ -669,25 +698,36 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       token_ref = Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token")
       req_options = Keyword.get(opts, :req_options, [])
 
-      case Client.update_message(
-             token_ref,
-             target,
-             provider_message_id,
-             %{content: body},
-             req_options
-           ) do
-        {:ok, result} ->
-          {:ok,
-           %{
-             channel: "discord",
-             target: target,
-             provider_message_id: provider_message_id,
-             result: result
-           }}
+      with :ok <- validate_outbound_epoch(opts) do
+        case Client.update_message(
+               token_ref,
+               target,
+               provider_message_id,
+               %{content: body},
+               req_options
+             ) do
+          {:ok, result} ->
+            {:ok,
+             %{
+               channel: "discord",
+               target: target,
+               provider_message_id: provider_message_id,
+               result: result
+             }}
 
-        {:error, reason} ->
-          {:error, reason}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end
+    end
+  end
+
+  defp validate_outbound_epoch(opts) do
+    with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
+         :ok <- EffectGuard.validate(epoch) do
+      :ok
+    else
+      _error -> {:error, :product_not_ready}
     end
   end
 end

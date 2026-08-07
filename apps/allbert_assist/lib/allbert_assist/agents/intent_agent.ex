@@ -30,6 +30,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Intent.Slots
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives.Engine.Agent, as: ObjectivesEngine
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
@@ -189,9 +190,22 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   def respond(_request), do: {:error, :missing_text}
 
-  defp respond_pinned(text, request) do
+  @doc false
+  @spec respond(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def respond(%{text: text} = request, allbert_pack_epoch: epoch) when is_binary(text) do
+    with :ok <- EffectGuard.validate(epoch) do
+      Settings.with_resolved_settings(fn -> respond_pinned(text, request, epoch) end)
+    end
+  end
+
+  def respond(_request, _opts), do: {:error, :invalid_options}
+
+  defp respond_pinned(text, request, epoch \\ nil) do
     text = String.trim(text)
-    context = %{request: request, agent: __MODULE__}
+
+    context =
+      %{request: request, agent: __MODULE__}
+      |> maybe_put_pack_epoch(epoch)
 
     route =
       if coding_turn?(context) do
@@ -213,6 +227,9 @@ defmodule AllbertAssist.Agents.IntentAgent do
         {:ok, invalid_decision_response(reason, text, context)}
     end
   end
+
+  defp maybe_put_pack_epoch(context, nil), do: context
+  defp maybe_put_pack_epoch(context, epoch), do: Map.put(context, :allbert_pack_epoch, epoch)
 
   defp engine_request(request, route, %Decision{} = decision) do
     force_direct_answer? = route == :direct_answer and job_channel?(%{request: request})

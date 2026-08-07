@@ -32,21 +32,21 @@ defmodule AllbertAssist.Pack.RegistryTest do
   end
 
   test "a private shadow registry starts collecting without a published snapshot" do
-    start_supervised!({Registry, coordinator: self()})
+    registry = start_private_registry(coordinator: self())
 
     assert {:ok,
             %{
               phase: :collecting,
               publication: :shadow,
               behavior_digest: nil
-            }} = Registry.status()
+            }} = Registry.status(server: registry)
 
-    assert {:error, :collecting} = Registry.snapshot()
-    assert {:ok, []} = Registry.diagnostics()
+    assert {:error, :collecting} = Registry.snapshot(server: registry)
+    assert {:ok, []} = Registry.diagnostics(server: registry)
   end
 
   test "the coordinator atomically finalizes one complete candidate" do
-    start_supervised!({Registry, coordinator: self()})
+    registry = start_private_registry(coordinator: self())
 
     candidate = %Candidate{
       schema_version: 1,
@@ -72,13 +72,13 @@ defmodule AllbertAssist.Pack.RegistryTest do
               effective_actions: [],
               compatibility_aliases: [],
               compatibility_diagnostics: []
-            } = snapshot} = Registry.finalize(candidate)
+            } = snapshot} = Registry.finalize(candidate, server: registry)
 
     assert {:ok, %{phase: :finalized, publication: :shadow, behavior_digest: ^expected_digest}} =
-             Registry.status()
+             Registry.status(server: registry)
 
-    assert {:ok, ^snapshot} = Registry.snapshot()
-    assert {:ok, []} = Registry.diagnostics()
+    assert {:ok, ^snapshot} = Registry.snapshot(server: registry)
+    assert {:ok, []} = Registry.diagnostics(server: registry)
   end
 
   test "M1.a2 rejects authoritative publication before starting a process" do
@@ -93,14 +93,14 @@ defmodule AllbertAssist.Pack.RegistryTest do
   end
 
   test "identical canonical finalization is idempotent" do
-    start_supervised!({Registry, coordinator: self()})
+    registry = start_private_registry(coordinator: self())
 
     first = empty_candidate()
     second = empty_candidate()
 
-    assert {:ok, snapshot} = Registry.finalize(first)
-    assert {:ok, ^snapshot} = Registry.finalize(second)
-    assert {:ok, ^snapshot} = Registry.snapshot()
+    assert {:ok, snapshot} = Registry.finalize(first, server: registry)
+    assert {:ok, ^snapshot} = Registry.finalize(second, server: registry)
+    assert {:ok, ^snapshot} = Registry.snapshot(server: registry)
   end
 
   test "public calls use the bounded Pack finalization timeout, not GenServer's five-second default" do
@@ -138,17 +138,17 @@ defmodule AllbertAssist.Pack.RegistryTest do
   end
 
   test "a coordinator registry lookup failure denies finalization without killing Registry" do
-    start_supervised!({Registry, coordinator: {:via, RaisingVia, :coordinator}})
+    registry = start_private_registry(coordinator: {:via, RaisingVia, :coordinator})
 
     assert {:error, {:not_coordinator, %ValidationDiagnostic{code: :not_coordinator}}} =
-             Registry.finalize(empty_candidate())
+             Registry.finalize(empty_candidate(), server: registry)
 
-    assert {:ok, %{phase: :collecting}} = Registry.status()
-    assert Process.alive?(Process.whereis(Registry))
+    assert {:ok, %{phase: :collecting}} = Registry.status(server: registry)
+    assert Process.alive?(registry)
   end
 
   test "a malformed nested candidate cannot crash the registry" do
-    start_supervised!({Registry, coordinator: self()})
+    registry = start_private_registry(coordinator: self())
 
     malformed = %Contribution{
       schema_version: 1,
@@ -171,14 +171,14 @@ defmodule AllbertAssist.Pack.RegistryTest do
     candidate = %{empty_candidate() | contributions: [malformed]}
 
     assert {:error, {:invalid_candidate, [%ValidationDiagnostic{}]}} =
-             Registry.finalize(candidate)
+             Registry.finalize(candidate, server: registry)
 
-    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status()
-    assert Process.alive?(Process.whereis(Registry))
+    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status(server: registry)
+    assert Process.alive?(registry)
   end
 
   test "invalid action capability diagnostics stay typed and leave Registry collecting" do
-    start_supervised!({Registry, coordinator: self()})
+    registry = start_private_registry(coordinator: self())
 
     binding = %ActionBinding{
       schema_version: 1,
@@ -229,16 +229,17 @@ defmodule AllbertAssist.Pack.RegistryTest do
                  owner: nil,
                  detail: %{expected: "boolean", actual: "atom"}
                }
-             ]}} = Registry.finalize(candidate)
+             ]}} = Registry.finalize(candidate, server: registry)
 
-    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status()
-    assert Process.alive?(Process.whereis(Registry))
+    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status(server: registry)
+    assert Process.alive?(registry)
   end
 
   test "only the identified coordinator may finalize and denial is not persisted" do
-    start_supervised!({Registry, coordinator: self()})
+    registry = start_private_registry(coordinator: self())
 
-    result = Task.async(fn -> Registry.finalize(empty_candidate()) end) |> Task.await()
+    result =
+      Task.async(fn -> Registry.finalize(empty_candidate(), server: registry) end) |> Task.await()
 
     assert {:error,
             {:not_coordinator,
@@ -253,12 +254,12 @@ defmodule AllbertAssist.Pack.RegistryTest do
                }
              }}} = result
 
-    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status()
-    assert {:ok, []} = Registry.diagnostics()
+    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status(server: registry)
+    assert {:ok, []} = Registry.diagnostics(server: registry)
   end
 
   test "invalid candidate diagnostics are typed and do not change collecting state" do
-    start_supervised!({Registry, coordinator: self()})
+    registry = start_private_registry(coordinator: self())
 
     candidate = Map.put(empty_candidate(), :unexpected, true)
 
@@ -278,11 +279,11 @@ defmodule AllbertAssist.Pack.RegistryTest do
                  owner: nil,
                  detail: %{field: "unexpected"}
                }
-             ]}} = Registry.finalize(candidate)
+             ]}} = Registry.finalize(candidate, server: registry)
 
-    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status()
-    assert {:error, :collecting} = Registry.snapshot()
-    assert {:ok, []} = Registry.diagnostics()
+    assert {:ok, %{phase: :collecting, behavior_digest: nil}} = Registry.status(server: registry)
+    assert {:error, :collecting} = Registry.snapshot(server: registry)
+    assert {:ok, []} = Registry.diagnostics(server: registry)
   end
 
   test "a restarted private registry returns to collecting without retained authority" do
@@ -339,5 +340,9 @@ defmodule AllbertAssist.Pack.RegistryTest do
       compatibility_aliases: [],
       compatibility_diagnostics: []
     }
+  end
+
+  defp start_private_registry(opts) do
+    start_supervised!({Registry, Keyword.put_new(opts, :name, nil)})
   end
 end

@@ -22,6 +22,7 @@ defmodule AllbertAssist.Pack.Registry do
             coordinator: @default_coordinator,
             candidate: nil,
             snapshot: nil,
+            effectful_ids: nil,
             canonical_bytes: nil,
             diagnostics: []
 
@@ -77,8 +78,14 @@ defmodule AllbertAssist.Pack.Registry do
           | {:error, {:invalid_candidate, [ValidationDiagnostic.t()]}}
           | {:error, {:already_finalized, String.t()}}
   def finalize(candidate, opts \\ []) do
-    call(opts, {:finalize, candidate})
+    with {:ok, server, effectful_ids} <- finalize_options(opts) do
+      safe_call(server, {:finalize, candidate, effectful_ids})
+    end
   end
+
+  @doc false
+  @spec effectful_ids(keyword()) :: {:ok, [String.t()]} | {:error, :collecting | :unavailable}
+  def effectful_ids(opts \\ []), do: call(opts, :effectful_ids)
 
   @spec diagnostics(keyword()) :: {:ok, [CompatibilityDiagnostic.t()]} | {:error, :unavailable}
   def diagnostics(opts \\ []), do: call(opts, :diagnostics)
@@ -101,21 +108,38 @@ defmodule AllbertAssist.Pack.Registry do
 
   def handle_call(:snapshot, _from, state), do: {:reply, {:ok, state.snapshot}, state}
 
+  def handle_call(:effectful_ids, _from, %{phase: :collecting} = state),
+    do: {:reply, {:error, :collecting}, state}
+
+  def handle_call(:effectful_ids, _from, state),
+    do: {:reply, {:ok, state.effectful_ids}, state}
+
   def handle_call(:diagnostics, _from, state), do: {:reply, {:ok, state.diagnostics}, state}
 
-  def handle_call({:finalize, candidate}, {caller, _tag}, %{phase: :collecting} = state) do
+  def handle_call(
+        {:finalize, candidate, requested_effectful_ids},
+        {caller, _tag},
+        %{phase: :collecting} = state
+      ) do
     if coordinator?(state.coordinator, caller) do
       case canonicalize_candidate(candidate, state.publication) do
         {:ok, snapshot, bytes} ->
-          {:reply, {:ok, snapshot},
-           %{
-             state
-             | phase: :finalized,
-               candidate: candidate,
-               snapshot: snapshot,
-               canonical_bytes: bytes,
-               diagnostics: snapshot.compatibility_diagnostics
-           }}
+          with {:ok, effectful_ids} <-
+                 validate_effectful_ids(requested_effectful_ids, snapshot) do
+            {:reply, {:ok, snapshot},
+             %{
+               state
+               | phase: :finalized,
+                 candidate: candidate,
+                 snapshot: snapshot,
+                 effectful_ids: effectful_ids,
+                 canonical_bytes: bytes,
+                 diagnostics: snapshot.compatibility_diagnostics
+             }}
+          else
+            {:error, diagnostics} ->
+              {:reply, {:error, {:invalid_candidate, diagnostics}}, state}
+          end
 
         {:error, reason} ->
           {:reply, {:error, {:invalid_candidate, reason}}, state}
@@ -125,10 +149,20 @@ defmodule AllbertAssist.Pack.Registry do
     end
   end
 
-  def handle_call({:finalize, candidate}, {caller, _tag}, %{phase: :finalized} = state) do
+  def handle_call(
+        {:finalize, candidate, requested_effectful_ids},
+        {caller, _tag},
+        %{phase: :finalized} = state
+      ) do
+    requested_effectful_ids =
+      normalize_requested_effectful_ids(requested_effectful_ids, state.snapshot)
+
     cond do
       not coordinator?(state.coordinator, caller) ->
         {:reply, not_coordinator_error(), state}
+
+      requested_effectful_ids != {:ok, state.effectful_ids} ->
+        {:reply, {:error, {:already_finalized, state.snapshot.behavior_digest}}, state}
 
       candidate == state.candidate ->
         {:reply, {:ok, state.snapshot}, state}
@@ -171,6 +205,71 @@ defmodule AllbertAssist.Pack.Registry do
   end
 
   defp call(_opts, _message), do: {:error, :unavailable}
+
+  defp finalize_options(opts) when is_list(opts) do
+    keys = Keyword.keys(opts)
+
+    if Keyword.keyword?(opts) and keys == Enum.uniq(keys) and
+         Enum.all?(keys, &(&1 in [:server, :effectful_ids])) do
+      server = Keyword.get(opts, :server, __MODULE__)
+
+      if valid_call_server?(server) do
+        {:ok, server, Keyword.get(opts, :effectful_ids, :derive_all)}
+      else
+        {:error, :unavailable}
+      end
+    else
+      {:error, :unavailable}
+    end
+  end
+
+  defp finalize_options(_opts), do: {:error, :unavailable}
+
+  defp safe_call(server, message) do
+    try do
+      GenServer.call(server, message, @call_timeout)
+    rescue
+      _error -> {:error, :unavailable}
+    catch
+      _kind, _reason -> {:error, :unavailable}
+    end
+  end
+
+  defp validate_effectful_ids(requested, snapshot) do
+    case normalize_requested_effectful_ids(requested, snapshot) do
+      {:ok, ids} ->
+        {:ok, ids}
+
+      :error ->
+        {:error,
+         [
+           %ValidationDiagnostic{
+             schema_version: 1,
+             code: :invalid_value,
+             path: [],
+             owner: nil,
+             detail: %{reason: :invalid_effectful_ids}
+           }
+         ]}
+    end
+  end
+
+  defp normalize_requested_effectful_ids(:derive_all, snapshot) do
+    {:ok, snapshot.contributions |> Enum.map(& &1.owner.id) |> Enum.sort()}
+  end
+
+  defp normalize_requested_effectful_ids(ids, snapshot) when is_list(ids) do
+    owner_ids = snapshot.contributions |> Enum.map(& &1.owner.id) |> MapSet.new()
+
+    if ids == Enum.sort(Enum.uniq(ids)) and Enum.all?(ids, &is_binary/1) and
+         Enum.all?(ids, &MapSet.member?(owner_ids, &1)) do
+      {:ok, ids}
+    else
+      :error
+    end
+  end
+
+  defp normalize_requested_effectful_ids(_ids, _snapshot), do: :error
 
   defp coordinator?(coordinator, caller) when is_pid(coordinator), do: coordinator == caller
 

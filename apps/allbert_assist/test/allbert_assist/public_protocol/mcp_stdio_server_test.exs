@@ -5,6 +5,7 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
   alias AllbertAssist.PublicProtocol.Mcp.Runtime
   alias AllbertAssist.PublicProtocol.Mcp.Server
@@ -287,7 +288,10 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   end
 
   defp context(client_id \\ "stdio-client") do
+    {:ok, epoch} = EffectGuard.admit_ready()
+
     %{
+      allbert_pack_epoch: epoch,
       public_protocol: %{surface: "mcp_stdio", client_id: client_id},
       request: %{channel: :mcp_stdio, operator_id: "public-protocol:#{client_id}"}
     }

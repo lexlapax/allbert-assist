@@ -21,6 +21,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   alias AllbertAssist.Settings
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: PanelSupport
   alias AllbertAssistWeb.Workspace.Components.Patterns
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
 
   @local_user_id "local"
 
@@ -36,14 +37,30 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   }
 
   @impl true
+  def mount(socket), do: ReadinessComponent.mount(socket)
+
+  @impl true
   # v0.64.3: the parent WorkspaceLive forwards each streamed pull-progress frame here
   # via `send_update(@myself, model_pull_frame: frame)`. Append and re-render without
   # re-running the full wizard-state recompute (which would reset transient state).
-  def update(%{model_pull_frame: frame}, socket) do
-    {:ok, assign(socket, :model_pull_progress, socket.assigns.model_pull_progress ++ [frame])}
+  def update(%{model_pull_frame: frame} = assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, _assigns, socket} ->
+        {:ok, assign(socket, :model_pull_progress, socket.assigns.model_pull_progress ++ [frame])}
+
+      {:error, socket} ->
+        {:ok, socket}
+    end
   end
 
   def update(assigns, socket) do
+    case ReadinessComponent.prepare_update(assigns, socket) do
+      {:ok, assigns, socket} -> update_ready(assigns, socket)
+      {:error, socket} -> {:ok, socket}
+    end
+  end
+
+  defp update_ready(assigns, socket) do
     # M7.6: one-time first-launch reconcile of a stale v0.62 onboarding objective
     # (marker-guarded, best-effort — no-op after the first mount on a given Home).
     OnboardingContext.reconcile_stale_objective()
@@ -1064,6 +1081,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       user_id: user_id,
       channel: :live_view,
       surface: "/workspace",
+      allbert_pack_epoch: socket.assigns.allbert_pack_epoch,
       request: %{
         user_id: user_id,
         operator_id: user_id,

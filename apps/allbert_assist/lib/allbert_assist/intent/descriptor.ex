@@ -328,8 +328,20 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   defp app_id(nil, nil, _opts), do: {:error, :missing_app_id}
 
-  defp app_id(value, fallback, opts),
-    do: AppId.normalize_or(value || fallback, opts, &{:invalid_app_id, &1})
+  defp app_id(value, fallback, opts) do
+    app_id = value || fallback
+
+    case Keyword.get(opts, :candidate_app_ids) do
+      nil ->
+        AppId.normalize_or(app_id, opts, &{:invalid_app_id, &1})
+
+      app_ids when is_list(app_ids) and is_atom(app_id) ->
+        if app_id in app_ids, do: {:ok, app_id}, else: {:error, {:invalid_app_id, :unknown_app}}
+
+      _app_ids ->
+        {:error, {:invalid_app_id, :unknown_app}}
+    end
+  end
 
   defp selection_policy(value) when value in [:semantic, "semantic"], do: {:ok, :semantic}
 
@@ -659,21 +671,52 @@ defmodule AllbertAssist.Intent.Descriptor do
   end
 
   defp registered_capability(app_id, action_name, opts) do
-    case ActionsRegistry.capability(action_name, RegistryContext.take(opts)) do
+    case capability_from_projection(action_name, opts) do
       {:ok, capability} ->
-        cond do
-          not app_id_matches?(capability.app_id, app_id) ->
-            {:error, {:action_app_mismatch, app_id, action_name}}
+        validate_registered_capability(capability, app_id, action_name)
 
-          capability.exposure != :agent ->
-            {:error, {:action_not_agent_exposed, action_name}}
+      :not_supplied ->
+        case ActionsRegistry.capability(action_name, RegistryContext.take(opts)) do
+          {:ok, capability} ->
+            validate_registered_capability(Capability.summary(capability), app_id, action_name)
 
-          true ->
-            {:ok, Capability.summary(capability)}
+          {:error, reason} ->
+            {:error, {:unknown_action, action_name, reason}}
+        end
+    end
+  end
+
+  defp capability_from_projection(action_name, opts) do
+    case Keyword.get(opts, :capability_projection) do
+      nil ->
+        :not_supplied
+
+      projection when is_map(projection) ->
+        case Map.fetch(projection, action_name) do
+          {:ok, capability} when is_map(capability) -> {:ok, capability}
+          _ -> {:ok, %{name: action_name, registered?: false}}
         end
 
-      {:error, reason} ->
-        {:error, {:unknown_action, action_name, reason}}
+      _other ->
+        {:ok, %{name: action_name, registered?: false}}
+    end
+  end
+
+  defp validate_registered_capability(capability, app_id, action_name) do
+    capability_app_id = field(capability, :app_id)
+
+    cond do
+      field(capability, :registered?, true) == false ->
+        {:error, {:unknown_action, action_name, :not_projected}}
+
+      not app_id_matches?(capability_app_id, app_id) ->
+        {:error, {:action_app_mismatch, app_id, action_name}}
+
+      field(capability, :exposure) != :agent ->
+        {:error, {:action_not_agent_exposed, action_name}}
+
+      true ->
+        {:ok, capability}
     end
   end
 

@@ -8,6 +8,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   alias AllbertAssist.PublicProtocol.ExposureFilter
   alias AllbertAssist.PublicProtocol.Mcp.Schema
   alias AllbertAssist.PublicProtocol.ResultReadback
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response, as: RuntimeResponse
   alias AllbertAssist.Settings
@@ -95,26 +96,33 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   def call_tool(name, params, context, surface) when is_binary(name) and is_map(params) do
     surface = normalize_surface(surface || context_surface(context))
 
-    event =
-      EventRecorder.record_inbound(surface, public_event_attrs(name, params, context, surface))
+    with {:ok, epoch} <- carried_epoch(context),
+         :ok <- EffectGuard.validate(epoch) do
+      event =
+        EventRecorder.record_inbound(surface, public_event_attrs(name, params, context, surface))
 
-    result =
-      with {:ok, tools} <- enabled_tools(surface),
-           {:ok, capability} <- fetch_tool(tools, name),
-           normalized_params <- normalize_tool_params(params, capability.module),
-           {:ok, response} <-
-             Runner.run(name, normalized_params, runner_context(context, capability, surface)) do
-        EventRecorder.mark_result(event, {:ok, response})
-        response_to_payload(response, name, context, surface)
+      result =
+        with {:ok, tools} <- enabled_tools(surface),
+             {:ok, capability} <- fetch_tool(tools, name),
+             normalized_params <- normalize_tool_params(params, capability.module),
+             {:ok, response} <-
+               Runner.run(name, normalized_params, runner_context(context, capability, surface)) do
+          if EffectGuard.validate(epoch) == :ok,
+            do: EventRecorder.mark_result(event, {:ok, response})
+
+          response_to_payload(response, name, context, surface)
+        end
+
+      case result do
+        {:ok, _payload} = ok ->
+          ok
+
+        {:error, reason} = error ->
+          if EffectGuard.validate(epoch) == :ok, do: mark_tool_error(event, reason)
+          error
       end
-
-    case result do
-      {:ok, _payload} = ok ->
-        ok
-
-      {:error, reason} = error ->
-        mark_tool_error(event, reason)
-        error
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
     end
   end
 
@@ -124,33 +132,40 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   def read_resource(uri, context, surface) when is_binary(uri) do
     surface = normalize_surface(surface || context_surface(context))
 
-    result =
-      with {:ok, resources} <- enabled_resources(surface),
-           {:ok, resource} <- fetch_resource(resources, uri) do
-        {:ok,
-         %{
-           "uri" => resource.uri,
-           "name" => resource.name,
-           "description" => resource.description,
-           "surface" => surface,
-           "resource_type" => "app_memory_namespace",
-           "app_id" => atom_to_string(resource.namespace.app_id),
-           "namespace" => atom_to_string(resource.namespace.namespace),
-           "writable" => Map.get(resource.namespace, :writable, false)
-         }}
+    with {:ok, epoch} <- carried_epoch(context),
+         :ok <- EffectGuard.validate(epoch) do
+      result =
+        with {:ok, resources} <- enabled_resources(surface),
+             {:ok, resource} <- fetch_resource(resources, uri) do
+          {:ok,
+           %{
+             "uri" => resource.uri,
+             "name" => resource.name,
+             "description" => resource.description,
+             "surface" => surface,
+             "resource_type" => "app_memory_namespace",
+             "app_id" => atom_to_string(resource.namespace.app_id),
+             "namespace" => atom_to_string(resource.namespace.namespace),
+             "writable" => Map.get(resource.namespace, :writable, false)
+           }}
+        end
+
+      case result do
+        {:ok, _payload} = ok ->
+          ok
+
+        {:error, reason} = error ->
+          if EffectGuard.validate(epoch) == :ok do
+            EventRecorder.record_rejection(
+              surface,
+              resource_event_attrs(uri, context, surface, reason)
+            )
+          end
+
+          error
       end
-
-    case result do
-      {:ok, _payload} = ok ->
-        ok
-
-      {:error, reason} = error ->
-        EventRecorder.record_rejection(
-          surface,
-          resource_event_attrs(uri, context, surface, reason)
-        )
-
-        error
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
     end
   end
 
@@ -231,6 +246,9 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     |> Map.put(:public_protocol, public_protocol)
     |> Map.put(:action_capability, Capability.summary(capability))
   end
+
+  defp carried_epoch(%{allbert_pack_epoch: epoch}), do: {:ok, epoch}
+  defp carried_epoch(_context), do: {:error, :product_not_ready}
 
   defp fetch_tool(tools, name) do
     case Enum.find(tools, &(&1.name == name)) do

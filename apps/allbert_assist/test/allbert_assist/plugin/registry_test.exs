@@ -7,6 +7,8 @@ defmodule AllbertAssist.Plugin.RegistryTest do
   alias AllbertAssist.Plugin.Discovery
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Registry
+  alias AllbertAssist.Plugin.Registry.{MetadataEntry, MetadataSnapshot}
+  alias AllbertAssist.Pack.Readiness
 
   defmodule ValidPlugin do
     use AllbertAssist.Plugin
@@ -149,6 +151,108 @@ defmodule AllbertAssist.Plugin.RegistryTest do
 
     assert {:error, :unavailable} =
              Registry.ordered_entries(server: :plugin_registry_missing_snapshot_server)
+  end
+
+  test "generation snapshots exclude presentation fields and diagnostics-only writes", %{
+    registry: registry
+  } do
+    registry_pid = Process.whereis(registry)
+
+    assert {:ok, %MetadataSnapshot{generation: 0, entries: []}, first_ref} =
+             Registry.snapshot_and_subscribe(self(), server: registry)
+
+    entry = plugin_entry("example.snapshot", :enabled)
+
+    assert {:ok, "example.snapshot"} =
+             Registry.register_entry(entry, server: registry, side_effects: false)
+
+    assert_receive {:allbert_metadata_generation_changed, ^registry_pid, ^first_ref, 1}
+
+    assert {:ok,
+            %MetadataSnapshot{
+              schema_version: 1,
+              generation: 1,
+              entries: [%MetadataEntry{plugin_id: "example.snapshot"} = metadata]
+            }, second_ref} = Registry.snapshot_and_subscribe(self(), server: registry)
+
+    assert is_reference(second_ref)
+    refute Map.has_key?(metadata, :version)
+    refute Map.has_key?(metadata, :kind)
+    refute Map.has_key?(metadata, :diagnostics)
+
+    assert :ok =
+             Registry.put_diagnostics("example.snapshot", [%{kind: :advisory}], server: registry)
+
+    refute_receive {:allbert_metadata_generation_changed, ^registry_pid, ^second_ref, _generation}
+
+    assert {:ok, %MetadataSnapshot{generation: 1}, _latest_ref} =
+             Registry.snapshot_and_subscribe(self(), server: registry)
+  end
+
+  test "bound metadata mutation invalidates the exact barrier tuple before committing", %{
+    registry: registry
+  } do
+    barrier =
+      start_supervised!(
+        Supervisor.child_spec({Readiness, name: nil, coordinator: self()},
+          id: {:plugin_metadata_barrier, System.unique_integer([:positive])}
+        )
+      )
+
+    assert {:ok, %MetadataSnapshot{generation: 0}, subscription_ref} =
+             Registry.snapshot_and_subscribe(self(), server: registry)
+
+    assert :ok = Registry.bind_epoch(subscription_ref, 0, barrier, server: registry)
+
+    assert {:ok, "example.bound"} =
+             Registry.register_entry(plugin_entry("example.bound", :enabled),
+               server: registry,
+               side_effects: false
+             )
+
+    assert {:error, :stale_generation} =
+             Registry.bind_epoch(subscription_ref, 0, barrier, server: registry)
+
+    assert {:ok, %MetadataSnapshot{generation: 1}, next_ref} =
+             Registry.snapshot_and_subscribe(self(), server: registry)
+
+    assert :ok = Registry.bind_epoch(next_ref, 1, barrier, server: registry)
+  end
+
+  test "a bound ignore-child registration still waits for its matching replacement epoch", %{
+    registry: registry
+  } do
+    barrier =
+      start_supervised!(
+        Supervisor.child_spec({Readiness, name: nil, coordinator: self()},
+          id: {:plugin_ignore_child_barrier, System.unique_integer([:positive])}
+        )
+      )
+
+    assert {:ok, %MetadataSnapshot{generation: 0}, subscription_ref} =
+             Registry.snapshot_and_subscribe(self(), server: registry)
+
+    assert :ok = Registry.bind_epoch(subscription_ref, 0, barrier, server: registry)
+
+    entry = plugin_entry("example.bound_ignore", :enabled)
+
+    assert {:await_mutation,
+            %{
+              plugin_id: "example.bound_ignore",
+              generation: 1,
+              mutation_ref: mutation_ref,
+              metadata_digest: digest
+            }} =
+             GenServer.call(
+               registry,
+               {:register_entry, entry, %{replacement_aware?: true}}
+             )
+
+    assert is_reference(mutation_ref)
+    assert is_binary(digest)
+
+    assert %{mutations: %{"example.bound_ignore" => %{status: :activated}}} =
+             :sys.get_state(registry)
   end
 
   test "records duplicate plugin ids as diagnostics", %{registry: registry} do

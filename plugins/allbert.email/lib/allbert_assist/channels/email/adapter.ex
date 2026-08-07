@@ -11,6 +11,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   alias AllbertAssist.Channels.Email.Renderer
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings.Secrets
 
@@ -60,7 +61,8 @@ defmodule AllbertAssist.Channels.Email.Adapter do
       poll_interval_ms: 60_000,
       imap_client: Keyword.get(opts, :imap_client, AllbertAssist.Channels.Email.ImapClient),
       smtp_client: Keyword.get(opts, :smtp_client, AllbertAssist.Channels.Email.SmtpClient),
-      client_opts: Keyword.get(opts, :client_opts, [])
+      client_opts: Keyword.get(opts, :client_opts, []),
+      effect_guard_opts: effect_guard_opts(opts)
     }
 
     with {:ok, settings} <- Channels.channel_settings("email"),
@@ -96,13 +98,28 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   defp poll(%{enabled?: false} = state), do: {{:error, :disabled}, state}
 
   defp poll(%{enabled?: true} = state) do
-    case poll_imap(state) do
-      {:ok, summary} ->
-        {{:ok, summary}, %{state | backoff_ms: 0}}
+    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
+         # `poll_imap/1` opens the IMAP transport as its first effect.
+         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+      state = Map.put(state, :effect_epoch, epoch)
 
-      {:error, reason} ->
-        Logger.warning("email poll failed: #{inspect(redact(reason))}")
-        {{:error, reason}, %{state | backoff_ms: next_backoff(state.backoff_ms)}}
+      case poll_imap(state) do
+        {:ok, summary} ->
+          {{:ok, summary}, %{state | backoff_ms: 0}}
+
+        {:error, reason} ->
+          Logger.warning("email poll failed: #{inspect(redact(reason))}")
+          {{:error, reason}, %{state | backoff_ms: next_backoff(state.backoff_ms)}}
+      end
+    else
+      {:error, _reason} -> {{:error, :product_not_ready}, state}
+    end
+  end
+
+  defp effect_guard_opts(opts) do
+    case Keyword.fetch(opts, :readiness_server) do
+      {:ok, server} -> [server: server]
+      :error -> []
     end
   end
 
@@ -154,7 +171,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
           case insert_received_event(fields, uid, event_direction(fields, state)) do
             {:ok, %AllbertAssist.Channels.Event{} = event} ->
-              process_parsed_email(state, event, fields, uid)
+              process_parsed_email(state, event, carry_epoch(fields, state), uid)
 
             {:ok, :duplicate} ->
               :duplicates
@@ -449,8 +466,11 @@ defmodule AllbertAssist.Channels.Email.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input()
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
+
+  defp carry_epoch(fields, state),
+    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -688,22 +708,33 @@ defmodule AllbertAssist.Channels.Email.Adapter do
         ]
         |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
-      case smtp_client.send(
-             Map.fetch!(settings, "from_address"),
-             target,
-             subject,
-             body,
-             smtp_opts
-           ) do
-        result when result in [:ok, {:ok, :sent}] ->
-          {:ok, %{channel: "email", target: target, message_id: message_id}}
+      with :ok <- validate_outbound_epoch(opts) do
+        case smtp_client.send(
+               Map.fetch!(settings, "from_address"),
+               target,
+               subject,
+               body,
+               smtp_opts
+             ) do
+          result when result in [:ok, {:ok, :sent}] ->
+            {:ok, %{channel: "email", target: target, message_id: message_id}}
 
-        {:ok, _receipt} ->
-          {:ok, %{channel: "email", target: target, message_id: message_id}}
+          {:ok, _receipt} ->
+            {:ok, %{channel: "email", target: target, message_id: message_id}}
 
-        {:error, reason} ->
-          {:error, reason}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end
+    end
+  end
+
+  defp validate_outbound_epoch(opts) do
+    with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
+         :ok <- EffectGuard.validate(epoch) do
+      :ok
+    else
+      _error -> {:error, :product_not_ready}
     end
   end
 end

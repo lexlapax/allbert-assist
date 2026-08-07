@@ -22,6 +22,10 @@ defmodule AllbertAssistWeb.Surface.Renderer do
      |> assign(:component_id, component_id(assigns, node))
      |> assign_renderer(renderer_descriptor(node))
      |> assign_new(:renderer_context, fn -> %{} end)
+     |> assign_new(:allbert_pack_epoch, fn ->
+       Map.get(assigns, :allbert_pack_epoch) ||
+         assigns |> Map.get(:renderer_context, %{}) |> Map.get(:allbert_pack_epoch)
+     end)
      |> assign_new(:workspace_state, fn -> %{} end)}
   end
 
@@ -39,6 +43,7 @@ defmodule AllbertAssistWeb.Surface.Renderer do
         id={@component_id}
         node={@node}
         renderer_context={@renderer_context}
+        allbert_pack_epoch={@allbert_pack_epoch}
         workspace_state={@workspace_state}
       />
       <%= if @renderer_kind == :function_component do %>

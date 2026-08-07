@@ -7,7 +7,7 @@ defmodule AllbertAssistWeb.SignalBridge do
   still publish normally through the core signal bus.
   """
 
-  use GenServer
+  use GenServer, restart: :temporary
 
   require Logger
 
@@ -32,40 +32,90 @@ defmodule AllbertAssistWeb.SignalBridge do
   end
 
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
+    GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name))
+  end
+
+  @doc false
+  @spec open(pid() | GenServer.name(), map()) :: :ok | {:error, :unavailable}
+  def open(server, epoch) when is_map(epoch) do
+    GenServer.call(server, {:open, epoch}, 100)
+  catch
+    :exit, _reason -> {:error, :unavailable}
+  end
+
+  @doc false
+  @spec close(pid() | GenServer.name()) :: :ok
+  def close(server) do
+    GenServer.cast(server, :close)
+    :ok
+  catch
+    :exit, _reason -> :ok
   end
 
   @impl true
   def init(opts) do
-    subscribe_fun = Keyword.get(opts, :subscribe_fun, &Bus.subscribe/2)
-
-    subscription_ids =
-      %{
-        objective: @objective_pattern,
-        fanout: @fanout_pattern,
-        workspace: @workspace_pattern
-      }
-      |> Enum.map(fn {kind, pattern} -> {kind, subscribe(kind, pattern, subscribe_fun)} end)
-      |> Map.new()
-
-    {:ok, %{subscription_ids: subscription_ids}}
+    {:ok,
+     %{
+       subscription_ids: %{},
+       epoch: nil,
+       subscribe_fun: Keyword.get(opts, :subscribe_fun, &Bus.subscribe/2),
+       unsubscribe_fun: Keyword.get(opts, :unsubscribe_fun, &Bus.unsubscribe/2),
+       validate_fun: Keyword.get(opts, :validate_fun, &AllbertAssistWeb.PackReadiness.validate/1)
+     }}
   end
 
   @impl true
+  def handle_call({:open, epoch}, _from, state) do
+    if epoch == state.epoch do
+      {:reply, :ok, state}
+    else
+      state = close_subscriptions(state)
+
+      subscription_ids =
+        %{
+          objective: @objective_pattern,
+          fanout: @fanout_pattern,
+          workspace: @workspace_pattern
+        }
+        |> Enum.map(fn {kind, pattern} ->
+          {kind, subscribe(kind, pattern, state.subscribe_fun)}
+        end)
+        |> Map.new()
+
+      next_state = %{state | subscription_ids: subscription_ids, epoch: epoch}
+
+      if Enum.all?(subscription_ids, fn {_kind, id} -> is_binary(id) end) do
+        AllbertAssistWeb.PackReadiness.disconnect()
+        {:reply, :ok, next_state}
+      else
+        {:reply, {:error, :unavailable}, close_subscriptions(next_state)}
+      end
+    end
+  end
+
+  @impl true
+  def handle_cast(:close, state), do: {:stop, :normal, close_subscriptions(state)}
+
+  @impl true
+  def terminate(_reason, state), do: close_subscriptions(state)
+
+  @impl true
   def handle_info({:signal, %Signal{} = signal}, state) do
-    cond do
-      String.starts_with?(signal.type, "allbert.objective.") or
-          String.starts_with?(signal.type, "allbert.objectives.") ->
-        broadcast_objective(signal)
+    if state.validate_fun.(state.epoch) == :ok do
+      cond do
+        String.starts_with?(signal.type, "allbert.objective.") or
+            String.starts_with?(signal.type, "allbert.objectives.") ->
+          broadcast_objective(signal)
 
-      signal.type == "allbert.workspace.fragment.emitted" ->
-        broadcast_fragment(signal)
+        signal.type == "allbert.workspace.fragment.emitted" ->
+          broadcast_fragment(signal)
 
-      String.starts_with?(signal.type, "allbert.workspace.") ->
-        broadcast_workspace(signal)
+        String.starts_with?(signal.type, "allbert.workspace.") ->
+          broadcast_workspace(signal)
 
-      true ->
-        :ok
+        true ->
+          :ok
+      end
     end
 
     {:noreply, state}
@@ -122,6 +172,20 @@ defmodule AllbertAssistWeb.SignalBridge do
         Logger.warning("#{kind} signal bridge subscription failed: #{inspect(reason)}")
         nil
     end
+  end
+
+  defp close_subscriptions(state) do
+    Enum.each(state.subscription_ids, fn
+      {_kind, subscription_id} when is_binary(subscription_id) ->
+        _ = state.unsubscribe_fun.(AllbertAssist.SignalBus, subscription_id)
+
+      _other ->
+        :ok
+    end)
+
+    %{state | subscription_ids: %{}, epoch: nil}
+  rescue
+    _ -> %{state | subscription_ids: %{}, epoch: nil}
   end
 
   defp broadcast(%Signal{data: data} = signal, event) when is_map(data) do

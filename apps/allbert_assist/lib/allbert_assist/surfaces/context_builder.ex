@@ -41,7 +41,8 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
       :source,
       :audit?,
       :app_id,
-      :selected_skill
+      :selected_skill,
+      :allbert_pack_epoch
     ])
   end
 
@@ -58,6 +59,7 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
     surface = field(opts, :surface) || "AllbertAssistWeb.WorkspaceLive"
     response_target = field(opts, :response_target) || field(socket_or_assigns, :id)
     channel = field(opts, :channel) || :live_view
+    pack_epoch = first_field([opts, assigns], :allbert_pack_epoch)
 
     %{
       actor: field(opts, :actor) || user_id,
@@ -82,6 +84,7 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
         })
     }
     |> compact()
+    |> merge_optional(%{allbert_pack_epoch: pack_epoch}, [:allbert_pack_epoch])
   end
 
   @spec channel_context(String.t() | atom(), String.t() | nil, map() | keyword()) :: map()
@@ -123,7 +126,12 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
         })
     }
     |> compact()
-    |> merge_optional(opts, [:thread_id, :response_target, :resolver_metadata])
+    |> merge_optional(opts, [
+      :thread_id,
+      :response_target,
+      :resolver_metadata,
+      :allbert_pack_epoch
+    ])
   end
 
   @spec public_protocol_context(String.t(), String.t(), map() | keyword()) :: map()
@@ -149,7 +157,14 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
           source: surface
         })
     }
-    |> merge_optional(opts, [:thread_id, :session_id, :active_app, :response_target, :audit?])
+    |> merge_optional(opts, [
+      :thread_id,
+      :session_id,
+      :active_app,
+      :response_target,
+      :audit?,
+      :allbert_pack_epoch
+    ])
   end
 
   defp assigns(%{assigns: assigns}) when is_map(assigns), do: assigns

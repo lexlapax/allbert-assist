@@ -48,6 +48,6 @@ case "${1:-}" in
     export ERL_AFLAGS ALLBERT_CLI_ATTACH_ONLY
     exec "$RELEASE_BIN" eval "AllbertAssist.CLI.Tui.launch!()" ;;
   *)
-    # Pass argv to the pure dispatcher; it prints and halts on its own code.
-    exec "$RELEASE_BIN" eval "AllbertAssist.CLI.main(System.argv())" "$@" ;;
+    # ProductCLI owns attach-first selection and readiness-bound embedded fallback.
+    exec "$RELEASE_BIN" eval "AllbertAssist.Pack.ProductCLI.main(System.argv())" "$@" ;;
 esac

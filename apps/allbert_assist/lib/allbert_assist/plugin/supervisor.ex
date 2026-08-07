@@ -3,29 +3,28 @@ defmodule AllbertAssist.Plugin.Supervisor do
 
   use Supervisor
 
-  alias AllbertAssist.Plugin.Bootstrap
-  alias AllbertAssist.Plugin.ChildSupervisor
-  alias AllbertAssist.Plugin.Registry
-
   def start_link(opts \\ []) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+    name = Keyword.get(opts, :name, __MODULE__)
+    Supervisor.start_link(__MODULE__, opts, name: name)
   end
 
   @impl true
   def init(opts) do
-    registry_opts = Keyword.get(opts, :registry_opts, opts)
-    child_supervisor = Keyword.get(opts, :child_supervisor, ChildSupervisor)
-    registry = Keyword.get(registry_opts, :name, Registry)
+    metadata_opts =
+      opts
+      |> Keyword.delete(:name)
+      |> maybe_name_metadata_supervisor(opts)
 
-    children = [
-      {Registry, registry_opts},
-      {ChildSupervisor, [name: child_supervisor]},
-      {Bootstrap,
-       opts
-       |> Keyword.put(:registry, registry)
-       |> Keyword.put(:child_supervisor, child_supervisor)}
-    ]
+    Supervisor.init([{AllbertAssist.Plugin.MetadataSupervisor, metadata_opts}],
+      strategy: :one_for_one
+    )
+  end
 
-    Supervisor.init(children, strategy: :one_for_all)
+  defp maybe_name_metadata_supervisor(metadata_opts, opts) do
+    if Keyword.get(opts, :name, __MODULE__) == __MODULE__ do
+      Keyword.put_new(metadata_opts, :name, AllbertAssist.Plugin.MetadataSupervisor)
+    else
+      Keyword.put_new(metadata_opts, :name, nil)
+    end
   end
 end

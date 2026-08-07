@@ -8,6 +8,9 @@ defmodule AllbertAssist.Actions.Registry do
   """
 
   alias AllbertAssist.Action
+  alias AllbertAssist.Actions.Registry.CandidateProjection
+  alias AllbertAssist.Objectives.CanonicalJSON
+  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
 
   alias AllbertAssist.Actions.Apps.ListApps
   alias AllbertAssist.Actions.Apps.ShowApp
@@ -542,6 +545,62 @@ defmodule AllbertAssist.Actions.Registry do
 
   @actions @agent_actions ++ @internal_actions
 
+  @typedoc """
+  A pure effective action projection built from the sealed static catalog and
+  supplied App/Plugin metadata entries.
+
+  `effective` is the runtime-visible order. `plugin_declarations` preserves
+  every enabled Plugin declaration in metadata order. `alias_sources` is the
+  ordered subset displaced by one of the static/Plugin precedence rules.
+  """
+  @type candidate_projection :: CandidateProjection.t()
+
+  @doc """
+  Project the compile-constant action catalog without consulting a registry.
+
+  This is deliberately separate from `capabilities/1`: it does not read App,
+  Plugin, or dynamic-overlay state.
+  """
+  @spec static_projection() :: {:ok, [map()]} | {:error, [ValidationDiagnostic.t()]}
+  def static_projection do
+    @actions
+    |> Enum.with_index(1)
+    |> Enum.reduce_while({:ok, []}, fn {module, legacy_index}, {:ok, projections} ->
+      case project_module(module, legacy_index, nil, nil) do
+        {:ok, projection} -> {:cont, {:ok, [projection | projections]}}
+        {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
+      end
+    end)
+    |> then(fn
+      {:ok, projections} -> {:ok, Enum.reverse(projections)}
+      error -> error
+    end)
+  end
+
+  @doc """
+  Apply the legacy static-first Plugin precedence rules to supplied metadata.
+
+  No process, registry, overlay, or runtime state is read. Invalid or
+  ambiguous membership is rejected instead of selecting an arbitrary owner.
+  """
+  @spec candidate_projection([map()], [map()], [map()]) ::
+          {:ok, candidate_projection()} | {:error, [ValidationDiagnostic.t()]}
+  def candidate_projection(static, app_entries, plugin_entries)
+      when is_list(static) and is_list(app_entries) and is_list(plugin_entries) do
+    with {:ok, static} <- validate_static_projection(static),
+         {:ok, app_memberships} <- action_memberships(app_entries, :app),
+         {:ok, plugin_memberships} <- action_memberships(enabled_plugins(plugin_entries), :plugin),
+         {:ok, effective_static} <- enrich_static(static, app_memberships, plugin_memberships),
+         {:ok, declarations} <-
+           plugin_declarations(plugin_entries, app_memberships, plugin_memberships),
+         {:ok, candidate} <- assemble_candidate(effective_static, declarations) do
+      {:ok, candidate}
+    end
+  end
+
+  def candidate_projection(_static, _app_entries, _plugin_entries),
+    do: {:error, [projection_diagnostic(:invalid_candidate_projection)]}
+
   @doc "Return registered runtime action modules in stable display order."
   @spec modules(keyword()) :: nonempty_list(module())
   def modules(opts \\ []), do: @actions ++ plugin_actions(opts) ++ dynamic_actions(opts)
@@ -825,6 +884,311 @@ defmodule AllbertAssist.Actions.Registry do
   defp valid_plugin_action?(module) do
     Code.ensure_loaded?(module) and function_exported?(module, :name, 0) and
       match?({:ok, _attrs}, module_capability_attrs(module))
+  end
+
+  # Candidate projection helpers intentionally take only values captured by the
+  # Pack barrier. They must stay independent from the live registry helpers
+  # above: even a harmless-looking registry lookup would make a sealed capture
+  # depend on a concurrent registration mutation.
+  defp validate_static_projection(static) do
+    static
+    |> Enum.with_index(1)
+    |> Enum.reduce_while({:ok, []}, fn {projection, expected_index}, {:ok, acc} ->
+      with %{legacy_index: ^expected_index, module: module, name: name} <- projection,
+           true <- is_atom(module) and is_binary(name) and name == normalize_name(name),
+           true <- is_map(Map.get(projection, :normalized_capability)),
+           true <- sha256?(Map.get(projection, :input_schema_sha256)),
+           true <- sha256?(Map.get(projection, :output_schema_sha256)) do
+        {:cont, {:ok, [projection | acc]}}
+      else
+        _ -> {:halt, {:error, [projection_diagnostic(:invalid_static_projection)]}}
+      end
+    end)
+    |> then(fn
+      {:ok, projections} -> {:ok, Enum.reverse(projections)}
+      error -> error
+    end)
+  end
+
+  defp action_memberships(entries, :app) do
+    membership_index(entries, :app_id, :actions, :ambiguous_app_action_membership)
+  end
+
+  defp action_memberships(entries, :plugin) do
+    membership_index(entries, :plugin_id, :actions, :ambiguous_plugin_action_membership)
+  end
+
+  defp membership_index(entries, id_key, actions_key, ambiguity_code) do
+    entries
+    |> Enum.reduce_while({:ok, %{}}, fn entry, {:ok, memberships} ->
+      id = entry_value(entry, id_key)
+      actions = entry_value(entry, actions_key, [])
+
+      if valid_owner_id?(id) and is_list(actions) and Enum.all?(actions, &is_atom/1) do
+        memberships =
+          Enum.reduce(actions, memberships, fn module, acc ->
+            Map.update(acc, module, [id], &[id | &1])
+          end)
+
+        {:cont, {:ok, memberships}}
+      else
+        {:halt, {:error, [projection_diagnostic(:invalid_metadata_entry)]}}
+      end
+    end)
+    |> then(fn
+      {:ok, memberships} ->
+        if Enum.any?(memberships, fn {_module, owners} ->
+             owners |> Enum.uniq() |> length() > 1
+           end) do
+          {:error, [projection_diagnostic(ambiguity_code)]}
+        else
+          {:ok, Map.new(memberships, fn {module, [owner | _]} -> {module, owner} end)}
+        end
+
+      error ->
+        error
+    end)
+  end
+
+  defp enabled_plugins(entries) do
+    Enum.filter(entries, &(entry_value(&1, :status) == :enabled))
+  end
+
+  defp enrich_static(static, app_memberships, plugin_memberships) do
+    static_modules = MapSet.new(Enum.map(static, & &1.module))
+
+    dangling_modules =
+      (Map.keys(app_memberships) ++ Map.keys(plugin_memberships))
+      |> Enum.uniq()
+      |> Enum.reject(&MapSet.member?(static_modules, &1))
+
+    # Non-static membership is allowed only when it is an enabled Plugin
+    # declaration, which is checked when declarations are projected below.
+    if Enum.any?(dangling_modules, fn module -> not Map.has_key?(plugin_memberships, module) end) do
+      {:error, [projection_diagnostic(:dangling_app_action_membership)]}
+    else
+      {:ok,
+       Enum.map(static, fn projection ->
+         app_id = Map.get(app_memberships, projection.module)
+         plugin_id = Map.get(plugin_memberships, projection.module)
+
+         projection
+         |> Map.put(:app_id, app_id)
+         |> Map.put(:plugin_id, plugin_id)
+         |> Map.update!(:normalized_capability, fn capability ->
+           capability
+           |> Map.put(:app_id, app_id)
+           |> Map.put(:plugin_id, plugin_id)
+         end)
+       end)}
+    end
+  end
+
+  defp plugin_declarations(plugin_entries, app_memberships, plugin_memberships) do
+    plugin_entries
+    |> Enum.reduce_while({:ok, []}, fn plugin, {:ok, declarations} ->
+      plugin_id = entry_value(plugin, :plugin_id)
+      actions = entry_value(plugin, :actions, [])
+
+      cond do
+        not valid_owner_id?(plugin_id) or not is_list(actions) or
+            not Enum.all?(actions, &is_atom/1) ->
+          {:halt, {:error, [projection_diagnostic(:invalid_metadata_entry)]}}
+
+        entry_value(plugin, :status) != :enabled ->
+          {:cont, {:ok, declarations}}
+
+        true ->
+          result =
+            Enum.reduce_while(actions, {:ok, declarations}, fn module, {:ok, acc} ->
+              with ^plugin_id <- Map.get(plugin_memberships, module),
+                   {:ok, projection} <-
+                     project_module(module, nil, Map.get(app_memberships, module), plugin_id) do
+                {:cont, {:ok, [projection | acc]}}
+              else
+                nil ->
+                  {:halt, {:error, [projection_diagnostic(:dangling_plugin_action_membership)]}}
+
+                {:error, diagnostic} ->
+                  {:halt, {:error, [diagnostic]}}
+
+                _ ->
+                  {:halt, {:error, [projection_diagnostic(:ambiguous_plugin_action_membership)]}}
+              end
+            end)
+
+          case result do
+            {:ok, next} -> {:cont, {:ok, next}}
+            error -> {:halt, error}
+          end
+      end
+    end)
+    |> then(fn
+      {:ok, declarations} -> {:ok, Enum.reverse(declarations)}
+      error -> error
+    end)
+  end
+
+  defp assemble_candidate(effective_static, declarations) do
+    static_modules = MapSet.new(Enum.map(effective_static, & &1.module))
+    static_names = MapSet.new(Enum.map(effective_static, & &1.name))
+
+    name_counts = declarations |> Enum.map(& &1.name) |> Enum.frequencies()
+
+    declarations =
+      Enum.map(declarations, fn declaration ->
+        disposition =
+          cond do
+            MapSet.member?(static_modules, declaration.module) -> :static_module
+            MapSet.member?(static_names, declaration.name) -> :static_name
+            Map.fetch!(name_counts, declaration.name) > 1 -> :duplicate_plugin_name
+            true -> :effective
+          end
+
+        Map.put(declaration, :disposition, disposition)
+      end)
+
+    effective_plugins =
+      declarations
+      |> Enum.filter(&(&1.disposition == :effective))
+      |> Enum.with_index(length(effective_static) + 1)
+      |> Enum.map(fn {projection, legacy_index} ->
+        Map.put(projection, :legacy_index, legacy_index)
+      end)
+
+    {:ok,
+     %CandidateProjection{
+       effective: effective_static ++ effective_plugins,
+       plugin_declarations: declarations,
+       alias_sources: Enum.reject(declarations, &(&1.disposition == :effective))
+     }}
+  end
+
+  defp project_module(module, legacy_index, app_id, plugin_id) when is_atom(module) do
+    with true <- Code.ensure_loaded?(module),
+         true <- function_exported?(module, :name, 0),
+         {:ok, attrs} <- module_capability_attrs(module) do
+      name = module.name()
+
+      if is_binary(name) and name == normalize_name(name) do
+        capability =
+          module
+          |> Capability.new(attrs)
+          |> Map.from_struct()
+          |> Map.take([
+            :app_id,
+            :confirmation,
+            :execution_mode,
+            :exposure,
+            :notes,
+            :permission,
+            :plugin_id,
+            :resumable?,
+            :retry_safety,
+            :skill_backed?
+          ])
+          |> Map.put(:app_id, app_id)
+          |> Map.put(:plugin_id, plugin_id)
+
+        {:ok,
+         %{
+           legacy_index: legacy_index,
+           module: module,
+           name: name,
+           normalized_capability: capability,
+           input_schema_sha256: schema_sha256(module, :schema),
+           output_schema_sha256: schema_sha256(module, :output_schema),
+           app_id: app_id,
+           plugin_id: plugin_id
+         }}
+      else
+        {:error, projection_diagnostic(:invalid_action_name)}
+      end
+    else
+      _ -> {:error, projection_diagnostic(:invalid_action_module)}
+    end
+  rescue
+    _exception -> {:error, projection_diagnostic(:invalid_action_module)}
+  catch
+    :exit, _reason -> {:error, projection_diagnostic(:invalid_action_module)}
+  end
+
+  defp project_module(_module, _legacy_index, _app_id, _plugin_id),
+    do: {:error, projection_diagnostic(:invalid_action_module)}
+
+  defp schema_sha256(module, function) do
+    value = if function_exported?(module, function, 0), do: apply(module, function, []), else: nil
+
+    value
+    |> m0_normalize()
+    |> CanonicalJSON.encode()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  defp m0_normalize(nil), do: nil
+
+  defp m0_normalize(value)
+       when is_boolean(value) or is_integer(value) or is_float(value) or is_binary(value),
+       do: value
+
+  defp m0_normalize(%Regex{} = regex),
+    do: %{"$regex" => Regex.source(regex), "opts" => regex.opts}
+
+  defp m0_normalize(%MapSet{} = set),
+    do: set |> MapSet.to_list() |> Enum.map(&m0_normalize/1) |> Enum.sort()
+
+  defp m0_normalize(%_{} = struct),
+    do:
+      struct
+      |> Map.from_struct()
+      |> m0_normalize()
+      |> Map.put("$struct", module_name(struct.__struct__))
+
+  defp m0_normalize(value) when is_map(value),
+    do: Map.new(value, fn {key, nested} -> {normalize_m0_key(key), m0_normalize(nested)} end)
+
+  defp m0_normalize(value) when is_list(value), do: Enum.map(value, &m0_normalize/1)
+
+  defp m0_normalize(value) when is_tuple(value),
+    do: %{"$tuple" => value |> Tuple.to_list() |> m0_normalize()}
+
+  defp m0_normalize(value) when is_function(value),
+    do: %{
+      "$function" => module_name(elem(:erlang.fun_info(value, :module), 1)),
+      "name" => value |> :erlang.fun_info(:name) |> elem(1) |> Atom.to_string(),
+      "arity" => value |> :erlang.fun_info(:arity) |> elem(1)
+    }
+
+  defp m0_normalize(value) when is_pid(value), do: "<PID>"
+  defp m0_normalize(value) when is_reference(value), do: "<REFERENCE>"
+  defp m0_normalize(value) when is_port(value), do: "<PORT>"
+  defp m0_normalize(value) when is_atom(value), do: module_name(value)
+  defp m0_normalize(value), do: inspect(value)
+
+  defp normalize_m0_key(key) when is_binary(key), do: key
+  defp normalize_m0_key(key) when is_atom(key), do: module_name(key)
+  defp normalize_m0_key(key), do: key |> m0_normalize() |> inspect()
+
+  defp module_name(value) when is_atom(value),
+    do: value |> Atom.to_string() |> String.replace_prefix("Elixir.", "")
+
+  defp entry_value(entry, key, default \\ nil)
+  defp entry_value(entry, key, default) when is_map(entry), do: Map.get(entry, key, default)
+  defp entry_value(_entry, _key, default), do: default
+  defp valid_owner_id?(value) when is_atom(value), do: value not in [nil, true, false]
+  defp valid_owner_id?(value) when is_binary(value), do: value != ""
+  defp valid_owner_id?(_value), do: false
+  defp sha256?(value), do: is_binary(value) and value =~ ~r/^[0-9a-f]{64}$/
+
+  defp projection_diagnostic(code) do
+    %ValidationDiagnostic{
+      schema_version: 1,
+      code: :invalid_value,
+      path: [%PathSegment{schema_version: 1, kind: :field, value: "actions"}],
+      owner: nil,
+      detail: %{reason: code}
+    }
   end
 
   defp maybe_put_app_id(capability, nil), do: capability

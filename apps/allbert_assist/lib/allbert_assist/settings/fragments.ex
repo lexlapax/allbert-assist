@@ -8,6 +8,7 @@ defmodule AllbertAssist.Settings.Fragments do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings.Fragment
   alias AllbertAssist.Settings.Schema
@@ -102,6 +103,26 @@ defmodule AllbertAssist.Settings.Fragments do
     end)
     |> Enum.sort_by(& &1.id)
   end
+
+  @doc """
+  Build settings fragments from sealed App/Plugin metadata entries.
+
+  Unlike `registered_fragments/1`, this function never reads registries,
+  process state, or the composition cache. Input order is retained after the
+  sorted core-fragment prefix.
+  """
+  @spec candidate_fragments([map()], [map()]) ::
+          {:ok, [Fragment.t()]} | {:error, [ValidationDiagnostic.t()]}
+  def candidate_fragments(app_entries, plugin_entries)
+      when is_list(app_entries) and is_list(plugin_entries) do
+    with {:ok, apps} <- app_fragments_from_entries(app_entries),
+         {:ok, plugins} <- plugin_fragments_from_entries(plugin_entries) do
+      {:ok, core_fragments() ++ apps ++ plugins}
+    end
+  end
+
+  def candidate_fragments(_app_entries, _plugin_entries),
+    do: {:error, [candidate_diagnostic(:invalid_candidate_entries)]}
 
   @spec app_fragments(keyword()) :: [Fragment.t()]
   def app_fragments(opts \\ []) do
@@ -245,6 +266,85 @@ defmodule AllbertAssist.Settings.Fragments do
     opts
     |> Keyword.get(:app, [])
     |> AppRegistry.registered_apps()
+  end
+
+  defp app_fragments_from_entries(entries) do
+    entries
+    |> Enum.reduce_while({:ok, []}, fn app, {:ok, fragments} ->
+      app_id = Map.get(app, :app_id)
+      schema_entries = Map.get(app, :settings_schema, [])
+
+      if is_atom(app_id) and is_list(schema_entries) do
+        schema = Schema.normalize_app_schema_entries(schema_entries)
+
+        fragment =
+          Fragment.new!(%{
+            id: "app:#{app_id}",
+            owner: app_id,
+            source: :app,
+            group: :apps,
+            schema: schema,
+            defaults: defaults_from_schema(schema),
+            safe_write_keys: safe_write_keys_from_schema(schema),
+            metadata: %{display_name: Map.get(app, :display_name)}
+          })
+
+        {:cont, {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
+      else
+        {:halt, {:error, [candidate_diagnostic(:invalid_app_entry)]}}
+      end
+    end)
+    |> reverse_candidate_fragments()
+  rescue
+    _exception -> {:error, [candidate_diagnostic(:invalid_app_settings_schema)]}
+  end
+
+  defp plugin_fragments_from_entries(entries) do
+    entries
+    |> Enum.reduce_while({:ok, []}, fn plugin, {:ok, fragments} ->
+      plugin_id = Map.get(plugin, :plugin_id)
+      schema_entries = Map.get(plugin, :settings_schema, [])
+
+      if is_binary(plugin_id) and plugin_id != "" and is_list(schema_entries) do
+        schema = Schema.normalize_plugin_schema_entries(schema_entries, plugin: plugin)
+
+        fragment =
+          Fragment.new!(%{
+            id: "plugin:#{plugin_id}",
+            owner: plugin_id,
+            source: :plugin,
+            group: :plugins,
+            schema: schema,
+            defaults: defaults_from_schema(schema),
+            safe_write_keys: safe_write_keys_from_schema(schema),
+            metadata: %{
+              display_name: Map.get(plugin, :display_name),
+              trust_status: Map.get(plugin, :trust_status),
+              source: Map.get(plugin, :source)
+            }
+          })
+
+        {:cont, {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
+      else
+        {:halt, {:error, [candidate_diagnostic(:invalid_plugin_entry)]}}
+      end
+    end)
+    |> reverse_candidate_fragments()
+  rescue
+    _exception -> {:error, [candidate_diagnostic(:invalid_plugin_settings_schema)]}
+  end
+
+  defp reverse_candidate_fragments({:ok, fragments}), do: {:ok, Enum.reverse(fragments)}
+  defp reverse_candidate_fragments(error), do: error
+
+  defp candidate_diagnostic(reason) do
+    %ValidationDiagnostic{
+      schema_version: 1,
+      code: :invalid_value,
+      path: [%PathSegment{schema_version: 1, kind: :field, value: "settings_schema"}],
+      owner: nil,
+      detail: %{reason: reason}
+    }
   end
 
   defp plugin_entries(opts) do

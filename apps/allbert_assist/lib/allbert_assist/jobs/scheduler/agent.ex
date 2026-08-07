@@ -12,6 +12,7 @@ defmodule AllbertAssist.Jobs.Scheduler.Agent do
   alias AllbertAssist.JidoBacked
   alias AllbertAssist.Jobs.Scheduler.Commands
   alias AllbertAssist.Jobs.Scheduler.Executor
+  alias AllbertAssist.Pack.EffectGuard
 
   @run_once "allbert.jobs.scheduler.run_once"
   @cleanup_stale_runs "allbert.jobs.scheduler.cleanup_stale_runs"
@@ -73,18 +74,24 @@ defmodule AllbertAssist.Jobs.Scheduler.Agent do
 
   @doc false
   def run_once(server \\ AllbertAssist.Jobs.Scheduler, now \\ Executor.utc_now()) do
-    JidoBacked.dispatch(server, @run_once, %{now: now},
-      source: "/allbert/jobs/scheduler",
-      timeout: :infinity
-    )
+    dispatch_ready(server, @run_once, now)
   end
 
   @doc false
   def cleanup_stale_runs(server \\ AllbertAssist.Jobs.Scheduler, now \\ Executor.utc_now()) do
-    JidoBacked.dispatch(server, @cleanup_stale_runs, %{now: now},
-      source: "/allbert/jobs/scheduler",
-      timeout: :infinity
-    )
+    dispatch_ready(server, @cleanup_stale_runs, now)
+  end
+
+  defp dispatch_ready(server, signal_type, now) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      JidoBacked.dispatch(server, signal_type, %{now: now, allbert_pack_epoch: epoch},
+        source: "/allbert/jobs/scheduler",
+        timeout: :infinity
+      )
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
   end
 
   @doc false

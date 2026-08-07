@@ -1379,11 +1379,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp approval_context(socket) do
-    ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.WorkspaceLive")
+    socket
+    |> ContextBuilder.live_view_context(surface: "AllbertAssistWeb.WorkspaceLive")
+    |> Map.put(:allbert_pack_epoch, socket.assigns.allbert_pack_epoch)
   end
 
   defp workspace_artifact_context(socket) do
-    ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.WorkspaceLive")
+    socket
+    |> ContextBuilder.live_view_context(surface: "AllbertAssistWeb.WorkspaceLive")
+    |> Map.put(:allbert_pack_epoch, socket.assigns.allbert_pack_epoch)
   end
 
   defp active_objectives(user_id) do
@@ -1874,7 +1878,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     with %Phoenix.LiveComponent.CID{} = cid <- socket.assigns[:settings_central_target],
          true <- is_binary(confirmation_id) and confirmation_id != "",
          true <- socket.assigns.canvas_destination == "workspace:settings" do
-      send_update(cid, refresh_confirmations: System.unique_integer([:positive]))
+      send_update(cid,
+        refresh_confirmations: System.unique_integer([:positive]),
+        allbert_pack_epoch: socket.assigns.allbert_pack_epoch
+      )
     else
       _not_applicable -> :ok
     end
@@ -1919,7 +1926,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
        }) do
     case socket.assigns[:model_pull_target] do
       %Phoenix.LiveComponent.CID{} = cid ->
-        send_update(cid, model_pull_frame: pull_progress_frame(data))
+        send_update(cid,
+          model_pull_frame: pull_progress_frame(data),
+          allbert_pack_epoch: socket.assigns.allbert_pack_epoch
+        )
+
         socket
 
       _absent ->
@@ -2902,6 +2913,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         surface_event_attrs(runtime_request, prompt, socket.assigns.user_id)
       )
 
+    epoch = socket.assigns.allbert_pack_epoch
+
     socket
     |> assign(
       prompt: prompt,
@@ -2917,7 +2930,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       show_approval_details?: false
     )
     |> start_async(:ask, fn ->
-      result = Runtime.submit_user_input(runtime_request)
+      result =
+        Runtime.submit_user_input(runtime_request,
+          allbert_pack_epoch: epoch
+        )
+
       EventRecorder.mark_result(event, result)
       result
     end)
@@ -3139,11 +3156,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp run_workspace_action(socket, action_name, params) do
-    Runner.run(
-      action_name,
-      params,
-      ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.WorkspaceLive")
-    )
+    Runner.run(action_name, params, approval_context(socket))
   end
 
   defp revert_tile_revision(socket, tile_id, revision_id) do
@@ -3238,6 +3251,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp renderer_context(assigns) do
     %{
       user_id: assigns.user_id,
+      allbert_pack_epoch: assigns.allbert_pack_epoch,
       thread_id: assigns.thread_id,
       active_objectives: assigns.active_objectives,
       conversation_messages: assigns.conversation_messages,

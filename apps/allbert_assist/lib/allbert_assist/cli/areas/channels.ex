@@ -29,6 +29,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   alias AllbertAssist.Channels.WhatsApp
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
@@ -197,11 +198,12 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     remove_identity!(ctx, "telegram", required!(opts, :external_user))
   end
 
-  defp route(["telegram", "simulate" | rest], _ctx) do
+  defp route(["telegram", "simulate" | rest], ctx) do
     {opts, args, invalid} = parse!(rest)
     reject_invalid!(invalid)
 
     simulate_telegram!(
+      ctx,
       required!(opts, :external_user),
       required!(opts, :chat),
       single_arg!(args, "Prompt is required")
@@ -238,11 +240,12 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     remove_identity!(ctx, "email", required!(opts, :external_user))
   end
 
-  defp route(["email", "simulate" | rest], _ctx) do
+  defp route(["email", "simulate" | rest], ctx) do
     {opts, args, invalid} = parse!(rest)
     reject_invalid!(invalid)
 
     simulate_email!(
+      ctx,
       required!(opts, :external_user),
       single_arg!(args, "Prompt is required"),
       Keyword.get(opts, :new_thread, false)
@@ -277,11 +280,12 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     remove_identity!(ctx, "matrix", required!(opts, :external_user))
   end
 
-  defp route(["matrix", "simulate" | rest], _ctx) do
+  defp route(["matrix", "simulate" | rest], ctx) do
     {opts, args, invalid} = parse!(rest)
     reject_invalid!(invalid)
 
     simulate_matrix!(
+      ctx,
       required!(opts, :user),
       required!(opts, :room),
       single_arg!(args, "Prompt is required")
@@ -878,8 +882,9 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     )
   end
 
-  defp simulate_telegram!(external_user_id, chat_id, text) do
-    with {:ok, settings} <- Channels.channel_settings("telegram"),
+  defp simulate_telegram!(ctx, external_user_id, chat_id, text) do
+    with {:ok, epoch} <- carried_epoch(ctx),
+         {:ok, settings} <- Channels.channel_settings("telegram"),
          {:ok, user_id} <-
            Identity.resolve("telegram", external_user_id, Map.get(settings, "identity_map", [])),
          session_id <- Channels.derive_session_id("telegram", external_user_id, chat_id),
@@ -896,25 +901,31 @@ defmodule AllbertAssist.CLI.Areas.Channels do
              payload_summary: "telegram simulate"
            }),
          {:ok, response} <-
-           Runtime.submit_user_input(%{
-             text: prompt,
-             delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
-             channel: "telegram",
-             user_id: user_id,
-             operator_id: user_id,
-             session_id: session_id,
-             new_thread: new_thread?,
-             metadata: simulate_metadata("telegram", "telegram_bot_api", event, nil)
-           }),
+           Runtime.submit_user_input(
+             %{
+               text: prompt,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: "telegram",
+               user_id: user_id,
+               operator_id: user_id,
+               session_id: session_id,
+               new_thread: new_thread?,
+               metadata: simulate_metadata("telegram", "telegram_bot_api", event, nil)
+             },
+             allbert_pack_epoch: epoch
+           ),
          {:ok, rendered, _keyboard} <- Telegram.Renderer.render_response(response),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         :ok <- EffectGuard.validate(epoch),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}) do
       {:ok, {:simulate, event, rendered}}
     end
   end
 
-  defp simulate_email!(external_user_id, text, forced_new_thread?) do
-    with {:ok, settings} <- Channels.channel_settings("email"),
+  defp simulate_email!(ctx, external_user_id, text, forced_new_thread?) do
+    with {:ok, epoch} <- carried_epoch(ctx),
+         {:ok, settings} <- Channels.channel_settings("email"),
          {:ok, user_id} <-
            Identity.resolve("email", external_user_id, Map.get(settings, "identity_map", [])),
          session_id <- Channels.derive_session_id("email", external_user_id, nil),
@@ -930,25 +941,31 @@ defmodule AllbertAssist.CLI.Areas.Channels do
              payload_summary: "email simulate"
            }),
          {:ok, response} <-
-           Runtime.submit_user_input(%{
-             text: prompt,
-             delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
-             channel: "email",
-             user_id: user_id,
-             operator_id: user_id,
-             session_id: session_id,
-             new_thread: forced_new_thread? or prompted_new_thread?,
-             metadata: simulate_metadata("email", "email_imap", event, nil)
-           }),
+           Runtime.submit_user_input(
+             %{
+               text: prompt,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: "email",
+               user_id: user_id,
+               operator_id: user_id,
+               session_id: session_id,
+               new_thread: forced_new_thread? or prompted_new_thread?,
+               metadata: simulate_metadata("email", "email_imap", event, nil)
+             },
+             allbert_pack_epoch: epoch
+           ),
          {:ok, _subject, body, _html} <- Email.Renderer.render_response(response),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         :ok <- EffectGuard.validate(epoch),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "email"}) do
       {:ok, {:simulate, event, [body]}}
     end
   end
 
-  defp simulate_matrix!(external_user_id, room_id, text) do
-    with {:ok, settings} <- Channels.channel_settings("matrix"),
+  defp simulate_matrix!(ctx, external_user_id, room_id, text) do
+    with {:ok, epoch} <- carried_epoch(ctx),
+         {:ok, settings} <- Channels.channel_settings("matrix"),
          {:ok, user_id} <-
            Identity.resolve("matrix", external_user_id, Map.get(settings, "identity_map", [])),
          session_id <- Channels.derive_session_id("matrix", external_user_id, room_id),
@@ -965,18 +982,23 @@ defmodule AllbertAssist.CLI.Areas.Channels do
              payload_summary: "matrix simulate"
            }),
          {:ok, response} <-
-           Runtime.submit_user_input(%{
-             text: prompt,
-             delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
-             channel: "matrix",
-             user_id: user_id,
-             operator_id: user_id,
-             session_id: session_id,
-             new_thread: new_thread?,
-             metadata: simulate_metadata("matrix", "matrix_client_server", event, nil)
-           }),
+           Runtime.submit_user_input(
+             %{
+               text: prompt,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: "matrix",
+               user_id: user_id,
+               operator_id: user_id,
+               session_id: session_id,
+               new_thread: new_thread?,
+               metadata: simulate_metadata("matrix", "matrix_client_server", event, nil)
+             },
+             allbert_pack_epoch: epoch
+           ),
          {:ok, rendered} <- Matrix.Renderer.render_response(response),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         :ok <- EffectGuard.validate(epoch),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "matrix"}) do
       {:ok, {:simulate, event, rendered}}
     end
@@ -1247,6 +1269,15 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       _error -> guard_error!("--message-id must be a Signal timestamp in milliseconds")
     end
   end
+
+  defp carried_epoch(%{allbert_pack_epoch: epoch}) do
+    case EffectGuard.validate(epoch) do
+      :ok -> {:ok, epoch}
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_ctx), do: {:error, :product_not_ready}
 
   defp mark_simulated_event(event, response, user_id, session_id) do
     Channels.update_event(event, %{

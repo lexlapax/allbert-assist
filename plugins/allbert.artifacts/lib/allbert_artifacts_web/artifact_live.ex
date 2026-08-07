@@ -244,6 +244,7 @@ defmodule AllbertArtifactsWeb.ArtifactLive do
       active_app: :allbert_artifacts,
       user_id: socket.assigns.user_id,
       session_id: socket.assigns.session_id,
+      allbert_pack_epoch: socket.assigns.allbert_pack_epoch,
       channel: :workspace,
       request: %{
         active_app: :allbert_artifacts,

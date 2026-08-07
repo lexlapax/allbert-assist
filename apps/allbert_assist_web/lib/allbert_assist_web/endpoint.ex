@@ -11,7 +11,7 @@ defmodule AllbertAssistWeb.Endpoint do
     same_site: "Lax"
   ]
 
-  socket "/live", Phoenix.LiveView.Socket,
+  socket "/live", AllbertAssistWeb.LiveSocket,
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
@@ -42,6 +42,7 @@ defmodule AllbertAssistWeb.Endpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  plug AllbertAssistWeb.PackReadiness.HTTPGate
   plug AllbertAssistWeb.Plugs.PublicProtocolBodyCap
   plug AllbertAssistWeb.Plugs.PublicProtocolWebhookAuth
 

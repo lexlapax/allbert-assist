@@ -35,6 +35,9 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
      socket
      |> assign(assigns)
      |> assign_new(:renderer_context, fn -> %{} end)
+     |> assign_new(:allbert_pack_epoch, fn ->
+       assigns |> Map.get(:renderer_context, %{}) |> Map.get(:allbert_pack_epoch)
+     end)
      |> assign_new(:workspace_state, fn -> %{} end)}
   end
 
@@ -53,6 +56,7 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
         id={node_renderer_id(@id, node)}
         node={node}
         renderer_context={@renderer_context}
+        allbert_pack_epoch={@allbert_pack_epoch}
         workspace_state={@workspace_state}
       />
     </div>
@@ -83,6 +87,7 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
         id={node_component_id(@id, @node)}
         node={@node}
         renderer_context={@renderer_context}
+        allbert_pack_epoch={@allbert_pack_epoch}
         workspace_state={@workspace_state}
       />
 
@@ -93,6 +98,7 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
             id={node_renderer_id(@id, child)}
             node={child}
             renderer_context={@renderer_context}
+            allbert_pack_epoch={@allbert_pack_epoch}
             workspace_state={@workspace_state}
           />
           <div

@@ -11,6 +11,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
   alias AllbertAssist.Settings
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyCap
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyReader
+  alias AllbertAssistWeb.PublicProtocol.McpHttpController
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -57,6 +58,20 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
            ]
 
     assert get_resp_header(conn, "cache-control") == ["no-store"]
+  end
+
+  test "direct dispatch without the HTTPGate-carried epoch is frozen unavailable" do
+    conn = Phoenix.ConnTest.build_conn(:post, "/mcp", "")
+
+    conn =
+      McpHttpController.handle(conn, %{
+        "jsonrpc" => "2.0",
+        "id" => "tools",
+        "method" => "tools/list"
+      })
+
+    assert conn.status == 503
+    assert Jason.decode!(conn.resp_body)["error"]["code"] == -32_000
   end
 
   test "tools/call accepts JSON-string arguments for allowlisted tools", %{conn: conn} do

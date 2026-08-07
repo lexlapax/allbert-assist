@@ -5,6 +5,7 @@ defmodule AllbertAssist.CLI.ReqBootTest do
 
   alias AllbertAssist.CLI
   alias AllbertAssist.FirstModel.Ollama
+  alias AllbertAssist.Pack.ProductCLI
 
   @moduledoc """
   M8.1 regression: the packaged `mix release` `eval` entry LOADS but does not START OTP
@@ -24,7 +25,7 @@ defmodule AllbertAssist.CLI.ReqBootTest do
     assert Process.whereis(Req.Finch) == nil, "precondition: :req stopped, pool gone"
 
     # A pure command (no DB runtime) must still boot the HTTP client.
-    {_stream, _out, code} = CLI.run_entry(["version"])
+    {_stream, _out, code} = ProductCLI.run_entry(["version"])
 
     assert code == 0
     assert Process.whereis(Req.Finch) != nil, "run_entry must start :req / Req.Finch"

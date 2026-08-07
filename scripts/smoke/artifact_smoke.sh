@@ -106,7 +106,7 @@ VSN="$(run_cli eval 'IO.puts(AllbertAssist.App.CoreApp.version())' 2>/dev/null |
 # Bare `eval` only LOADS the apps; start them so the App.Registry GenServer is
 # up and plugin registration has run (else registered_apps/0 catches the dead
 # GenServer and returns []).
-PLUGIN_COUNT="$(run_cli eval 'Application.ensure_all_started(:allbert_assist); IO.puts(length(AllbertAssist.App.Registry.registered_apps()))' 2>/dev/null | tail -n1 || true)"
+PLUGIN_COUNT="$(run_cli eval '{:ok, _epoch} = AllbertAssist.Pack.ProductBootstrap.ensure_ready([]); IO.puts(length(AllbertAssist.App.Registry.registered_apps()))' 2>/dev/null | tail -n1 || true)"
 case "$PLUGIN_COUNT" in
   ''|*[!0-9]*) fail plugins "plugin capability count not numeric: '$PLUGIN_COUNT'" ;;
   *) [ "$PLUGIN_COUNT" -gt 0 ] && echo "smoke:plugins PASS registered=$PLUGIN_COUNT" \
@@ -133,7 +133,7 @@ run_cli admin settings set browser.driver.version_pin 1.58.2 >/dev/null
 # this live acceptance probe a bounded 60-second startup/navigation budget.
 run_cli admin settings set browser.navigation.timeout_ms 60000 >/dev/null
 
-if DOCTOR_OUTPUT="$(run_cli eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "artifact-smoke", channel: :cli}) do {:ok, %{doctor: %{live_check_status: :ok, details: %{playwright_version: "1.58.2"}}}} -> IO.puts("packaged-browser-doctor-ok"); other -> IO.inspect(other); System.halt(1) end' 2>&1)"; then
+if DOCTOR_OUTPUT="$(run_cli eval '{:ok, epoch} = AllbertAssist.Pack.ProductBootstrap.ensure_ready([]); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "artifact-smoke", channel: :cli, allbert_pack_epoch: epoch}) do {:ok, %{doctor: %{live_check_status: :ok, details: %{playwright_version: "1.58.2"}}}} -> IO.puts("packaged-browser-doctor-ok"); other -> IO.inspect(other); System.halt(1) end' 2>&1)"; then
   echo "$DOCTOR_OUTPUT" >"$WORK/browser-doctor.out"
   grep -q 'packaged-browser-doctor-ok' "$WORK/browser-doctor.out" || \
     fail browser_doctor "doctor did not emit the success marker"
@@ -201,7 +201,7 @@ fi
 # so WAL, FTS5, tokenizer/query behavior, integrity, secure deletion, and the
 # packaged SQLite version/compile option are exercised together.
 SQLITE_PROBE='alias Exqlite.Sqlite3; alias AllbertAssist.Search.Schema; path = Path.join(System.fetch_env!("ALLBERT_HOME"), "artifact-search-capability.db"); with {:ok, conn} <- Sqlite3.open(path), :ok <- Schema.create(conn, %{generation_id: "artifact-smoke", eligibility_epoch: 0, high_water: nil}), {:ok, capability} <- Schema.verify(conn, "artifact-smoke"), :ok <- Sqlite3.close(conn) do IO.puts("packaged-sqlite-ok version=#{capability.sqlite_version} compile_options=#{Enum.join(capability.compile_options, ",")} journal_mode=#{capability.journal_mode}") else other -> IO.inspect(other); System.halt(1) end'
-if SQLITE_OUTPUT="$(run_cli eval "$SQLITE_PROBE" 2>&1)"; then
+if SQLITE_OUTPUT="$(run_cli eval "{:ok, _epoch} = AllbertAssist.Pack.ProductBootstrap.ensure_ready([]); $SQLITE_PROBE" 2>&1)"; then
   echo "$SQLITE_OUTPUT" >"$WORK/sqlite-capability.out"
   grep -Eq 'packaged-sqlite-ok version=[0-9]+\.[0-9]+\.[0-9]+ compile_options=ENABLE_FTS5 journal_mode=wal' \
     "$WORK/sqlite-capability.out" || fail sqlite_runtime "capability marker missing"

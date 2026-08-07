@@ -8,6 +8,7 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Jobs.Scheduler
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
@@ -18,6 +19,42 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Trace
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
+
+  defmodule EpochReadiness do
+    use GenServer
+
+    def start_link(opts),
+      do: GenServer.start_link(__MODULE__, :ok, name: Keyword.fetch!(opts, :name))
+
+    def rotate(server), do: GenServer.call(server, :rotate)
+
+    @impl true
+    def init(:ok), do: {:ok, %{epoch: :e1, e1: spawn_epoch(), e2: spawn_epoch()}}
+
+    @impl true
+    def handle_call(:status, _from, state), do: {:reply, {:ok, status(state)}, state}
+    def handle_call(:rotate, _from, state), do: {:reply, :ok, %{state | epoch: :e2}}
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.e1, :kill)
+      Process.exit(state.e2, :kill)
+    end
+
+    defp status(state) do
+      %{
+        phase: :ready,
+        barrier_pid: Map.fetch!(state, state.epoch),
+        snapshot_digest: String.duplicate("a", 64),
+        expected_ids: [],
+        subscribed_ids: [],
+        acked_ids: [],
+        diagnostics: []
+      }
+    end
+
+    defp spawn_epoch, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
 
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
@@ -306,6 +343,63 @@ defmodule AllbertAssist.JobsTest do
   end
 
   describe "runner" do
+    test "missing Pack epoch rejects before a manual run is admitted" do
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "missing runner epoch",
+                 target_type: "runtime_prompt",
+                 target: %{text: "must not run"},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice"
+               })
+
+      assert {:error, :product_not_ready} = Runner.run_now(job)
+      assert Jobs.list_runs(job) == []
+    end
+
+    test "same-digest replacement rejects E1 before durable completion and does not re-admit E2" do
+      original_readiness = Process.whereis(AllbertAssist.Pack.Readiness)
+      assert is_pid(original_readiness)
+      true = Process.unregister(AllbertAssist.Pack.Readiness)
+
+      {:ok, replacement_readiness} = EpochReadiness.start_link(name: AllbertAssist.Pack.Readiness)
+
+      on_exit(fn ->
+        unregister_if_current(replacement_readiness)
+
+        if Process.alive?(replacement_readiness), do: GenServer.stop(replacement_readiness)
+
+        if Process.alive?(original_readiness) and
+             is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+           do: Process.register(original_readiness, AllbertAssist.Pack.Readiness)
+      end)
+
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, _request ->
+          :ok = EpochReadiness.rotate(replacement_readiness)
+          {:ok, %{message: "late", status: :completed, actions: []}}
+        end
+      )
+
+      assert {:ok, job} =
+               Jobs.create_job(%{
+                 name: "epoch completion race",
+                 target_type: "runtime_prompt",
+                 target: %{text: "Rotate before completion."},
+                 schedule: %{kind: "manual"},
+                 user_id: "alice"
+               })
+
+      assert {:ok, run} = Jobs.create_run(job, %{trigger: "scheduler", status: "queued"})
+      assert {:ok, epoch} = EffectGuard.admit_ready()
+
+      assert {:error, :product_not_ready} =
+               Runner.execute_run(job, run, allbert_pack_epoch: epoch)
+
+      assert %Run{status: "running", finished_at: nil} = Repo.reload!(run)
+      assert Repo.reload!(job).last_run_at == nil
+    end
+
     test "runs runtime prompt jobs through the runtime boundary" do
       parent = self()
 
@@ -335,7 +429,7 @@ defmodule AllbertAssist.JobsTest do
                  app_id: "allbert"
                })
 
-      assert {:ok, %{job: updated_job, run: run, response: response}} = Runner.run_now(job)
+      assert {:ok, %{job: updated_job, run: run, response: response}} = run_now(job)
 
       assert run.status == "completed"
       assert run.user_id == "alice"
@@ -375,7 +469,7 @@ defmodule AllbertAssist.JobsTest do
                  user_id: "alice"
                })
 
-      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+      assert {:ok, %{run: run, response: response}} = run_now(job)
 
       assert run.status == "completed"
       assert response.status == :completed
@@ -403,7 +497,7 @@ defmodule AllbertAssist.JobsTest do
                  session_id: session_id
                })
 
-      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+      assert {:ok, %{run: run, response: response}} = run_now(job)
 
       assert response.active_app == :stocksage
       assert run.action_log["active_app"] == "stocksage"
@@ -434,8 +528,8 @@ defmodule AllbertAssist.JobsTest do
                  thread_mode: "new_thread_per_run"
                })
 
-      assert {:ok, %{run: first_run}} = Runner.run_now(job)
-      assert {:ok, %{run: second_run}} = Runner.run_now(job)
+      assert {:ok, %{run: first_run}} = run_now(job)
+      assert {:ok, %{run: second_run}} = run_now(job)
 
       assert first_run.thread_id != second_run.thread_id
       assert [_first, _second] = Conversations.list_threads("alice")
@@ -465,7 +559,7 @@ defmodule AllbertAssist.JobsTest do
 
       assert {:ok, _deleted_thread} = Repo.delete(thread)
 
-      assert {:ok, %{run: run, response: nil}} = Runner.run_now(job)
+      assert {:ok, %{run: run, response: nil}} = run_now(job)
       assert run.status == "failed"
       assert run.error.reason =~ "{:thread_not_found, \"#{thread.id}\"}"
     end
@@ -484,7 +578,7 @@ defmodule AllbertAssist.JobsTest do
                  thread_id: "thr_origin"
                })
 
-      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+      assert {:ok, %{run: run, response: response}} = run_now(job)
 
       assert run.status == "completed"
       assert run.thread_id == "thr_origin"
@@ -515,7 +609,7 @@ defmodule AllbertAssist.JobsTest do
                  app_id: "stocksage"
                })
 
-      assert {:ok, %{run: run, response: response}} = Runner.run_now(job)
+      assert {:ok, %{run: run, response: response}} = run_now(job)
 
       assert response.status == :needs_confirmation
       assert run.status == "needs_confirmation"
@@ -537,7 +631,7 @@ defmodule AllbertAssist.JobsTest do
                  user_id: "alice"
                })
 
-      assert {:ok, %{run: run, response: nil}} = Runner.run_now(job)
+      assert {:ok, %{run: run, response: nil}} = run_now(job)
 
       assert run.status == "failed"
       assert run.error.reason =~ ":boom"
@@ -569,7 +663,7 @@ defmodule AllbertAssist.JobsTest do
                  user_id: "alice"
                })
 
-      assert {:ok, %{job: blocked_job, run: run}} = Runner.run_now(job)
+      assert {:ok, %{job: blocked_job, run: run}} = run_now(job)
 
       assert run.status == "needs_confirmation"
       assert run.confirmation_id == "cnf_job_1"
@@ -600,7 +694,7 @@ defmodule AllbertAssist.JobsTest do
                |> Repo.update()
 
       assert {:error, {:blocked_by_confirmation, "conf_run_now_blocked"}} =
-               Runner.run_now(blocked_job)
+               run_now(blocked_job)
 
       assert [] = Jobs.list_runs(blocked_job)
     end
@@ -629,7 +723,7 @@ defmodule AllbertAssist.JobsTest do
                |> Job.changeset(%{next_due_at: DateTime.add(now, -60, :second)})
                |> Repo.update()
 
-      assert {:ok, %{job: blocked_job, run: run}} = Runner.run_now(due_job)
+      assert {:ok, %{job: blocked_job, run: run}} = run_now(due_job)
 
       assert run.status == "needs_confirmation"
       assert is_binary(run.confirmation_id)
@@ -883,5 +977,22 @@ defmodule AllbertAssist.JobsTest do
       params_summary: %{url: "https://example.com"},
       resume_params_ref: %{url: "https://example.com"}
     })
+  end
+
+  defp run_now(job), do: Runner.run_now(job, allbert_pack_epoch: pack_epoch!())
+
+  defp unregister_if_current(pid) do
+    if Process.whereis(AllbertAssist.Pack.Readiness) == pid do
+      try do
+        Process.unregister(AllbertAssist.Pack.Readiness)
+      rescue
+        ArgumentError -> :ok
+      end
+    end
+  end
+
+  defp pack_epoch! do
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    epoch
   end
 end

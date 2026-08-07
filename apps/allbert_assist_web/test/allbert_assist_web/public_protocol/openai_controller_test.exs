@@ -15,6 +15,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
+  alias AllbertAssistWeb.PublicProtocol.OpenAIController
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -72,6 +73,13 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
              "object" => "list",
              "data" => [%{"id" => "local", "object" => "model", "owned_by" => "allbert"}]
            } = json_response(conn, 200)
+  end
+
+  test "direct models dispatch without the HTTPGate-carried epoch is frozen unavailable" do
+    conn = OpenAIController.models(Phoenix.ConnTest.build_conn(:get, "/v1/models", ""), %{})
+
+    assert conn.status == 503
+    assert json_response(conn, 503)["error"]["code"] == "product_not_ready"
   end
 
   test "chat completions flattens text messages into a runtime turn", %{conn: conn, token: token} do

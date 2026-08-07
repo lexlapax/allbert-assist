@@ -68,6 +68,11 @@ defmodule AllbertAssist.DevGates.ReleaseAssembly do
 
       {verify_output, 0} = run_command!(runner, verify, temp_root)
       result = parse_result!(verify_output, checkpoint)
+
+      if checkpoint == "v14-m1a3" do
+        run_runtime_free_launcher_checks!(runner, verify.executable, root, env, home, temp_root)
+      end
+
       cleanup_temp_root!(temp_root, opts)
       wall_ms = System.monotonic_time(:millisecond) - started
 
@@ -287,6 +292,35 @@ defmodule AllbertAssist.DevGates.ReleaseAssembly do
       {:error, reason} ->
         Mix.raise(
           "release-assembly could not inspect packaged verifier #{path}: #{:file.format_error(reason)}"
+        )
+    end
+  end
+
+  defp run_runtime_free_launcher_checks!(runner, executable, root, env, home, temp_root) do
+    Enum.each(["--help", "--version"], fn argument ->
+      command = %{
+        id: "verify_#{String.trim_leading(argument, "--")}",
+        cwd: root,
+        executable: executable,
+        args: [argument],
+        env: env
+      }
+
+      {_output, 0} = run_command!(runner, command, temp_root)
+    end)
+
+    case File.ls(home) do
+      {:ok, []} ->
+        :ok
+
+      {:ok, entries} ->
+        Mix.raise(
+          "release-assembly runtime-free launcher created Home state: #{inspect(Enum.sort(entries))}"
+        )
+
+      {:error, reason} ->
+        Mix.raise(
+          "release-assembly could not inspect disposable Home: #{:file.format_error(reason)}"
         )
     end
   end

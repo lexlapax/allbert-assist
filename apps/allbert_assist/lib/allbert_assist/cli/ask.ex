@@ -28,8 +28,8 @@ defmodule AllbertAssist.CLI.Ask do
 
   @usage ~S(Usage: allbert ask [--trace] [--user local|--operator local] [--thread ID|--new-thread] [--session ID] [--active-app APP_ID] "prompt")
 
-  @spec run([String.t()]) :: {String.t(), non_neg_integer()}
-  def run(argv) do
+  @spec run([String.t()], keyword()) :: {String.t(), non_neg_integer()}
+  def run(argv, effect_opts \\ []) do
     {opts, prompt_parts, invalid} = OptionParser.parse(argv, switches: @switches)
 
     prompt = prompt_parts |> Enum.join(" ") |> String.trim()
@@ -37,18 +37,18 @@ defmodule AllbertAssist.CLI.Ask do
     cond do
       invalid != [] -> Render.usage(["Invalid option(s): #{inspect(invalid)}", @usage])
       prompt == "" -> Render.usage(@usage)
-      true -> submit(prompt, opts)
+      true -> submit(prompt, opts, effect_opts)
     end
   end
 
-  defp submit(prompt, opts) do
+  defp submit(prompt, opts, effect_opts) do
     case channel(opts[:channel]) do
-      {:ok, channel} -> submit_with_channel(prompt, opts, channel)
+      {:ok, channel} -> submit_with_channel(prompt, opts, effect_opts, channel)
       {:error, value} -> Render.error("Unknown --channel #{inspect(value)}.")
     end
   end
 
-  defp submit_with_channel(prompt, opts, channel) do
+  defp submit_with_channel(prompt, opts, effect_opts, channel) do
     request =
       %{
         text: prompt,
@@ -64,15 +64,15 @@ defmodule AllbertAssist.CLI.Ask do
       |> put_present(:new_thread, opts[:new_thread])
 
     with :ok <- render_disclosure_before_transport() do
-      submit_request(request, channel)
+      submit_request(request, effect_opts, channel)
     else
       {:error, reason} ->
         Render.error("Allbert could not render the model disclosure: #{inspect(reason)}")
     end
   end
 
-  defp submit_request(request, channel) do
-    case Runtime.submit_user_input(request) do
+  defp submit_request(request, effect_opts, channel) do
+    case Runtime.submit_user_input(request, effect_opts) do
       {:ok, response} ->
         render_and_acknowledge(response, channel)
 

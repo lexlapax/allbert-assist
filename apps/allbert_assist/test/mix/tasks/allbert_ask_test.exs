@@ -19,6 +19,41 @@ defmodule Mix.Tasks.Allbert.AskTest do
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Ask
 
+  defmodule EpochReadiness do
+    use GenServer
+
+    def start_link(opts),
+      do: GenServer.start_link(__MODULE__, :ok, name: Keyword.fetch!(opts, :name))
+
+    @impl true
+    def init(:ok), do: {:ok, %{status_calls: 0, e1: spawn_epoch(), e2: spawn_epoch()}}
+
+    @impl true
+    def handle_call(:status, _from, state) do
+      epoch = if state.status_calls == 0, do: state.e1, else: state.e2
+
+      {:reply,
+       {:ok,
+        %{
+          phase: :ready,
+          barrier_pid: epoch,
+          snapshot_digest: String.duplicate("a", 64),
+          expected_ids: [],
+          subscribed_ids: [],
+          acked_ids: [],
+          diagnostics: []
+        }}, %{state | status_calls: state.status_calls + 1}}
+    end
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.e1, :kill)
+      Process.exit(state.e2, :kill)
+    end
+
+    defp spawn_epoch, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
+
   setup do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
@@ -121,6 +156,33 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
     assert %Event{channel: "cli", status: "processed", user_id: "local"} =
              Repo.get_by(Event, channel: "cli", external_event_id: provider_message_id)
+  end
+
+  test "rejects a same-digest stale epoch before recording a CLI inbound event" do
+    original_readiness = Process.whereis(AllbertAssist.Pack.Readiness)
+    assert is_pid(original_readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+
+    {:ok, replacement_readiness} = EpochReadiness.start_link(name: AllbertAssist.Pack.Readiness)
+
+    on_exit(fn ->
+      unregister_if_current(replacement_readiness)
+
+      if Process.alive?(replacement_readiness), do: GenServer.stop(replacement_readiness)
+
+      if Process.alive?(original_readiness) and
+           is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+         do: Process.register(original_readiness, AllbertAssist.Pack.Readiness)
+    end)
+
+    before_count = Repo.aggregate(Event, :count, :id)
+
+    assert_raise Mix.Error, ~r/product_not_ready/, fn ->
+      capture_io(fn -> Ask.run(["must not record"]) end)
+    end
+
+    assert Repo.aggregate(Event, :count, :id) == before_count
+    refute_received {:agent_request, _request}
   end
 
   test "renders and acknowledges a pending CLI model disclosure before transport" do
@@ -504,6 +566,16 @@ defmodule Mix.Tasks.Allbert.AskTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
   defp restore_system_env(key, nil), do: System.delete_env(key)
   defp restore_system_env(key, value), do: System.put_env(key, value)
+
+  defp unregister_if_current(pid) do
+    if Process.whereis(AllbertAssist.Pack.Readiness) == pid do
+      try do
+        Process.unregister(AllbertAssist.Pack.Readiness)
+      rescue
+        ArgumentError -> :ok
+      end
+    end
+  end
 
   defp put_execution_policy!(workspace) do
     settings = %{

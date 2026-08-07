@@ -19,6 +19,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
 
@@ -34,6 +35,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
           models: module(),
           disclosure: module(),
           model_client: module(),
+          effect_guard: module() | {module(), term()},
           model_enabled?: boolean() | nil,
           model_context: map(),
           phase:
@@ -76,6 +78,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
       models: Keyword.get(opts, :models, Models),
       disclosure: Keyword.get(opts, :disclosure, Disclosure),
       model_client: Keyword.get(opts, :model_client, @default_model_client),
+      effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
       model_enabled?: Keyword.get(opts, :model_enabled?),
       model_context: Keyword.get(opts, :model_context, %{}),
       phase: if(Keyword.get(opts, :enabled?, true), do: :recovering, else: :disabled),
@@ -125,27 +128,60 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
 
   @impl true
   def handle_info(:recover, %{enabled?: true} = state) do
-    case store_call(state.store, :recover_composition, []) do
-      {:ok, _count} ->
-        {:noreply, recovery_succeeded(state)}
+    case admit_ready_epoch(state) do
+      {:ok, epoch} ->
+        case validate_epoch(epoch, state) do
+          :ok ->
+            case store_call(state.store, :recover_composition, []) do
+              {:ok, _count} ->
+                {:noreply, recovery_succeeded(state)}
 
-      {:error, reason} ->
-        {:noreply, retry_or_degrade(:recover, nil, reason, state)}
+              {:error, reason} ->
+                {:noreply, retry_or_degrade(:recover, nil, reason, state)}
+            end
+
+          {:error, :product_not_ready} ->
+            {:noreply, retry_ready_recovery(state)}
+
+          {:error, :stale_epoch} ->
+            {:noreply, state}
+        end
+
+      {:error, :product_not_ready} ->
+        {:noreply, retry_ready_recovery(state)}
     end
   end
 
   @impl true
   def handle_info(:drain, %{phase: :ready} = state) do
-    case store_call(state.store, :claim_next_composition, []) do
-      :none ->
-        {:noreply, claim_queue_drained(state)}
+    case admit_ready_epoch(state) do
+      {:ok, epoch} ->
+        case validate_epoch(epoch, state) do
+          :ok ->
+            case store_call(state.store, :claim_next_composition, []) do
+              :none ->
+                {:noreply, claim_queue_drained(state)}
 
-      {:ok, claim} ->
-        selection = selected_body(claim, state)
-        {:noreply, persist_selection(claim, selection, state)}
+              {:ok, claim} ->
+                with {:ok, selection} <- selected_body(claim, state, epoch) do
+                  {:noreply, persist_selection(claim, selection, state, epoch)}
+                else
+                  {:error, _reason} -> {:noreply, state}
+                end
 
-      {:error, reason} ->
-        {:noreply, retry_or_degrade(:claim, nil, reason, state)}
+              {:error, reason} ->
+                {:noreply, retry_or_degrade(:claim, nil, reason, state)}
+            end
+
+          {:error, :product_not_ready} ->
+            {:noreply, retry_ready_drain(state)}
+
+          {:error, :stale_epoch} ->
+            {:noreply, state}
+        end
+
+      {:error, :product_not_ready} ->
+        {:noreply, retry_ready_drain(state)}
     end
   end
 
@@ -162,7 +198,18 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   end
 
   def handle_info({:retry, :select, {claim, selection}}, state) do
-    {:noreply, persist_selection(claim, selection, %{state | phase: :retrying_select})}
+    state = %{state | phase: :retrying_select}
+
+    case admit_ready_epoch(state) do
+      {:ok, epoch} ->
+        {:noreply, persist_selection(claim, selection, state, epoch)}
+
+      {:error, :product_not_ready} ->
+        {:noreply, retry_ready_selection(claim, selection, state)}
+
+      {:error, :stale_epoch} ->
+        {:noreply, state}
+    end
   end
 
   def handle_info(:reconcile, %{enabled?: true} = state) do
@@ -172,13 +219,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
 
   def handle_info(:reconcile, state), do: {:noreply, state}
 
-  defp persist_selection(claim, selection, state) do
-    args = [claim, selection.source, selection.body, selection.provenance]
+  defp persist_selection(claim, selection, state, epoch) do
+    case validate_epoch(epoch, state) do
+      :ok ->
+        args = [claim, selection.source, selection.body, selection.provenance]
 
-    case store_call(state.store, :select_composition, args) do
-      {:ok, _parent} -> selection_persisted(state)
-      {:error, :stale_composition_claim} -> selection_persisted(state)
-      {:error, reason} -> retry_or_degrade(:select, {claim, selection}, reason, state)
+        case store_call(state.store, :select_composition, args) do
+          {:ok, _parent} -> selection_persisted(state)
+          {:error, :stale_composition_claim} -> selection_persisted(state)
+          {:error, reason} -> retry_or_degrade(:select, {claim, selection}, reason, state)
+        end
+
+      {:error, _reason} ->
+        state
     end
   end
 
@@ -194,62 +247,65 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
     end
   end
 
-  defp selected_body(%{frozen: frozen} = claim, state) do
+  defp selected_body(%{frozen: frozen} = claim, state, epoch) do
     case Budget.composer_compatibility(claim.budget) do
       :ok ->
-        select_synthesis_eligible_body(claim, state)
+        select_synthesis_eligible_body(claim, state, epoch)
 
       {:error, :fanout_budget_version_retired} ->
-        fallback_selection(frozen, :fanout_budget_version_retired, :not_run)
+        {:ok, fallback_selection(frozen, :fanout_budget_version_retired, :not_run)}
 
       {:error, :invalid_fanout_budget_snapshot} ->
-        fallback_selection(frozen, :invalid_budget_snapshot, :not_run)
+        {:ok, fallback_selection(frozen, :invalid_budget_snapshot, :not_run)}
     end
   end
 
-  defp select_synthesis_eligible_body(%{frozen: frozen} = claim, state) do
+  defp select_synthesis_eligible_body(%{frozen: frozen} = claim, state, epoch) do
     case Report.synthesis_eligibility(frozen.snapshot) do
       :ok ->
         case model_enabled(state) do
-          :ok -> select_budgeted_model_body(claim, state)
-          {:error, _reason} -> fallback_selection(frozen, :model_disabled, :not_run)
+          :ok -> select_budgeted_model_body(claim, state, epoch)
+          {:error, _reason} -> {:ok, fallback_selection(frozen, :model_disabled, :not_run)}
         end
 
       {:error, :legacy_unreviewed_children} ->
-        fallback_selection(frozen, :legacy_unreviewed_children, :not_run)
+        {:ok, fallback_selection(frozen, :legacy_unreviewed_children, :not_run)}
 
       {:error, :no_completed_children} ->
-        fallback_selection(frozen, :no_completed_children, :not_run)
+        {:ok, fallback_selection(frozen, :no_completed_children, :not_run)}
 
       {:error, _reason} ->
-        fallback_selection(frozen, :invalid_model_output, :unresolved)
+        {:ok, fallback_selection(frozen, :invalid_model_output, :unresolved)}
     end
   end
 
-  defp select_budgeted_model_body(%{frozen: frozen} = claim, state) do
+  defp select_budgeted_model_body(%{frozen: frozen} = claim, state, epoch) do
     case Budget.authorize_composer(claim.budget, claim.deadline_unix_ms) do
       {:ok, limits} ->
-        select_resolved_model_body(claim, limits, state)
+        select_resolved_model_body(claim, limits, state, epoch)
 
       {:error, :invalid_fanout_budget_snapshot} ->
-        fallback_selection(frozen, :invalid_budget_snapshot, :not_run)
+        {:ok, fallback_selection(frozen, :invalid_budget_snapshot, :not_run)}
 
       {:error, :fanout_plan_deadline_exhausted} ->
-        fallback_selection(frozen, :deadline_exhausted, :not_run)
+        {:ok, fallback_selection(frozen, :deadline_exhausted, :not_run)}
     end
   end
 
-  defp select_resolved_model_body(%{frozen: frozen} = claim, limits, state) do
+  defp select_resolved_model_body(%{frozen: frozen} = claim, limits, state, epoch) do
     case state.models.for(:fanout_synthesis, claim.context) do
-      {:ok, %{profile: profile}} -> select_disclosed_model_body(claim, profile, limits, state)
-      {:error, _reason} -> fallback_selection(frozen, :profile_unavailable, :not_run)
+      {:ok, %{profile: profile}} ->
+        select_disclosed_model_body(claim, profile, limits, state, epoch)
+
+      {:error, _reason} ->
+        {:ok, fallback_selection(frozen, :profile_unavailable, :not_run)}
     end
   end
 
-  defp select_disclosed_model_body(%{frozen: frozen} = claim, profile, limits, state) do
+  defp select_disclosed_model_body(%{frozen: frozen} = claim, profile, limits, state, epoch) do
     case state.disclosure.authorize_transport(profile, claim.context) do
-      :ok -> compose_model_body(claim, profile, limits, state)
-      {:error, _reason} -> fallback_selection(frozen, :transport_denied, :not_run)
+      :ok -> compose_model_body(claim, profile, limits, state, epoch)
+      {:error, _reason} -> {:ok, fallback_selection(frozen, :transport_denied, :not_run)}
     end
   end
 
@@ -257,7 +313,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
          %{frozen: frozen, deadline_unix_ms: deadline_unix_ms, context: claim_context},
          profile,
          limits,
-         state
+         state,
+         epoch
        ) do
     context =
       state.model_context
@@ -270,19 +327,25 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         fanout_deadline_unix_ms: deadline_unix_ms
       })
 
-    case SynthesisAgent.run(
-           frozen.snapshot,
-           profile,
-           context,
-           state.model_client,
-           limits.timeout_ms
-         ) do
-      {:ok, prepared} ->
-        model_selection(prepared, profile)
+    case validate_epoch(epoch, state) do
+      :ok ->
+        case SynthesisAgent.run(
+               frozen.snapshot,
+               profile,
+               context,
+               state.model_client,
+               limits.timeout_ms
+             ) do
+          {:ok, prepared} ->
+            {:ok, model_selection(prepared, profile)}
+
+          {:error, reason} ->
+            {category, outcome} = model_failure_category(reason)
+            {:ok, fallback_selection(frozen, category, outcome)}
+        end
 
       {:error, reason} ->
-        {category, outcome} = model_failure_category(reason)
-        fallback_selection(frozen, category, outcome)
+        {:error, reason}
     end
   end
 
@@ -446,6 +509,30 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   defp schedule_reconcile(state) do
     Process.send_after(self(), :reconcile, state.reconcile_interval_ms)
   end
+
+  defp retry_ready_recovery(state) do
+    Process.send_after(self(), :recover, state.retry_base_ms)
+    state
+  end
+
+  defp retry_ready_drain(state) do
+    Process.send_after(self(), :drain, state.retry_base_ms)
+    state
+  end
+
+  defp retry_ready_selection(claim, selection, state) do
+    Process.send_after(self(), {:retry, :select, {claim, selection}}, state.retry_base_ms)
+    state
+  end
+
+  defp admit_ready_epoch(state), do: effect_guard_call(state.effect_guard, :admit_ready, [])
+
+  defp validate_epoch(epoch, state), do: effect_guard_call(state.effect_guard, :validate, [epoch])
+
+  defp effect_guard_call({module, owner}, function, args),
+    do: apply(module, function, [owner | args])
+
+  defp effect_guard_call(module, function, args), do: apply(module, function, args)
 
   defp store_call({module, owner}, function, args),
     do: safe_store_apply(module, function, [owner | args])

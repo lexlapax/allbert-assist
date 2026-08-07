@@ -16,6 +16,43 @@ defmodule AllbertAssist.CLI.DispatcherTest do
 
   @moduletag :cli_dispatcher
 
+  defmodule RotatingReadiness do
+    use GenServer
+
+    def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok)
+    def status_calls(server), do: GenServer.call(server, :status_calls)
+
+    @impl true
+    def init(:ok), do: {:ok, %{calls: 0, e1: barrier(), e2: barrier()}}
+
+    @impl true
+    def handle_call(:status, _from, state) do
+      epoch = if state.calls == 0, do: state.e1, else: state.e2
+
+      status = %{
+        phase: :ready,
+        barrier_pid: epoch,
+        snapshot_digest: String.duplicate("a", 64),
+        expected_ids: [],
+        subscribed_ids: [],
+        acked_ids: [],
+        diagnostics: []
+      }
+
+      {:reply, {:ok, status}, %{state | calls: state.calls + 1}}
+    end
+
+    def handle_call(:status_calls, _from, state), do: {:reply, state.calls, state}
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.e1, :kill)
+      Process.exit(state.e2, :kill)
+    end
+
+    defp barrier, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
+
   test "bare allbert runs first-run detection (exit 0, guidance)" do
     {out, code} = CLI.run([])
     assert code == 0
@@ -159,6 +196,18 @@ defmodule AllbertAssist.CLI.DispatcherTest do
 
       assert {:ok, {out, 0}} = Attach.run(["--version"])
       assert out =~ "allbert"
+    end)
+  end
+
+  test "runtime attach rejects a same-digest E1 replacement before CLI dispatch" do
+    with_attach_home(fn ->
+      readiness = start_supervised!(RotatingReadiness)
+      start_supervised!({Attach.Server, readiness_server: readiness})
+
+      # The fake returns E1 for listener admission and same-digest E2 for the
+      # task's final pre-dispatch validation. No command body is reached.
+      assert {:error, :product_not_ready} = Attach.run(["ask", "must not run"])
+      assert 2 == RotatingReadiness.status_calls(readiness)
     end)
   end
 

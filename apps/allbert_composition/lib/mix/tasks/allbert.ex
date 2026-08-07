@@ -1,9 +1,9 @@
 defmodule Mix.Tasks.Allbert do
   @moduledoc """
-  Run the unified Allbert operator CLI from a source checkout.
+  Run the composition-owned Allbert operator entry from a source checkout.
 
-  Ordinary commands use the same `AllbertAssist.CLI.run_entry/1` boundary as
-  the packaged binary. That boundary attaches to a running daemon before it
+  Ordinary commands use the same `AllbertAssist.Pack.ProductCLI.run_entry/1`
+  boundary as the packaged binary. That boundary attaches to a running daemon before it
   considers an embedded runtime, preserving the single-writer contract.
 
   Interactive source commands delegate to their existing launchers:
@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Allbert do
   use Mix.Task
 
   alias AllbertAssist.CLI
+  alias AllbertAssist.Pack.ProductCLI
 
   @shortdoc "Run the unified Allbert CLI from source"
 
@@ -37,11 +38,11 @@ defmodule Mix.Tasks.Allbert do
     CLI.configure_logging()
 
     # Load application configuration without starting Allbert. Runtime commands
-    # must get their first chance to execute through CLI.run_entry/1's attach
+    # must get their first chance to execute through ProductCLI's attach
     # transport, exactly like the packaged binary.
     Mix.Task.run("app.config")
 
-    case CLI.run_entry(args) do
+    case ProductCLI.run_entry(args) do
       {:stdout, output, 0} ->
         if output != "", do: Mix.shell().info(output)
         :ok

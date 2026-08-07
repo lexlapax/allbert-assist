@@ -70,7 +70,13 @@ defmodule AllbertAssistWeb.JobsLive do
             module={WorkspaceRenderer}
             id="jobs-catalog-renderer"
             surface={@jobs_surface}
-            renderer_context={%{user_id: @user_id, page: :jobs}}
+            renderer_context={
+              %{
+                user_id: @user_id,
+                page: :jobs,
+                allbert_pack_epoch: @allbert_pack_epoch
+              }
+            }
             workspace_state={%{}}
           />
         </Patterns.elevated_card>
@@ -226,7 +232,7 @@ defmodule AllbertAssistWeb.JobsLive do
   defp run_job_control(socket, action_name, id) do
     params = %{id: id, user_id: socket.assigns.user_id}
 
-    case Runner.run(action_name, params, job_context()) do
+    case Runner.run(action_name, params, job_context(socket)) do
       {:ok, %{status: :completed, message: message}} ->
         socket |> assign(:notice, message) |> load_jobs()
 
@@ -237,7 +243,7 @@ defmodule AllbertAssistWeb.JobsLive do
 
   defp load_jobs(socket) do
     {jobs, runs_by_job} =
-      case Runner.run("list_jobs", %{user_id: socket.assigns.user_id}, job_context()) do
+      case Runner.run("list_jobs", %{user_id: socket.assigns.user_id}, job_context(socket)) do
         {:ok, %{status: :completed, jobs: jobs, runs_by_job: runs_by_job}} ->
           {jobs, runs_by_job}
 
@@ -253,8 +259,10 @@ defmodule AllbertAssistWeb.JobsLive do
 
   # Server-built context pins the identity to @user_id ahead of any params value, so
   # the registered actions scope reads/effects to the local operator (ADR 0073).
-  defp job_context do
-    ContextBuilder.live_view_context(%{user_id: @user_id}, surface: "AllbertAssistWeb.JobsLive")
+  defp job_context(socket) do
+    socket
+    |> ContextBuilder.live_view_context(surface: "AllbertAssistWeb.JobsLive")
+    |> Map.put(:allbert_pack_epoch, socket.assigns.allbert_pack_epoch)
   end
 
   defp schedule_text(%{"kind" => "manual"}), do: "manual"

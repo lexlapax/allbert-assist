@@ -5,9 +5,13 @@ table the `cli-command-inventory-spine-map-001` eval row asserts). Operator
 tasks re-front onto the unified `allbert` dispatcher; developer/CI tasks stay
 Mix-only in a checkout.
 
-**v1.3 M9.b.3:** `mix allbert <argv>` is the source-checkout parity front door.
-For ordinary commands it invokes the same `AllbertAssist.CLI.run_entry/1`
-boundary as the packaged executable and deliberately loads configuration without
+**v1.4 M1.a3:** `mix allbert <argv>` is the source-checkout parity front door.
+Its owner is `apps/allbert_composition/lib/mix/tasks/allbert.ex`; ordinary
+commands invoke the same `AllbertAssist.Pack.ProductCLI.run_entry/1` boundary as
+the packaged executable. ProductCLI classifies through the residual
+`AllbertAssist.CLI` table, starts Req only for non-license paths, preserves
+attach-first behavior, and enters embedded composition only after a proven
+pre-dispatch transport failure. It deliberately loads configuration without
 starting Allbert, so attach transport gets the first opportunity and a second
 writer is not booted. `mix allbert tui` delegates to the existing thin TUI
 launcher; `mix allbert serve` delegates to the Phoenix daemon launcher with the

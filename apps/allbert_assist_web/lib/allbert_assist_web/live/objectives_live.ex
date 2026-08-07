@@ -35,7 +35,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(@user_id))
     end
 
-    objectives = list_objectives(@user_id)
+    objectives = list_objectives(socket)
 
     {:ok,
      assign(socket,
@@ -69,7 +69,13 @@ defmodule AllbertAssistWeb.ObjectivesLive do
             module={WorkspaceRenderer}
             id="objectives-catalog-renderer"
             surface={@objectives_surface}
-            renderer_context={%{user_id: @user_id, page: :objectives_index}}
+            renderer_context={
+              %{
+                user_id: @user_id,
+                page: :objectives_index,
+                allbert_pack_epoch: @allbert_pack_epoch
+              }
+            }
             workspace_state={%{}}
           />
 
@@ -97,13 +103,15 @@ defmodule AllbertAssistWeb.ObjectivesLive do
 
   # Reads the operator's own objectives through the registered read-only action
   # (server-derived identity precedence + PermissionGate), never a URL-supplied user.
-  defp list_objectives(user_id) do
+  defp list_objectives(socket) do
+    user_id = socket.assigns.user_id
+
     case Runner.run(
            "list_objectives",
            %{user_id: user_id, limit: 50},
-           ContextBuilder.live_view_context(%{user_id: user_id},
-             surface: "AllbertAssistWeb.ObjectivesLive"
-           )
+           socket
+           |> ContextBuilder.live_view_context(surface: "AllbertAssistWeb.ObjectivesLive")
+           |> Map.put(:allbert_pack_epoch, socket.assigns.allbert_pack_epoch)
          ) do
       {:ok, %{status: :completed, objectives: objectives}} -> objectives
       _other -> []
@@ -111,7 +119,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
   end
 
   defp refresh(socket) do
-    objectives = list_objectives(socket.assigns.user_id)
+    objectives = list_objectives(socket)
     assign(socket, objectives: objectives, objectives_surface: objectives_surface(objectives))
   end
 

@@ -38,6 +38,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget, as: FanoutBudget
   alias AllbertAssist.Objectives.Runs.Scheduler
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.DeliveryAcknowledgement
   alias AllbertAssist.Runtime.FanoutDiagnostics
   alias AllbertAssist.Runtime.MediaOutputs
@@ -138,29 +139,50 @@ defmodule AllbertAssist.Runtime do
   """
   @spec submit_user_input(map()) :: {:ok, response()} | {:error, term()}
   def submit_user_input(attrs) when is_map(attrs) do
-    with {:ok, request} <- normalize_request(attrs),
-         {:ok, input_signal} <- new_input_signal(request),
-         :ok <- log_signal(input_signal),
-         :ok <- log_runtime_turn_started(input_signal, request),
-         {:ok, admission} <- persist_user_message(request, input_signal),
-         user_message <- admission.message,
-         request <- put_inbound_admission(request, admission),
-         request <- put_thread_context(request, user_message),
-         {:ok, agent_response} <- run_stage_zero_or_agent(input_signal, request),
-         {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
-         :ok <- log_signal(response_signal) do
-      response = build_response(input_signal, response_signal, agent_response, request)
-
-      {:ok,
-       response
-       |> record_trace(input_signal, response_signal, request)
-       |> persist_assistant_message(request, response_signal)
-       |> maybe_log_runtime_turn_completed(request)
-       |> maybe_log_trace_signal(request)}
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      submit_user_input(attrs, allbert_pack_epoch: epoch)
     end
   end
 
   def submit_user_input(_attrs), do: {:error, :invalid_request}
+
+  @doc "Submit through the first-party carried Pack-epoch path."
+  @spec submit_user_input(map(), keyword()) :: {:ok, response()} | {:error, term()}
+  def submit_user_input(attrs, allbert_pack_epoch: epoch) when is_map(attrs) do
+    with :ok <- EffectGuard.validate(epoch) do
+      do_submit_user_input(attrs, epoch)
+    end
+  end
+
+  def submit_user_input(attrs, opts) when is_map(attrs) and is_list(opts),
+    do: {:error, :invalid_options}
+
+  def submit_user_input(_attrs, _opts), do: {:error, :invalid_options}
+
+  defp do_submit_user_input(attrs, epoch) do
+    with_effect_epoch(epoch, fn ->
+      with {:ok, request} <- normalize_request(attrs),
+           {:ok, input_signal} <- new_input_signal(request),
+           :ok <- log_signal(input_signal),
+           :ok <- log_runtime_turn_started(input_signal, request),
+           {:ok, admission} <- persist_user_message(request, input_signal),
+           user_message <- admission.message,
+           request <- put_inbound_admission(request, admission),
+           request <- put_thread_context(request, user_message),
+           {:ok, agent_response} <- run_stage_zero_or_agent(input_signal, request),
+           {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
+           :ok <- log_signal(response_signal) do
+        response = build_response(input_signal, response_signal, agent_response, request)
+
+        {:ok,
+         response
+         |> record_trace(input_signal, response_signal, request)
+         |> persist_assistant_message(request, response_signal)
+         |> maybe_log_runtime_turn_completed(request)
+         |> maybe_log_trace_signal(request)}
+      end
+    end)
+  end
 
   @doc "Return bounded operator wording for persistence failures that must not expose internals."
   @spec operator_error_message(term()) :: String.t() | nil
@@ -806,26 +828,29 @@ defmodule AllbertAssist.Runtime do
   defp run_intent_agent(signal, request) do
     metadata = maybe_put(request.metadata, :stream_event_sink, request.stream_event_sink)
 
-    IntentAgent.respond(%{
-      text: request.text,
-      operator_text: request.operator_text,
-      channel: request.channel,
-      user_id: request.user_id,
-      operator_id: request.operator_id,
-      thread_id: request.thread_id,
-      session_id: request.session_id,
-      active_app: request.active_app,
-      thread_context: request.thread_context,
-      metadata: metadata,
-      coding_turn?: request.coding_turn?,
-      coding_turn_id: request.coding_turn_id,
-      coding_req_llm_context: request.coding_req_llm_context,
-      stream_event_sink: request.stream_event_sink,
-      fanout_manager_mode: request.fanout_manager_mode,
-      timeout_ms: request.timeout_ms,
-      input_signal_id: signal.id,
-      input_signal_type: signal.type
-    })
+    IntentAgent.respond(
+      %{
+        text: request.text,
+        operator_text: request.operator_text,
+        channel: request.channel,
+        user_id: request.user_id,
+        operator_id: request.operator_id,
+        thread_id: request.thread_id,
+        session_id: request.session_id,
+        active_app: request.active_app,
+        thread_context: request.thread_context,
+        metadata: metadata,
+        coding_turn?: request.coding_turn?,
+        coding_turn_id: request.coding_turn_id,
+        coding_req_llm_context: request.coding_req_llm_context,
+        stream_event_sink: request.stream_event_sink,
+        fanout_manager_mode: request.fanout_manager_mode,
+        timeout_ms: request.timeout_ms,
+        input_signal_id: signal.id,
+        input_signal_type: signal.type
+      },
+      effect_epoch_opts()
+    )
   end
 
   defp run_agent_turn(input_signal, %{coding_turn?: true} = request) do
@@ -1504,7 +1529,11 @@ defmodule AllbertAssist.Runtime do
       case Runner.run(
              @persist_attached_fanout_report,
              %{thread_id: request.thread_id, parent_id: pending.parent_objective_id},
-             %{user_id: request.user_id, channel: "live_view", thread_id: request.thread_id}
+             effect_context(%{
+               user_id: request.user_id,
+               channel: "live_view",
+               thread_id: request.thread_id
+             })
            ) do
         {:ok, %{status: :completed}} ->
           :ok
@@ -1652,7 +1681,11 @@ defmodule AllbertAssist.Runtime do
       agent: IntentAgent
     }
 
-    case Runner.run("record_trace", %{turn: turn}, trace_context(input_signal, request)) do
+    case Runner.run(
+           "record_trace",
+           %{turn: turn},
+           effect_context(trace_context(input_signal, request))
+         ) do
       {:ok, %{status: :completed, trace_id: trace_id}} when is_binary(trace_id) ->
         %{response | trace_id: trace_id}
 
@@ -1685,6 +1718,37 @@ defmodule AllbertAssist.Runtime do
       selected_action: "record_trace",
       internal?: true
     }
+  end
+
+  defp with_effect_epoch(epoch, fun) when is_function(fun, 0) do
+    key = {__MODULE__, :allbert_pack_epoch}
+    previous = Process.get(key, :__allbert_pack_epoch_unset__)
+    Process.put(key, epoch)
+
+    try do
+      fun.()
+    after
+      if previous == :__allbert_pack_epoch_unset__ do
+        Process.delete(key)
+      else
+        Process.put(key, previous)
+      end
+    end
+  end
+
+  defp effect_epoch_opts do
+    [allbert_pack_epoch: current_effect_epoch!()]
+  end
+
+  defp effect_context(context) when is_map(context) do
+    Map.put(context, :allbert_pack_epoch, current_effect_epoch!())
+  end
+
+  defp current_effect_epoch! do
+    case Process.get({__MODULE__, :allbert_pack_epoch}) do
+      nil -> raise "missing internal Pack effect epoch"
+      epoch -> epoch
+    end
   end
 
   defp trace_error(%{error: error}), do: error

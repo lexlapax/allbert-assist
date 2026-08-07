@@ -67,6 +67,7 @@ defmodule StockSageWeb.AnalysisLive do
       active_app: :stocksage,
       user_id: socket.assigns.user_id,
       session_id: socket.assigns.session_id,
+      allbert_pack_epoch: socket.assigns.allbert_pack_epoch,
       thread_id: Map.get(socket.assigns, :thread_id),
       objective_id: socket.assigns.objective && socket.assigns.objective.id,
       request: %{
@@ -739,6 +740,7 @@ defmodule StockSageWeb.AnalysisLive do
       actor: socket.assigns.user_id,
       channel: :live_view,
       session_id: socket.assigns.session_id,
+      allbert_pack_epoch: socket.assigns.allbert_pack_epoch,
       thread_id: Map.get(socket.assigns, :thread_id),
       surface: "stocksage_analysis",
       request: %{
@@ -931,6 +933,7 @@ defmodule StockSageWeb.AnalysisLive do
       actor: socket.assigns.user_id,
       channel: :live_view,
       session_id: socket.assigns.session_id,
+      allbert_pack_epoch: socket.assigns.allbert_pack_epoch,
       thread_id: Map.get(socket.assigns, :thread_id),
       objective_id: socket.assigns.objective && socket.assigns.objective.id,
       surface: "stocksage_analysis",

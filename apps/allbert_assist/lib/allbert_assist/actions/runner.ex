@@ -8,6 +8,8 @@ defmodule AllbertAssist.Actions.Runner do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Capabilities.ReleaseAvailability
+  alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
@@ -26,17 +28,45 @@ defmodule AllbertAssist.Actions.Runner do
   def run(action_or_name, params, context \\ %{})
 
   def run(action_or_name, params, context) when is_map(params) and is_map(context) do
-    case Registry.resolve(action_or_name, registry_opts(context)) do
-      {:ok, action_module} ->
-        run_registered(action_module, params, context)
+    with {:ok, ready_context} <- admit_ready_context(context) do
+      case Registry.resolve(action_or_name, registry_opts(ready_context)) do
+        {:ok, action_module} ->
+          run_registered(action_module, params, ready_context)
 
-      {:error, {:unknown_action, unknown}} ->
-        unknown_action_response(unknown, params, context)
+        {:error, {:unknown_action, unknown}} ->
+          unknown_action_response(unknown, params, ready_context)
+      end
+    else
+      {:error, _readiness_reason} -> product_not_ready_response()
     end
   end
 
   def run(action_or_name, params, context) when is_map(context) do
-    invalid_params_response(action_or_name, params, context)
+    case admit_ready_context(context) do
+      {:ok, ready_context} -> invalid_params_response(action_or_name, params, ready_context)
+      {:error, _readiness_reason} -> product_not_ready_response()
+    end
+  end
+
+  defp admit_ready_context(%{allbert_pack_activation: _carrier}),
+    do: {:error, :product_not_ready}
+
+  defp admit_ready_context(%{allbert_pack_epoch: epoch} = context) do
+    case EffectGuard.validate(epoch) do
+      :ok -> {:ok, context}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp admit_ready_context(context) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      {:ok, Map.put(context, :allbert_pack_epoch, epoch)}
+    end
+  end
+
+  defp product_not_ready_response do
+    {:ok, Response.unavailable("Allbert product is not ready.", :product_not_ready)}
   end
 
   defp run_registered(action_module, params, context) do
@@ -59,18 +89,29 @@ defmodule AllbertAssist.Actions.Runner do
       |> Response.from_action_result(action_name)
 
     duration_ms = System.monotonic_time(:millisecond) - started_at
-    status = response_status(response)
 
-    completed_signal =
-      action_name
-      |> Signals.action_completed(
-        action_module,
-        status,
-        trace_safe_summary(action_module, :result, response),
-        context,
-        duration_ms
-      )
-      |> log_signal()
+    {response, status, completed_signal} =
+      case completion_admission(response, context) do
+        :ok ->
+          status = response_status(response)
+
+          completed_signal =
+            action_name
+            |> Signals.action_completed(
+              action_module,
+              status,
+              trace_safe_summary(action_module, :result, response),
+              context,
+              duration_ms
+            )
+            |> log_signal()
+
+          {response, status, completed_signal}
+
+        {:error, _reason} ->
+          unavailable = product_not_ready_response() |> elem(1)
+          {unavailable, :unavailable, nil}
+      end
 
     metadata = %{
       runner_action_id: runner_action_id(requested_signal),
@@ -90,11 +131,17 @@ defmodule AllbertAssist.Actions.Runner do
     {:ok, attach_runner_metadata(response, metadata)}
   end
 
+  defp completion_admission(%{status: :unavailable, error: :product_not_ready}, _context),
+    do: {:error, :product_not_ready}
+
+  defp completion_admission(_response, context),
+    do: EffectGuard.validate(Map.fetch!(context, :allbert_pack_epoch))
+
   defp safe_run(action_module, params, context) do
     try do
       case ParamContract.normalize_and_validate(action_module, params) do
         {:ok, validated_params} ->
-          action_module.run(validated_params, context)
+          run_validated_action(action_module, validated_params, context)
 
         {:error, reason} ->
           {:ok, invalid_params_response(action_module, reason)}
@@ -105,6 +152,18 @@ defmodule AllbertAssist.Actions.Runner do
     catch
       kind, reason ->
         {:error, {kind, reason}}
+    end
+  end
+
+  # Compatibility admission carries one exact epoch through the complete Runner
+  # pipeline. The action call is the effect boundary, so validate that same
+  # epoch after param validation and every Runner preflight, immediately before
+  # invoking the action. Never admit again here: an E1 -> E2 replacement must
+  # remain unavailable to this invocation rather than silently using E2.
+  defp run_validated_action(action_module, validated_params, context) do
+    case EffectGuard.validate(Map.fetch!(context, :allbert_pack_epoch)) do
+      :ok -> action_module.run(validated_params, context)
+      {:error, _reason} -> product_not_ready_response()
     end
   end
 
@@ -296,10 +355,14 @@ defmodule AllbertAssist.Actions.Runner do
   end
 
   defp release_availability_check(action_name, action_module, registry) do
+    release_opts = [
+      plugin_entries: PluginRegistry.registered_plugins(RegistryContext.plugin_opts(registry))
+    ]
+
     action_module
     |> release_refs(action_name, registry)
     |> Enum.find_value(:ok, fn ref ->
-      case ReleaseAvailability.ensure_live_use_allowed(ref) do
+      case ReleaseAvailability.ensure_live_use_allowed(ref, release_opts) do
         :ok ->
           false
 
@@ -453,6 +516,7 @@ defmodule AllbertAssist.Actions.Runner do
   end
 
   defp signal_id(%Signal{id: id}), do: id
+  defp signal_id(nil), do: nil
 
   defp runner_action_id(%Signal{id: id}), do: id
 

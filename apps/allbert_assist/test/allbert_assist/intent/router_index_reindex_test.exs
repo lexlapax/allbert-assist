@@ -6,6 +6,13 @@ defmodule AllbertAssist.Intent.Router.IndexReindexTest do
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
   alias AllbertAssist.Intent.Router.Index
 
+  defmodule SameDigestReplacementGuard do
+    def admit_ready(_opts),
+      do: {:ok, %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}}
+
+    def validate(_epoch, _opts), do: {:error, :stale_epoch}
+  end
+
   setup do
     prev = Application.get_env(:allbert_assist, :intent_router_embedder)
     Application.put_env(:allbert_assist, :intent_router_embedder, FakeEmbedder)
@@ -80,5 +87,15 @@ defmodule AllbertAssist.Intent.Router.IndexReindexTest do
       Index.start_link(name: :"index_reindex_disabled_#{System.unique_integer([:positive])}")
 
     assert Index.state(pid).subscription_id == nil
+  end
+
+  test "same-digest replacement rejects a debounced rebuild before embedding" do
+    {:ok, pid} =
+      Index.start_link(
+        name: :"index_epoch_#{System.unique_integer([:positive])}",
+        effect_guard: SameDigestReplacementGuard
+      )
+
+    assert %{status: :unavailable, error: :product_not_ready} = Index.rebuild(pid)
   end
 end

@@ -5,7 +5,9 @@ defmodule AllbertAssist.App.RegistryTest do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.App.Registry
+  alias AllbertAssist.App.Registry.{MetadataEntry, MetadataSnapshot}
   alias AllbertAssist.App.Validator
+  alias AllbertAssist.Pack.Readiness
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
 
@@ -332,6 +334,19 @@ defmodule AllbertAssist.App.RegistryTest do
     def child_spec(_opts), do: raise("child boom")
   end
 
+  defmodule ReadyBarrier do
+    use GenServer
+
+    def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok)
+
+    @impl true
+    def init(:ok), do: {:ok, :ok}
+
+    @impl true
+    def handle_call({:validate_activation, _context}, _from, state),
+      do: {:reply, :ok, state}
+  end
+
   setup do
     registry = :"app_registry_#{System.unique_integer([:positive])}"
     dynamic_supervisor = :"app_dynamic_supervisor_#{System.unique_integer([:positive])}"
@@ -414,6 +429,67 @@ defmodule AllbertAssist.App.RegistryTest do
 
     assert {:error, :unavailable} =
              Registry.ordered_entries(server: :app_registry_missing_snapshot_server)
+  end
+
+  test "generation snapshots contain only structural metadata and notify stale captures", %{
+    opts: opts
+  } do
+    registry = Keyword.fetch!(opts, :server)
+    registry_pid = Process.whereis(registry)
+
+    assert {:ok, %MetadataSnapshot{generation: 0, entries: []}, first_ref} =
+             Registry.snapshot_and_subscribe(self(), opts)
+
+    assert {:ok, :empty_app} =
+             Registry.register(EmptyApp, Keyword.put(opts, :side_effects, false))
+
+    assert_receive {:allbert_metadata_generation_changed, ^registry_pid, ^first_ref, 1}
+
+    assert {:ok,
+            %MetadataSnapshot{
+              schema_version: 1,
+              generation: 1,
+              entries: [%MetadataEntry{app_id: :empty_app} = metadata]
+            }, second_ref} = Registry.snapshot_and_subscribe(self(), opts)
+
+    assert is_reference(second_ref)
+    refute Map.has_key?(metadata, :child_pid)
+    refute Map.has_key?(metadata, :registered_at_ms)
+
+    assert {:error, {:app_id_taken, :empty_app}} =
+             Registry.register(EmptyApp, Keyword.put(opts, :side_effects, false))
+
+    refute_receive {:allbert_metadata_generation_changed, ^registry_pid, ^second_ref, _generation}
+
+    assert {:ok, %MetadataSnapshot{generation: 1}, _latest_ref} =
+             Registry.snapshot_and_subscribe(self(), opts)
+  end
+
+  test "bound metadata mutation invalidates the exact barrier tuple before committing", %{
+    opts: opts
+  } do
+    barrier =
+      start_supervised!(
+        Supervisor.child_spec({Readiness, name: nil, coordinator: self()},
+          id: {:app_metadata_barrier, System.unique_integer([:positive])}
+        )
+      )
+
+    assert {:ok, %MetadataSnapshot{generation: 0}, subscription_ref} =
+             Registry.snapshot_and_subscribe(self(), opts)
+
+    assert :ok = Registry.bind_epoch(subscription_ref, 0, barrier, opts)
+
+    assert {:ok, :empty_app} =
+             Registry.register(EmptyApp, Keyword.put(opts, :side_effects, false))
+
+    assert {:error, :stale_generation} =
+             Registry.bind_epoch(subscription_ref, 0, barrier, opts)
+
+    assert {:ok, %MetadataSnapshot{generation: 1}, next_ref} =
+             Registry.snapshot_and_subscribe(self(), opts)
+
+    assert :ok = Registry.bind_epoch(next_ref, 1, barrier, opts)
   end
 
   test "stores and exposes full v0.18 contract fields", %{opts: opts} do
@@ -524,6 +600,66 @@ defmodule AllbertAssist.App.RegistryTest do
     assert DynamicSupervisor.which_children(dynamic_supervisor) == []
   end
 
+  test "metadata registration stages a non-ignore child without starting it", %{
+    opts: opts,
+    dynamic_supervisor: dynamic_supervisor
+  } do
+    assert {:ok, :child_app} = Registry.register_metadata(ChildApp, opts)
+    assert DynamicSupervisor.which_children(dynamic_supervisor) == []
+
+    assert {:ok, entry} = Registry.lookup(:child_app, opts)
+    assert entry.child_id == :child_app_agent
+    assert entry.child_pid == nil
+
+    assert [%{app_id: :child_app, child_spec: %{id: :child_app_agent}}] =
+             Registry.staged_child_specs(opts)
+  end
+
+  test "activated staged children remain available to rebuild in a replacement epoch", %{
+    opts: opts,
+    dynamic_supervisor: dynamic_supervisor
+  } do
+    barrier = start_supervised!(ReadyBarrier)
+
+    context = %AllbertAssist.Pack.ActivationContext{
+      schema_version: 1,
+      pack_id: "allbert_assist",
+      gate_pid: self(),
+      barrier_pid: barrier,
+      subscription_ref: make_ref(),
+      snapshot_digest: String.duplicate("a", 64)
+    }
+
+    carrier = [allbert_pack_activation: context]
+
+    assert {:ok, :child_app} = Registry.register_metadata(ChildApp, opts)
+    assert :ok = Registry.activate_staged_children(carrier, opts)
+
+    assert [{:undefined, first_child, :worker, [Agent]}] =
+             DynamicSupervisor.which_children(dynamic_supervisor)
+
+    first_dynamic_supervisor = Process.whereis(dynamic_supervisor)
+    Process.exit(first_dynamic_supervisor, :kill)
+
+    assert_eventually(fn ->
+      replacement_dynamic_supervisor = Process.whereis(dynamic_supervisor)
+      assert is_pid(replacement_dynamic_supervisor)
+      refute replacement_dynamic_supervisor == first_dynamic_supervisor
+    end)
+
+    assert_eventually(fn -> assert DynamicSupervisor.which_children(dynamic_supervisor) == [] end)
+
+    assert :ok = Registry.activate_staged_children(carrier, opts)
+
+    assert [{:undefined, replacement_child, :worker, [Agent]}] =
+             DynamicSupervisor.which_children(dynamic_supervisor)
+
+    refute replacement_child == first_child
+
+    assert [%{app_id: :child_app, child_spec: %{id: :child_app_agent}}] =
+             Registry.staged_child_specs(opts)
+  end
+
   test "child-spec failures are diagnostics only and leave other apps readable", %{opts: opts} do
     assert {:ok, :empty_app} = Registry.register(EmptyApp, opts)
     assert {:error, {:child_spec_failed, "child boom"}} = Registry.register(BrokenChildApp, opts)
@@ -568,5 +704,16 @@ defmodule AllbertAssist.App.RegistryTest do
     assert {:error, :not_found} = Registry.lookup(:empty_app, opts)
     assert Registry.registered_apps(opts) == []
     refute Registry.known_app_id?(:empty_app, opts)
+  end
+
+  defp assert_eventually(fun, attempts \\ 30)
+  defp assert_eventually(_fun, 0), do: flunk("condition did not become true")
+
+  defp assert_eventually(fun, attempts) do
+    fun.()
+  rescue
+    _error ->
+      Process.sleep(10)
+      assert_eventually(fun, attempts - 1)
   end
 end

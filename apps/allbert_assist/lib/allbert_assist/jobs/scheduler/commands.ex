@@ -64,9 +64,17 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.RunOnce do
   alias AllbertAssist.Jobs.Scheduler.Executor
 
   @impl true
-  def run(%{now: now}, context) do
+  def run(%{now: now, allbert_pack_epoch: epoch}, context) do
     state = Map.fetch!(context, :state)
-    Commands.finish(:run_once, Executor.poll_once(state, now), state, now: now)
+
+    result =
+      with :ok <- AllbertAssist.Pack.EffectGuard.validate(epoch) do
+        Executor.poll_once(state, now, epoch)
+      else
+        {:error, _reason} -> {:error, :product_not_ready}
+      end
+
+    Commands.finish(:run_once, result, state, now: now)
   end
 end
 
@@ -81,9 +89,17 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.CleanupStaleRuns do
   alias AllbertAssist.Jobs.Scheduler.Executor
 
   @impl true
-  def run(%{now: now}, context) do
+  def run(%{now: now, allbert_pack_epoch: epoch}, context) do
     state = Map.fetch!(context, :state)
-    Commands.finish(:cleanup_stale_runs, Executor.cleanup_stale_runs_for_state(state, now), state)
+
+    result =
+      with :ok <- AllbertAssist.Pack.EffectGuard.validate(epoch) do
+        Executor.cleanup_stale_runs_for_state(state, now, epoch)
+      else
+        {:error, _reason} -> {:error, :product_not_ready}
+      end
+
+    Commands.finish(:cleanup_stale_runs, result, state)
   end
 end
 
@@ -102,7 +118,15 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.Tick do
     state = Map.fetch!(context, :state)
     now = Executor.utc_now()
 
-    with {:ok, patch} <- Commands.finish(:tick, Executor.poll_once(state, now), state, now: now) do
+    result =
+      with {:ok, epoch} <- AllbertAssist.Pack.EffectGuard.admit_ready(),
+           :ok <- AllbertAssist.Pack.EffectGuard.validate(epoch) do
+        Executor.poll_once(state, now, epoch)
+      else
+        {:error, _reason} -> {:error, :product_not_ready}
+      end
+
+    with {:ok, patch} <- Commands.finish(:tick, result, state, now: now) do
       directives =
         if state.enabled? do
           [Commands.schedule_directive(state.interval_ms)]

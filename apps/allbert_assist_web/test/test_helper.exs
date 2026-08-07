@@ -1,5 +1,4 @@
 ExUnit.start()
-Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)
 
 # v1.0.2 M2 drift-fix (v0.63 F5 oversight): F5 hides capability-gated and demo
 # (StockSage) intents from the default shortlist and bypassed the gate in the
@@ -21,3 +20,30 @@ end
 unless AllbertAssist.App.Registry.known_app_id?(:stocksage) do
   {:ok, :stocksage} = AllbertAssist.App.Registry.register(StockSage.App)
 end
+
+# v1.4 M1.a3: Web starts as an observer while composition is still collecting.
+# Product LiveView tests begin only after the cold acknowledged epoch exists and
+# the Web observer has adopted it; readiness-specific tests use private seams.
+pack_ready_deadline = System.monotonic_time(:millisecond) + 60_000
+
+pack_ready_wait = fn wait ->
+  ready? =
+    match?(
+      {:ok, %{phase: :ready}},
+      AllbertAssist.Pack.Readiness.status(timeout: 1_000)
+    ) and match?({:ok, _epoch}, AllbertAssistWeb.PackReadiness.admit())
+
+  if ready? do
+    :ok
+  else
+    if System.monotonic_time(:millisecond) < pack_ready_deadline do
+      Process.sleep(25)
+      wait.(wait)
+    else
+      raise "Pack readiness did not open for Web owner tests"
+    end
+  end
+end
+
+pack_ready_wait.(pack_ready_wait)
+Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)

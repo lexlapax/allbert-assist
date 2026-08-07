@@ -29,6 +29,10 @@ defmodule AllbertComposition.MixProject do
     end
   end
 
+  def application do
+    [mod: {AllbertComposition.Application, []}]
+  end
+
   defp deps do
     [
       {:allbert_kernel, in_umbrella: true},
