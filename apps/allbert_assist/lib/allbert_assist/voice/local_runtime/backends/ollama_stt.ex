@@ -9,6 +9,7 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
 
   alias AllbertAssist.Voice.LocalRuntime.Config
   alias AllbertAssist.Voice.TranscriptResponse
+  alias AllbertAssist.Pack.EffectGuard
 
   @spec doctor(Config.t()) :: map()
   def doctor(config) do
@@ -64,28 +65,43 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
   end
 
   defp request(method, url, opts, config) do
-    [
-      method: method,
-      url: url,
-      receive_timeout: config.timeout_ms,
-      retry: false,
-      redirect: false,
-      max_redirects: 0
-    ]
-    |> Keyword.merge(opts)
-    |> Keyword.merge(config.req_options)
-    |> Req.request()
-    |> case do
-      {:ok, response} ->
-        {:ok, response}
+    with {:ok, epoch} <- carried_epoch(config.req_options) do
+      request =
+        [
+          method: method,
+          url: url,
+          receive_timeout: config.timeout_ms,
+          retry: false,
+          redirect: false,
+          max_redirects: 0
+        ]
+        |> Keyword.merge(opts)
+        |> Keyword.merge(Keyword.delete(config.req_options, :allbert_pack_epoch))
 
-      {:error, %Req.TransportError{} = error} ->
-        {:error, {:local_ollama_transport_error, error.reason}}
+      with :ok <- EffectGuard.validate(epoch),
+           result <- Req.request(request) do
+        case result do
+          {:ok, response} ->
+            {:ok, response}
 
-      {:error, reason} ->
-        {:error, {:local_ollama_transport_error, reason}}
+          {:error, %Req.TransportError{} = error} ->
+            {:error, {:local_ollama_transport_error, error.reason}}
+
+          {:error, reason} ->
+            {:error, {:local_ollama_transport_error, reason}}
+        end
+      end
     end
   end
+
+  defp carried_epoch(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_opts), do: {:error, :product_not_ready}
 
   defp successful_response(%{status: status}) when status >= 200 and status < 300, do: :ok
   defp successful_response(%{status: status}), do: {:error, {:local_ollama_http_error, status}}

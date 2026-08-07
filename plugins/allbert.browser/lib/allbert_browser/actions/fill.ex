@@ -48,7 +48,7 @@ defmodule AllbertBrowser.Actions.Fill do
         Actions.denied("browser_fill", :browser_form_fill, decision, :missing_selector)
 
       Actions.approval_resume?(context) ->
-        fill(params, decision, session_id, selector)
+        fill(params, context, decision, session_id, selector)
 
       true ->
         Actions.confirmation(
@@ -68,8 +68,10 @@ defmodule AllbertBrowser.Actions.Fill do
     end
   end
 
-  defp fill(params, decision, session_id, selector) do
-    opts = [value: Actions.field(params, :value), value_preview: value_preview(params)]
+  defp fill(params, context, decision, session_id, selector) do
+    opts =
+      [value: Actions.field(params, :value), value_preview: value_preview(params)] ++
+        Actions.session_effect_opts(context)
 
     case Session.fill(session_id, selector, opts) do
       {:ok, fill} ->

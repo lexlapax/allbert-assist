@@ -2,6 +2,7 @@ defmodule AllbertAssist.Channels.Signal.Client do
   @moduledoc false
 
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Pack.EffectGuard
 
   @default_receive_timeout 10_000
 
@@ -90,20 +91,26 @@ defmodule AllbertAssist.Channels.Signal.Client do
   end
 
   defp http_request(rpc, opts) do
-    with {:ok, base_url} <- loopback_url(Keyword.get(opts, :base_url)),
-         {:ok, headers} <- auth_headers(opts) do
-      [
-        method: :post,
-        url: base_url <> "/api/v1/rpc",
-        json: rpc,
-        headers: headers,
-        retry: false,
-        redirect: false,
-        receive_timeout: Keyword.get(opts, :receive_timeout, @default_receive_timeout)
-      ]
-      |> Keyword.merge(Keyword.take(opts, [:plug]))
-      |> Req.request()
-      |> normalize_response()
+    with {:ok, epoch} <- carried_epoch(opts),
+         {:ok, base_url} <- loopback_url(Keyword.get(opts, :base_url)),
+         {:ok, headers} <- auth_headers(opts),
+         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)) do
+      request =
+        [
+          method: :post,
+          url: base_url <> "/api/v1/rpc",
+          json: rpc,
+          headers: headers,
+          retry: false,
+          redirect: false,
+          receive_timeout: Keyword.get(opts, :receive_timeout, @default_receive_timeout)
+        ]
+        |> Keyword.merge(Keyword.take(opts, [:plug]))
+
+      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+           response <- Req.request(request) do
+        normalize_response(response)
+      end
     end
   end
 
@@ -123,6 +130,15 @@ defmodule AllbertAssist.Channels.Signal.Client do
   end
 
   defp loopback_url(_value), do: {:error, :missing_signal_loopback_http_base_url}
+
+  defp carried_epoch(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp auth_headers(opts) do
     case Keyword.get(opts, :auth_ref) do

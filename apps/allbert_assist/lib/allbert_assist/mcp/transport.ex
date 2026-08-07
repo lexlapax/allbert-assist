@@ -49,7 +49,11 @@ defmodule AllbertAssist.Mcp.Transport do
       )
       when is_binary(encoded) do
     with {:ok, spec} <- request_spec(config, String.trim_trailing(encoded, "\n")),
-         {:ok, result} <- HttpClient.request(spec, plug: req_plug(context)),
+         {:ok, result} <-
+           HttpClient.request(spec,
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch),
+             plug: req_plug(context)
+           ),
          {:ok, body} <- decode_http_response(result) do
       {:ok, body, conn}
     else

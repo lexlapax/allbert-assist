@@ -3,6 +3,7 @@ defmodule AllbertAssist.Channels.Matrix.Client do
 
   alias AllbertAssist.External.HttpPolicy
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Pack.EffectGuard
 
   @default_max_response_bytes 1_048_576
 
@@ -94,25 +95,40 @@ defmodule AllbertAssist.Channels.Matrix.Client do
   end
 
   defp request(method, homeserver_url, access_token, path, request_opts, opts) do
-    with {:ok, token} <- validate_access_token(access_token),
+    with {:ok, epoch} <- carried_epoch(opts),
+         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         {:ok, token} <- validate_access_token(access_token),
          request <- build_request(method, homeserver_url, path, request_opts),
          :ok <- validate_policy(request, request_opts, opts) do
-      [
-        method: method,
-        url: request.url,
-        headers: [{"authorization", "Bearer " <> token}],
-        retry: false,
-        redirect: false,
-        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
-      ]
-      |> Keyword.merge(request_opts)
-      |> Keyword.delete(:params)
-      |> Keyword.delete(:max_response_bytes)
-      |> Keyword.merge(Keyword.take(opts, [:plug]))
-      |> Req.request()
-      |> normalize_response()
+      request =
+        [
+          method: method,
+          url: request.url,
+          headers: [{"authorization", "Bearer " <> token}],
+          retry: false,
+          redirect: false,
+          receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+        ]
+        |> Keyword.merge(request_opts)
+        |> Keyword.delete(:params)
+        |> Keyword.delete(:max_response_bytes)
+        |> Keyword.merge(Keyword.take(opts, [:plug]))
+
+      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+           response <- Req.request(request) do
+        normalize_response(response)
+      end
     end
   end
+
+  defp carried_epoch(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp build_request(method, homeserver_url, path, request_opts) do
     base = homeserver_url |> normalize_base_url() |> String.trim_trailing("/")

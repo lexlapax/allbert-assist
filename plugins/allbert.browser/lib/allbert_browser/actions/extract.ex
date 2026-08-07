@@ -32,7 +32,8 @@ defmodule AllbertBrowser.Actions.Extract do
     session_id = Actions.field(params, :session_id)
     format = format(Actions.field(params, :format, "text"))
 
-    max_bytes = Actions.field(params, :max_bytes) || setting("browser.extraction.max_bytes", 1_048_576)
+    max_bytes =
+      Actions.field(params, :max_bytes) || setting("browser.extraction.max_bytes", 1_048_576)
 
     cond do
       not Actions.allowed?(decision) ->
@@ -45,7 +46,8 @@ defmodule AllbertBrowser.Actions.Extract do
         Actions.denied("browser_extract", :browser_extract, decision, :unsupported_format)
 
       true ->
-        extraction_opts = extraction_opts(format, max_bytes)
+        extraction_opts =
+          extraction_opts(format, max_bytes) ++ Actions.session_effect_opts(context)
 
         with {:ok, source} <- Session.extract(session_id, source_format(format), extraction_opts),
              {:ok, extraction} <- extract(format, source, extraction_opts),

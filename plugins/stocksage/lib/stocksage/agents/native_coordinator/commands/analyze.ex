@@ -290,7 +290,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
     if agent_id == field(request, :fail_agent_id) do
       reason = {:forced_agent_failure, agent_id}
-      fail_step(step, reason)
+      fail_step(step, reason, request)
       emit_failed(request, agent_id, round_index, reason)
       {:error, agent_id, reason}
     else
@@ -310,12 +310,12 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
         {:ok, %{state: state}} ->
           reason = {:missing_agent_result, Map.take(state, [:last_error, "last_error"])}
-          fail_step(step, reason)
+          fail_step(step, reason, request)
           emit_failed(request, agent_id, round_index, reason)
           {:error, agent_id, reason}
 
         {:error, reason} ->
-          fail_step(step, reason)
+          fail_step(step, reason, request)
           emit_failed(request, agent_id, round_index, reason)
           {:error, agent_id, reason}
       end
@@ -325,12 +325,12 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
   defp handle_agent_report(request, agent_id, round_index, step, report) do
     case failed_report_reason(report) do
       nil ->
-        complete_step(step, report)
+        complete_step(step, report, request)
         emit_completed(request, agent_id, round_index, report)
         {:ok, agent_id, report}
 
       reason ->
-        fail_step(step, reason)
+        fail_step(step, reason, request)
         emit_failed(request, agent_id, round_index, reason)
         {:error, agent_id, reason}
     end
@@ -366,7 +366,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       }
     }
 
-    case Objectives.create_step(attrs) do
+    case Objectives.create_step(attrs, request) do
       {:ok, step} -> step
       {:error, _reason} -> nil
     end
@@ -374,25 +374,35 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
 
   defp create_step(_request, _agent_id, _stage, _round_index), do: nil
 
-  defp complete_step(nil, _report), do: :ok
+  defp complete_step(nil, _report, _request), do: :ok
 
-  defp complete_step(step, report) do
+  defp complete_step(step, report, request) do
     _ =
-      Objectives.transition_step(step, :completed, %{
-        result_summary: field(report, :summary),
-        observation_summary: field(report, :report)
-      })
+      Objectives.transition_step(
+        step,
+        :completed,
+        %{
+          result_summary: field(report, :summary),
+          observation_summary: field(report, :report)
+        },
+        request
+      )
 
     :ok
   end
 
-  defp fail_step(nil, _reason), do: :ok
+  defp fail_step(nil, _reason, _request), do: :ok
 
-  defp fail_step(step, reason) do
+  defp fail_step(step, reason, request) do
     _ =
-      Objectives.transition_step(step, :failed, %{
-        result_summary: inspect(reason, limit: 20, printable_limit: 500)
-      })
+      Objectives.transition_step(
+        step,
+        :failed,
+        %{
+          result_summary: inspect(reason, limit: 20, printable_limit: 500)
+        },
+        request
+      )
 
     :ok
   end

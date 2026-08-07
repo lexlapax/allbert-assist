@@ -179,8 +179,8 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
     params = params!(opts, positional)
 
     with {:ok, entry} <- lookup_agent(agent_id),
-         {:ok, objective} <- create_debug_objective(user_id, entry, params),
-         {:ok, step} <- create_debug_step(objective, entry, params),
+         {:ok, objective} <- create_debug_objective(user_id, entry, params, base),
+         {:ok, step} <- create_debug_step(objective, entry, params, base),
          {:ok, response} <-
            Runner.run(
              "delegate_agent",
@@ -194,7 +194,7 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
              },
              delegate_context(base, user_id, entry)
            ) do
-      finish_debug_objective(objective, step, response)
+      finish_debug_objective(objective, step, response, base)
       {:ok, {:delegate, entry, objective, response}}
     else
       {:error, :not_found} ->
@@ -367,7 +367,8 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
       actor: user_id,
       user_id: user_id,
       operator_id: user_id,
-      surface: Map.get(base, :surface, "allbert admin objectives")
+      surface: Map.get(base, :surface, "allbert admin objectives"),
+      allbert_pack_epoch: Map.get(base, :allbert_pack_epoch)
     )
   end
 
@@ -379,7 +380,8 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
       user_id: user_id,
       operator_id: user_id,
       surface: Map.get(base, :surface, "allbert admin objectives"),
-      app_id: app_id
+      app_id: app_id,
+      allbert_pack_epoch: Map.get(base, :allbert_pack_epoch)
     )
   end
 
@@ -392,7 +394,7 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
     end
   end
 
-  defp create_debug_objective(user_id, entry, params) do
+  defp create_debug_objective(user_id, entry, params, base) do
     app_id = entry.metadata[:app_id] || entry.metadata["app_id"]
 
     Objectives.create_objective(%{
@@ -402,10 +404,10 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
       active_app: if(is_atom(app_id), do: Atom.to_string(app_id), else: app_id),
       status: "open",
       source_intent: "mix allbert.delegate"
-    })
+    }, base)
   end
 
-  defp create_debug_step(objective, entry, params) do
+  defp create_debug_step(objective, entry, params, base) do
     Objectives.create_step(%{
       objective_id: objective.id,
       kind: "delegate_agent",
@@ -413,10 +415,10 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
       stage: "execute_step",
       delegate_agent_id: entry.id,
       action_params: params
-    })
+    }, base)
   end
 
-  defp finish_debug_objective(objective, step, %{status: :completed} = response) do
+  defp finish_debug_objective(objective, step, %{status: :completed} = response, base) do
     summary = stored_summary(response.message)
 
     {:ok, _step} =
@@ -424,29 +426,29 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
         status: "completed",
         stage: "observe_step",
         result_summary: summary
-      })
+      }, base)
 
     {:ok, _objective} =
       Objectives.update_objective(objective, %{
         status: "completed",
         progress_summary: summary,
         completed_at: DateTime.utc_now()
-      })
+      }, base)
 
     :ok
   end
 
-  defp finish_debug_objective(objective, step, response) do
+  defp finish_debug_objective(objective, step, response, base) do
     summary = stored_summary(response)
 
     {:ok, _step} =
-      Objectives.update_step(step, %{status: "failed", result_summary: summary})
+      Objectives.update_step(step, %{status: "failed", result_summary: summary}, base)
 
     {:ok, _objective} =
       Objectives.update_objective(objective, %{
         status: "failed",
         progress_summary: summary
-      })
+      }, base)
 
     :ok
   end

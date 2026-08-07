@@ -24,7 +24,7 @@ defmodule AllbertAssist.Actions.Settings.ListModelCatalog do
   @impl true
   def run(params, context) do
     decision = PermissionGate.authorize(:read_only, context)
-    {:ok, catalog} = Catalog.list()
+    {:ok, catalog} = Catalog.list(context: context)
     purpose = field(params, :purpose)
     entries = filter_purpose(catalog.entries, purpose)
     message = "Model catalog has #{length(entries)} matching entries."

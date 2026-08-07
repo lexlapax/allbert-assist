@@ -71,7 +71,7 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
   defp connect(spec, candidate, evaluation_report, params, context, permission_decision) do
     enable_on_connect? = field(params, :enable_on_connect, false) == true
 
-    with :ok <- write_settings(spec, enable_on_connect?),
+    with :ok <- write_settings(spec, enable_on_connect?, context),
          baseline_capture <- capture_live_baseline(spec, context, enable_on_connect?),
          {:ok, trust_record} <-
            write_trust_record(spec, candidate, evaluation_report, context, baseline_capture) do
@@ -150,11 +150,11 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
     end
   end
 
-  defp write_settings(spec, enable_on_connect?) do
+  defp write_settings(spec, enable_on_connect?, context) do
     spec
     |> ConnectSpec.settings_writes(enable_on_connect?)
     |> Enum.reduce_while(:ok, fn {key, value}, :ok ->
-      case Settings.put(key, value, %{audit?: false}) do
+      case Settings.put(key, value, Map.put(context, :audit?, false)) do
         {:ok, _setting} -> {:cont, :ok}
         {:error, reason} -> {:halt, {:error, {:settings_write_failed, key, reason}}}
       end

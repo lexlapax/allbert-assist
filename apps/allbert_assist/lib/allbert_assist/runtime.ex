@@ -78,6 +78,8 @@ defmodule AllbertAssist.Runtime do
           coding_turn_id: nil | String.t(),
           coding_req_llm_context: nil | ReqLLM.Context.t(),
           stream_event_sink: nil | pid() | (map() -> term()),
+          allbert_pack_epoch: EffectGuard.epoch(),
+          allbert_pack_effect_guard_opts: keyword(),
           diagnostics: list(),
           timeout_ms: pos_integer()
         }
@@ -148,40 +150,41 @@ defmodule AllbertAssist.Runtime do
 
   @doc "Submit through the first-party carried Pack-epoch path."
   @spec submit_user_input(map(), keyword()) :: {:ok, response()} | {:error, term()}
-  def submit_user_input(attrs, allbert_pack_epoch: epoch) when is_map(attrs) do
-    with :ok <- EffectGuard.validate(epoch) do
-      do_submit_user_input(attrs, epoch)
+  def submit_user_input(attrs, opts) when is_map(attrs) and is_list(opts) do
+    epoch = Keyword.get(opts, :allbert_pack_epoch)
+    guard_opts = Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+
+    with :ok <- EffectGuard.validate(epoch, guard_opts) do
+      do_submit_user_input(attrs, %{
+        allbert_pack_epoch: epoch,
+        allbert_pack_effect_guard_opts: guard_opts
+      })
     end
   end
 
-  def submit_user_input(attrs, opts) when is_map(attrs) and is_list(opts),
-    do: {:error, :invalid_options}
-
   def submit_user_input(_attrs, _opts), do: {:error, :invalid_options}
 
-  defp do_submit_user_input(attrs, epoch) do
-    with_effect_epoch(epoch, fn ->
-      with {:ok, request} <- normalize_request(attrs),
-           {:ok, input_signal} <- new_input_signal(request),
-           :ok <- log_signal(input_signal),
-           :ok <- log_runtime_turn_started(input_signal, request),
-           {:ok, admission} <- persist_user_message(request, input_signal),
-           user_message <- admission.message,
-           request <- put_inbound_admission(request, admission),
-           request <- put_thread_context(request, user_message),
-           {:ok, agent_response} <- run_stage_zero_or_agent(input_signal, request),
-           {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
-           :ok <- log_signal(response_signal) do
-        response = build_response(input_signal, response_signal, agent_response, request)
+  defp do_submit_user_input(attrs, effect_context) do
+    with {:ok, request} <- normalize_request(attrs, effect_context),
+         {:ok, input_signal} <- new_input_signal(request),
+         :ok <- log_signal(input_signal),
+         :ok <- log_runtime_turn_started(input_signal, request),
+         {:ok, admission} <- persist_user_message(request, input_signal),
+         user_message <- admission.message,
+         request <- put_inbound_admission(request, admission),
+         request <- put_thread_context(request, user_message),
+         {:ok, agent_response} <- run_stage_zero_or_agent(input_signal, request),
+         {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
+         :ok <- log_signal(response_signal) do
+      response = build_response(input_signal, response_signal, agent_response, request)
 
-        {:ok,
-         response
-         |> record_trace(input_signal, response_signal, request)
-         |> persist_assistant_message(request, response_signal)
-         |> maybe_log_runtime_turn_completed(request)
-         |> maybe_log_trace_signal(request)}
-      end
-    end)
+      {:ok,
+       response
+       |> record_trace(input_signal, response_signal, request)
+       |> persist_assistant_message(request, response_signal)
+       |> maybe_log_runtime_turn_completed(request)
+       |> maybe_log_trace_signal(request)}
+    end
   end
 
   @doc "Return bounded operator wording for persistence failures that must not expose internals."
@@ -445,7 +448,7 @@ defmodule AllbertAssist.Runtime do
            children: [map()]
          }
 
-  defp normalize_request(attrs) do
+  defp normalize_request(attrs, effect_context) do
     text =
       attrs
       |> fetch_value(:text)
@@ -485,6 +488,8 @@ defmodule AllbertAssist.Runtime do
          coding_turn_id: coding_turn_id(attrs),
          coding_req_llm_context: fetch_value(attrs, :coding_req_llm_context),
          stream_event_sink: fetch_value(attrs, :stream_event_sink),
+         allbert_pack_epoch: effect_context.allbert_pack_epoch,
+         allbert_pack_effect_guard_opts: effect_context.allbert_pack_effect_guard_opts,
          delivery_ack_capability: fetch_value(attrs, :delivery_ack_capability),
          fanout_manager_mode: :off,
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
@@ -849,7 +854,7 @@ defmodule AllbertAssist.Runtime do
         input_signal_id: signal.id,
         input_signal_type: signal.type
       },
-      effect_epoch_opts()
+      effect_epoch_opts(request)
     )
   end
 
@@ -1101,7 +1106,7 @@ defmodule AllbertAssist.Runtime do
              frame_fanout_plan(request, plan, budget, deadline_unix_ms, manager_diagnostic) do
         {:ok,
          framed
-         |> kickoff_response()
+         |> kickoff_response(request)
          |> copy_manager_fact(manager_response)
          |> add_admission_diagnostic(:admitted)}
       end
@@ -1317,7 +1322,10 @@ defmodule AllbertAssist.Runtime do
     |> Keyword.get(:fanout_framer, &Fanout.frame_if_inactive/2)
   end
 
-  defp kickoff_response(%{parent: parent, children: children, fanout_start_receipt: receipt}) do
+  defp kickoff_response(
+         %{parent: parent, children: children, fanout_start_receipt: receipt},
+         request
+       ) do
     labels = Enum.map_join(children, "\n", &"#{&1.queue_position + 1}. #{&1.title}")
 
     offer? = Notify.prepare_consent_offer(parent)
@@ -1352,7 +1360,7 @@ defmodule AllbertAssist.Runtime do
         response
       end
 
-    maybe_add_start_confirmation(response, parent)
+    maybe_add_start_confirmation(response, parent, request)
   end
 
   defp kickoff_delivery_message(parent) do
@@ -1368,18 +1376,18 @@ defmodule AllbertAssist.Runtime do
     end
   end
 
-  defp maybe_add_start_confirmation(response, parent) do
+  defp maybe_add_start_confirmation(response, parent, request) do
     case Settings.get("objectives.fanout.confirm_before_start") do
       {:ok, true} ->
-        add_start_confirmation(response, parent)
+        add_start_confirmation(response, parent, request)
 
       _other ->
         response
     end
   end
 
-  defp add_start_confirmation(response, parent) do
-    case Confirmations.create(start_confirmation_attrs(parent)) do
+  defp add_start_confirmation(response, parent, request) do
+    case Confirmations.create(start_confirmation_attrs(parent), effect_context(%{}, request)) do
       {:ok, confirmation} ->
         response
         |> Map.put(:status, :needs_confirmation)
@@ -1529,11 +1537,14 @@ defmodule AllbertAssist.Runtime do
       case Runner.run(
              @persist_attached_fanout_report,
              %{thread_id: request.thread_id, parent_id: pending.parent_objective_id},
-             effect_context(%{
-               user_id: request.user_id,
-               channel: "live_view",
-               thread_id: request.thread_id
-             })
+             effect_context(
+               %{
+                 user_id: request.user_id,
+                 channel: "live_view",
+                 thread_id: request.thread_id
+               },
+               request
+             )
            ) do
         {:ok, %{status: :completed}} ->
           :ok
@@ -1684,7 +1695,7 @@ defmodule AllbertAssist.Runtime do
     case Runner.run(
            "record_trace",
            %{turn: turn},
-           effect_context(trace_context(input_signal, request))
+           effect_context(trace_context(input_signal, request), request)
          ) do
       {:ok, %{status: :completed, trace_id: trace_id}} when is_binary(trace_id) ->
         %{response | trace_id: trace_id}
@@ -1720,35 +1731,17 @@ defmodule AllbertAssist.Runtime do
     }
   end
 
-  defp with_effect_epoch(epoch, fun) when is_function(fun, 0) do
-    key = {__MODULE__, :allbert_pack_epoch}
-    previous = Process.get(key, :__allbert_pack_epoch_unset__)
-    Process.put(key, epoch)
-
-    try do
-      fun.()
-    after
-      if previous == :__allbert_pack_epoch_unset__ do
-        Process.delete(key)
-      else
-        Process.put(key, previous)
-      end
-    end
+  defp effect_epoch_opts(request) do
+    [
+      allbert_pack_epoch: request.allbert_pack_epoch,
+      allbert_pack_effect_guard_opts: request.allbert_pack_effect_guard_opts
+    ]
   end
 
-  defp effect_epoch_opts do
-    [allbert_pack_epoch: current_effect_epoch!()]
-  end
-
-  defp effect_context(context) when is_map(context) do
-    Map.put(context, :allbert_pack_epoch, current_effect_epoch!())
-  end
-
-  defp current_effect_epoch! do
-    case Process.get({__MODULE__, :allbert_pack_epoch}) do
-      nil -> raise "missing internal Pack effect epoch"
-      epoch -> epoch
-    end
+  defp effect_context(context, request) when is_map(context) do
+    context
+    |> Map.put(:allbert_pack_epoch, request.allbert_pack_epoch)
+    |> Map.put(:allbert_pack_effect_guard_opts, request.allbert_pack_effect_guard_opts)
   end
 
   defp trace_error(%{error: error}), do: error

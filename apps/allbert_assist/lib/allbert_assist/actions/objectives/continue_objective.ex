@@ -38,7 +38,7 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
          {:ok, user_id} <- user_id(params, context),
          {:ok, objective_id} <- objective_id(params),
          {:ok, objective} <- Objectives.get_objective(user_id, objective_id),
-         {:ok, result} <- continue_target(objective, user_id) do
+         {:ok, result} <- continue_target(objective, user_id, context) do
       {:ok, response(result, permission_decision)}
     else
       {:allowed, false} ->
@@ -52,8 +52,14 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
     end
   end
 
-  defp continue_target(%{fanout_role: "child", status: "blocked"} = objective, _user_id) do
-    case Lifecycle.reconcile_blocked(objective.id) do
+  defp continue_target(
+         %{fanout_role: "child", status: "blocked"} = objective,
+         _user_id,
+         context
+       ) do
+    case Lifecycle.reconcile_blocked(objective.id,
+           allbert_pack_epoch: field(context, :allbert_pack_epoch)
+         ) do
       {:ok, :runnable} ->
         :ok = Scheduler.wake_parent(objective.parent_objective_id)
 
@@ -85,7 +91,7 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
     end
   end
 
-  defp continue_target(%{fanout_role: "child", status: status} = objective, _user_id)
+  defp continue_target(%{fanout_role: "child", status: status} = objective, _user_id, _context)
        when status in ~w[open running] do
     :ok = Scheduler.wake_parent(objective.parent_objective_id)
 
@@ -97,7 +103,7 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
      }}
   end
 
-  defp continue_target(%{fanout_role: "child"} = objective, _user_id) do
+  defp continue_target(%{fanout_role: "child"} = objective, _user_id, _context) do
     status =
       case objective.status do
         "completed" -> :completed
@@ -114,11 +120,11 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
      }}
   end
 
-  defp continue_target(%{fanout_role: "parent"}, _user_id),
+  defp continue_target(%{fanout_role: "parent"}, _user_id, _context),
     do: {:error, :fanout_parent_continuation_not_supported}
 
-  defp continue_target(objective, user_id),
-    do: Objectives.continue(user_id, objective.id)
+  defp continue_target(objective, user_id, context),
+    do: Objectives.continue(user_id, objective.id, context)
 
   defp response(%{status: :completed, objective: objective, step: step}, permission_decision) do
     %{

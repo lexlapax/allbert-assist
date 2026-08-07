@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
   alias AllbertAssist.Channels.WhatsApp.Client
   alias AllbertAssist.Channels.WhatsApp.Parser
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -441,7 +442,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
              })
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.whatsapp.access_token_ref",
                "secret://channels/whatsapp/access_token",
                %{
@@ -450,34 +451,37 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.whatsapp.phone_number_id", "15551234567", %{audit?: false})
+             put_setting("channels.whatsapp.phone_number_id", "15551234567", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.whatsapp.waba_id", "waba-1", %{audit?: false})
+             put_setting("channels.whatsapp.waba_id", "waba-1", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.whatsapp.identity_map",
                [%{external_user_id: "+15550001111", user_id: "alice"}],
                %{audit?: false}
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.whatsapp.webhook_enabled", true, %{audit?: false})
+             put_setting("channels.whatsapp.webhook_enabled", true, %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("channels.whatsapp.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.whatsapp.enabled", true, %{audit?: false})
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "whatsapp-test"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "whatsapp-test"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
 
   defp json(conn, body) do
@@ -487,6 +491,9 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
     |> put_resp_content_type("application/json")
     |> send_resp(status, Jason.encode!(body))
   end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

@@ -12,6 +12,7 @@ defmodule AllbertAssist.Objectives do
   alias AllbertAssist.Confirmations.ResumeParamsBinding
   alias AllbertAssist.Objectives.{AcceptanceCriteria, Event, Objective, Step}
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Validation
@@ -127,7 +128,8 @@ defmodule AllbertAssist.Objectives do
   @doc "Frame a durable objective from an intent decision and request context."
   @spec frame(map(), map()) :: {:ok, map()} | {:error, term()}
   def frame(intent_decision, context \\ %{}) when is_map(intent_decision) and is_map(context) do
-    with {:ok, user_id} <- facade_user_id(intent_decision, context) do
+    with :ok <- validate_effect_context(context),
+         {:ok, user_id} <- facade_user_id(intent_decision, context) do
       AllbertAssist.Objectives.Engine.Agent.frame_objective(%{
         user_id: user_id,
         source_thread_id:
@@ -145,7 +147,8 @@ defmodule AllbertAssist.Objectives do
         acceptance_criteria: facade_field(intent_decision, :acceptance_criteria),
         constraints: facade_field(intent_decision, :constraints),
         source_intent:
-          facade_field(intent_decision, :text) || facade_field(intent_decision, :intent)
+          facade_field(intent_decision, :text) || facade_field(intent_decision, :intent),
+        allbert_pack_epoch: facade_field(context, :allbert_pack_epoch)
       })
     end
   end
@@ -153,48 +156,70 @@ defmodule AllbertAssist.Objectives do
   @doc "Advance the current step for an objective through the engine."
   @spec advance(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def advance(objective_id, event \\ %{}) when is_binary(objective_id) and is_map(event) do
-    AllbertAssist.Objectives.Engine.Agent.advance_objective(%{
-      objective_id: objective_id,
-      trace_id: facade_field(event, :trace_id)
-    })
+    with :ok <- validate_effect_context(event) do
+      AllbertAssist.Objectives.Engine.Agent.advance_objective(%{
+        objective_id: objective_id,
+        trace_id: facade_field(event, :trace_id),
+        allbert_pack_epoch: facade_field(event, :allbert_pack_epoch)
+      })
+    end
   end
 
   @doc "Cancel an objective through the engine."
+  @spec cancel(String.t(), String.t(), String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def cancel(user_id, objective_id, reason, context)
+      when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) and
+             is_map(context) do
+    with :ok <- validate_effect_context(context) do
+      AllbertAssist.Objectives.Engine.Agent.cancel_objective(%{
+        id: objective_id,
+        user_id: user_id,
+        reason: reason,
+        allbert_pack_epoch: facade_field(context, :allbert_pack_epoch)
+      })
+    end
+  end
+
   @spec cancel(String.t(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
   def cancel(user_id, objective_id, reason)
       when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) do
-    AllbertAssist.Objectives.Engine.Agent.cancel_objective(%{
-      id: objective_id,
-      user_id: user_id,
-      reason: reason
-    })
+    {:error, :product_not_ready}
   end
 
   @doc "Durably mark an owned active objective as awaiting cancellation cleanup."
-  @spec request_cancellation(String.t(), String.t(), String.t()) :: objective_result()
-  def request_cancellation(user_id, objective_id, reason)
-      when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) do
-    now = DateTime.utc_now()
+  @spec request_cancellation(String.t(), String.t(), String.t(), map()) :: objective_result()
+  def request_cancellation(user_id, objective_id, reason, context)
+      when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) and
+             is_map(context) do
+    with :ok <- validate_effect_context(context) do
+      now = DateTime.utc_now()
 
-    query =
-      from objective in Objective,
-        where:
-          objective.id == ^objective_id and objective.user_id == ^user_id and
-            objective.status in ^@active_statuses and
-            not (objective.status == "blocked" and
-                   objective.review_reason == "cancellation_requested")
+      query =
+        from objective in Objective,
+          where:
+            objective.id == ^objective_id and objective.user_id == ^user_id and
+              objective.status in ^@active_statuses and
+              not (objective.status == "blocked" and
+                     objective.review_reason == "cancellation_requested")
 
-    transaction = fn ->
-      request_cancellation_transaction(query, user_id, objective_id, reason, now)
-    end
+      transaction = fn ->
+        request_cancellation_transaction(query, user_id, objective_id, reason, now, context)
+      end
 
-    case Repo.transaction(transaction) do
-      {:ok, objective} -> {:ok, objective}
-      {:error, transaction_error} -> {:error, transaction_error}
+      case Repo.transaction(transaction) do
+        {:ok, objective} -> {:ok, objective}
+        {:error, transaction_error} -> {:error, transaction_error}
+      end
     end
   end
 
-  defp request_cancellation_transaction(query, user_id, objective_id, reason, now) do
+  @spec request_cancellation(String.t(), String.t(), String.t()) :: objective_result()
+  def request_cancellation(user_id, objective_id, reason)
+      when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) do
+    {:error, :product_not_ready}
+  end
+
+  defp request_cancellation_transaction(query, user_id, objective_id, reason, now, context) do
     updates = [
       status: "blocked",
       review_reason: "cancellation_requested",
@@ -202,22 +227,30 @@ defmodule AllbertAssist.Objectives do
     ]
 
     case Repo.update_all(query, set: updates) do
-      {1, _rows} -> persist_cancellation_request(user_id, objective_id, reason)
+      {1, _rows} -> persist_cancellation_request(user_id, objective_id, reason, context)
       {0, _rows} -> existing_cancellation_request(user_id, objective_id)
     end
   end
 
-  defp persist_cancellation_request(user_id, objective_id, reason) do
+  defp persist_cancellation_request(user_id, objective_id, reason, context) do
     objective = Repo.get_by!(Objective, id: objective_id, user_id: user_id)
 
-    case create_event(%{
-           objective_id: objective_id,
-           kind: "run_blocked",
-           summary: "Objective cancellation requested",
-           payload: %{reason: reason}
-         }) do
-      {:ok, _event} -> objective
-      {:error, event_error} -> Repo.rollback(event_error)
+    case create_event(
+           %{
+             objective_id: objective_id,
+             kind: "run_blocked",
+             summary: "Objective cancellation requested",
+             payload: %{reason: reason}
+           },
+           context
+         ) do
+      {:ok, _event} ->
+        if validate_effect_context(context) == :ok,
+          do: objective,
+          else: Repo.rollback(:product_not_ready)
+
+      {:error, event_error} ->
+        Repo.rollback(event_error)
     end
   end
 
@@ -234,14 +267,22 @@ defmodule AllbertAssist.Objectives do
     end
   end
 
-  @doc "Continue an objective through the engine."
-  @spec continue(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
-  def continue(user_id, objective_id) when is_binary(user_id) and is_binary(objective_id) do
-    AllbertAssist.Objectives.Engine.Agent.continue_objective(%{
-      id: objective_id,
-      user_id: user_id
-    })
+  @doc "Continue an objective through the engine with the originating exact readiness epoch."
+  @spec continue(String.t(), String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def continue(user_id, objective_id, context)
+      when is_binary(user_id) and is_binary(objective_id) and is_map(context) do
+    with :ok <- validate_effect_context(context) do
+      AllbertAssist.Objectives.Engine.Agent.continue_objective(%{
+        id: objective_id,
+        user_id: user_id,
+        allbert_pack_epoch: facade_field(context, :allbert_pack_epoch)
+      })
+    end
   end
+
+  @spec continue(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  def continue(user_id, objective_id) when is_binary(user_id) and is_binary(objective_id),
+    do: {:error, :product_not_ready}
 
   @doc "Generate an opaque objective-system id."
   @spec new_id(String.t()) :: String.t()
@@ -256,9 +297,9 @@ defmodule AllbertAssist.Objectives do
   def normalize_channel(channel) when is_binary(channel) and channel != "", do: channel
   def normalize_channel(_channel), do: nil
 
-  @doc "Create an objective."
-  @spec create_objective(map()) :: objective_result()
-  def create_objective(attrs) when is_map(attrs) do
+  @doc "Create an objective with the caller's exact readiness epoch."
+  @spec create_objective(map(), map()) :: objective_result()
+  def create_objective(attrs, context) when is_map(attrs) and is_map(context) do
     attrs =
       attrs
       |> atomize_known()
@@ -268,14 +309,22 @@ defmodule AllbertAssist.Objectives do
       |> Map.update(:acceptance_criteria, nil, &encode_jsonish/1)
       |> Map.update(:proposer_hint, nil, &encode_jsonish/1)
 
-    %Objective{}
-    |> Objective.changeset(attrs)
-    |> Repo.insert()
+    with :ok <- validate_effect_context(context) do
+      %Objective{}
+      |> Objective.changeset(attrs)
+      |> insert_with_effect_context(context)
+    end
   end
 
-  @doc "Update an objective."
-  @spec update_objective(Objective.t(), map()) :: objective_result()
-  def update_objective(%Objective{} = objective, attrs) when is_map(attrs) do
+  # Durable Objective writes are effects. Deliberately do not admit a new epoch
+  # here: callers must carry the E1 that admitted their enclosing effect.
+  @spec create_objective(map()) :: objective_result()
+  def create_objective(attrs) when is_map(attrs), do: {:error, :product_not_ready}
+
+  @doc "Update an objective with the caller's exact readiness epoch."
+  @spec update_objective(Objective.t(), map(), map()) :: objective_result()
+  def update_objective(%Objective{} = objective, attrs, context)
+      when is_map(attrs) and is_map(context) do
     attrs =
       attrs
       |> atomize_known()
@@ -285,14 +334,17 @@ defmodule AllbertAssist.Objectives do
 
     with :ok <- authorize_objective_update(objective, attrs) do
       if objective.fanout_role == "child" do
-        update_active_fanout_child(objective, attrs)
+        update_active_fanout_child(objective, attrs, context)
       else
         objective
         |> Objective.changeset(attrs)
-        |> Repo.update()
+        |> update_with_effect_context(context)
       end
     end
   end
+
+  @spec update_objective(Objective.t(), map()) :: objective_result()
+  def update_objective(%Objective{}, attrs) when is_map(attrs), do: {:error, :product_not_ready}
 
   defp authorize_objective_update(
          %Objective{fanout_role: "child", status: status},
@@ -319,29 +371,35 @@ defmodule AllbertAssist.Objectives do
 
   defp authorize_objective_update(%Objective{}, _attrs), do: :ok
 
-  defp update_active_fanout_child(objective, attrs) do
+  defp update_active_fanout_child(objective, attrs, context) do
     objective
     |> Objective.changeset(attrs)
-    |> persist_active_fanout_child(objective)
+    |> persist_active_fanout_child(objective, context)
   end
 
-  defp persist_active_fanout_child(%Ecto.Changeset{valid?: false} = changeset, _objective),
-    do: {:error, changeset}
+  defp persist_active_fanout_child(
+         %Ecto.Changeset{valid?: false} = changeset,
+         _objective,
+         _context
+       ),
+       do: {:error, changeset}
 
-  defp persist_active_fanout_child(%Ecto.Changeset{changes: changes}, objective)
+  defp persist_active_fanout_child(%Ecto.Changeset{changes: changes}, objective, _context)
        when map_size(changes) == 0,
        do: {:ok, objective}
 
-  defp persist_active_fanout_child(changeset, objective) do
+  defp persist_active_fanout_child(changeset, objective, context) do
     updates =
       changeset.changes
       |> Map.put(:updated_at, DateTime.utc_now())
       |> Map.to_list()
 
-    objective
-    |> active_fanout_child_query()
-    |> Repo.update_all(set: updates)
-    |> active_fanout_child_update_result(objective.id)
+    with :ok <- validate_effect_context(context) do
+      objective
+      |> active_fanout_child_query()
+      |> Repo.update_all(set: updates)
+      |> active_fanout_child_update_result(objective.id)
+    end
   end
 
   defp active_fanout_child_query(objective) do
@@ -445,43 +503,57 @@ defmodule AllbertAssist.Objectives do
   end
 
   @doc "Mark stale active objectives abandoned and return the count."
-  @spec abandon_stale_objectives(keyword()) ::
+  @spec abandon_stale_objectives(keyword(), map()) ::
           {:ok, non_neg_integer()} | {:error, term()}
-  def abandon_stale_objectives(opts \\ []) do
-    now = Keyword.get(opts, :now, DateTime.utc_now())
-    window_seconds = Keyword.get(opts, :window_seconds, @rehydrate_window_seconds)
-    cutoff = DateTime.add(now, -window_seconds, :second)
+  def abandon_stale_objectives(opts, context) when is_list(opts) and is_map(context) do
+    with :ok <- validate_effect_context(context) do
+      now = Keyword.get(opts, :now, DateTime.utc_now())
+      window_seconds = Keyword.get(opts, :window_seconds, @rehydrate_window_seconds)
+      cutoff = DateTime.add(now, -window_seconds, :second)
 
-    stale =
-      Objective
-      |> where([objective], objective.status in ^@active_statuses)
-      |> where([objective], objective.updated_at < ^cutoff)
+      stale =
+        Objective
+        |> where([objective], objective.status in ^@active_statuses)
+        |> where([objective], objective.updated_at < ^cutoff)
 
-    {ordinary_count, _} =
-      stale
-      |> where([objective], is_nil(objective.fanout_role))
-      |> Repo.update_all(set: [status: "abandoned", updated_at: now])
+      ordinary_query = where(stale, [objective], is_nil(objective.fanout_role))
 
-    stale_children =
-      stale
-      |> where([objective], objective.fanout_role == "child")
-      |> join(:inner, [child], parent in Objective,
-        on:
-          parent.id == child.parent_objective_id and parent.fanout_role == "parent" and
-            parent.kickoff_delivery_state == "acknowledged" and
-            parent.report_delivery_state == "not_ready"
-      )
-      |> order_by([objective], asc: objective.parent_objective_id, asc: objective.queue_position)
-      |> select([child, _parent], child)
-      |> Repo.all()
+      with {:ok, ordinary_count} <-
+             Repo.transaction(fn ->
+               {count, _} =
+                 Repo.update_all(ordinary_query, set: [status: "abandoned", updated_at: now])
 
-    case abandon_stale_fanout_children(stale_children, cutoff, now) do
-      {:ok, child_count} -> {:ok, ordinary_count + child_count}
-      {:error, reason} -> {:error, reason}
+               validate_effect_context_or_rollback!(context)
+               count
+             end) do
+        stale_children =
+          stale
+          |> where([objective], objective.fanout_role == "child")
+          |> join(:inner, [child], parent in Objective,
+            on:
+              parent.id == child.parent_objective_id and parent.fanout_role == "parent" and
+                parent.kickoff_delivery_state == "acknowledged" and
+                parent.report_delivery_state == "not_ready"
+          )
+          |> order_by([objective],
+            asc: objective.parent_objective_id,
+            asc: objective.queue_position
+          )
+          |> select([child, _parent], child)
+          |> Repo.all()
+
+        case abandon_stale_fanout_children(stale_children, cutoff, now, context) do
+          {:ok, child_count} -> {:ok, ordinary_count + child_count}
+          {:error, reason} -> {:error, reason}
+        end
+      end
     end
   end
 
-  defp abandon_stale_fanout_children(children, cutoff, now) do
+  def abandon_stale_objectives(_opts), do: {:error, :product_not_ready}
+  def abandon_stale_objectives, do: {:error, :product_not_ready}
+
+  defp abandon_stale_fanout_children(children, cutoff, now, context) do
     Enum.reduce_while(children, {:ok, 0}, fn child, {:ok, count} ->
       case TerminalTransitions.terminalize_child(
              child,
@@ -494,7 +566,8 @@ defmodule AllbertAssist.Objectives do
              "run_abandoned",
              %{reason: "stale_recovery_window_exceeded"},
              updated_before: cutoff,
-             signal: {:run_abandoned, %{reason: "stale_recovery_window_exceeded"}}
+             signal: {:run_abandoned, %{reason: "stale_recovery_window_exceeded"}},
+             effect_context: context
            ) do
         {:ok, _transition} ->
           {:cont, {:ok, count + 1}}
@@ -508,9 +581,9 @@ defmodule AllbertAssist.Objectives do
     end)
   end
 
-  @doc "Create a step."
-  @spec create_step(map()) :: step_result()
-  def create_step(attrs) when is_map(attrs) do
+  @doc "Create a step with the caller's exact readiness epoch."
+  @spec create_step(map(), map()) :: step_result()
+  def create_step(attrs, context) when is_map(attrs) and is_map(context) do
     attrs =
       attrs
       |> atomize_known()
@@ -520,16 +593,20 @@ defmodule AllbertAssist.Objectives do
       |> Map.update(:action_params, nil, &encode_jsonish/1)
       |> Map.update(:resource_access, nil, &encode_jsonish/1)
 
-    with :ok <- authorize_step_write(Map.get(attrs, :objective_id)) do
+    with :ok <- authorize_step_write(Map.get(attrs, :objective_id)),
+         :ok <- validate_effect_context(context) do
       %Step{}
       |> Step.changeset(attrs)
-      |> Repo.insert()
+      |> insert_with_effect_context(context)
     end
   end
 
-  @doc "Update a step."
-  @spec update_step(Step.t(), map()) :: step_result()
-  def update_step(%Step{} = step, attrs) when is_map(attrs) do
+  @spec create_step(map()) :: step_result()
+  def create_step(attrs) when is_map(attrs), do: {:error, :product_not_ready}
+
+  @doc "Update a step with the caller's exact readiness epoch."
+  @spec update_step(Step.t(), map(), map()) :: step_result()
+  def update_step(%Step{} = step, attrs, context) when is_map(attrs) and is_map(context) do
     attrs =
       attrs
       |> atomize_known()
@@ -537,18 +614,30 @@ defmodule AllbertAssist.Objectives do
       |> update_if_present(:action_params, &encode_jsonish/1)
       |> update_if_present(:resource_access, &encode_jsonish/1)
 
-    with :ok <- authorize_step_write(step.objective_id) do
+    with :ok <- authorize_step_write(step.objective_id),
+         :ok <- validate_effect_context(context) do
       step
       |> Step.changeset(attrs)
-      |> Repo.update()
+      |> update_with_effect_context(context)
     end
   end
 
-  @doc "Transition a step to a new status."
-  @spec transition_step(Step.t(), String.t() | atom(), map()) :: step_result()
-  def transition_step(%Step{} = step, status, attrs \\ %{}) do
-    update_step(step, Map.merge(attrs, %{status: normalize_string(status)}))
+  @spec update_step(Step.t(), map()) :: step_result()
+  def update_step(%Step{}, attrs) when is_map(attrs), do: {:error, :product_not_ready}
+
+  @doc "Transition a step with the caller's exact readiness epoch."
+  @spec transition_step(Step.t(), String.t() | atom(), map(), map()) :: step_result()
+  def transition_step(%Step{} = step, status, attrs, context)
+      when is_map(attrs) and is_map(context) do
+    update_step(step, Map.merge(attrs, %{status: normalize_string(status)}), context)
   end
+
+  @spec transition_step(Step.t(), String.t() | atom(), map()) :: step_result()
+  def transition_step(%Step{}, _status, attrs) when is_map(attrs),
+    do: {:error, :product_not_ready}
+
+  @spec transition_step(Step.t(), String.t() | atom()) :: step_result()
+  def transition_step(%Step{}, _status), do: {:error, :product_not_ready}
 
   defp authorize_step_write(objective_id) when is_binary(objective_id) do
     query =
@@ -973,9 +1062,9 @@ defmodule AllbertAssist.Objectives do
 
   defp legacy_fanout_child_marker?(_objective_id), do: false
 
-  @doc "Create an event."
-  @spec create_event(map()) :: event_result()
-  def create_event(attrs) when is_map(attrs) do
+  @doc "Create an event with the caller's exact readiness epoch."
+  @spec create_event(map(), map()) :: event_result()
+  def create_event(attrs, context) when is_map(attrs) and is_map(context) do
     attrs =
       attrs
       |> atomize_known()
@@ -983,9 +1072,40 @@ defmodule AllbertAssist.Objectives do
       |> Map.put_new(:recorded_at, DateTime.utc_now())
       |> Map.update(:payload, nil, &encode_event_payload/1)
 
-    %Event{}
-    |> Event.changeset(attrs)
-    |> Repo.insert()
+    with :ok <- validate_effect_context(context) do
+      %Event{}
+      |> Event.changeset(attrs)
+      |> insert_with_effect_context(context)
+    end
+  end
+
+  @spec create_event(map()) :: event_result()
+  def create_event(attrs) when is_map(attrs), do: {:error, :product_not_ready}
+
+  # Keep the final validation physically adjacent to each Repo mutation. This
+  # prevents an E2 replacement from being silently admitted between a caller's
+  # E1 admission and the durable write.
+  defp insert_with_effect_context(changeset, context) do
+    with :ok <- validate_effect_context(context), do: Repo.insert(changeset)
+  end
+
+  defp update_with_effect_context(changeset, context) do
+    with :ok <- validate_effect_context(context), do: Repo.update(changeset)
+  end
+
+  @doc false
+  @spec validate_effect_context(map()) :: :ok | {:error, :product_not_ready | :stale_epoch}
+  def validate_effect_context(%{allbert_pack_epoch: epoch} = context) do
+    EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
+  end
+
+  def validate_effect_context(_context), do: {:error, :product_not_ready}
+
+  defp validate_effect_context_or_rollback!(context) do
+    case validate_effect_context(context) do
+      :ok -> :ok
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
 
   @doc "List recent events for an objective."

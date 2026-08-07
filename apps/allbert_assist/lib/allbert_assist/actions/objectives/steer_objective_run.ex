@@ -33,7 +33,8 @@ defmodule AllbertAssist.Actions.Objectives.SteerObjectiveRun do
            Steering.steer(
              Maps.field(context, :user_id) || Maps.field(params, :user_id),
              Maps.field(params, :objective_id),
-             Maps.field(params, :directive)
+             Maps.field(params, :directive),
+             %{allbert_pack_epoch: Maps.field(context, :allbert_pack_epoch)}
            ) do
       {:ok, %{message: "Steering queued for #{result.objective.id}.", status: :steered}}
     else

@@ -11,8 +11,8 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
   is a thin wrapper that prints the output through `Mix.shell/0` (raising a
   `Mix.Error` on failure).
 
-  Job commands do not consume the surface context, so `dispatch/2` accepts and
-  ignores the second argument for signature parity with the other areas.
+  Job commands preserve the caller's exact Pack epoch when they reconstruct a
+  per-job identity context for a mutation.
   """
 
   alias AllbertAssist.Actions.ErrorExtraction
@@ -70,10 +70,10 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
   """
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
-  def dispatch(argv, _context \\ nil) do
+  def dispatch(argv, context \\ nil) do
     result =
       try do
-        route(argv)
+        route(argv, context || ContextBuilder.cli_context(surface: "allbert admin jobs"))
       catch
         {:jobs_error, message} -> {:error, {:message, message}}
       end
@@ -81,7 +81,7 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
     render(result)
   end
 
-  defp route(["list" | rest]) do
+  defp route(["list" | rest], _ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
     status = job_status_filter(opts)
@@ -90,13 +90,13 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
     {:ok, {:list, Jobs.list_jobs(user_id, status: status)}}
   end
 
-  defp route(["show", id]) do
+  defp route(["show", id], _ctx) do
     with {:ok, job} <- Jobs.get_job(id) do
       {:ok, {:show, job}}
     end
   end
 
-  defp route(["runs", id | rest]) do
+  defp route(["runs", id | rest], _ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
 
@@ -105,35 +105,35 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
     end
   end
 
-  defp route(["pause", id]) do
+  defp route(["pause", id], ctx) do
     with {:ok, job} <- Jobs.get_job(id),
-         {:ok, _response} <- job_action("pause_job", %{id: id}, job_context(job)),
+         {:ok, _response} <- job_action("pause_job", %{id: id}, job_context(job, ctx)),
          {:ok, updated} <- Jobs.get_job(id) do
       {:ok, {:updated, updated}}
     end
   end
 
-  defp route(["resume", id]) do
+  defp route(["resume", id], ctx) do
     with {:ok, job} <- Jobs.get_job(id),
-         {:ok, _response} <- job_action("resume_job", %{id: id}, job_context(job)),
+         {:ok, _response} <- job_action("resume_job", %{id: id}, job_context(job, ctx)),
          {:ok, updated} <- Jobs.get_job(id) do
       {:ok, {:updated, updated}}
     end
   end
 
-  defp route(["run", id]) do
+  defp route(["run", id], ctx) do
     with {:ok, job} <- Jobs.get_job(id),
-         {:ok, _response} <- job_action("run_job", %{id: id}, job_context(job)),
+         {:ok, _response} <- job_action("run_job", %{id: id}, job_context(job, ctx)),
          {:ok, run} <- latest_run(job) do
       {:ok, {:run, %{run: run, response: run_response(run)}}}
     end
   end
 
-  defp route(["templates"]) do
+  defp route(["templates"], _ctx) do
     {:ok, {:templates, Templates.templates()}}
   end
 
-  defp route(["create", "runtime-prompt", name | rest]) do
+  defp route(["create", "runtime-prompt", name | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
 
@@ -154,10 +154,10 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
       }
       |> merge_common_attrs(opts)
 
-    create_job(attrs)
+    create_job(attrs, ctx)
   end
 
-  defp route(["create", "template", template | rest]) do
+  defp route(["create", "template", template | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
 
@@ -169,11 +169,11 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
            }) do
       attrs
       |> merge_common_attrs(opts)
-      |> create_job()
+      |> create_job(ctx)
     end
   end
 
-  defp route(_args), do: {:usage, @usage}
+  defp route(_args, _ctx), do: {:usage, @usage}
 
   defp render({:ok, {:list, []}}), do: Render.ok("No jobs.")
 
@@ -271,8 +271,8 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
       ]
   end
 
-  defp create_job(attrs) do
-    ctx = cli_context(attrs[:user_id], attrs[:operator_id])
+  defp create_job(attrs, base_context) do
+    ctx = cli_context(attrs[:user_id], attrs[:operator_id], base_context)
 
     with {:ok, response} <-
            job_action("create_job", %{attrs: attrs, user_id: attrs[:user_id]}, ctx) do
@@ -315,14 +315,16 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
 
   defp run_response(_run), do: nil
 
-  defp job_context(%Job{} = job), do: cli_context(job.user_id, job.operator_id)
+  defp job_context(%Job{} = job, base_context),
+    do: cli_context(job.user_id, job.operator_id, base_context)
 
-  defp cli_context(user_id, operator_id) do
+  defp cli_context(user_id, operator_id, base_context) do
     ContextBuilder.cli_context(
       actor: user_id,
       user_id: user_id,
       operator_id: operator_id,
-      surface: "allbert admin jobs"
+      surface: "allbert admin jobs",
+      allbert_pack_epoch: Map.get(base_context, :allbert_pack_epoch)
     )
   end
 

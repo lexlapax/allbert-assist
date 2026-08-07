@@ -16,47 +16,47 @@ defmodule AllbertAssist.Confirmations do
   defdelegate ensure_root!(), to: Store
 
   @doc """
-  Create a durable confirmation without trusted Runner context.
+  Create a durable confirmation with the caller's exact readiness context.
 
   A complete objective/step pair supplied by an internal domain is classified
   for durable objective verification. Fan-out-child binding is never inferred
-  here; it requires the context-bound API below.
+  here; objective provenance is taken from that same carried context.
   """
-  @spec create(map(), keyword() | map()) :: {:ok, map()} | {:error, term()}
-  def create(attrs, opts_or_context \\ [])
+  @spec create(map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create(attrs, effect_context, opts \\ [])
 
-  def create(attrs, opts) when is_map(attrs) and is_list(opts),
-    do: Store.create(attrs, binding_opts(opts, objective_binding_kind(attrs, %{})))
+  def create(attrs, effect_context, opts)
+      when is_map(attrs) and is_map(effect_context) and is_list(opts) do
+    with :ok <- validate_context_binding(attrs, effect_context) do
+      bound_attrs = bind_objective_context(attrs, effect_context)
 
-  def create(attrs, context) when is_map(attrs) and is_map(context),
-    do: create(attrs, context, [])
+      Store.create(
+        bound_attrs,
+        effect_context,
+        binding_opts(opts, objective_binding_kind(bound_attrs, effect_context))
+      )
+    end
+  end
+
+  # The former opts-only internal API is routed through the generated default
+  # arity and fails here because it cannot carry a valid readiness context.
+  def create(_attrs, _effect_context, _opts), do: {:error, :product_not_ready}
 
   @doc """
-  Create a confirmation bound to the objective/step in trusted runner context.
+  Create a confirmation bound to the objective/step in the carried runner
+  context. The context must contain the exact ready E1 accepted by Pack
+  Readiness; legacy opts-only calls fail closed.
 
   Objective provenance is copied into top-level record fields, the redacted
   origin, and the bounded rendering snapshot. The runner context wins over any
   action-supplied values so a confirmed fan-out step cannot redirect approval
   to another objective or step.
   """
-  @spec create(map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
-  def create(attrs, context, opts)
-      when is_map(attrs) and is_map(context) and is_list(opts) do
-    with :ok <- validate_context_binding(attrs, context) do
-      bound_attrs = bind_objective_context(attrs, context)
-
-      Store.create(
-        bound_attrs,
-        binding_opts(opts, objective_binding_kind(bound_attrs, context))
-      )
-    end
-  end
-
   defdelegate read(id), to: Store
   defdelegate list(opts \\ []), to: Store
-  defdelegate resolve(id, status, resolution_attrs \\ %{}, opts \\ []), to: Store
-  defdelegate annotate_resolution(id, attrs, opts \\ []), to: Store
-  defdelegate expire(opts \\ []), to: Store
+  defdelegate resolve(id, status, resolution_attrs, effect_context, opts \\ []), to: Store
+  defdelegate annotate_resolution(id, attrs, effect_context, opts \\ []), to: Store
+  defdelegate expire(effect_context, opts \\ []), to: Store
 
   @doc false
   @spec bind_objective_context(map(), map()) :: map()

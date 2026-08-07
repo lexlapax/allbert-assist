@@ -341,7 +341,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     )
   end
 
-  defp route(["whatsapp", "post-webhook" | rest], _ctx) do
+  defp route(["whatsapp", "post-webhook" | rest], ctx) do
     {opts, args, invalid} = parse!(rest)
     reject_invalid!(invalid)
 
@@ -350,7 +350,8 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       Keyword.get(opts, :message_id),
       Keyword.get(opts, :bad_signature, false),
       Keyword.get(opts, :url),
-      single_arg!(args, "Prompt is required")
+      single_arg!(args, "Prompt is required"),
+      ctx
     )
   end
 
@@ -890,16 +891,19 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          session_id <- Channels.derive_session_id("telegram", external_user_id, chat_id),
          {prompt, new_thread?} <- prompt_text(text),
          {:ok, event} <-
-           Channels.create_event(%{
-             channel: "telegram",
-             provider: "telegram_bot_api",
-             direction: "inbound",
-             external_event_id: "sim_#{Ecto.UUID.generate()}",
-             external_user_id: external_user_id,
-             external_chat_id: chat_id,
-             status: "received",
-             payload_summary: "telegram simulate"
-           }),
+           Channels.create_event(
+             %{
+               channel: "telegram",
+               provider: "telegram_bot_api",
+               direction: "inbound",
+               external_event_id: "sim_#{Ecto.UUID.generate()}",
+               external_user_id: external_user_id,
+               external_chat_id: chat_id,
+               status: "received",
+               payload_summary: "telegram simulate"
+             },
+             %{allbert_pack_epoch: epoch}
+           ),
          {:ok, response} <-
            Runtime.submit_user_input(
              %{
@@ -916,7 +920,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
            ),
          {:ok, rendered, _keyboard} <- Telegram.Renderer.render_response(response),
          :ok <- EffectGuard.validate(epoch),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
          :ok <- EffectGuard.validate(epoch),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}) do
       {:ok, {:simulate, event, rendered}}
@@ -931,15 +935,18 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          session_id <- Channels.derive_session_id("email", external_user_id, nil),
          {prompt, prompted_new_thread?} <- prompt_text(text),
          {:ok, event} <-
-           Channels.create_event(%{
-             channel: "email",
-             provider: "email_imap",
-             direction: "inbound",
-             external_event_id: "sim_#{Ecto.UUID.generate()}",
-             external_user_id: external_user_id,
-             status: "received",
-             payload_summary: "email simulate"
-           }),
+           Channels.create_event(
+             %{
+               channel: "email",
+               provider: "email_imap",
+               direction: "inbound",
+               external_event_id: "sim_#{Ecto.UUID.generate()}",
+               external_user_id: external_user_id,
+               status: "received",
+               payload_summary: "email simulate"
+             },
+             %{allbert_pack_epoch: epoch}
+           ),
          {:ok, response} <-
            Runtime.submit_user_input(
              %{
@@ -956,7 +963,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
            ),
          {:ok, _subject, body, _html} <- Email.Renderer.render_response(response),
          :ok <- EffectGuard.validate(epoch),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
          :ok <- EffectGuard.validate(epoch),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "email"}) do
       {:ok, {:simulate, event, [body]}}
@@ -971,16 +978,19 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          session_id <- Channels.derive_session_id("matrix", external_user_id, room_id),
          {prompt, new_thread?} <- prompt_text(text),
          {:ok, event} <-
-           Channels.create_event(%{
-             channel: "matrix",
-             provider: "matrix_client_server",
-             direction: "inbound",
-             external_event_id: "sim_" <> Ecto.UUID.generate(),
-             external_user_id: external_user_id,
-             external_chat_id: room_id,
-             status: "received",
-             payload_summary: "matrix simulate"
-           }),
+           Channels.create_event(
+             %{
+               channel: "matrix",
+               provider: "matrix_client_server",
+               direction: "inbound",
+               external_event_id: "sim_" <> Ecto.UUID.generate(),
+               external_user_id: external_user_id,
+               external_chat_id: room_id,
+               status: "received",
+               payload_summary: "matrix simulate"
+             },
+             %{allbert_pack_epoch: epoch}
+           ),
          {:ok, response} <-
            Runtime.submit_user_input(
              %{
@@ -997,7 +1007,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
            ),
          {:ok, rendered} <- Matrix.Renderer.render_response(response),
          :ok <- EffectGuard.validate(epoch),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
          :ok <- EffectGuard.validate(epoch),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "matrix"}) do
       {:ok, {:simulate, event, rendered}}
@@ -1029,7 +1039,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   # bypasses the HTTP/signature layer) it exercises `X-Hub-Signature-256`
   # verification before parse. `--bad-signature` sends a wrong digest to confirm the
   # HTTP 401 denial.
-  defp post_whatsapp_webhook!(from, message_id, bad_signature?, base_url, text) do
+  defp post_whatsapp_webhook!(from, message_id, bad_signature?, base_url, text, context) do
     with {:ok, settings} <- Channels.channel_settings("whatsapp"),
          {:ok, phone_number_id} <- whatsapp_phone_number_id(settings),
          app_secret_ref <-
@@ -1052,7 +1062,13 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       url =
         String.trim_trailing(base, "/") <> "/webhooks/whatsapp/" <> URI.encode(phone_number_id)
 
-      post_signed_whatsapp_webhook(url, raw_body, signature, bad_signature?)
+      post_signed_whatsapp_webhook(
+        url,
+        raw_body,
+        signature,
+        bad_signature?,
+        Map.get(context, :allbert_pack_epoch)
+      )
     end
   end
 
@@ -1073,26 +1089,30 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     "sha256=" <> String.duplicate("0", 64)
   end
 
-  defp post_signed_whatsapp_webhook(url, raw_body, signature, bad_signature?) do
+  defp post_signed_whatsapp_webhook(url, raw_body, signature, bad_signature?, epoch) do
     expected = if bad_signature?, do: :deny_401, else: :accept_202
 
-    case Req.post(url,
-           headers: [
-             {"content-type", "application/json"},
-             {"x-hub-signature-256", signature}
-           ],
-           body: raw_body,
-           decode_body: false,
-           retry: false
-         ) do
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:ok, {:webhook_post, status, to_string(body), expected, bad_signature?}}
+    with :ok <- EffectGuard.validate(epoch),
+         result <-
+           Req.post(url,
+             headers: [
+               {"content-type", "application/json"},
+               {"x-hub-signature-256", signature}
+             ],
+             body: raw_body,
+             decode_body: false,
+             retry: false
+           ) do
+      case result do
+        {:ok, %Req.Response{status: status, body: body}} ->
+          {:ok, {:webhook_post, status, to_string(body), expected, bad_signature?}}
 
-      {:error, exception} when is_exception(exception) ->
-        {:error, {:webhook_post_transport, Exception.message(exception)}}
+        {:error, exception} when is_exception(exception) ->
+          {:error, {:webhook_post_transport, Exception.message(exception)}}
 
-      {:error, reason} ->
-        {:error, {:webhook_post_transport, reason}}
+        {:error, reason} ->
+          {:error, {:webhook_post_transport, reason}}
+      end
     end
   end
 
@@ -1279,15 +1299,19 @@ defmodule AllbertAssist.CLI.Areas.Channels do
 
   defp carried_epoch(_ctx), do: {:error, :product_not_ready}
 
-  defp mark_simulated_event(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      thread_id: response_value(response, :thread_id),
-      input_signal_id: response_value(response, :input_signal_id),
-      trace_id: response_value(response, :trace_id)
-    })
+  defp mark_simulated_event(event, response, user_id, session_id, epoch) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        thread_id: response_value(response, :thread_id),
+        input_signal_id: response_value(response, :input_signal_id),
+        trace_id: response_value(response, :trace_id)
+      },
+      %{allbert_pack_epoch: epoch}
+    )
   end
 
   defp simulate_metadata(channel, provider, event, message_id) do

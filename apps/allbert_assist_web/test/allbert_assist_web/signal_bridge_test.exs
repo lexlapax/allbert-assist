@@ -10,6 +10,7 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.Guard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssistWeb.SignalBridge
   alias Jido.Signal
 
@@ -111,6 +112,69 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
   end
 
+  test "queued E1 signals are suppressed during rotation and never replayed by the E2 bridge" do
+    e1 = %{
+      barrier_pid: spawn(fn -> Process.sleep(:infinity) end),
+      snapshot_digest: String.duplicate("a", 64)
+    }
+
+    e2 = %{
+      barrier_pid: spawn(fn -> Process.sleep(:infinity) end),
+      snapshot_digest: String.duplicate("a", 64)
+    }
+
+    readiness = start_supervised!({Agent, fn -> e1 end})
+
+    bridge_opts = fn name ->
+      [
+        name: name,
+        subscribe_fun: fn _bus, pattern -> {:ok, pattern} end,
+        unsubscribe_fun: fn _bus, _subscription_id -> :ok end,
+        validate_fun: fn epoch ->
+          if epoch == Agent.get(readiness, & &1), do: :ok, else: {:error, :stale_epoch}
+        end
+      ]
+    end
+
+    e1_name = :"signal_bridge_queued_e1_#{System.unique_integer([:positive])}"
+    e1_pid = start_supervised!({SignalBridge, bridge_opts.(e1_name)})
+    assert :ok = SignalBridge.open(e1_name, e1)
+
+    Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for("alice"))
+
+    assert {:ok, stale_signal} =
+             Signal.new(
+               "allbert.objective.created",
+               %{user_id: "alice", objective_id: nil, title: "stale E1"},
+               source: "/allbert/test"
+             )
+
+    :erlang.suspend_process(e1_pid)
+    Agent.update(readiness, fn _ -> e2 end)
+    send(e1_pid, {:signal, stale_signal})
+    SignalBridge.close(e1_pid)
+    e1_ref = Process.monitor(e1_pid)
+    :erlang.resume_process(e1_pid)
+
+    assert_receive {:DOWN, ^e1_ref, :process, ^e1_pid, :normal}
+    refute_receive {:objective_event, %{data: %{title: "stale E1"}}}, 100
+
+    e2_name = :"signal_bridge_queued_e2_#{System.unique_integer([:positive])}"
+    e2_pid = start_supervised!({SignalBridge, bridge_opts.(e2_name)})
+    assert :ok = SignalBridge.open(e2_name, e2)
+
+    assert {:ok, fresh_signal} =
+             Signal.new(
+               "allbert.objective.created",
+               %{user_id: "alice", objective_id: nil, title: "fresh E2"},
+               source: "/allbert/test"
+             )
+
+    send(e2_pid, {:signal, fresh_signal})
+    assert_receive {:objective_event, %{data: %{title: "fresh E2"}}}, 1_000
+    refute_receive {:objective_event, %{data: %{title: "stale E1"}}}, 100
+  end
+
   test "routes plural fan-out signals through durable objective ownership" do
     name = :"signal_bridge_fanout_#{System.unique_integer([:positive])}"
     start_supervised!({SignalBridge, name: name, validate_fun: fn _epoch -> :ok end})
@@ -132,12 +196,15 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for("mallory"))
 
     assert {:ok, parent} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Owned fan-out",
-               objective: "Route durable ownership",
-               fanout_role: "parent"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Owned fan-out",
+                 objective: "Route durable ownership",
+                 fanout_role: "parent"
+               },
+               ReadyEffectContext.context()
+             )
 
     assert :ok =
              Signals.emit_fanout(:run_progress, %{
@@ -308,8 +375,10 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     envelope
   end
 
-  defp epoch do
-    %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}
+  defp epoch, do: epoch("a")
+
+  defp epoch(digest_character) do
+    %{barrier_pid: self(), snapshot_digest: String.duplicate(digest_character, 64)}
   end
 
   defp assert_open(name, attempts \\ 20)

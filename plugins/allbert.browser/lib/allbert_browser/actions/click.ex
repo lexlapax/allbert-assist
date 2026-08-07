@@ -59,12 +59,16 @@ defmodule AllbertBrowser.Actions.Click do
         )
 
       true ->
-        click(decision, session_id, selector, label_preview)
+        click(context, decision, session_id, selector, label_preview)
     end
   end
 
-  defp click(decision, session_id, selector, label_preview) do
-    case Session.click(session_id, selector, visible_label_preview: label_preview) do
+  defp click(context, decision, session_id, selector, label_preview) do
+    case Session.click(
+           session_id,
+           selector,
+           [visible_label_preview: label_preview] ++ Actions.session_effect_opts(context)
+         ) do
       {:ok, click} ->
         {:ok,
          %{

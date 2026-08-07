@@ -128,6 +128,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
              state.since,
              state.sync_timeout_ms,
              sync_req_options(state)
+             |> Keyword.put(:allbert_pack_epoch, epoch)
+             |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
            ) do
         {:ok, sync} ->
           state = Map.put(state, :effect_epoch, epoch)
@@ -210,6 +212,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
            nil,
            state.sync_timeline_limit,
            state.req_options
+           |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+           |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
          ) do
       {:ok, messages} ->
         Parser.parse_messages(room_id, messages)
@@ -232,7 +236,10 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   end
 
   defp process_parsed_event({:text_message, fields}, state), do: process_text_event(fields, state)
-  defp process_parsed_event({:unsupported, fields}, _state), do: insert_rejected_event(fields)
+
+  defp process_parsed_event({:unsupported, fields}, state),
+    do: insert_rejected_event(fields, state)
+
   defp process_parsed_event({:malformed, reason}, _state), do: {:error, {:malformed, reason}}
 
   defp process_text_event(fields, state) do
@@ -241,7 +248,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     command = ConfirmationCallback.parse_typed_command(text, matrix_typed_command_opts())
     fields = maybe_isolate_new_provider_thread(fields, new_thread?)
 
-    case insert_received_event(fields, event_direction(command)) do
+    case insert_received_event(fields, event_direction(command), state) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         handle_text_event(event, carry_epoch(fields, state), text, new_thread?, command, state)
 
@@ -284,15 +291,15 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
            end),
          :ok <- maybe_record_outbound_refs(record_refs?, response, fields, delivered),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "matrix"}),
-         {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+         {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
       {:ok, :processed}
     else
       {:error, {:delivery_failed, _reason} = reason} ->
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:error, reason}
 
       {:error, reason} ->
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:ok, :rejected}
     end
   end
@@ -355,7 +362,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
   defp maybe_record_outbound_refs(false, _response, _fields, _delivered), do: :ok
 
-  defp insert_received_event(fields, direction) do
+  defp insert_received_event(fields, direction, state) do
     %{
       channel: "matrix",
       provider: @provider,
@@ -367,11 +374,11 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       status: "received",
       payload_summary: fields.raw_summary
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result()
   end
 
-  defp insert_rejected_event(fields) do
+  defp insert_rejected_event(fields, state) do
     %{
       channel: "matrix",
       provider: @provider,
@@ -383,7 +390,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       reason: Map.get(fields, :type, "unsupported_event"),
       payload_summary: "unsupported matrix event"
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result(:rejected)
   end
 
@@ -526,11 +533,21 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
+    |> Runtime.submit_user_input(
+      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
+      allbert_pack_effect_guard_opts: Map.fetch!(fields, :allbert_pack_effect_guard_opts)
+    )
   end
 
   defp carry_epoch(fields, state),
-    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+    do: Map.merge(fields, effect_context(state))
+
+  defp effect_context(state) do
+    %{
+      allbert_pack_epoch: Map.fetch!(state, :effect_epoch),
+      allbert_pack_effect_guard_opts: state.effect_guard_opts
+    }
+  end
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -558,6 +575,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
              txn_id,
              content,
              state.req_options
+             |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+             |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
            ) do
         {:ok, %{"event_id" => event_id} = message} ->
           delivered_part = %{
@@ -605,27 +624,31 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     end)
   end
 
-  defp mark_processed(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      thread_id: response_value(response, :thread_id),
-      input_signal_id: response_value(response, :input_signal_id),
-      trace_id: response_value(response, :trace_id)
-    })
+  defp mark_processed(event, response, user_id, session_id, context) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        thread_id: response_value(response, :thread_id),
+        input_signal_id: response_value(response, :input_signal_id),
+        trace_id: response_value(response, :trace_id)
+      },
+      context
+    )
   end
 
-  defp mark_rejected_or_failed(event, {:delivery_failed, reason}) do
-    Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))})
+  defp mark_rejected_or_failed(event, {:delivery_failed, reason}, context) do
+    Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))}, context)
   end
 
-  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}) do
-    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
+  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}, context) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"}, context)
   end
 
-  defp mark_rejected_or_failed(event, reason) do
-    Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
+  defp mark_rejected_or_failed(event, reason, context) do
+    Channels.update_event(event, %{status: "rejected", reason: inspect(reason)}, context)
   end
 
   @doc false
@@ -645,7 +668,15 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
         })
 
       txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
-      req_options = Keyword.get(opts, :req_options, [])
+
+      req_options =
+        opts
+        |> Keyword.get(:req_options, [])
+        |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+        |> Keyword.put(
+          :allbert_pack_effect_guard_opts,
+          Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+        )
 
       with :ok <- validate_outbound_epoch(opts) do
         case Client.send_message(
@@ -684,7 +715,15 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
          {:ok, homeserver_url} <- homeserver_url(settings),
          {:ok, access_token} <- resolve_access_token(settings) do
       txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
-      req_options = Keyword.get(opts, :req_options, [])
+
+      req_options =
+        opts
+        |> Keyword.get(:req_options, [])
+        |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+        |> Keyword.put(
+          :allbert_pack_effect_guard_opts,
+          Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+        )
 
       with :ok <- validate_outbound_epoch(opts) do
         case Client.replace_message(
@@ -719,7 +758,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
   defp validate_outbound_epoch(opts) do
     with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
-         :ok <- EffectGuard.validate(epoch) do
+         :ok <-
+           EffectGuard.validate(epoch, Keyword.get(opts, :allbert_pack_effect_guard_opts, [])) do
       :ok
     else
       _error -> {:error, :product_not_ready}

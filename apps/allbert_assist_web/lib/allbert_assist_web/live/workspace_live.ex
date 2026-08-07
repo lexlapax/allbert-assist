@@ -84,7 +84,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     objective_focus = resolve_objective_focus(params, canvas_destination, user_id)
     artifacts_browser_filters = resolve_artifacts_browser_filters(params)
     settings = workspace_settings_snapshot(user_id, session_id)
-    first_run_presentation = web_first_run_presentation()
+    first_run_presentation = web_first_run_presentation(socket)
     model_disclosure = if connected?(socket), do: Disclosure.prepare_web_delivery(), else: :none
 
     if connected?(socket) do
@@ -1702,8 +1702,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     WorkspaceFirstRun.default_destination() || Layout.default_destination()
   end
 
-  defp web_first_run_presentation do
-    model_state = Onboarding.safe_first_model_state()
+  defp web_first_run_presentation(socket) do
+    model_state =
+      Onboarding.safe_first_model_state(
+        context: %{allbert_pack_epoch: Map.get(socket.assigns, :allbert_pack_epoch)}
+      )
 
     case Enablement.preview(model_state) do
       {:ok, result} -> web_presentation_for(result)
@@ -2773,12 +2776,16 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     command = "ALLBERT:#{action |> to_string() |> String.upcase()}:#{confirmation_id}"
 
     event =
-      EventRecorder.record_inbound(:live_view, %{
-        user_id: socket.assigns.user_id,
-        session_id: socket.assigns.session_id,
-        thread_id: socket.assigns.thread_id,
-        payload_summary: command
-      })
+      EventRecorder.record_inbound(
+        :live_view,
+        %{
+          user_id: socket.assigns.user_id,
+          session_id: socket.assigns.session_id,
+          thread_id: socket.assigns.thread_id,
+          payload_summary: command
+        },
+        %{allbert_pack_epoch: socket.assigns.allbert_pack_epoch}
+      )
 
     callback = %{
       action: action,
@@ -2793,11 +2800,17 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
     case ConfirmationCallback.run(callback) do
       {:ok, response} ->
-        EventRecorder.mark_result(event, {:ok, response})
+        EventRecorder.mark_result(event, {:ok, response}, %{
+          allbert_pack_epoch: socket.assigns.allbert_pack_epoch
+        })
+
         typed_confirmation_resolved(socket, response)
 
       {:error, reason} ->
-        EventRecorder.mark_rejected(event, reason)
+        EventRecorder.mark_rejected(event, reason, %{
+          allbert_pack_epoch: socket.assigns.allbert_pack_epoch
+        })
+
         typed_confirmation_rejected(socket, action, confirmation_id, reason)
     end
   end
@@ -2910,7 +2923,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     event =
       EventRecorder.record_inbound(
         :live_view,
-        surface_event_attrs(runtime_request, prompt, socket.assigns.user_id)
+        surface_event_attrs(runtime_request, prompt, socket.assigns.user_id),
+        %{allbert_pack_epoch: socket.assigns.allbert_pack_epoch}
       )
 
     epoch = socket.assigns.allbert_pack_epoch
@@ -2935,7 +2949,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           allbert_pack_epoch: epoch
         )
 
-      EventRecorder.mark_result(event, result)
+      EventRecorder.mark_result(event, result, %{allbert_pack_epoch: epoch})
       result
     end)
   end

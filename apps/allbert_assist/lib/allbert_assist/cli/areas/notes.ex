@@ -103,7 +103,8 @@ defmodule AllbertAssist.CLI.Areas.Notes do
       actor: user_id,
       user_id: user_id,
       operator_id: user_id,
-      surface: Map.get(ctx, :surface) || "allbert admin notes"
+      surface: Map.get(ctx, :surface) || "allbert admin notes",
+      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch)
     )
   end
 

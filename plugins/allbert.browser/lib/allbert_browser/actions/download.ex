@@ -56,7 +56,7 @@ defmodule AllbertBrowser.Actions.Download do
         Actions.denied("browser_download", :browser_download, decision, :permission_denied)
 
       Actions.approval_resume?(context) ->
-        download(params, decision, session_id, url)
+        download(params, context, decision, session_id, url)
 
       true ->
         Actions.confirmation(
@@ -75,8 +75,8 @@ defmodule AllbertBrowser.Actions.Download do
     end
   end
 
-  defp download(params, decision, session_id, url) do
-    opts = [filename: Actions.field(params, :filename)]
+  defp download(params, context, decision, session_id, url) do
+    opts = [filename: Actions.field(params, :filename)] ++ Actions.session_effect_opts(context)
 
     case Session.download(session_id, url, opts) do
       {:ok, download} ->

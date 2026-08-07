@@ -54,7 +54,8 @@ defmodule AllbertAssist.Execution.LocalRunner do
              env: Enum.to_list(spec.env),
              timeout_ms: spec.timeout_ms,
              max_output_bytes: spec.max_output_bytes,
-             execution_id: Keyword.get(opts, :execution_id, Ecto.UUID.generate())
+             execution_id: Keyword.get(opts, :execution_id, Ecto.UUID.generate()),
+             allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)
            ) do
       buffer = %OutputBuffer{
         limit: spec.max_output_bytes,

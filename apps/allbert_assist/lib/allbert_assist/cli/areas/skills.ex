@@ -242,7 +242,11 @@ defmodule AllbertAssist.CLI.Areas.Skills do
   defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp context(ctx) do
-    ContextBuilder.cli_context(surface: surface(ctx), selected_skill: nil)
+    ContextBuilder.cli_context(
+      surface: surface(ctx),
+      selected_skill: nil,
+      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch)
+    )
   end
 
   defp surface(ctx), do: Map.get(ctx, :surface) || "allbert admin skills"

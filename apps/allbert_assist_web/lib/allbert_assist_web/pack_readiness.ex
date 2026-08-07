@@ -36,7 +36,7 @@ defmodule AllbertAssistWeb.PackReadiness do
   @spec disconnect() :: :ok
   def disconnect do
     Phoenix.Channel.Server.broadcast(
-      AllbertAssistWeb.PubSub,
+      AllbertAssist.PubSub,
       @disconnect_topic,
       "disconnect",
       %{}
@@ -62,7 +62,10 @@ defmodule AllbertAssistWeb.PackReadiness do
   def on_mount(:live_session, _params, session, socket) do
     epoch =
       if Phoenix.LiveView.connected?(socket) do
-        Phoenix.LiveView.get_connect_info(socket, :allbert_pack_epoch)
+        case socket.private[:connect_info] do
+          %Plug.Conn{} = conn -> conn.private[:allbert_pack_epoch]
+          _transport_info -> Phoenix.LiveView.get_connect_info(socket, :allbert_pack_epoch)
+        end
       else
         Map.get(session, "allbert_pack_epoch")
       end

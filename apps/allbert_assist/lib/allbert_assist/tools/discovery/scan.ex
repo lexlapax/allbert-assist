@@ -27,7 +27,10 @@ defmodule AllbertAssist.Tools.Discovery.Scan do
 
   @doc "Enable MCP discovery and ensure the scan job exists, still paused."
   def enable(opts \\ []) do
-    with {:ok, _setting} <- Settings.put("mcp.discovery.enabled", true, %{audit?: false}) do
+    opts = opts_map(opts)
+
+    with {:ok, _setting} <-
+           Settings.put("mcp.discovery.enabled", true, settings_context(opts)) do
       ensure_job(opts)
     end
   end
@@ -176,4 +179,12 @@ defmodule AllbertAssist.Tools.Discovery.Scan do
   defp opts_map(opts) when is_map(opts), do: opts
   defp opts_map(opts) when is_list(opts), do: Map.new(opts)
   defp opts_map(_opts), do: %{}
+
+  defp settings_context(opts) do
+    context = Map.get(opts, :action_context, %{})
+
+    context
+    |> Map.put(:audit?, false)
+    |> Map.put_new(:allbert_pack_epoch, Map.get(opts, :allbert_pack_epoch))
+  end
 end

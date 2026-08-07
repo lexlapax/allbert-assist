@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.SlackTest do
   alias AllbertAssist.Channels.Slack.Client.SocketModePort
   alias AllbertAssist.Channels.Slack.Parser
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -317,7 +318,7 @@ defmodule AllbertAssist.Channels.SlackTest do
 
   test "adapter rejects channel messages when inbound trust is denied" do
     assert {:ok, _setting} =
-             Settings.put("permissions.channel_message_inbound", "denied", %{audit?: false})
+             put_setting("permissions.channel_message_inbound", "denied", %{audit?: false})
 
     assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
 
@@ -608,7 +609,7 @@ defmodule AllbertAssist.Channels.SlackTest do
 
   test "adapter honors response_style gating (dm_only ignores channel mentions, processes DMs)" do
     assert {:ok, _setting} =
-             Settings.put("channels.slack.response_style", "dm_only", %{audit?: false})
+             put_setting("channels.slack.response_style", "dm_only", %{audit?: false})
 
     assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
 
@@ -670,7 +671,7 @@ defmodule AllbertAssist.Channels.SlackTest do
   end
 
   test "adapter ignores its own posts identified by bot user id" do
-    assert {:ok, _setting} = Settings.put("channels.slack.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.slack.enabled", true, %{audit?: false})
     Fragments.clear_cache()
 
     assert {:ok, adapter} =
@@ -733,23 +734,23 @@ defmodule AllbertAssist.Channels.SlackTest do
 
   defp configure_slack do
     assert {:ok, _setting} =
-             Settings.put("channels.slack.bot_token_ref", "secret://channels/slack/bot_token", %{
+             put_setting("channels.slack.bot_token_ref", "secret://channels/slack/bot_token", %{
                audit?: false
              })
 
     assert {:ok, _setting} =
-             Settings.put("channels.slack.app_token_ref", "secret://channels/slack/app_token", %{
+             put_setting("channels.slack.app_token_ref", "secret://channels/slack/app_token", %{
                audit?: false
              })
 
     assert {:ok, _setting} =
-             Settings.put("channels.slack.workspace_team_id", "T0123ABCDE", %{audit?: false})
+             put_setting("channels.slack.workspace_team_id", "T0123ABCDE", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.slack.allowed_channel_ids", ["C0123ABCDE"], %{audit?: false})
+             put_setting("channels.slack.allowed_channel_ids", ["C0123ABCDE"], %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.slack.identity_map",
                [%{"external_user_id" => "U0123ABCDE", "user_id" => "alice", "enabled" => true}],
                %{audit?: false}
@@ -767,16 +768,22 @@ defmodule AllbertAssist.Channels.SlackTest do
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "slack-test"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "slack-test"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

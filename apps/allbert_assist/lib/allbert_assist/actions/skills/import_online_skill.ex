@@ -72,7 +72,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
   defp execute_import(id, source, permission_decision, context) do
-    with {:ok, detail} <- RegistryClient.show(source, id),
+    with {:ok, detail} <- RegistryClient.show(source, id, context),
          audit <- Audit.run(detail),
          {:ok, import} <- Importer.import(detail, audit, Source.summary(source)) do
       import =

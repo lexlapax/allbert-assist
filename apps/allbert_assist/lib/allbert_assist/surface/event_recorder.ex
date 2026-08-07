@@ -14,46 +14,42 @@ defmodule AllbertAssist.Surface.EventRecorder do
   @failed_statuses [:error, :failed, :unsupported, :unavailable, :timed_out, :cancelled]
 
   @spec record_inbound(String.t() | atom(), map()) :: Event.t() | nil
-  def record_inbound(surface_id, attrs \\ %{}) when is_map(attrs) do
-    create(surface_id, attrs, "inbound", "received")
+  def record_inbound(surface_id, attrs \\ %{}) when is_map(attrs),
+    do: record_inbound(surface_id, attrs, %{})
+
+  def record_inbound(surface_id, attrs, context) when is_map(attrs) and is_map(context) do
+    create(surface_id, attrs, "inbound", "received", context)
   end
 
   @spec record_rejection(String.t() | atom(), map()) :: Event.t() | nil
-  def record_rejection(surface_id, attrs \\ %{}) when is_map(attrs) do
-    create(surface_id, attrs, "inbound", "rejected")
+  def record_rejection(surface_id, attrs \\ %{}) when is_map(attrs),
+    do: record_rejection(surface_id, attrs, %{})
+
+  def record_rejection(surface_id, attrs, context) when is_map(attrs) and is_map(context) do
+    create(surface_id, attrs, "inbound", "rejected", context)
   end
 
   @spec record_error(String.t() | atom(), map(), term()) :: Event.t() | nil
   def record_error(surface_id, attrs \\ %{}, reason) when is_map(attrs) do
-    create(surface_id, Map.put_new(attrs, :error, inspect(reason)), "inbound", "failed")
+    create(surface_id, Map.put_new(attrs, :error, inspect(reason)), "inbound", "failed", %{})
   end
 
   @spec mark_result(Event.t() | nil, {:ok, map()} | {:error, term()} | term()) :: :ok
   def mark_result(%Event{} = event, {:ok, response}) when is_map(response) do
-    status = Response.status(response)
-
-    attrs =
-      response
-      |> response_attrs()
-      |> Map.put(:status, event_status(status))
-      |> maybe_put_reason(status)
-
-    update(event, attrs)
+    mark_result(event, {:ok, response}, %{})
   end
 
-  def mark_result(%Event{} = event, {:error, reason}) do
-    update(event, %{status: "failed", error: inspect(reason)})
-  end
+  def mark_result(%Event{} = event, {:error, reason}),
+    do: mark_result(event, {:error, reason}, %{})
 
   def mark_result(%Event{} = event, other) do
-    update(event, %{status: "failed", error: inspect(other)})
+    update(event, %{status: "failed", error: inspect(other)}, %{})
   end
 
   def mark_result(nil, _result), do: :ok
 
-  @doc "Persist a successful result and report write failure to delivery-barrier callers."
-  @spec mark_result_durable(Event.t() | nil, map()) :: :ok | {:error, term()}
-  def mark_result_durable(%Event{} = event, response) when is_map(response) do
+  def mark_result(%Event{} = event, {:ok, response}, context)
+      when is_map(response) and is_map(context) do
     status = Response.status(response)
 
     attrs =
@@ -62,29 +58,70 @@ defmodule AllbertAssist.Surface.EventRecorder do
       |> Map.put(:status, event_status(status))
       |> maybe_put_reason(status)
 
-    case Channels.update_event(event, attrs) do
+    update(event, attrs, context)
+  end
+
+  def mark_result(%Event{} = event, {:error, reason}, context) when is_map(context) do
+    update(event, %{status: "failed", error: inspect(reason)}, context)
+  end
+
+  def mark_result(%Event{} = event, other, context) when is_map(context) do
+    update(event, %{status: "failed", error: inspect(other)}, context)
+  end
+
+  def mark_result(nil, _result, _context), do: :ok
+
+  @doc "Persist a successful result and report write failure to delivery-barrier callers."
+  @spec mark_result_durable(Event.t() | nil, map()) :: :ok | {:error, term()}
+  def mark_result_durable(%Event{} = event, response) when is_map(response) do
+    mark_result_durable(event, response, %{})
+  end
+
+  def mark_result_durable(nil, _response), do: {:error, :event_not_recorded}
+
+  def mark_result_durable(%Event{} = event, response, context)
+      when is_map(response) and is_map(context) do
+    status = Response.status(response)
+
+    attrs =
+      response
+      |> response_attrs()
+      |> Map.put(:status, event_status(status))
+      |> maybe_put_reason(status)
+
+    case Channels.update_event(event, attrs, context) do
       {:ok, _event} -> :ok
       {:error, reason} -> {:error, reason}
     end
   end
 
-  def mark_result_durable(nil, _response), do: {:error, :event_not_recorded}
+  def mark_result_durable(nil, _response, _context), do: {:error, :event_not_recorded}
 
   @spec mark_failed(Event.t() | nil, term()) :: :ok
   def mark_failed(%Event{} = event, reason) do
-    update(event, %{status: "failed", error: inspect(reason)})
+    mark_failed(event, reason, %{})
   end
 
   def mark_failed(nil, _reason), do: :ok
 
+  def mark_failed(%Event{} = event, reason, context) when is_map(context),
+    do: update(event, %{status: "failed", error: inspect(reason)}, context)
+
+  def mark_failed(nil, _reason, _context), do: :ok
+
   @spec mark_rejected(Event.t() | nil, term()) :: :ok
   def mark_rejected(%Event{} = event, reason) do
-    update(event, %{status: "rejected", reason: inspect(reason)})
+    mark_rejected(event, reason, %{})
   end
 
   def mark_rejected(nil, _reason), do: :ok
 
-  defp create(surface_id, attrs, direction, status) do
+  def mark_rejected(%Event{} = event, reason, context) when is_map(context),
+    do: update(event, %{status: "rejected", reason: inspect(reason)}, context)
+
+  def mark_rejected(nil, _reason, _context), do: :ok
+
+  defp create(surface_id, attrs, direction, status, context) do
     attrs =
       attrs
       |> Map.put(:channel, surface_id(surface_id))
@@ -93,14 +130,14 @@ defmodule AllbertAssist.Surface.EventRecorder do
       |> Map.put(:status, status)
       |> Map.put_new(:external_event_id, external_event_id(surface_id, status))
 
-    case Channels.create_event(attrs) do
+    case Channels.create_event(attrs, context) do
       {:ok, event} -> event
       {:error, _changeset} -> nil
     end
   end
 
-  defp update(event, attrs) do
-    _ = Channels.update_event(event, attrs)
+  defp update(event, attrs, context) do
+    _ = Channels.update_event(event, attrs, context)
     :ok
   end
 

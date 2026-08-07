@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Stocksage.Analyses do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Pack.EffectGuard
 
   @shortdoc "List or show local StockSage analyses"
   @switches [user: :string, operator: :string, symbol: :string, limit: :integer, offset: :integer]
@@ -17,12 +18,10 @@ defmodule Mix.Tasks.Stocksage.Analyses do
   def run(args) do
     Mix.Task.run("app.start")
 
-    args
-    |> dispatch()
-    |> print_result()
+    with_ready_context(fn ready_context -> args |> dispatch(ready_context) |> print_result() end)
   end
 
-  defp dispatch(["list" | rest]) do
+  defp dispatch(["list" | rest], ready_context) do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
@@ -36,19 +35,25 @@ defmodule Mix.Tasks.Stocksage.Analyses do
                limit: Keyword.get(opts, :limit, 50),
                offset: Keyword.get(opts, :offset, 0)
              },
-             user_id
+             user_id,
+             ready_context
            ) do
       {:ok, {:list, user_id, response.analyses}}
     end
   end
 
-  defp dispatch(["show", analysis_id | rest]) do
+  defp dispatch(["show", analysis_id | rest], ready_context) do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
          {:ok, user_id} <- resolve_user(opts),
          {:ok, response} <-
-           run_action("show_analysis", %{user_id: user_id, analysis_id: analysis_id}, user_id) do
+           run_action(
+             "show_analysis",
+             %{user_id: user_id, analysis_id: analysis_id},
+             user_id,
+             ready_context
+           ) do
       case response.status do
         :completed -> {:ok, {:show, user_id, response.analysis}}
         :not_found -> {:error, {:not_found, analysis_id}}
@@ -56,17 +61,17 @@ defmodule Mix.Tasks.Stocksage.Analyses do
     end
   end
 
-  defp dispatch(_args), do: {:error, :usage}
+  defp dispatch(_args, _ready_context), do: {:error, :usage}
 
-  defp run_action(action, params, user_id) do
-    case Runner.run(action, params, context(user_id)) do
+  defp run_action(action, params, user_id, ready_context) do
+    case Runner.run(action, params, context(user_id, ready_context)) do
       {:ok, %{status: :completed} = response} -> {:ok, response}
       {:ok, %{status: :not_found} = response} -> {:ok, response}
       {:ok, response} -> {:error, Map.get(response, :error, :action_failed)}
     end
   end
 
-  defp context(user_id) do
+  defp context(user_id, %{allbert_pack_epoch: epoch}) do
     %{
       active_app: :stocksage,
       app_id: :stocksage,
@@ -78,6 +83,14 @@ defmodule Mix.Tasks.Stocksage.Analyses do
         active_app: :stocksage
       }
     }
+    |> Map.put(:allbert_pack_epoch, epoch)
+  end
+
+  defp with_ready_context(fun) do
+    case EffectGuard.admit_ready() do
+      {:ok, epoch} -> fun.(%{allbert_pack_epoch: epoch})
+      {:error, _reason} -> Mix.raise("Allbert product is not ready; retry the command.")
+    end
   end
 
   defp print_result({:ok, {:list, user_id, analyses}}) do

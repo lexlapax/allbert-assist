@@ -190,6 +190,55 @@ defmodule AllbertAssistWeb.PackReadinessTest do
     end)
   end
 
+  test "an E1 socket admission paused before subscription is rejected when its mount reaches E2" do
+    e1_barrier =
+      spawn(fn ->
+        receive do
+          :stop -> :ok
+        end
+      end)
+
+    e2_barrier =
+      spawn(fn ->
+        receive do
+          :stop -> :ok
+        end
+      end)
+
+    e1 = %{barrier_pid: e1_barrier, snapshot_digest: String.duplicate("1", 64)}
+    e2 = %{barrier_pid: e2_barrier, snapshot_digest: String.duplicate("2", 64)}
+
+    ReadinessStub.put({:ok, ready_status(e1.barrier_pid, e1.snapshot_digest)})
+    BridgeSupervisorStub.reset()
+
+    on_exit(fn ->
+      ReadinessStub.clear()
+      Process.exit(e1_barrier, :kill)
+      Process.exit(e2_barrier, :kill)
+    end)
+
+    observer =
+      start_supervised!({
+        PackReadiness,
+        name: nil, readiness: ReadinessStub, bridge_open_fun: &BridgeSupervisorStub.open/2
+      })
+
+    # E1 is the token the custom LiveSocket carries while its connect callback
+    # is conceptually paused before Phoenix subscribes the socket ID.
+    assert_eventually(fn -> assert {:ok, ^e1} = GenServer.call(observer, :admit) end)
+
+    ReadinessStub.put({:ok, ready_status(e2.barrier_pid, e2.snapshot_digest)})
+
+    # The first E2-era mount validation closes admission and rejects E1; it
+    # cannot inherit E2 or continue with the stale carried token.
+    assert {:error, :product_not_ready} = GenServer.call(observer, {:validate, e1})
+
+    assert_eventually(fn ->
+      assert {:ok, ^e2} = GenServer.call(observer, :admit)
+      assert {:error, :stale_epoch} = GenServer.call(observer, {:validate, e1})
+    end)
+  end
+
   defp ready_status(barrier_pid, digest) do
     %{
       phase: :ready,

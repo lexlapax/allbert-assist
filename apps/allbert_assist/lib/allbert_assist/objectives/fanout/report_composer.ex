@@ -132,7 +132,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
       {:ok, epoch} ->
         case validate_epoch(epoch, state) do
           :ok ->
-            case store_call(state.store, :recover_composition, []) do
+            case store_call(state.store, :recover_composition, [effect_options(epoch, state)]) do
               {:ok, _count} ->
                 {:noreply, recovery_succeeded(state)}
 
@@ -158,11 +158,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
       {:ok, epoch} ->
         case validate_epoch(epoch, state) do
           :ok ->
-            case store_call(state.store, :claim_next_composition, []) do
+            case store_call(state.store, :claim_next_composition, [effect_options(epoch, state)]) do
               :none ->
                 {:noreply, claim_queue_drained(state)}
 
               {:ok, claim} ->
+                claim = Map.put_new(claim, :effect_context, effect_context(epoch, state))
+
                 with {:ok, selection} <- selected_body(claim, state, epoch) do
                   {:noreply, persist_selection(claim, selection, state, epoch)}
                 else
@@ -220,9 +222,15 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   def handle_info(:reconcile, state), do: {:noreply, state}
 
   defp persist_selection(claim, selection, state, epoch) do
-    case validate_epoch(epoch, state) do
+    case validate_claim_epoch(claim, epoch, state) do
       :ok ->
-        args = [claim, selection.source, selection.body, selection.provenance]
+        args = [
+          claim,
+          selection.source,
+          selection.body,
+          selection.provenance,
+          effect_options(epoch, state)
+        ]
 
         case store_call(state.store, :select_composition, args) do
           {:ok, _parent} -> selection_persisted(state)
@@ -528,6 +536,21 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   defp admit_ready_epoch(state), do: effect_guard_call(state.effect_guard, :admit_ready, [])
 
   defp validate_epoch(epoch, state), do: effect_guard_call(state.effect_guard, :validate, [epoch])
+
+  defp validate_claim_epoch(%{effect_context: %{allbert_pack_epoch: epoch}}, epoch, state),
+    do: validate_epoch(epoch, state)
+
+  defp validate_claim_epoch(_claim, _epoch, _state), do: {:error, :stale_epoch}
+
+  defp effect_options(epoch, state), do: [effect_context: effect_context(epoch, state)]
+
+  defp effect_context(epoch, %{effect_guard: {EffectGuard, server}}),
+    do: %{allbert_pack_epoch: epoch, allbert_pack_effect_guard_opts: [server: server]}
+
+  defp effect_context(epoch, _state), do: %{allbert_pack_epoch: epoch}
+
+  defp effect_guard_call({EffectGuard, server}, function, args),
+    do: apply(EffectGuard, function, args ++ [[server: server]])
 
   defp effect_guard_call({module, owner}, function, args),
     do: apply(module, function, [owner | args])

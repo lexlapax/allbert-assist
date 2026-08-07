@@ -111,10 +111,13 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSetting do
 
   # Never carries `audit?: false`, so the channels.* write is audited on the spine.
   defp action_context(context, permission_decision) do
-    request_context = Map.get(context, :request, context)
+    request_context =
+      context
+      |> Map.get(:request, context)
+      |> Map.put_new(:allbert_pack_epoch, Map.get(context, :allbert_pack_epoch))
 
     request_context
-    |> Map.take([:actor, :operator_id, :channel, :input_signal_id])
+    |> Map.take([:actor, :operator_id, :channel, :input_signal_id, :allbert_pack_epoch])
     |> Map.new(fn
       {:operator_id, value} -> {:actor, value}
       {:input_signal_id, value} -> {:source_signal_id, value}

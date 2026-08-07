@@ -230,7 +230,10 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
     end
   end
 
-  defp execution_opts(%{objective_id: id}) when is_binary(id), do: [execution_id: id]
+  defp execution_opts(%{objective_id: id, allbert_pack_epoch: epoch}) when is_binary(id),
+    do: [execution_id: id, allbert_pack_epoch: epoch]
+
+  defp execution_opts(%{allbert_pack_epoch: epoch}), do: [allbert_pack_epoch: epoch]
   defp execution_opts(_context), do: []
 
   defp command_context(spec, context) do

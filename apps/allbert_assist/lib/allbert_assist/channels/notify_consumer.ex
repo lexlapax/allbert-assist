@@ -279,7 +279,7 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
     case Notify.recover_completion(parent, state.notify_opts) do
       {:ok, %NotifyDelivery{state: "delivered"}} ->
         if :ok == validate_epoch(epoch, state) do
-          _ = acknowledge_report(parent)
+          _ = acknowledge_report(parent, epoch)
           clear_retry(parent.id, state)
         else
           state
@@ -297,7 +297,7 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
         )
 
         if :ok == validate_epoch(epoch, state) do
-          _ = acknowledge_report(parent)
+          _ = acknowledge_report(parent, epoch)
           clear_retry(parent.id, state)
         else
           state
@@ -347,14 +347,15 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
     end
   end
 
-  defp acknowledge_report(parent) do
+  defp acknowledge_report(parent, epoch) do
     Runtime.acknowledge_report_delivery(Fanout.receipt_for(:report, parent.id), %{
       user_id: parent.user_id,
       channel: parent.source_channel,
       thread_id: parent.source_thread_id,
       origin_thread_ref_id: parent.origin_thread_ref_id,
       origin_thread_ref_digest: parent.origin_thread_ref_digest,
-      origin_receiver_account_ref: parent.origin_receiver_account_ref
+      origin_receiver_account_ref: parent.origin_receiver_account_ref,
+      allbert_pack_epoch: epoch
     })
   end
 

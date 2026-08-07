@@ -42,7 +42,8 @@ defmodule AllbertAssist.PublicProtocol.TokenAuth do
          {:ok, clients} <- client_settings(surface),
          entry <- Map.get(clients, client_id, default_client(token_ref)),
          updated <- Map.put(clients, client_id, Map.put(entry, "enabled", false)),
-         {:ok, _resolved} <- Settings.put(settings_key(surface), updated, %{audit?: false}) do
+         {:ok, _resolved} <-
+           Settings.put(settings_key(surface), updated, settings_context(context)) do
       {:ok,
        %{
          surface: surface,
@@ -162,7 +163,8 @@ defmodule AllbertAssist.PublicProtocol.TokenAuth do
              client_id,
              Map.merge(entry, %{"enabled" => true, "token_ref" => token_ref})
            ),
-         {:ok, _resolved} <- Settings.put(settings_key(surface), updated, %{audit?: false}) do
+         {:ok, _resolved} <-
+           Settings.put(settings_key(surface), updated, settings_context(context)) do
       {:ok,
        %{
          surface: surface,
@@ -191,6 +193,8 @@ defmodule AllbertAssist.PublicProtocol.TokenAuth do
   end
 
   defp settings_key(surface), do: Map.fetch!(@surfaces, surface)
+
+  defp settings_context(context) when is_map(context), do: Map.put(context, :audit?, false)
 
   defp default_client(token_ref) do
     %{"enabled" => true, "token_ref" => token_ref, "rate_limit" => default_rate_limit()}

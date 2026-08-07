@@ -12,6 +12,7 @@ defmodule AllbertAssist.CLI.Ask do
 
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
@@ -72,9 +73,12 @@ defmodule AllbertAssist.CLI.Ask do
   end
 
   defp submit_request(request, effect_opts, channel) do
-    case Runtime.submit_user_input(request, effect_opts) do
-      {:ok, response} ->
-        render_and_acknowledge(response, channel)
+    with {:ok, epoch} <- carried_epoch(effect_opts),
+         {:ok, response} <- Runtime.submit_user_input(request, allbert_pack_epoch: epoch) do
+      render_and_acknowledge(response, channel, epoch)
+    else
+      {:error, :product_not_ready} ->
+        Render.error("Allbert product is not ready; retry the command.")
 
       {:error, {:inbound_admission_failed, _kind} = reason} ->
         Render.error(Runtime.operator_error_message(reason))
@@ -88,12 +92,22 @@ defmodule AllbertAssist.CLI.Ask do
     Disclosure.render_and_ack(:cli, &IO.puts/1)
   end
 
-  defp render_and_acknowledge(response, channel) do
+  defp render_and_acknowledge(response, channel, epoch) do
     rendered = render(response)
 
-    case Runtime.acknowledge_deliveries(response, %{channel: channel}) do
-      :ok ->
-        rendered
+    # This acknowledgement advances durable fan-out delivery state. Preserve the
+    # request's E1 from ingress and validate it immediately before that effect;
+    # a same-digest E2 replacement must not acknowledge the response.
+    with :ok <- EffectGuard.validate(epoch),
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: channel,
+             allbert_pack_epoch: epoch
+           }) do
+      rendered
+    else
+      {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
+        Render.error("Allbert product is not ready; retry the command.")
 
       {:error, reason} ->
         Render.error(
@@ -101,6 +115,15 @@ defmodule AllbertAssist.CLI.Ask do
         )
     end
   end
+
+  defp carried_epoch(allbert_pack_epoch: epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> {:ok, epoch}
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_effect_opts), do: {:error, :product_not_ready}
 
   defp render(response) do
     Render.ok(

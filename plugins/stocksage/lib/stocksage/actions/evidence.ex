@@ -19,7 +19,7 @@ defmodule StockSage.Actions.Evidence do
     resource_access = [Evidence.resource_access(kind, params)]
 
     if Actions.allowed?(permission_decision) do
-      case Evidence.fetch(kind, params) do
+      case Evidence.fetch(kind, params, context) do
         {:ok, evidence} ->
           {:ok,
            %{

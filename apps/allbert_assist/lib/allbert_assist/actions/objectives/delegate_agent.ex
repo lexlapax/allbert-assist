@@ -39,8 +39,9 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
          {:ok, agent_id} <- agent_id(params),
          {:ok, entry} <- AgentRegistry.lookup(agent_id),
          {:ok, command} <- command(params, entry),
+         delegate_params <- delegate_params(params, context),
          {:ok, result} <-
-           AgentRegistry.dispatch(agent_id, command, field(params, :params, %{}),
+           AgentRegistry.dispatch(agent_id, command, delegate_params,
              timeout: delegate_timeout_ms(params),
              cancel_token: field(context, :cancel_token)
            ) do
@@ -159,6 +160,17 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
       _other -> 180_000
     end
   end
+
+  defp delegate_params(params, context) do
+    params
+    |> field(:params, %{})
+    |> maybe_put_epoch(context)
+  end
+
+  defp maybe_put_epoch(params, %{allbert_pack_epoch: epoch}) when is_map(params),
+    do: Map.put(params, :allbert_pack_epoch, epoch)
+
+  defp maybe_put_epoch(params, _context), do: params
 
   defp denied(permission_decision) do
     Response.denied(permission_decision.reason,

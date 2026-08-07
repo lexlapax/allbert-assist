@@ -9,6 +9,7 @@ defmodule AllbertAssist.Skills.DirectImport do
   """
 
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Settings
 
@@ -41,18 +42,22 @@ defmodule AllbertAssist.Skills.DirectImport do
     do: {:error, {:unsupported_skill_import_scheme, url}}
 
   defp request(%RequestSpec{} = spec, context) do
-    spec
-    |> req_options(context)
-    |> Req.request()
-    |> case do
-      {:ok, response} ->
-        {:ok, response}
+    with {:ok, epoch} <- carried_epoch(context) do
+      request = req_options(spec, context)
 
-      {:error, %Req.TransportError{} = error} ->
-        {:error, {:remote_skill_transport_error, error.reason}}
+      with :ok <- EffectGuard.validate(epoch),
+           response <- Req.request(request) do
+        case response do
+          {:ok, response} ->
+            {:ok, response}
 
-      {:error, reason} ->
-        {:error, {:remote_skill_request_failed, reason}}
+          {:error, %Req.TransportError{} = error} ->
+            {:error, {:remote_skill_transport_error, error.reason}}
+
+          {:error, reason} ->
+            {:error, {:remote_skill_request_failed, reason}}
+        end
+      end
     end
   end
 
@@ -82,6 +87,9 @@ defmodule AllbertAssist.Skills.DirectImport do
       get_in(context, [:external, :req_plug]) ||
       get_in(context, ["external", "req_plug"])
   end
+
+  defp carried_epoch(%{allbert_pack_epoch: epoch}), do: {:ok, epoch}
+  defp carried_epoch(_context), do: {:error, :product_not_ready}
 
   defp success_status(status) when is_integer(status) and status in 200..299, do: :ok
   defp success_status(status), do: {:error, {:remote_skill_http_error, status}}

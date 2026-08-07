@@ -69,7 +69,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
   defp execute_search(query, source, permission_decision, context) do
-    case RegistryClient.search(source, query) do
+    case RegistryClient.search(source, query, context) do
       {:ok, result} ->
         result =
           Map.put(

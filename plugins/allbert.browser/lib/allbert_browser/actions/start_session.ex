@@ -24,6 +24,7 @@ defmodule AllbertBrowser.Actions.StartSession do
     ]
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertBrowser.{Actions, Doctor, Session}
 
   @impl true
@@ -62,14 +63,20 @@ defmodule AllbertBrowser.Actions.StartSession do
         )
 
       true ->
-        start_session(decision)
+        start_session(decision, context)
     end
   end
 
-  defp start_session(decision) do
-    with :ok <- below_session_cap(),
+  defp start_session(decision, context) do
+    with {:ok, epoch} <- carried_epoch(context),
+         :ok <- below_session_cap(),
          :ok <- Doctor.fresh_ok?(),
-         {:ok, session_id} <- Session.start_session() do
+         :ok <- EffectGuard.validate(epoch, guard_opts(context)),
+         {:ok, session_id} <-
+           Session.start_session(
+             allbert_pack_epoch: epoch,
+             allbert_pack_effect_guard_opts: guard_opts(context)
+           ) do
       {:ok,
        %{
          message: "Browser session #{session_id} started.",
@@ -110,4 +117,15 @@ defmodule AllbertBrowser.Actions.StartSession do
       {:error, _reason} -> fallback
     end
   end
+
+  defp carried_epoch(%{allbert_pack_epoch: epoch} = context) do
+    case EffectGuard.validate(epoch, guard_opts(context)) do
+      :ok -> {:ok, epoch}
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_context), do: {:error, :product_not_ready}
+
+  defp guard_opts(context), do: Map.get(context, :allbert_pack_effect_guard_opts, [])
 end

@@ -86,15 +86,16 @@ defmodule StockSage.Evidence do
     }
   }
 
-  def fetch(kind, params) when is_atom(kind) and is_map(params) do
+  def fetch(kind, params, context \\ %{})
+      when is_atom(kind) and is_map(params) and is_map(context) do
     mode = mode(params)
     ticker = ticker(params)
     analysis_date = analysis_date(params)
 
     case mode do
       "fixture" -> load_fixture(kind, ticker, analysis_date)
-      "live" -> live(kind, ticker, analysis_date, params)
-      "compare" -> compare(kind, ticker, analysis_date, params)
+      "live" -> live(kind, ticker, analysis_date, params, context)
+      "compare" -> compare(kind, ticker, analysis_date, params, context)
     end
   end
 
@@ -197,9 +198,10 @@ defmodule StockSage.Evidence do
     end
   end
 
-  defp live(kind, ticker, analysis_date, params) when kind in [:fundamentals, :financials] do
-    sec = sec_company_concepts(kind, ticker, analysis_date, params)
-    http = live_http(kind, ticker, analysis_date, params)
+  defp live(kind, ticker, analysis_date, params, context)
+       when kind in [:fundamentals, :financials] do
+    sec = sec_company_concepts(kind, ticker, analysis_date, params, context)
+    http = live_http(kind, ticker, analysis_date, params, context)
 
     case {sec, http} do
       {{:ok, sec_evidence}, {:ok, http_evidence}} ->
@@ -219,11 +221,11 @@ defmodule StockSage.Evidence do
     end
   end
 
-  defp live(kind, ticker, analysis_date, params) do
-    live_http(kind, ticker, analysis_date, params)
+  defp live(kind, ticker, analysis_date, params, context) do
+    live_http(kind, ticker, analysis_date, params, context)
   end
 
-  defp live_http(kind, ticker, analysis_date, params) do
+  defp live_http(kind, ticker, analysis_date, params, context) do
     with {:ok, url} <- live_url(kind, ticker, params),
          {:ok, spec} <-
            RequestSpec.normalize(%{
@@ -234,7 +236,8 @@ defmodule StockSage.Evidence do
                Actions.field(params, :max_response_bytes) || default_max_response_bytes(kind),
              source_text: "stocksage #{kind} #{ticker}"
            }),
-         {:ok, result} <- HttpClient.request(spec) do
+         {:ok, result} <-
+           HttpClient.request(spec, allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)) do
       {:ok,
        %{
          kind: kind,
@@ -251,7 +254,7 @@ defmodule StockSage.Evidence do
     end
   end
 
-  defp sec_company_concepts(kind, ticker, analysis_date, params) do
+  defp sec_company_concepts(kind, ticker, analysis_date, params, context) do
     with {:ok, cik} <- sec_cik(ticker) do
       concepts =
         if kind == :fundamentals, do: @sec_fundamental_concepts, else: @sec_financial_concepts
@@ -259,7 +262,7 @@ defmodule StockSage.Evidence do
       metrics =
         concepts
         |> Enum.map(fn {name, {taxonomy, concept, unit}} ->
-          {name, sec_concept(cik, taxonomy, concept, unit, params)}
+          {name, sec_concept(cik, taxonomy, concept, unit, params, context)}
         end)
         |> Map.new()
 
@@ -312,7 +315,7 @@ defmodule StockSage.Evidence do
     }
   end
 
-  defp sec_concept(cik, taxonomy, concept, unit, params) do
+  defp sec_concept(cik, taxonomy, concept, unit, params, context) do
     url = "https://data.sec.gov/api/xbrl/companyconcept/CIK#{cik}/#{taxonomy}/#{concept}.json"
 
     with {:ok, spec} <-
@@ -325,7 +328,8 @@ defmodule StockSage.Evidence do
                Actions.field(params, :max_response_bytes) || @sec_max_response_bytes,
              source_text: "stocksage sec #{concept} #{cik}"
            }),
-         {:ok, result} <- HttpClient.request(spec),
+         {:ok, result} <-
+           HttpClient.request(spec, allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)),
          {:ok, decoded} <- Jason.decode(Actions.field(result, :body_preview, "")) do
       %{
         taxonomy: taxonomy,
@@ -372,9 +376,9 @@ defmodule StockSage.Evidence do
     end)
   end
 
-  defp compare(kind, ticker, analysis_date, params) do
+  defp compare(kind, ticker, analysis_date, params, context) do
     fixture = load_fixture(kind, ticker, analysis_date)
-    live = live(kind, ticker, analysis_date, params)
+    live = live(kind, ticker, analysis_date, params, context)
 
     with {:ok, fixture_evidence} <- fixture do
       {:ok,

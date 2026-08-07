@@ -11,6 +11,41 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEvalTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.Pack.EffectGuard
+
+  defmodule ReplacingReadiness do
+    use GenServer
+
+    def start_link(opts),
+      do: GenServer.start_link(__MODULE__, :ok, name: Keyword.fetch!(opts, :name))
+
+    def init(:ok), do: {:ok, %{calls: 0, e1: barrier(), e2: barrier()}}
+
+    def handle_call(:status, _from, state) do
+      pid = if state.calls == 0, do: state.e1, else: state.e2
+
+      status = %{
+        phase: :ready,
+        barrier_pid: pid,
+        snapshot_digest: String.duplicate("a", 64),
+        expected_ids: [],
+        subscribed_ids: [],
+        acked_ids: [],
+        diagnostics: []
+      }
+
+      {:reply, {:ok, status}, %{state | calls: state.calls + 1}}
+    end
+
+    def terminate(_reason, state),
+      do:
+        (
+          Process.exit(state.e1, :kill)
+          Process.exit(state.e2, :kill)
+        )
+
+    defp barrier, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
 
   @fixture Path.expand("../../fixtures/v1.3/memory_zero_shot.json", __DIR__)
 
@@ -108,6 +143,38 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEvalTest do
     assert result.stats.token_usage_complete
     assert result.stats.memory_overhead_tokens > 0
     assert result.stats.compact_vs_source_replay_savings_tokens > 0
+  end
+
+  test "same-digest replacement stops zero-shot before any provider row", %{
+    projection: projection
+  } do
+    original = Process.whereis(AllbertAssist.Pack.Readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+    {:ok, replacement} = ReplacingReadiness.start_link(name: AllbertAssist.Pack.Readiness)
+
+    on_exit(fn ->
+      if Process.whereis(AllbertAssist.Pack.Readiness) == replacement,
+        do: Process.unregister(AllbertAssist.Pack.Readiness)
+
+      if Process.alive?(replacement), do: GenServer.stop(replacement)
+
+      if Process.alive?(original) and is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+        do: Process.register(original, AllbertAssist.Pack.Readiness)
+    end)
+
+    fixture = V13ZeroShotEval.load_fixture!(@fixture)
+
+    assert_raise RuntimeError, ~r/product is not ready/, fn ->
+      V13ZeroShotEval.evaluate!(fixture,
+        projection: projection,
+        replay_answerer: fn _text, _context ->
+          send(self(), :provider_called)
+          {:ok, %{}}
+        end
+      )
+    end
+
+    refute_received :provider_called
   end
 
   defp restore_home(nil), do: System.delete_env("ALLBERT_HOME")

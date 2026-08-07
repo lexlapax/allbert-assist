@@ -33,8 +33,9 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   @spec frame(map(), [map() | String.t()]) :: {:ok, map()} | {:error, term()}
   def frame(parent_attrs, tasks) when is_map(parent_attrs) and is_list(tasks) do
-    with :ok <- validate_tasks(tasks) do
-      transact_frame(fn -> frame_transaction!(parent_attrs, tasks) end)
+    with :ok <- validate_tasks(tasks),
+         :ok <- validate_context(parent_attrs) do
+      transact_frame(fn -> frame_transaction!(parent_attrs, tasks, parent_attrs) end)
     end
   end
 
@@ -52,9 +53,10 @@ defmodule AllbertAssist.Objectives.Fanout do
   def frame_if_inactive(parent_attrs, tasks)
       when is_map(parent_attrs) and is_list(tasks) do
     with :ok <- validate_tasks(tasks),
+         :ok <- validate_context(parent_attrs),
          {:ok, {user_id, source_thread_id}} <- admission_scope(parent_attrs) do
       transact_frame(fn ->
-        frame_after_admission!(user_id, source_thread_id, parent_attrs, tasks)
+        frame_after_admission!(user_id, source_thread_id, parent_attrs, tasks, parent_attrs)
       end)
     end
   end
@@ -76,9 +78,9 @@ defmodule AllbertAssist.Objectives.Fanout do
     end
   end
 
-  defp frame_after_admission!(user_id, source_thread_id, parent_attrs, tasks) do
+  defp frame_after_admission!(user_id, source_thread_id, parent_attrs, tasks, context) do
     case active_parent_query(user_id, source_thread_id) |> Repo.one() do
-      nil -> frame_transaction!(parent_attrs, tasks)
+      nil -> frame_transaction!(parent_attrs, tasks, context)
       %Objective{} = parent -> Repo.rollback({:fanout_already_active, parent})
     end
   end
@@ -243,24 +245,33 @@ defmodule AllbertAssist.Objectives.Fanout do
   end
 
   @doc "Claim the oldest queued report composition and return its verified input."
-  @spec claim_next_composition() ::
+  @spec claim_next_composition(keyword()) ::
           {:ok, TerminalTransitions.composition_claim()} | :none | {:error, term()}
-  def claim_next_composition, do: TerminalTransitions.claim_next_composition()
+  def claim_next_composition(opts) when is_list(opts),
+    do: TerminalTransitions.claim_next_composition(opts)
+
+  def claim_next_composition, do: {:error, :product_not_ready}
 
   @doc "Select one report with bounded, content-free composition provenance."
   @spec select_composition(
           TerminalTransitions.composition_claim(),
           String.t(),
           String.t(),
-          map()
+          map(),
+          keyword()
         ) ::
           {:ok, Objective.t()} | {:error, term()}
-  def select_composition(claim, source, body, provenance),
-    do: TerminalTransitions.select_composition(claim, source, body, provenance)
+  def select_composition(claim, source, body, provenance, opts) when is_list(opts),
+    do: TerminalTransitions.select_composition(claim, source, body, provenance, opts)
+
+  def select_composition(_claim, _source, _body, _provenance), do: {:error, :product_not_ready}
 
   @doc "Recover interrupted composition and legacy selected-report rows at boot."
-  @spec recover_composition() :: {:ok, non_neg_integer()} | {:error, term()}
-  def recover_composition, do: TerminalTransitions.recover_composition()
+  @spec recover_composition(keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
+  def recover_composition(opts) when is_list(opts),
+    do: TerminalTransitions.recover_composition(opts)
+
+  def recover_composition, do: {:error, :product_not_ready}
 
   @doc "Wake the durable owner for a parent that currently projects as recovering."
   @spec wake_recovery(Objective.t() | String.t(), keyword()) :: :ok
@@ -991,11 +1002,11 @@ defmodule AllbertAssist.Objectives.Fanout do
     do: TerminalTransitions.reconcile_parent(parent_id, opts)
 
   @doc "Persists or reads a terminal join and returns its stable report receipt."
-  @spec finalize_join(Objective.t() | String.t()) :: {:ok, map()} | {:error, term()}
-  def finalize_join(%Objective{id: id}), do: finalize_join(id)
+  @spec finalize_join(Objective.t() | String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def finalize_join(%Objective{id: id}, opts) when is_list(opts), do: finalize_join(id, opts)
 
-  def finalize_join(parent_id) when is_binary(parent_id) do
-    case reconcile_parent(parent_id, recovered?: false) do
+  def finalize_join(parent_id, opts) when is_binary(parent_id) and is_list(opts) do
+    case reconcile_parent(parent_id, Keyword.put(opts, :recovered?, false)) do
       {:ok, {state, %Objective{report_composition_state: composition_state} = parent}}
       when state in [:joined_now, :already_joined] and composition_state in ["ready", "fallback"] ->
         {:ok,
@@ -1018,6 +1029,8 @@ defmodule AllbertAssist.Objectives.Fanout do
     end
   end
 
+  def finalize_join(_parent_id), do: {:error, :product_not_ready}
+
   @doc "Atomically acknowledges a successfully delivered pending report."
   @spec acknowledge_report(String.t(), map()) ::
           :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
@@ -1032,7 +1045,7 @@ defmodule AllbertAssist.Objectives.Fanout do
     )
   end
 
-  defp frame_transaction!(attrs, tasks) do
+  defp frame_transaction!(attrs, tasks, context) do
     {attrs, plan} = prepare_plan_provenance!(attrs)
     parent_id = Map.get(attrs, :id) || Map.get(attrs, "id") || Objectives.new_id("fanout")
     receipt = receipt_for(:start, parent_id)
@@ -1046,7 +1059,7 @@ defmodule AllbertAssist.Objectives.Fanout do
       |> Map.put(:fanout_start_receipt_digest, digest(receipt))
       |> Map.put(:report_delivery_state, "not_ready")
 
-    parent = insert!(Objectives.create_objective(parent_attrs))
+    parent = insert!(Objectives.create_objective(parent_attrs, context))
 
     children =
       tasks
@@ -1074,7 +1087,7 @@ defmodule AllbertAssist.Objectives.Fanout do
         |> Map.put(:kickoff_delivery_state, nil)
         |> Map.put(:fanout_start_receipt_digest, nil)
         |> Map.put(:report_delivery_state, "not_ready")
-        |> Objectives.create_objective()
+        |> Objectives.create_objective(context)
         |> insert!()
       end)
 
@@ -1093,12 +1106,17 @@ defmodule AllbertAssist.Objectives.Fanout do
       end
 
     insert!(
-      Objectives.create_event(%{
-        objective_id: parent.id,
-        kind: "fanout_proposed",
-        payload: proposed_payload
-      })
+      Objectives.create_event(
+        %{
+          objective_id: parent.id,
+          kind: "fanout_proposed",
+          payload: proposed_payload
+        },
+        context
+      )
     )
+
+    validate_or_rollback!(context)
 
     %{parent: parent, children: children, fanout_start_receipt: receipt}
   end
@@ -1192,23 +1210,43 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp insert!({:ok, value}), do: value
   defp insert!({:error, reason}), do: Repo.rollback(reason)
 
-  defp record_event!(objective_id, kind, payload) do
-    insert!(Objectives.create_event(%{objective_id: objective_id, kind: kind, payload: payload}))
+  defp record_event!(objective_id, kind, payload, context) do
+    insert!(
+      Objectives.create_event(
+        %{objective_id: objective_id, kind: kind, payload: payload},
+        context
+      )
+    )
+  end
+
+  defp validate_context(%{allbert_pack_epoch: _epoch} = context),
+    do: Objectives.validate_effect_context(context)
+
+  defp validate_context(_context), do: {:error, :product_not_ready}
+
+  defp validate_or_rollback!(context) do
+    if validate_context(context) != :ok, do: Repo.rollback(:product_not_ready)
   end
 
   defp acknowledge_receipt(digest_field, receipt_digest, state_field, from, to, context) do
-    case Repo.transaction(fn ->
-           do_acknowledge_receipt(
-             digest_field,
-             receipt_digest,
-             state_field,
-             from,
-             to,
-             context
-           )
-         end) do
-      {:ok, result} -> result
-      {:error, reason} -> {:error, reason}
+    with :ok <- validate_context(context) do
+      case Repo.transaction(fn ->
+             result =
+               do_acknowledge_receipt(
+                 digest_field,
+                 receipt_digest,
+                 state_field,
+                 from,
+                 to,
+                 context
+               )
+
+             validate_or_rollback!(context)
+             result
+           end) do
+        {:ok, result} -> result
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -1261,7 +1299,8 @@ defmodule AllbertAssist.Objectives.Fanout do
             _other -> "report_delivered"
           end
 
-        record_event!(objective.id, kind, %{state: to})
+        record_event!(objective.id, kind, %{state: to}, context)
+        validate_or_rollback!(context)
         :ok
 
       {0, _} ->

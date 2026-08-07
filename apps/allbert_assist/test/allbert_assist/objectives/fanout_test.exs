@@ -4,17 +4,202 @@ defmodule AllbertAssist.Objectives.FanoutTest do
   import Ecto.Query
   import ExUnit.CaptureLog
 
-  alias AllbertAssist.Objectives
-  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives, as: DurableObjectives
+  alias AllbertAssist.Objectives.Fanout, as: DurableFanout
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions, as: DurableTerminalTransitions
   alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Ecto.Adapters.SQL
   alias Jido.Signal.Bus
+
+  defmodule ObjectiveBoundary do
+    alias AllbertAssist.Objectives, as: DurableObjectives
+    alias AllbertAssist.TestSupport.ReadyEffectContext
+
+    def create_objective(attrs), do: DurableObjectives.create_objective(attrs, context())
+
+    def create_objective(attrs, supplied),
+      do: DurableObjectives.create_objective(attrs, with_context(supplied))
+
+    def update_objective(objective, attrs),
+      do: DurableObjectives.update_objective(objective, attrs, context())
+
+    def update_objective(objective, attrs, supplied),
+      do: DurableObjectives.update_objective(objective, attrs, with_context(supplied))
+
+    def create_step(attrs), do: DurableObjectives.create_step(attrs, context())
+
+    def create_step(attrs, supplied),
+      do: DurableObjectives.create_step(attrs, with_context(supplied))
+
+    def update_step(step, attrs), do: DurableObjectives.update_step(step, attrs, context())
+
+    def update_step(step, attrs, supplied),
+      do: DurableObjectives.update_step(step, attrs, with_context(supplied))
+
+    def transition_step(step, status, attrs),
+      do: DurableObjectives.transition_step(step, status, attrs, context())
+
+    def transition_step(step, status, attrs, supplied),
+      do: DurableObjectives.transition_step(step, status, attrs, with_context(supplied))
+
+    def create_event(attrs), do: DurableObjectives.create_event(attrs, context())
+
+    def create_event(attrs, supplied),
+      do: DurableObjectives.create_event(attrs, with_context(supplied))
+
+    def abandon_stale_objectives(opts),
+      do: DurableObjectives.abandon_stale_objectives(opts, context())
+
+    defdelegate fanout_confirmation_target(record), to: DurableObjectives
+    defdelegate get_objective(id), to: DurableObjectives
+    defdelegate list_events(id), to: DurableObjectives
+    defdelegate list_events(id, opts), to: DurableObjectives
+    defdelegate list_objectives(user_id), to: DurableObjectives
+    defdelegate new_id(prefix), to: DurableObjectives
+
+    defp context, do: ReadyEffectContext.context()
+    defp with_context(supplied), do: Map.merge(context(), supplied)
+  end
+
+  defmodule FanoutBoundary do
+    alias AllbertAssist.Objectives.Fanout, as: DurableFanout
+
+    def frame(attrs, tasks), do: DurableFanout.frame(with_context(attrs), tasks)
+
+    def frame_if_inactive(attrs, tasks),
+      do: DurableFanout.frame_if_inactive(with_context(attrs), tasks)
+
+    def acknowledge_start(receipt, context),
+      do: DurableFanout.acknowledge_start(receipt, with_context(context))
+
+    def acknowledge_report(receipt, context),
+      do: DurableFanout.acknowledge_report(receipt, with_context(context))
+
+    def claim_next_composition, do: DurableFanout.claim_next_composition(effect_options())
+
+    def select_composition(claim, source, body, provenance),
+      do:
+        DurableFanout.select_composition(claim, source, body, provenance,
+          effect_context: Map.fetch!(claim, :effect_context)
+        )
+
+    def recover_composition, do: DurableFanout.recover_composition(effect_options())
+
+    def reconcile_parent(parent, opts \\ []),
+      do:
+        DurableFanout.reconcile_parent(
+          parent,
+          Keyword.put_new(opts, :effect_context, effect_context())
+        )
+
+    def finalize_join(parent), do: DurableFanout.finalize_join(parent, effect_options())
+
+    defdelegate active_parent(user_id, thread_id), to: DurableFanout
+    defdelegate children(parent), to: DurableFanout
+    defdelegate format_report(report), to: DurableFanout
+    defdelegate join_status(parent_id), to: DurableFanout
+    defdelegate parent_for_start_receipt(receipt, context), to: DurableFanout
+    defdelegate parent_projection(parent), to: DurableFanout
+    defdelegate pending_reports(user_id, thread_id, request), to: DurableFanout
+    defdelegate receipt_for(kind, parent_id), to: DurableFanout
+    defdelegate report(parent), to: DurableFanout
+    defdelegate report_child_detail(child), to: DurableFanout
+    defdelegate report_input(parent), to: DurableFanout
+    defdelegate report_input_v1(parent), to: DurableFanout
+    defdelegate report_input_v2(parent), to: DurableFanout
+    defdelegate runnable_parents(), to: DurableFanout
+    defdelegate wake_recovery(parent), to: DurableFanout
+    defdelegate wake_recovery(parent, opts), to: DurableFanout
+
+    defp effect_options, do: [effect_context: effect_context()]
+
+    defp with_context(context), do: Map.merge(effect_context(), context)
+
+    defp effect_context do
+      AllbertAssist.TestSupport.ReadyEffectContext.context()
+    end
+  end
+
+  defmodule TerminalBoundary do
+    alias AllbertAssist.Objectives.Fanout.TerminalTransitions, as: DurableTerminalTransitions
+
+    def terminalize_child(child, attrs, kind, payload, opts \\ []) do
+      DurableTerminalTransitions.terminalize_child(
+        child,
+        attrs,
+        kind,
+        payload,
+        Keyword.put_new(opts, :effect_context, effect_context())
+      )
+    end
+
+    def transition_active_child(child, attrs, kind, payload, opts \\ []) do
+      DurableTerminalTransitions.transition_active_child(
+        child,
+        attrs,
+        kind,
+        payload,
+        Keyword.put_new(opts, :effect_context, effect_context())
+      )
+    end
+
+    defp effect_context do
+      AllbertAssist.TestSupport.ReadyEffectContext.context()
+    end
+  end
+
+  alias FanoutBoundary, as: Fanout
+  alias TerminalBoundary, as: TerminalTransitions
+  alias ObjectiveBoundary, as: Objectives
+
+  defmodule SameDigestReadiness do
+    use GenServer
+
+    def start_link(opts), do: GenServer.start_link(__MODULE__, :ok, opts)
+    def replace(server), do: GenServer.call(server, :replace)
+
+    @impl true
+    def init(:ok) do
+      {:ok,
+       %{
+         active: spawn(fn -> Process.sleep(:infinity) end),
+         replacement: spawn(fn -> Process.sleep(:infinity) end),
+         replaced?: false
+       }}
+    end
+
+    @impl true
+    def handle_call(:status, _from, %{active: active, replacement: replacement} = state) do
+      barrier = if state.replaced?, do: replacement, else: active
+
+      {:reply,
+       {:ok,
+        %{
+          phase: :ready,
+          barrier_pid: barrier,
+          snapshot_digest: String.duplicate("a", 64),
+          expected_ids: [],
+          subscribed_ids: [],
+          acked_ids: [],
+          diagnostics: []
+        }}, state}
+    end
+
+    def handle_call(:replace, _from, state), do: {:reply, :ok, %{state | replaced?: true}}
+
+    @impl true
+    def terminate(_reason, %{active: active, replacement: replacement}) do
+      Process.exit(active, :kill)
+      Process.exit(replacement, :kill)
+    end
+  end
 
   defmodule CompletingAdapter do
     def operation(:execute, state, _opts),
@@ -77,6 +262,41 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              "fanout_acknowledged",
              "fanout_proposed"
            ]
+  end
+
+  test "same-digest E2 rolls back a fan-out terminal transition after its child write" do
+    {:ok, barrier} = SameDigestReadiness.start_link([])
+    assert {:ok, epoch} = EffectGuard.admit_ready(server: barrier)
+
+    context = %{
+      allbert_pack_epoch: epoch,
+      allbert_pack_effect_guard_opts: [server: barrier]
+    }
+
+    assert {:ok, %{children: [child | _rest]}} =
+             DurableFanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "E1 rollback parent",
+                 objective: "Keep the child open when readiness rotates."
+               }
+               |> Map.merge(context),
+               ["first", "second"]
+             )
+
+    assert {:error, :stale_epoch} =
+             DurableTerminalTransitions.terminalize_child(
+               child,
+               %{status: "completed", completed_at: DateTime.utc_now()},
+               "run_completed",
+               %{summary: "This must roll back."},
+               effect_context: context,
+               transaction_hook: fn _updated -> SameDigestReadiness.replace(barrier) end
+             )
+
+    assert {:ok, unchanged} = Objectives.get_objective(child.id)
+    assert unchanged.status == "open"
+    refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
   end
 
   test "central recovery wake drains queued work and reconciles composing and legacy work" do
@@ -631,7 +851,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     for child <- children do
       assert {:ok, %{status: "completed"}} =
-               Lifecycle.run(child.id, adapter: CompletingAdapter)
+               Lifecycle.run(child.id, lifecycle_options(adapter: CompletingAdapter))
     end
 
     assert {:ok, joined} = Objectives.get_objective(parent.id)
@@ -1472,9 +1692,10 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     assert {:ok, %{status: "completed"}} =
-             Lifecycle.run(completed.id, adapter: CompletingAdapter)
+             Lifecycle.run(completed.id, lifecycle_options(adapter: CompletingAdapter))
 
-    assert {:error, :fixture_failure} = Lifecycle.run(failed.id, adapter: FailingAdapter)
+    assert {:error, :fixture_failure} =
+             Lifecycle.run(failed.id, lifecycle_options(adapter: FailingAdapter))
 
     assert {:ok, joined} = Objectives.get_objective(parent.id)
     assert joined.status == "completed"
@@ -1492,15 +1713,18 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     assert {:ok, %{status: "completed"}} =
-             Lifecycle.run(completed.id, adapter: CompletingAdapter)
+             Lifecycle.run(completed.id, lifecycle_options(adapter: CompletingAdapter))
 
     cancel_token = CancelToken.new()
     assert :ok = CancelToken.cancel(cancel_token)
 
     assert {:ok, %{status: "cancelled"}} =
-             Lifecycle.run(cancelled.id,
-               adapter: CompletingAdapter,
-               cancel_token: cancel_token
+             Lifecycle.run(
+               cancelled.id,
+               lifecycle_options(
+                 adapter: CompletingAdapter,
+                 cancel_token: cancel_token
+               )
              )
 
     assert {:ok, joined} = Objectives.get_objective(parent.id)
@@ -1519,9 +1743,10 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     assert {:ok, %{status: "completed"}} =
-             Lifecycle.run(first.id, adapter: CompletingAdapter)
+             Lifecycle.run(first.id, lifecycle_options(adapter: CompletingAdapter))
 
-    assert {:error, :fixture_failure} = Lifecycle.run(second.id, adapter: FailingAdapter)
+    assert {:error, :fixture_failure} =
+             Lifecycle.run(second.id, lifecycle_options(adapter: FailingAdapter))
 
     assert %{terminal?: true, status: "completed", outcome: "partial"} =
              Fanout.join_status(parent)
@@ -2544,6 +2769,18 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     |> Enum.find(&(&1.kind == "fanout_report_selected"))
     |> Map.fetch!(:payload)
     |> Jason.decode!()
+  end
+
+  defp lifecycle_options(opts) do
+    %{
+      allbert_pack_epoch: epoch,
+      allbert_pack_effect_guard_opts: guard_opts
+    } = ReadyEffectContext.context()
+
+    Keyword.merge(
+      [allbert_pack_epoch: epoch, allbert_pack_effect_guard_opts: guard_opts],
+      opts
+    )
   end
 
   defp assert_frozen_step_sql(statement, params) do

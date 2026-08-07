@@ -56,7 +56,12 @@ defmodule StockSageWeb.AnalysisLive do
   @impl true
   def handle_event("cancel_objective", %{"objective-id" => objective_id}, socket) do
     _ =
-      Objectives.cancel(socket.assigns.user_id, objective_id, "Cancelled from StockSage surface.")
+      Objectives.cancel(
+        socket.assigns.user_id,
+        objective_id,
+        "Cancelled from StockSage surface.",
+        %{allbert_pack_epoch: socket.assigns.allbert_pack_epoch}
+      )
 
     {:noreply, load_analysis_state(socket, socket.assigns.analysis_id)}
   end

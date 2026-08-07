@@ -83,10 +83,16 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
           reset(opts)
 
         opts[:quickstart] ->
-          render_state(Onboarding.wizard_start(:quickstart), "Started QuickStart.")
+          render_state(
+            Onboarding.wizard_start(:quickstart, onboarding_opts(context)),
+            "Started QuickStart."
+          )
 
         opts[:advanced] ->
-          render_state(Onboarding.wizard_start(:advanced), "Started Advanced.")
+          render_state(
+            Onboarding.wizard_start(:advanced, onboarding_opts(context)),
+            "Started Advanced."
+          )
 
         true ->
           route(rest, opts, context)
@@ -114,7 +120,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   defp route([], opts, context) do
     # v0.63 M6: non-interactive automation must not silently default a track — refuse
     # when starting fresh without one (Non-Interactive Authorization & Input Contract).
-    state = Onboarding.wizard_resume()
+    state = Onboarding.wizard_resume(onboarding_opts(context))
 
     cond do
       # M8.4: `opts[:non_interactive]` is nil when the flag is absent (every bare
@@ -136,10 +142,11 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     end
   end
 
-  defp route(["status"], _opts, _context), do: {status_line(Onboarding.wizard_status()), 0}
+  defp route(["status"], _opts, context),
+    do: {status_line(Onboarding.wizard_status(onboarding_opts(context))), 0}
 
-  defp route(["advance", step], _opts, _context) do
-    case Onboarding.wizard_advance(step) do
+  defp route(["advance", step], _opts, context) do
+    case Onboarding.wizard_advance(step, %{}, onboarding_opts(context)) do
       {:ok, state} ->
         render_state(state, "Recorded #{step}.")
 
@@ -151,8 +158,8 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     end
   end
 
-  defp route(["re-enable-model"], _opts, _context) do
-    case Onboarding.reenable_model_answers() do
+  defp route(["re-enable-model"], _opts, context) do
+    case Onboarding.reenable_model_answers(onboarding_opts(context)) do
       :ok ->
         Render.ok("Model-backed answers re-enabled.")
 
@@ -218,7 +225,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   """
   @spec run_interactive(map() | nil, map()) :: {String.t(), non_neg_integer()}
   def run_interactive(context, io) do
-    interactive_loop(Onboarding.wizard_resume(io_opts()), context, io, 0)
+    interactive_loop(Onboarding.wizard_resume(io_opts(context)), context, io, 0)
     {"", 0}
   end
 
@@ -231,7 +238,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     cond do
       not state.started? ->
         track = prompt_track(io)
-        interactive_loop(Onboarding.wizard_start(track, io_opts()), context, io, steps + 1)
+        interactive_loop(Onboarding.wizard_start(track, io_opts(context)), context, io, steps + 1)
 
       state.complete? ->
         io.puts.("Onboarding complete.")
@@ -246,7 +253,14 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
 
           _line ->
             maybe_step_action(state.step, context, io)
-            {:ok, next} = Onboarding.wizard_advance(state.step, %{}, io_opts())
+
+            {:ok, next} =
+              Onboarding.wizard_advance(
+                state.step,
+                %{},
+                io_opts(context)
+              )
+
             interactive_loop(next, context, io, steps + 1)
         end
     end
@@ -259,9 +273,14 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     end
   end
 
+  defp onboarding_opts(context) when is_map(context),
+    do: [allbert_pack_epoch: Map.get(context, :allbert_pack_epoch), context: context]
+
+  defp onboarding_opts(_context), do: []
+
   # Effectful per-step prompts. Masked entry never echoes the secret.
   defp maybe_step_action("model_path", context, io) do
-    status = Onboarding.wizard_status()
+    status = Onboarding.wizard_status(onboarding_opts(context))
     guidance = Onboarding.model_guidance_for(status.direct_answer_readiness, status.track)
 
     io.puts.(guidance.headline)
@@ -363,8 +382,8 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     _kind, _reason -> false
   end
 
-  # The wizard API takes keyword opts; the interactive loop passes none through.
-  defp io_opts, do: []
+  # The wizard API takes keyword opts; keep the dispatcher-owned effect context intact.
+  defp io_opts(context), do: onboarding_opts(context)
 
   # v0.63 M6: apply a persona through the durable pre-authorization path. The apply
   # action is confirmation-gated; --authorize (or the deprecated --accept-risk alias)

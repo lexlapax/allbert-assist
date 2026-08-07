@@ -407,6 +407,14 @@ defmodule AllbertResearch.Research do
       step_id: field(params, :step_id),
       app_id: :allbert_research
     }
+    |> maybe_put_epoch(params)
+  end
+
+  defp maybe_put_epoch(context, params) do
+    case field(params, :allbert_pack_epoch) do
+      nil -> context
+      epoch -> Map.put(context, :allbert_pack_epoch, epoch)
+    end
   end
 
   defp extractive_summary([]), do: "No sources were extracted."

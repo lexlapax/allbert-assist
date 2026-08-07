@@ -11,6 +11,7 @@ defmodule AllbertAssist.Execution.ProcessOwner do
   use GenServer, restart: :temporary
 
   alias AllbertAssist.Execution.OutputBuffer
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
 
   @default_kill_grace_ms 5_000
@@ -30,7 +31,8 @@ defmodule AllbertAssist.Execution.ProcessOwner do
     execution_id = Keyword.get_lazy(opts, :execution_id, &Ecto.UUID.generate/0)
     child_opts = [execution_id: execution_id, executable: executable, args: args, opts: opts]
 
-    with {:ok, pid} <-
+    with :ok <- validate_epoch(opts),
+         {:ok, pid} <-
            DynamicSupervisor.start_child(
              AllbertAssist.Execution.ProcessOwners,
              {__MODULE__, child_opts}
@@ -59,6 +61,7 @@ defmodule AllbertAssist.Execution.ProcessOwner do
              {:execution, execution_id},
              %{}
            ),
+         :ok <- validate_epoch(run_opts),
          {:ok, exec_pid, os_pid} <-
            start_command(Keyword.fetch!(opts, :executable), Keyword.fetch!(opts, :args), run_opts),
          {:ok, cleanup_guard} <-
@@ -85,6 +88,7 @@ defmodule AllbertAssist.Execution.ProcessOwner do
          cleanup_guard: cleanup_guard
        }}
     else
+      {:error, :product_not_ready} -> {:stop, :product_not_ready}
       {:error, reason} -> {:stop, {:execution_start_failed, reason}}
     end
   end
@@ -169,6 +173,16 @@ defmodule AllbertAssist.Execution.ProcessOwner do
       {key, nil} -> {to_charlist(key), false}
       {key, value} -> {to_charlist(key), to_charlist(value)}
     end)
+  end
+
+  defp validate_epoch(opts) do
+    case EffectGuard.validate(
+           Keyword.get(opts, :allbert_pack_epoch),
+           Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+         ) do
+      :ok -> :ok
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
   end
 
   defp resolve_kill_grace(opts) do

@@ -576,7 +576,7 @@ defmodule AllbertAssist.Runtime.Attach.Server do
           {:ok, open} ->
             with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
                  :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
-              start_tui_session(open, worker, state)
+              start_tui_session(open, worker, state, epoch)
             else
               {:error, _reason} ->
                 reject_open(:runtime_unavailable, "Allbert product is not ready.", state)
@@ -614,9 +614,9 @@ defmodule AllbertAssist.Runtime.Attach.Server do
     {{:reply_and_close, TUIProtocol.open_close(code, message)}, state}
   end
 
-  defp start_tui_session(open, worker, state) do
+  defp start_tui_session(open, worker, state, epoch) do
     opts =
-      [attach_server: self(), open: open]
+      [attach_server: self(), open: open, allbert_pack_epoch: epoch]
       |> Keyword.merge(state.session_opts)
 
     case state.session_module.start(opts) do

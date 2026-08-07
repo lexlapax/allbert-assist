@@ -47,12 +47,20 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
       do: {:error, {:playwright_version_mismatch, "host=1.58.1 required=1.58.2"}}
   end
 
+  defmodule HandoffDriver do
+    def start_session(opts), do: {:ok, %{test_pid: Keyword.fetch!(opts, :test_pid)}}
+    def navigate(%{test_pid: test_pid}, _url, _opts), do: send(test_pid, :driver_navigate_called)
+    def close(_state), do: :ok
+  end
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertBrowser.Session
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -72,7 +80,9 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
     ensure_browser_supervisor()
     close_all_sessions()
-    assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("browser.enabled", true, ReadyEffectContext.attach(%{audit?: false}))
 
     on_exit(fn ->
       close_all_sessions()
@@ -84,6 +94,34 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     end)
 
     %{root: root, registry: registry}
+  end
+
+  test "same-digest E2 before navigation makes zero driver calls" do
+    %{
+      allbert_pack_epoch: epoch,
+      allbert_pack_effect_guard_opts: [server: barrier] = guard_opts
+    } = ReadyEffectContext.context()
+
+    session_id = "handoff-#{System.unique_integer([:positive])}"
+
+    assert {:ok, ^session_id} =
+             Session.start_session(
+               session_id: session_id,
+               driver: HandoffDriver,
+               test_pid: self(),
+               allbert_pack_epoch: epoch,
+               allbert_pack_effect_guard_opts: guard_opts
+             )
+
+    assert :ok = ReadyEffectContext.replace(barrier)
+
+    assert {:error, :product_not_ready} =
+             Session.navigate(session_id, "https://example.test",
+               allbert_pack_epoch: epoch,
+               allbert_pack_effect_guard_opts: guard_opts
+             )
+
+    refute_receive :driver_navigate_called, 100
   end
 
   test "doctor live check persists ok state and start session requires approval", %{

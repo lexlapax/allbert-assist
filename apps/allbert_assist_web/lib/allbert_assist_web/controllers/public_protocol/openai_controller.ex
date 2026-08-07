@@ -16,7 +16,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
        [surface: "openai_api"] when action in [:chat_completions, :models]
 
   def models(conn, _params) do
-    if current?(conn) do
+    if PackReadiness.validate_conn(conn) == :ok do
       case Mapping.models_response() do
         {:ok, body} -> json(conn, body)
         {:error, error} -> send_error(conn, error)
@@ -34,14 +34,18 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
       {:ok, chat} ->
         if current?(epoch) do
           event =
-            EventRecorder.record_inbound("openai_api", %{
-              external_event_id: "openai_api:chat:#{Ecto.UUID.generate()}",
-              external_user_id: Map.fetch!(auth, :client_id),
-              user_id: chat.user_id,
-              session_id: Map.get(chat, :session_id),
-              thread_id: Map.get(chat, :thread_id),
-              payload_summary: "chat.completions #{chat.model}"
-            })
+            EventRecorder.record_inbound(
+              "openai_api",
+              %{
+                external_event_id: "openai_api:chat:#{Ecto.UUID.generate()}",
+                external_user_id: Map.fetch!(auth, :client_id),
+                user_id: chat.user_id,
+                session_id: Map.get(chat, :session_id),
+                thread_id: Map.get(chat, :thread_id),
+                payload_summary: "chat.completions #{chat.model}"
+              },
+              %{allbert_pack_epoch: epoch}
+            )
 
           with :ok <- current(epoch),
                {:ok, runtime_response} <-
@@ -54,11 +58,11 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
               HTTPGate.unavailable(conn)
 
             {:error, %{status: _status} = error} ->
-              EventRecorder.mark_failed(event, error)
+              EventRecorder.mark_failed(event, error, %{allbert_pack_epoch: epoch})
               send_error(conn, error)
 
             {:error, reason} ->
-              EventRecorder.mark_failed(event, reason)
+              EventRecorder.mark_failed(event, reason, %{allbert_pack_epoch: epoch})
               send_error(conn, Mapping.runtime_error(reason))
           end
         else
@@ -66,12 +70,16 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
         end
 
       {:error, %{status: _status} = error} ->
-        EventRecorder.record_rejection("openai_api", %{
-          external_event_id: "openai_api:rejected:#{Ecto.UUID.generate()}",
-          external_user_id: Map.get(auth, :client_id),
-          reason: error.code,
-          payload_summary: error.message
-        })
+        EventRecorder.record_rejection(
+          "openai_api",
+          %{
+            external_event_id: "openai_api:rejected:#{Ecto.UUID.generate()}",
+            external_user_id: Map.get(auth, :client_id),
+            reason: error.code,
+            payload_summary: error.message
+          },
+          %{allbert_pack_epoch: epoch}
+        )
 
         send_error(conn, error)
     end
@@ -96,7 +104,10 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
 
       {:error, reason} ->
         maybe_delivery_failed(response, epoch)
-        if current?(epoch), do: EventRecorder.mark_failed(event, reason)
+
+        if current?(epoch),
+          do: EventRecorder.mark_failed(event, reason, %{allbert_pack_epoch: epoch})
+
         conn
     end
   end
@@ -123,7 +134,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
         send_error(conn, error)
 
       {:error, reason} ->
-        EventRecorder.mark_failed(event, reason)
+        EventRecorder.mark_failed(event, reason, %{allbert_pack_epoch: epoch})
         send_error(conn, Mapping.runtime_error(reason))
     end
   end
@@ -152,7 +163,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
 
   defp persist_and_acknowledge(event, response, epoch) do
     with :ok <- current(epoch),
-         :ok <- EventRecorder.mark_result_durable(event, response),
+         :ok <- EventRecorder.mark_result_durable(event, response, %{allbert_pack_epoch: epoch}),
          :ok <- current(epoch) do
       Runtime.acknowledge_deliveries(response, %{channel: "openai_api"})
     else
@@ -243,10 +254,11 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
 
   defp await_fanout_epoch(parent_id, user_id, response, epoch) do
     barrier_ref = Process.monitor(epoch.barrier_pid)
+    notify_fanout_wait(epoch, barrier_ref)
 
     task =
       Task.Supervisor.async_nolink(AllbertAssist.TaskSupervisor, fn ->
-        Runtime.await_fanout(parent_id, user_id, Runtime.fanout_continuation_timeout_ms())
+        await_fanout(parent_id, user_id, Runtime.fanout_continuation_timeout_ms())
       end)
 
     task_ref = task.ref
@@ -272,5 +284,29 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
         Process.demonitor(barrier_ref, [:flush])
         {:error, :fanout_unavailable}
     end
+  end
+
+  if Mix.env() == :test do
+    defp await_fanout(parent_id, user_id, timeout_ms) do
+      case Application.get_env(:allbert_assist_web, :openai_fanout_awaiter) do
+        awaiter when is_function(awaiter, 3) -> awaiter.(parent_id, user_id, timeout_ms)
+        _default -> Runtime.await_fanout(parent_id, user_id, timeout_ms)
+      end
+    end
+
+    defp notify_fanout_wait(epoch, barrier_ref) do
+      case Application.get_env(:allbert_assist_web, :openai_fanout_wait_observer) do
+        observer when is_pid(observer) ->
+          send(observer, {:openai_fanout_waiting, self(), epoch, barrier_ref})
+
+        _none ->
+          :ok
+      end
+    end
+  else
+    defp await_fanout(parent_id, user_id, timeout_ms),
+      do: Runtime.await_fanout(parent_id, user_id, timeout_ms)
+
+    defp notify_fanout_wait(_epoch, _barrier_ref), do: :ok
   end
 end

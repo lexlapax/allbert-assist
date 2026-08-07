@@ -1,11 +1,61 @@
+defmodule AllbertAssist.Objectives.Engine.AgentTest.EpochObjectives do
+  @moduledoc false
+
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Pack.EffectGuard
+
+  def create_objective(attrs), do: with_epoch(&Objectives.create_objective(attrs, &1))
+  def create_step(attrs), do: with_epoch(&Objectives.create_step(attrs, &1))
+
+  defdelegate get_objective(id), to: Objectives
+  defdelegate list_steps(id), to: Objectives
+  defdelegate list_events(id), to: Objectives
+
+  defp with_epoch(effect) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(), do: effect.(%{allbert_pack_epoch: epoch})
+  end
+end
+
+defmodule AllbertAssist.Objectives.Engine.AgentTest.EpochEngine do
+  @moduledoc false
+
+  alias AllbertAssist.Objectives.Engine.Agent
+  alias AllbertAssist.Pack.EffectGuard
+
+  for function <- [
+        :frame_objective,
+        :propose_steps,
+        :evaluate_steps,
+        :authorize_step,
+        :advance_objective,
+        :execute_step,
+        :prune_stale
+      ] do
+    def unquote(function)(server, params) do
+      with {:ok, epoch} <- EffectGuard.admit_ready() do
+        apply(Agent, unquote(function), [server, Map.put(params, :allbert_pack_epoch, epoch)])
+      end
+    end
+  end
+
+  defdelegate command_modules(), to: Agent
+  defdelegate handle_command_error(state, command, reason), to: Agent
+
+  def rebuild_state(opts) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Agent.rebuild_state(Keyword.put(opts, :allbert_pack_epoch, epoch))
+    end
+  end
+end
+
 defmodule AllbertAssist.Objectives.Engine.AgentTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
-  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Engine.AgentTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.AgentRegistry
-  alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
+  alias AllbertAssist.Objectives.Engine.AgentTest.EpochEngine, as: EngineAgent
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Proposer
   alias AllbertAssist.Repo
@@ -198,6 +248,46 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     assert stale_after.status == "abandoned"
   end
 
+  test "startup rebuild is read-only without E1 and rejects invalid or stale E1 before writes" do
+    now = DateTime.utc_now()
+
+    assert {:ok, stale} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               status: "blocked",
+               title: "Read-only stale",
+               objective: "Must not be abandoned without an effect receipt."
+             })
+
+    stale_at = DateTime.add(now, -2, :hour)
+
+    assert {1, _} =
+             Objective
+             |> where([objective], objective.id == ^stale.id)
+             |> Repo.update_all(set: [updated_at: stale_at])
+
+    assert {:ok, %{last_summary: %{abandoned: 0}}} =
+             AllbertAssist.Objectives.Engine.Agent.rebuild_state(now: now)
+
+    assert {:ok, %{status: "blocked"}} = Objectives.get_objective(stale.id)
+
+    assert {:error, :product_not_ready} =
+             AllbertAssist.Objectives.Engine.Agent.rebuild_state(
+               now: now,
+               allbert_pack_epoch: %{}
+             )
+
+    assert {:ok, %{status: "blocked"}} = Objectives.get_objective(stale.id)
+
+    assert {:error, :stale_epoch} =
+             AllbertAssist.Objectives.Engine.Agent.rebuild_state(
+               now: now,
+               allbert_pack_epoch: %{barrier_pid: self(), snapshot_digest: "stale"}
+             )
+
+    assert {:ok, %{status: "blocked"}} = Objectives.get_objective(stale.id)
+  end
+
   test "supervisor restart reloads durable proposer hints from sqlite" do
     name = :"objectives_engine_restart_#{System.unique_integer([:positive])}"
 
@@ -211,13 +301,21 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                proposer_hint: %{"app_id" => "allbert", "state" => %{"cursor" => 1}}
              })
 
-    start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
+    start_supervised!(
+      {AllbertAssist.Objectives.Engine.Agent,
+       name: name, id: Atom.to_string(name), child_id: name}
+    )
+
     assert {:ok, %{agent: %{state: state}}} = AgentServer.state(name)
     assert state.proposer_hints[objective.id] == {:allbert, %{"cursor" => 1}}
 
     :ok = stop_supervised(name)
 
-    start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
+    start_supervised!(
+      {AllbertAssist.Objectives.Engine.Agent,
+       name: name, id: Atom.to_string(name), child_id: name}
+    )
+
     assert {:ok, %{agent: %{state: restarted}}} = AgentServer.state(name)
     assert restarted.proposer_hints[objective.id] == {:allbert, %{"cursor" => 1}}
   end
@@ -397,7 +495,14 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
 
     assert {:ok, %{agent: %{state: state}}} = AgentServer.state(delegate_name)
     assert state.last_command == :research
-    assert state.last_result == {:ok, %{payload: %{payload: "topic"}, status: :completed}}
+    assert {:ok, %{payload: delegate_payload, status: :completed}} = state.last_result
+    assert delegate_payload.payload == "topic"
+
+    assert %{barrier_pid: barrier_pid, snapshot_digest: snapshot_digest} =
+             delegate_payload.allbert_pack_epoch
+
+    assert is_pid(barrier_pid)
+    assert is_binary(snapshot_digest)
   end
 
   test "delegate_agent step requiring confirmation blocks the objective instead of failing" do
@@ -460,7 +565,12 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
 
   defp start_test_engine do
     name = :"objectives_engine_#{System.unique_integer([:positive])}"
-    start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
+
+    start_supervised!(
+      {AllbertAssist.Objectives.Engine.Agent,
+       name: name, id: Atom.to_string(name), child_id: name}
+    )
+
     name
   end
 end

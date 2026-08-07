@@ -12,6 +12,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias ReqLLM.Response
 
   defmodule SynthesisFixture do
@@ -110,12 +112,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defmodule ProcessStore do
-    def recover_composition(agent) do
+    def recover_composition(agent, _opts) do
       Agent.update(agent, &Map.update!(&1, :recoveries, fn count -> count + 1 end))
       {:ok, 0}
     end
 
-    def claim_next_composition(agent) do
+    def claim_next_composition(agent, _opts) do
       Agent.get_and_update(agent, fn state ->
         state = Map.update(state, :claim_attempts, 1, &(&1 + 1))
 
@@ -126,8 +128,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       end)
     end
 
-    def select_composition(agent, claim, source, body, provenance) do
+    def select_composition(agent, claim, source, body, provenance, _opts) do
       Agent.update(agent, fn state ->
+        claim = Map.delete(claim, :effect_context)
         Map.update!(state, :selected, &[{claim, source, body, provenance} | &1])
       end)
 
@@ -136,7 +139,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defmodule RecoveryBarrierStore do
-    def recover_composition({owner, agent}) do
+    def recover_composition({owner, agent}, _opts) do
       send(owner, {:recovery_started, self()})
 
       receive do
@@ -146,23 +149,24 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       end
     end
 
-    def claim_next_composition({owner, agent}) do
+    def claim_next_composition({owner, agent}, opts) do
       send(owner, :claim_after_recovery)
-      ProcessStore.claim_next_composition(agent)
+      ProcessStore.claim_next_composition(agent, opts)
     end
 
-    def select_composition({_owner, agent}, claim, source, body, provenance),
-      do: ProcessStore.select_composition(agent, claim, source, body, provenance)
+    def select_composition({_owner, agent}, claim, source, body, provenance, opts),
+      do: ProcessStore.select_composition(agent, claim, source, body, provenance, opts)
   end
 
   defmodule RetryStore do
-    def recover_composition(agent), do: next(agent, :recover_results, :recoveries)
-    def claim_next_composition(agent), do: next(agent, :claim_results, :claims)
+    def recover_composition(agent, _opts), do: next(agent, :recover_results, :recoveries)
+    def claim_next_composition(agent, _opts), do: next(agent, :claim_results, :claims)
 
-    def select_composition(agent, claim, source, body, provenance) do
+    def select_composition(agent, claim, source, body, provenance, _opts) do
       case next(agent, :select_results, :selects) do
         :ok ->
           Agent.update(agent, fn state ->
+            claim = Map.delete(claim, :effect_context)
             Map.update!(state, :selected, &[{claim, source, body, provenance} | &1])
           end)
 
@@ -182,7 +186,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defmodule RaisedExitStore do
-    def recover_composition(agent) do
+    def recover_composition(agent, _opts) do
       case increment(agent, :recoveries) do
         1 ->
           raise DBConnection.ConnectionError,
@@ -195,7 +199,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       end
     end
 
-    def claim_next_composition(agent) do
+    def claim_next_composition(agent, _opts) do
       case increment(agent, :claims) do
         1 ->
           exit(
@@ -215,8 +219,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       end
     end
 
-    def select_composition(agent, claim, source, body, provenance),
-      do: ProcessStore.select_composition(agent, claim, source, body, provenance)
+    def select_composition(agent, claim, source, body, provenance, opts),
+      do: ProcessStore.select_composition(agent, claim, source, body, provenance, opts)
 
     defp increment(agent, key),
       do:
@@ -227,7 +231,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defmodule NonTransientExitStore do
-    def recover_composition(_owner), do: exit(:invalid_store_contract)
+    def recover_composition(_owner, _opts), do: exit(:invalid_store_contract)
   end
 
   defmodule EpochGuard do
@@ -621,6 +625,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
        disclosure: AllowDisclosure,
        model_client: ProcessModel,
        model_enabled?: true,
+       effect_guard: private_effect_guard(),
        model_context: %{
          test_pid: self(),
          models: UnavailableModels,
@@ -777,7 +782,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert :ok =
              Fanout.acknowledge_report(
                pending.report_delivery_receipt,
-               Map.merge(pending.delivery_context, %{
+               ReadyEffectContext.context()
+               |> Map.merge(pending.delivery_context)
+               |> Map.merge(%{
                  user_id: "durable-composer",
                  source_channel: "test",
                  source_thread_id: "durable-composer-thread"
@@ -978,7 +985,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     end)
 
     assert {:ok, %{parent: %{id: parent_id}, budget: %{"version" => 1}}} =
-             Fanout.claim_next_composition()
+             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
 
     assert parent_id == parent.id
 
@@ -1012,7 +1019,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       |> Enum.filter(&(&1.kind == "fanout_report_selected"))
 
     assert length(selection_events) == 1
-    assert {:ok, 0} = Fanout.recover_composition()
+    assert {:ok, 0} = Fanout.recover_composition(effect_context: ReadyEffectContext.context())
 
     assert [same_event] =
              parent.id
@@ -1830,7 +1837,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
         source_channel: "test",
         source_thread_id: thread_id,
         proposer_hint: %{"fanout_plan" => plan}
-      },
+      }
+      |> Map.merge(ReadyEffectContext.context()),
       [
         %{title: "First", objective: "Analyze first", expected_result: "First result"},
         %{title: "Second", objective: "Analyze second", expected_result: "Second result"}
@@ -1840,15 +1848,18 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
   defp complete_registered_action_child!(child, summary, trace_id) do
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "completed",
-               stage: "execute_step",
-               candidate_action: "append_memory",
-               result_summary: summary,
-               trace_id: trace_id
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "execute_step",
+                 candidate_action: "append_memory",
+                 result_summary: summary,
+                 trace_id: trace_id
+               },
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, transition} =
              TerminalTransitions.terminalize_child(
@@ -1864,7 +1875,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
                  summary: String.slice(summary, 0, 500),
                  step_id: step.id,
                  step_status: "completed"
-               }
+               },
+               effect_context: ReadyEffectContext.context()
              )
 
     transition
@@ -1880,7 +1892,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
                  completed_at: DateTime.utc_now()
                },
                "run_failed",
-               %{reason: reason}
+               %{reason: reason},
+               effect_context: ReadyEffectContext.context()
              )
 
     transition
@@ -1928,7 +1941,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defp process_store(claims) do
-    start_supervised!({Agent, fn -> %{claims: claims, selected: [], recoveries: 0} end})
+    start_supervised!(
+      Supervisor.child_spec(
+        {Agent, fn -> %{claims: claims, selected: [], recoveries: 0} end},
+        id: {:process_store, System.unique_integer([:positive])}
+      )
+    )
   end
 
   defp start_process_composer(opts) do
@@ -1940,7 +1958,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
         Keyword.get(opts, :model_context, %{})
       )
 
-    defaults = [name: name, models: ProcessModels]
+    defaults = [name: name, models: ProcessModels, effect_guard: private_effect_guard()]
 
     opts = Keyword.put(opts, :model_context, model_context)
 
@@ -1950,6 +1968,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
         id: name
       )
     )
+  end
+
+  defp private_effect_guard do
+    %{allbert_pack_effect_guard_opts: [server: barrier]} = ReadyEffectContext.context()
+    {EffectGuard, barrier}
   end
 
   defp assert_selected_fallback(store, claim, reason) do

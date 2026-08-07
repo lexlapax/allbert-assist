@@ -18,6 +18,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
   alias AllbertAssist.Signals
 
@@ -66,7 +67,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       )
       when is_binary(parent_id) and is_map(attrs) and is_binary(event_kind) and
              is_map(event_payload) and is_list(opts) do
-    with {:ok, changes} <- validated_terminal_changes(child, attrs) do
+    with {:ok, _context} <- effect_context(opts),
+         {:ok, changes} <- validated_terminal_changes(child, attrs) do
       transaction = fn ->
         terminalize_transaction(child, changes, event_kind, event_payload, opts)
       end
@@ -99,7 +101,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       )
       when is_binary(parent_id) and is_map(attrs) and is_binary(event_kind) and
              is_map(event_payload) and is_list(opts) do
-    with {:ok, changes} <- validated_active_changes(child, attrs),
+    with {:ok, _context} <- effect_context(opts),
+         {:ok, changes} <- validated_active_changes(child, attrs),
          {:ok, updated} <-
            Repo.transaction(
              fn ->
@@ -124,37 +127,54 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       when is_binary(parent_id) and is_list(opts) do
     recovered? = Keyword.get(opts, :recovered?, true)
 
-    transaction = fn ->
-      payload = if recovered?, do: %{recovered: true}, else: %{}
-      reduce_parent(parent_id, DateTime.utc_now(), payload)
-    end
+    with {:ok, _context} <- effect_context(opts) do
+      transaction = fn ->
+        payload = if recovered?, do: %{recovered: true}, else: %{}
+        result = reduce_parent(parent_id, DateTime.utc_now(), payload, opts)
+        validate_or_rollback!(opts)
+        result
+      end
 
-    case Repo.transaction(transaction, mode: :immediate) do
-      {:ok, result} ->
-        enqueue_composition(result)
-        {:ok, result}
+      case Repo.transaction(transaction, mode: :immediate) do
+        {:ok, result} ->
+          enqueue_composition(result)
+          {:ok, result}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 
   @doc "Compare-and-set the oldest queued parent into composer ownership."
-  @spec claim_next_composition() :: {:ok, composition_claim()} | :none | {:error, term()}
-  def claim_next_composition do
-    case Repo.transaction(&claim_next_composition_transaction/0, mode: :immediate) do
-      {:ok, :none} -> :none
-      {:ok, claim} -> {:ok, claim}
-      {:error, reason} -> {:error, reason}
+  @spec claim_next_composition(keyword()) ::
+          {:ok, composition_claim()} | :none | {:error, term()}
+  def claim_next_composition(opts) when is_list(opts) do
+    with {:ok, _context} <- effect_context(opts) do
+      case Repo.transaction(fn -> claim_next_composition_transaction(opts) end, mode: :immediate) do
+        {:ok, :none} -> :none
+        {:ok, claim} -> {:ok, claim}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
+  def claim_next_composition, do: {:error, :product_not_ready}
+
   @doc "Select one bounded report and open its existing delivery outbox."
-  @spec select_composition(composition_claim(), String.t(), String.t(), map()) ::
+  @spec select_composition(composition_claim(), String.t(), String.t(), map(), keyword()) ::
           {:ok, Objective.t()} | {:error, term()}
-  def select_composition(%{parent: parent, frozen: frozen}, source, body, provenance)
-      when is_binary(source) and is_binary(body) and is_map(provenance) do
-    with :ok <- Report.verify(frozen, parent.report_input_digest),
+  def select_composition(
+        %{parent: parent, frozen: frozen} = claim,
+        source,
+        body,
+        provenance,
+        opts
+      )
+      when is_binary(source) and is_binary(body) and is_map(provenance) and is_list(opts) do
+    with {:ok, context} <- effect_context(opts),
+         :ok <- validate_claim_context(claim, context),
+         :ok <- Report.verify(frozen, parent.report_input_digest),
          {:ok, event_provenance} <- Report.normalize_selection_provenance(source, provenance),
          {:ok, selection_digest} <- Report.selection_digest(source, event_provenance),
          :ok <-
@@ -166,30 +186,38 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
              source,
              body,
              event_provenance,
-             selection_digest
+             selection_digest,
+             Keyword.put(opts, :effect_context, context)
            ) do
       publish_join(selected, %{report_source: source})
       {:ok, selected}
     end
   end
 
-  def select_composition(_claim, _source, _body, _provenance),
+  def select_composition(_claim, _source, _body, _provenance, _opts),
     do: {:error, :invalid_fanout_report_selection}
 
-  @doc "Resolve stranded composing and legacy selected-report rows deterministically."
-  @spec recover_composition() :: {:ok, non_neg_integer()} | {:error, term()}
-  def recover_composition, do: recover_composition_batches(nil, 0)
+  def select_composition(_claim, _source, _body, _provenance),
+    do: {:error, :product_not_ready}
 
-  defp recover_composition_batches(cursor, recovered_total) do
+  @doc "Resolve stranded composing and legacy selected-report rows deterministically."
+  @spec recover_composition(keyword()) :: {:ok, non_neg_integer()} | {:error, term()}
+  def recover_composition(opts) when is_list(opts) do
+    with {:ok, _context} <- effect_context(opts), do: recover_composition_batches(nil, 0, opts)
+  end
+
+  def recover_composition, do: {:error, :product_not_ready}
+
+  defp recover_composition_batches(cursor, recovered_total, opts) do
     case Fanout.composition_work_batch(cursor) do
       {:done, parents} ->
-        recover_final_composition_batch(parents, recovered_total)
+        recover_final_composition_batch(parents, recovered_total, opts)
 
       {:more, parents, next_cursor} ->
-        case recover_composition_batch(parents) do
+        case recover_composition_batch(parents, opts) do
           {:ok, recovered, integrity_failures} ->
             log_skipped_integrity_failures(integrity_failures)
-            recover_composition_batches(next_cursor, recovered_total + recovered)
+            recover_composition_batches(next_cursor, recovered_total + recovered, opts)
 
           {:error, reason, integrity_failures} ->
             log_skipped_integrity_failures(integrity_failures)
@@ -198,8 +226,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
-  defp recover_final_composition_batch(parents, recovered_total) do
-    case recover_composition_batch(parents) do
+  defp recover_final_composition_batch(parents, recovered_total, opts) do
+    case recover_composition_batch(parents, opts) do
       {:ok, recovered, integrity_failures} ->
         log_skipped_integrity_failures(integrity_failures)
         {:ok, recovered_total + recovered}
@@ -210,18 +238,24 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
-  defp recover_composition_batch(parents) do
-    Enum.reduce_while(parents, {:ok, 0, []}, &recover_composition_step/2)
+  defp recover_composition_batch(parents, opts) do
+    Enum.reduce_while(parents, {:ok, 0, []}, fn parent, acc ->
+      recover_composition_step(parent, acc, opts)
+    end)
   end
 
-  defp claim_next_composition_transaction do
-    case oldest_valid_queued_parent() do
-      :none -> :none
-      {:ok, parent, selection_input} -> claim_queued_composition(parent, selection_input)
-    end
+  defp claim_next_composition_transaction(opts) do
+    result =
+      case oldest_valid_queued_parent() do
+        :none -> :none
+        {:ok, parent, selection_input} -> claim_queued_composition(parent, selection_input, opts)
+      end
+
+    validate_or_rollback!(opts)
+    result
   end
 
-  defp claim_queued_composition(parent, %{frozen: frozen} = selection_input) do
+  defp claim_queued_composition(parent, %{frozen: frozen} = selection_input, opts) do
     now = DateTime.utc_now()
 
     case Repo.update_all(composition_claim_query(parent, selection_input),
@@ -234,7 +268,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       {1, _rows} ->
         parent
         |> then(&Repo.get!(Objective, &1.id))
-        |> composition_claim(frozen)
+        |> composition_claim(frozen, opts)
 
       {0, _rows} ->
         Repo.rollback(:stale_composition_claim)
@@ -256,9 +290,9 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     |> where([objective], is_nil(objective.report_delivery_receipt_digest))
   end
 
-  defp recover_composition_step(parent, {:ok, count, integrity_failures}) do
+  defp recover_composition_step(parent, {:ok, count, integrity_failures}, opts) do
     parent
-    |> recover_composition_parent()
+    |> recover_composition_parent(opts)
     |> recover_composition_result(parent, count, integrity_failures)
   end
 
@@ -329,8 +363,15 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       {1, _rows} ->
         updated = Repo.get!(Objective, child.id)
         transaction_payload = run_transaction_hook(updated, opts)
-        record_event!(updated.id, event_kind, Map.merge(event_payload, transaction_payload))
-        %{child: updated, join: reduce_parent(updated.parent_objective_id, now)}
+        record_event!(updated.id, event_kind, Map.merge(event_payload, transaction_payload), opts)
+
+        result = %{
+          child: updated,
+          join: reduce_parent(updated.parent_objective_id, now, %{}, opts)
+        }
+
+        validate_or_rollback!(opts)
+        result
 
       {0, _rows} ->
         current = Repo.get(Objective, child.id)
@@ -355,7 +396,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       {1, _rows} ->
         updated = Repo.get!(Objective, child.id)
         transaction_payload = run_transaction_hook(updated, opts)
-        record_event!(updated.id, event_kind, Map.merge(event_payload, transaction_payload))
+        record_event!(updated.id, event_kind, Map.merge(event_payload, transaction_payload), opts)
+        validate_or_rollback!(opts)
         updated
 
       {0, _rows} ->
@@ -386,10 +428,10 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
-  defp reduce_parent(parent_id, now, join_payload \\ %{}) do
+  defp reduce_parent(parent_id, now, join_payload, opts) do
     parent = Repo.get(Objective, parent_id)
     join = Fanout.join_status(parent_id)
-    reduce_parent_state(parent, join, parent_id, now, join_payload)
+    reduce_parent_state(parent, join, parent_id, now, join_payload, opts)
   end
 
   defp reduce_parent_state(
@@ -397,9 +439,10 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
          %{terminal?: true, status: status, outcome: outcome},
          parent_id,
          now,
-         join_payload
+         join_payload,
+         opts
        ) do
-    reduce_terminal_parent(parent_id, status, outcome, now, join_payload)
+    reduce_terminal_parent(parent_id, status, outcome, now, join_payload, opts)
   end
 
   defp reduce_parent_state(
@@ -407,7 +450,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
          _join,
          _parent_id,
          _now,
-         _join_payload
+         _join_payload,
+         _opts
        )
        when state in ["queued", "composing", "ready", "fallback"],
        do: {:already_joined, parent}
@@ -417,7 +461,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
          _join,
          _parent_id,
          _now,
-         _join_payload
+         _join_payload,
+         _opts
        )
        when state in ["pending", "delivered"],
        do: {:already_joined, parent}
@@ -427,14 +472,15 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
          _join,
          _parent_id,
          _now,
-         _join_payload
+         _join_payload,
+         _opts
        ),
        do: :not_terminal
 
-  defp reduce_parent_state(_parent, _join, _parent_id, _now, _join_payload),
+  defp reduce_parent_state(_parent, _join, _parent_id, _now, _join_payload, _opts),
     do: Repo.rollback(:fanout_parent_not_found)
 
-  defp reduce_terminal_parent(parent_id, status, outcome, now, join_payload) do
+  defp reduce_terminal_parent(parent_id, status, outcome, now, join_payload, opts) do
     parent = Repo.get!(Objective, parent_id)
     reduced_parent = %{parent | status: status, join_outcome: outcome}
     frozen = freeze_reduced_parent(reduced_parent)
@@ -450,7 +496,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
 
     case Repo.update_all(reduce_parent_query(parent_id), set: updates) do
       {1, _rows} ->
-        record_join(parent_id, status, outcome, frozen.input_digest, join_payload)
+        record_join(parent_id, status, outcome, frozen.input_digest, join_payload, opts)
 
       {0, _rows} ->
         already_joined(parent_id)
@@ -472,7 +518,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
           parent.report_composition_state == "not_ready"
   end
 
-  defp record_join(parent_id, status, outcome, input_digest, join_payload) do
+  defp record_join(parent_id, status, outcome, input_digest, join_payload, opts) do
     joined = Repo.get!(Objective, parent_id)
 
     record_event!(
@@ -483,7 +529,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
         join_outcome: outcome,
         report_composition_state: "queued",
         report_input_digest: input_digest
-      })
+      }),
+      opts
     )
 
     {:joined_now, joined}
@@ -504,12 +551,45 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
-  defp record_event!(objective_id, kind, payload) do
-    case Objectives.create_event(%{objective_id: objective_id, kind: kind, payload: payload}) do
+  defp record_event!(objective_id, kind, payload, opts) do
+    case Objectives.create_event(
+           %{objective_id: objective_id, kind: kind, payload: payload},
+           effect_context!(opts)
+         ) do
       {:ok, _event} -> :ok
       {:error, reason} -> Repo.rollback(reason)
     end
   end
+
+  defp effect_context(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :effect_context) do
+      {:ok, %{allbert_pack_epoch: epoch} = context} when is_map(epoch) ->
+        case EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, [])) do
+          :ok -> {:ok, context}
+          {:error, reason} -> {:error, reason}
+        end
+
+      _ ->
+        {:error, :product_not_ready}
+    end
+  end
+
+  defp effect_context(_opts), do: {:error, :product_not_ready}
+
+  defp effect_context!(opts) do
+    case effect_context(opts) do
+      {:ok, context} -> context
+      {:error, reason} -> Repo.rollback(reason)
+    end
+  end
+
+  defp validate_or_rollback!(opts) do
+    if effect_context(opts) |> then(&match?({:ok, _}, &1)) == false,
+      do: Repo.rollback(:product_not_ready)
+  end
+
+  defp validate_claim_context(%{effect_context: context}, context), do: :ok
+  defp validate_claim_context(_claim, _context), do: {:error, :stale_epoch}
 
   defp oldest_valid_queued_parent, do: scan_queued_parents(nil)
 
@@ -614,7 +694,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end)
   end
 
-  defp composition_claim(parent, frozen) do
+  defp composition_claim(parent, frozen, opts) do
     plan = frozen.snapshot.plan
 
     %{
@@ -629,7 +709,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
         surface: parent.source_surface,
         session_id: parent.session_id,
         active_app: parent.active_app
-      }
+      },
+      effect_context: effect_context!(opts)
     }
   end
 
@@ -639,7 +720,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
          source,
          body,
          event_provenance,
-         selection_digest
+         selection_digest,
+         opts
        ) do
     state = if source == "model", do: "ready", else: "fallback"
     receipt = Fanout.receipt_for(:report, parent.id)
@@ -654,10 +736,18 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       selection_digest: selection_digest,
       state: state,
       receipt: receipt,
-      now: now
+      now: now,
+      opts: opts
     }
 
-    case Repo.transaction(fn -> persist_selected_composition(selection) end, mode: :immediate) do
+    case Repo.transaction(
+           fn ->
+             selected = persist_selected_composition(selection)
+             validate_or_rollback!(opts)
+             selected
+           end,
+           mode: :immediate
+         ) do
       {:ok, selected} -> {:ok, selected}
       {:error, reason} -> {:error, reason}
     end
@@ -672,7 +762,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
          selection_digest: selection_digest,
          state: state,
          receipt: receipt,
-         now: now
+         now: now,
+         opts: opts
        }) do
     updates = [
       report_composition_state: state,
@@ -686,7 +777,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
 
     case Repo.update_all(composition_selection_query(parent, frozen), set: updates) do
       {1, _rows} ->
-        record_composition_selection(parent, frozen, source, body, event_provenance)
+        record_composition_selection(parent, frozen, source, body, event_provenance, opts)
 
       {0, _rows} ->
         Repo.rollback(:stale_composition_claim)
@@ -704,7 +795,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
           is_nil(objective.report_delivery_receipt_digest)
   end
 
-  defp record_composition_selection(parent, frozen, source, body, event_provenance) do
+  defp record_composition_selection(parent, frozen, source, body, event_provenance, opts) do
     selected = Repo.get!(Objective, parent.id)
 
     event_payload =
@@ -714,22 +805,27 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
         body_sha256: receipt_digest(body)
       })
 
-    record_event!(selected.id, "fanout_report_selected", event_payload)
+    record_event!(selected.id, "fanout_report_selected", event_payload, opts)
     selected
   end
 
-  defp recover_composition_parent(%Objective{report_composition_state: "queued"}), do: :queued
+  defp recover_composition_parent(%Objective{report_composition_state: "queued"}, _opts),
+    do: :queued
 
-  defp recover_composition_parent(%Objective{report_composition_state: "composing"} = parent) do
+  defp recover_composition_parent(
+         %Objective{report_composition_state: "composing"} = parent,
+         opts
+       ) do
     with {:ok, selection_input} <- Fanout.report_input_for_selection(parent),
-         {:ok, rebound_parent, frozen} <- rebind_composing_input(parent, selection_input),
+         {:ok, rebound_parent, frozen} <- rebind_composing_input(parent, selection_input, opts),
          {:ok, provenance} <- Report.recovery_fallback_provenance(frozen.snapshot),
          {:ok, _selected} <-
            select_composition(
-             composition_claim(rebound_parent, frozen),
+             composition_claim(rebound_parent, frozen, opts),
              "deterministic_fallback",
              frozen.fallback_body,
-             provenance
+             provenance,
+             opts
            ) do
       {:ok, :recovered}
     end
@@ -739,13 +835,14 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
          %Objective{
            report_composition_state: "not_ready",
            report_delivery_state: state
-         } = parent
+         } = parent,
+         opts
        )
        when state in ["pending", "delivered"] do
     with :ok <- validate_legacy_report_receipt(parent),
          {:ok, frozen} <- Fanout.report_input_v1(parent),
          :ok <- verify_historical_report_input(parent, frozen),
-         {:ok, selected} <- backfill_legacy_report(parent, frozen) do
+         {:ok, selected} <- backfill_legacy_report(parent, frozen, opts) do
       if state == "pending" do
         publish_join(selected, %{historical_backfill: true, report_source: selected.report_source})
       end
@@ -754,13 +851,13 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
-  defp recover_composition_parent(_parent), do: :queued
+  defp recover_composition_parent(_parent, _opts), do: :queued
 
-  defp rebind_composing_input(parent, %{frozen: frozen, rebind_from: nil}),
+  defp rebind_composing_input(parent, %{frozen: frozen, rebind_from: nil}, _opts),
     do: {:ok, parent, frozen}
 
-  defp rebind_composing_input(parent, %{frozen: frozen, rebind_from: old_digest}) do
-    transaction = fn -> rebind_composing_transaction(parent, frozen, old_digest) end
+  defp rebind_composing_input(parent, %{frozen: frozen, rebind_from: old_digest}, opts) do
+    transaction = fn -> rebind_composing_transaction(parent, frozen, old_digest, opts) end
 
     case Repo.transaction(transaction, mode: :immediate) do
       {:ok, result} -> result
@@ -768,14 +865,18 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
-  defp rebind_composing_transaction(parent, frozen, old_digest) do
+  defp rebind_composing_transaction(parent, frozen, old_digest, opts) do
     query = rebind_composing_query(parent, old_digest)
 
     case Repo.update_all(query,
            set: [report_input_digest: frozen.input_digest, updated_at: DateTime.utc_now()]
          ) do
-      {1, _rows} -> {:ok, Repo.get!(Objective, parent.id), frozen}
-      {0, _rows} -> Repo.rollback(:stale_composition_claim)
+      {1, _rows} ->
+        validate_or_rollback!(opts)
+        {:ok, Repo.get!(Objective, parent.id), frozen}
+
+      {0, _rows} ->
+        Repo.rollback(:stale_composition_claim)
     end
   end
 
@@ -827,7 +928,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
 
   defp composition_integrity_failure?(_reason), do: false
 
-  defp backfill_legacy_report(parent, frozen) do
+  defp backfill_legacy_report(parent, frozen, opts) do
     now = DateTime.utc_now()
 
     {:ok, event_provenance} =
@@ -866,9 +967,11 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
               input_digest: frozen.input_digest,
               body_sha256: receipt_digest(frozen.fallback_body),
               historical_backfill: true
-            })
+            }),
+            opts
           )
 
+          validate_or_rollback!(opts)
           selected
 
         {0, _rows} ->

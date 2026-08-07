@@ -3,6 +3,7 @@ defmodule AllbertAssist.Channels.Discord.Client do
 
   alias AllbertAssist.External.HttpPolicy
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings.Secrets
 
   @base_url "https://discord.com/api/v10"
@@ -40,7 +41,8 @@ defmodule AllbertAssist.Channels.Discord.Client do
 
   def update_message(token_ref, channel_id, message_id, payload, opts \\ []) do
     case client_mode(opts) do
-      :stub -> stub_update_message(channel_id, message_id, payload, opts)
+      :stub ->
+        stub_update_message(channel_id, message_id, payload, opts)
 
       :real ->
         request(
@@ -108,23 +110,29 @@ defmodule AllbertAssist.Channels.Discord.Client do
   end
 
   defp request(method, token_ref, path, request_opts, opts) do
-    with :ok <- validate_token_ref(token_ref),
+    with {:ok, epoch} <- carried_epoch(opts),
+         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- validate_token_ref(token_ref),
          {:ok, token} <- resolve_token(token_ref),
          request <- build_request(method, token_ref, path, request_opts),
          :ok <- validate_policy(request, request_opts, opts) do
-      [
-        method: method,
-        url: request.url,
-        headers: [{"authorization", "Bot " <> token}],
-        retry: false,
-        redirect: false,
-        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
-      ]
-      |> Keyword.merge(request_opts)
-      |> Keyword.delete(:max_response_bytes)
-      |> Keyword.merge(Keyword.take(opts, [:plug]))
-      |> Req.request()
-      |> normalize_response()
+      request =
+        [
+          method: method,
+          url: request.url,
+          headers: [{"authorization", "Bot " <> token}],
+          retry: false,
+          redirect: false,
+          receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+        ]
+        |> Keyword.merge(request_opts)
+        |> Keyword.delete(:max_response_bytes)
+        |> Keyword.merge(Keyword.take(opts, [:plug]))
+
+      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+           response <- Req.request(request) do
+        normalize_response(response)
+      end
     end
   end
 
@@ -133,22 +141,37 @@ defmodule AllbertAssist.Channels.Discord.Client do
 
     with {:ok, path} <- interaction_callback_path(interaction_id, interaction_token),
          request <- interaction_callback_request(interaction_id, interaction_token, payload),
+         {:ok, epoch} <- carried_epoch(opts),
+         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
          :ok <- validate_policy(request, request_opts, opts) do
-      [
-        method: :post,
-        url: @base_url <> path,
-        headers: [],
-        retry: false,
-        redirect: false,
-        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
-      ]
-      |> Keyword.merge(request_opts)
-      |> Keyword.delete(:max_response_bytes)
-      |> Keyword.merge(Keyword.take(opts, [:plug]))
-      |> Req.request()
-      |> normalize_response()
+      request =
+        [
+          method: :post,
+          url: @base_url <> path,
+          headers: [],
+          retry: false,
+          redirect: false,
+          receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+        ]
+        |> Keyword.merge(request_opts)
+        |> Keyword.delete(:max_response_bytes)
+        |> Keyword.merge(Keyword.take(opts, [:plug]))
+
+      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+           response <- Req.request(request) do
+        normalize_response(response)
+      end
     end
   end
+
+  defp carried_epoch(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp build_request(method, token_ref, path, request_opts) do
     %{

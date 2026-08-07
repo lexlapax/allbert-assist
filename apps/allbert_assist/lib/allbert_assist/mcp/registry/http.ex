@@ -18,7 +18,11 @@ defmodule AllbertAssist.Mcp.Registry.Http do
              timeout_ms: int_opt(opts, :timeout_ms, @default_timeout_ms),
              max_response_bytes: int_opt(opts, :max_response_bytes, @default_max_response_bytes)
            }),
-         {:ok, result} <- HttpClient.request(spec, plug: req_plug(context(opts))) do
+         {:ok, result} <-
+           HttpClient.request(spec,
+             allbert_pack_epoch: Map.get(context(opts), :allbert_pack_epoch),
+             plug: req_plug(context(opts))
+           ) do
       decode_response(result)
     else
       {:error, %RequestSpec{} = spec} ->

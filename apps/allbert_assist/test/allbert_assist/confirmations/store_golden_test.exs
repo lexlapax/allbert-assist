@@ -6,6 +6,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
   alias AllbertAssist.Confirmations.Store
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @fixture_root Path.expand("../../fixtures/v0.23/confirmations", __DIR__)
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
@@ -41,13 +42,13 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
   end
 
   test "requested external-network audit markdown matches the v0.23 fixture", %{home: home} do
-    assert {:ok, _record} = Store.create(external_attrs(), now: now())
+    assert {:ok, _record} = Store.create(external_attrs(), effect_context(), now: now())
 
     assert audit(home) == fixture("requested_external_network.md")
   end
 
   test "approved shell-command audit markdown matches the v0.23 fixture", %{home: home} do
-    assert {:ok, record} = Store.create(shell_attrs(), now: now())
+    assert {:ok, record} = Store.create(shell_attrs(), effect_context(), now: now())
 
     assert {:ok, _resolved} =
              Store.resolve(
@@ -69,6 +70,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
                    stdout_preview: "ok\n"
                  }
                },
+               effect_context(),
                now: DateTime.add(now(), 60, :second)
              )
 
@@ -76,7 +78,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
   end
 
   test "denied package-install audit markdown matches the v0.23 fixture", %{home: home} do
-    assert {:ok, record} = Store.create(package_attrs(), now: now())
+    assert {:ok, record} = Store.create(package_attrs(), effect_context(), now: now())
 
     assert {:ok, _resolved} =
              Store.resolve(
@@ -89,6 +91,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
                  resolution_reason: "package not needed",
                  same_channel?: false
                },
+               effect_context(),
                now: DateTime.add(now(), 60, :second)
              )
 
@@ -96,10 +99,12 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
   end
 
   test "expired skill-script audit markdown matches the v0.23 fixture", %{home: home} do
-    assert {:ok, _record} = Store.create(skill_script_attrs(), now: now(), ttl_minutes: 1)
+    assert {:ok, _record} =
+             Store.create(skill_script_attrs(), effect_context(), now: now(), ttl_minutes: 1)
 
     assert {:ok, [_expired]} =
              Store.expire(
+               effect_context(),
                now: DateTime.add(now(), 61, :second),
                resolution_attrs: %{
                  resolver_actor: "system",
@@ -114,7 +119,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
   end
 
   test "cancelled resource-reference audit markdown matches the v0.23 fixture", %{home: home} do
-    assert {:ok, record} = Store.create(resource_attrs(), now: now())
+    assert {:ok, record} = Store.create(resource_attrs(), effect_context(), now: now())
 
     assert {:ok, _resolved} =
              Store.resolve(
@@ -127,6 +132,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
                  resolution_reason: "operator cancelled",
                  same_channel?: true
                },
+               effect_context(),
                now: DateTime.add(now(), 60, :second)
              )
 
@@ -242,6 +248,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
   end
 
   defp now, do: ~U[2026-05-02 12:00:00Z]
+  defp effect_context, do: ReadyEffectContext.context()
 
   defp restore_env(original_env) do
     Enum.each(original_env, fn

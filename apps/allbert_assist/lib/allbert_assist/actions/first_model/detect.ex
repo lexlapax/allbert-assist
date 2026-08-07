@@ -40,7 +40,7 @@ defmodule AllbertAssist.Actions.FirstModel.Detect do
 
       state =
         FirstRun.first_model_state(
-          ollama_probe: fn -> Ollama.probe() end,
+          ollama_probe: fn -> Ollama.probe(context: context) end,
           hardware_ok?: fn -> Hardware.meets_floor?(floor) end
         )
 

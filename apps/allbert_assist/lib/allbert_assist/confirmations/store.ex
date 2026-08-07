@@ -20,10 +20,10 @@ defmodule AllbertAssist.Confirmations.Store do
   defdelegate audit_path(now \\ DateTime.utc_now()), to: Persistence
 
   defdelegate ensure_root!(), to: Agent
-  defdelegate create(attrs, opts \\ []), to: Agent
+  defdelegate create(attrs, effect_context, opts \\ []), to: Agent
   defdelegate read(id), to: Agent
   defdelegate list(opts \\ []), to: Agent
-  defdelegate resolve(id, status, resolution_attrs \\ %{}, opts \\ []), to: Agent
-  defdelegate annotate_resolution(id, attrs, opts \\ []), to: Agent
-  defdelegate expire(opts \\ []), to: Agent
+  defdelegate resolve(id, status, resolution_attrs, effect_context, opts \\ []), to: Agent
+  defdelegate annotate_resolution(id, attrs, effect_context, opts \\ []), to: Agent
+  defdelegate expire(effect_context, opts \\ []), to: Agent
 end

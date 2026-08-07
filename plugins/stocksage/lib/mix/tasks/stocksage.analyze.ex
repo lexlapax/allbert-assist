@@ -18,6 +18,7 @@ defmodule Mix.Tasks.Stocksage.Analyze do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Pack.EffectGuard
 
   @shortdoc "Request a StockSage analysis"
   @switches [
@@ -36,12 +37,10 @@ defmodule Mix.Tasks.Stocksage.Analyze do
   def run(args) do
     Mix.Task.run("app.start")
 
-    args
-    |> dispatch()
-    |> print_result()
+    with_ready_context(fn ready_context -> args |> dispatch(ready_context) |> print_result() end)
   end
 
-  defp dispatch([ticker, analysis_date | rest])
+  defp dispatch([ticker, analysis_date | rest], ready_context)
        when is_binary(ticker) and is_binary(analysis_date) do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
@@ -62,13 +61,13 @@ defmodule Mix.Tasks.Stocksage.Analyze do
         }
         |> drop_nil()
 
-      Runner.run("run_analysis", params, context(user_id))
+      Runner.run("run_analysis", params, context(user_id, ready_context))
     end
   end
 
-  defp dispatch(_args), do: {:error, :usage}
+  defp dispatch(_args, _ready_context), do: {:error, :usage}
 
-  defp context(user_id) do
+  defp context(user_id, %{allbert_pack_epoch: epoch}) do
     %{
       request: %{
         channel: :cli,
@@ -83,6 +82,14 @@ defmodule Mix.Tasks.Stocksage.Analyze do
       app_id: :stocksage,
       active_app: :stocksage
     }
+    |> Map.put(:allbert_pack_epoch, epoch)
+  end
+
+  defp with_ready_context(fun) do
+    case EffectGuard.admit_ready() do
+      {:ok, epoch} -> fun.(%{allbert_pack_epoch: epoch})
+      {:error, _reason} -> Mix.raise("Allbert product is not ready; retry the command.")
+    end
   end
 
   defp drop_nil(map) do

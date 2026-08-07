@@ -3,6 +3,7 @@ defmodule AllbertAssist.Execution.ProcessOwnerTest do
   @moduletag :global_process_serial
 
   alias AllbertAssist.Execution.ProcessOwner
+  alias AllbertAssist.Pack.EffectGuard
 
   test "preserves argv, cwd, env, merged output, and exit status" do
     root = "/"
@@ -12,7 +13,8 @@ defmodule AllbertAssist.Execution.ProcessOwnerTest do
                cd: root,
                env: [{"M4_VALUE", "present"}],
                timeout_ms: 2_000,
-               max_output_bytes: 4_096
+               max_output_bytes: 4_096,
+               allbert_pack_epoch: pack_epoch!()
              )
 
     assert result.exit_status == 0
@@ -27,7 +29,8 @@ defmodule AllbertAssist.Execution.ProcessOwnerTest do
                cd: "/",
                env: [],
                timeout_ms: 100,
-               max_output_bytes: 100
+               max_output_bytes: 100,
+               allbert_pack_epoch: pack_epoch!()
              )
   end
 
@@ -41,5 +44,20 @@ defmodule AllbertAssist.Execution.ProcessOwnerTest do
     # MuonTrap remains the supervised long-lived-daemon substrate; it does not
     # expose the scoped process-group handle required for arbitrary commands.
     assert Code.ensure_loaded?(MuonTrap.Daemon)
+  end
+
+  test "missing epoch refuses child creation" do
+    assert {:error, :product_not_ready} =
+             ProcessOwner.run("/bin/true", [],
+               cd: "/",
+               env: [],
+               timeout_ms: 100,
+               max_output_bytes: 100
+             )
+  end
+
+  defp pack_epoch! do
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    epoch
   end
 end

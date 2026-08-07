@@ -154,8 +154,8 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   defp process_parsed_event({:text_message, fields}, auth_context, state),
     do: process_text_event(fields, auth_context, state)
 
-  defp process_parsed_event({:unsupported, fields}, _auth_context, _state),
-    do: insert_rejected_event(fields)
+  defp process_parsed_event({:unsupported, fields}, _auth_context, state),
+    do: insert_rejected_event(fields, state)
 
   defp process_parsed_event({:malformed, reason}, _auth_context, _state),
     do: {:error, {:malformed, reason}}
@@ -165,7 +165,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
     {text, new_thread?} = prompt_text(fields.text)
     fields = maybe_isolate_new_provider_thread(fields, new_thread?)
 
-    case insert_received_event(fields, "inbound") do
+    case insert_received_event(fields, "inbound", state) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         handle_text_event(
           event,
@@ -201,22 +201,22 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
            end),
          :ok <- record_outbound_refs(response, fields, delivered),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "signal"}),
-         {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+         {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
       {:ok, :processed}
     else
       {:error, {:delivery_failed, _reason} = reason} ->
         Logger.debug("signal event failed: #{inspect(Redactor.redact(reason))}")
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:error, reason}
 
       {:error, reason} ->
         Logger.debug("signal event rejected: #{inspect(Redactor.redact(reason))}")
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:ok, :rejected}
     end
   end
 
-  defp insert_received_event(fields, direction) do
+  defp insert_received_event(fields, direction, state) do
     %{
       channel: "signal",
       provider: @provider,
@@ -228,11 +228,11 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       status: "received",
       payload_summary: fields.raw_summary
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result()
   end
 
-  defp insert_rejected_event(fields) do
+  defp insert_rejected_event(fields, state) do
     %{
       channel: "signal",
       provider: @provider,
@@ -244,7 +244,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       reason: Map.get(fields, :type, "unsupported_event"),
       payload_summary: "unsupported signal event"
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result(:rejected)
   end
 
@@ -342,11 +342,21 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
+    |> Runtime.submit_user_input(
+      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
+      allbert_pack_effect_guard_opts: Map.fetch!(fields, :allbert_pack_effect_guard_opts)
+    )
   end
 
   defp carry_epoch(fields, state),
-    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+    do: Map.merge(fields, effect_context(state))
+
+  defp effect_context(state) do
+    %{
+      allbert_pack_epoch: Map.fetch!(state, :effect_epoch),
+      allbert_pack_effect_guard_opts: state.effect_guard_opts
+    }
+  end
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -375,6 +385,8 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       opts =
         state.client_opts
         |> put_quote_opts(reply_target)
+        |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+        |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
 
       result =
         Client.send_message(
@@ -512,32 +524,44 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
     end
   end
 
-  defp mark_processed(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      thread_id: response_value(response, :thread_id),
-      input_signal_id: response_value(response, :input_signal_id),
-      trace_id: response_value(response, :trace_id)
-    })
+  defp mark_processed(event, response, user_id, session_id, context) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        thread_id: response_value(response, :thread_id),
+        input_signal_id: response_value(response, :input_signal_id),
+        trace_id: response_value(response, :trace_id)
+      },
+      context
+    )
   end
 
-  defp mark_rejected_or_failed(event, {:delivery_failed, reason}) do
-    Channels.update_event(event, %{status: "failed", error: inspect(Redactor.redact(reason))})
+  defp mark_rejected_or_failed(event, {:delivery_failed, reason}, context) do
+    Channels.update_event(
+      event,
+      %{status: "failed", error: inspect(Redactor.redact(reason))},
+      context
+    )
   end
 
-  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}) do
-    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
+  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}, context) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"}, context)
   end
 
-  defp mark_rejected_or_failed(event, reason) do
+  defp mark_rejected_or_failed(event, reason, context) do
     status =
       if reason in [:disabled, :not_mapped, :signal_aci_not_allowed, :invalid_signal_aci],
         do: "rejected",
         else: "failed"
 
-    Channels.update_event(event, %{status: status, reason: inspect(Redactor.redact(reason))})
+    Channels.update_event(
+      event,
+      %{status: status, reason: inspect(Redactor.redact(reason))},
+      context
+    )
   end
 
   defp event_result(result, inserted_status \\ nil)
@@ -584,7 +608,16 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
         {:ok, settings} ->
           account = Map.get(settings, "account_identifier")
 
-          case Client.send_message(account, target, body, Keyword.take(opts, [:req_options])) do
+          req_options =
+            opts
+            |> Keyword.get(:req_options, [])
+            |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+            |> Keyword.put(
+              :allbert_pack_effect_guard_opts,
+              Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+            )
+
+          case Client.send_message(account, target, body, req_options) do
             {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
             {:error, reason} -> {:error, reason}
           end
@@ -597,7 +630,8 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
 
   defp validate_outbound_epoch(opts) do
     with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
-         :ok <- EffectGuard.validate(epoch) do
+         :ok <-
+           EffectGuard.validate(epoch, Keyword.get(opts, :allbert_pack_effect_guard_opts, [])) do
       :ok
     else
       _error -> {:error, :product_not_ready}

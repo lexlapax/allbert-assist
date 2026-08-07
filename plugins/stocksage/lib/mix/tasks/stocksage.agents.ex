@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Stocksage.Agents do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
+  alias AllbertAssist.Pack.EffectGuard
 
   @shortdoc "List or show StockSage native specialist agents"
   @switches [
@@ -27,28 +28,32 @@ defmodule Mix.Tasks.Stocksage.Agents do
   def run(args) do
     Mix.Task.run("app.start")
 
-    args
-    |> dispatch()
-    |> print_result()
+    with_ready_context(fn context -> args |> dispatch(context) |> print_result() end)
   end
 
-  defp dispatch(["list" | rest]) do
-    {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
-
-    with :ok <- reject_invalid(invalid),
-         {:ok, user_id} <- resolve_user(opts),
-         {:ok, response} <- run_action("list_stocksage_agents", %{user_id: user_id}, user_id) do
-      {:ok, {:list, response.agents}}
-    end
-  end
-
-  defp dispatch(["show", agent_id | rest]) do
+  defp dispatch(["list" | rest], context) do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
          {:ok, user_id} <- resolve_user(opts),
          {:ok, response} <-
-           run_action("show_stocksage_agent", %{user_id: user_id, agent_id: agent_id}, user_id) do
+           run_action("list_stocksage_agents", %{user_id: user_id}, user_id, context) do
+      {:ok, {:list, response.agents}}
+    end
+  end
+
+  defp dispatch(["show", agent_id | rest], context) do
+    {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
+
+    with :ok <- reject_invalid(invalid),
+         {:ok, user_id} <- resolve_user(opts),
+         {:ok, response} <-
+           run_action(
+             "show_stocksage_agent",
+             %{user_id: user_id, agent_id: agent_id},
+             user_id,
+             context
+           ) do
       case response.status do
         :completed -> {:ok, {:show, response.agent}}
         :not_found -> {:error, {:not_found, agent_id}}
@@ -56,7 +61,7 @@ defmodule Mix.Tasks.Stocksage.Agents do
     end
   end
 
-  defp dispatch(["smoke", agent_id | rest]) do
+  defp dispatch(["smoke", agent_id | rest], context) do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
@@ -64,8 +69,8 @@ defmodule Mix.Tasks.Stocksage.Agents do
          {:ok, entry} <- AgentRegistry.lookup(agent_id),
          {:ok, ticker} <- required_ticker(opts),
          params <- smoke_params(opts, user_id, ticker),
-         {:ok, objective} <- create_debug_objective(user_id, entry.id, ticker),
-         {:ok, step} <- create_debug_step(objective, entry.id, params),
+         {:ok, objective} <- create_debug_objective(user_id, entry.id, ticker, context),
+         {:ok, step} <- create_debug_step(objective, entry.id, params, context),
          {:ok, response} <-
            run_action(
              "delegate_agent",
@@ -77,9 +82,10 @@ defmodule Mix.Tasks.Stocksage.Agents do
                command: "execute",
                params: params
              },
-             user_id
+             user_id,
+             context
            ) do
-      finish_debug_objective(objective, step, response)
+      finish_debug_objective(objective, step, response, context)
       {:ok, {:smoke, entry.id, response.delegate_result}}
     else
       {:error, :not_found} -> {:error, {:not_found, agent_id}}
@@ -87,17 +93,17 @@ defmodule Mix.Tasks.Stocksage.Agents do
     end
   end
 
-  defp dispatch(_args), do: {:error, :usage}
+  defp dispatch(_args, _context), do: {:error, :usage}
 
-  defp run_action(action, params, user_id) do
-    case Runner.run(action, params, context(user_id)) do
+  defp run_action(action, params, user_id, ready_context) do
+    case Runner.run(action, params, context(user_id, ready_context)) do
       {:ok, %{status: :completed} = response} -> {:ok, response}
       {:ok, %{status: :not_found} = response} -> {:ok, response}
       {:ok, response} -> {:error, Map.get(response, :error, :action_failed)}
     end
   end
 
-  defp context(user_id) do
+  defp context(user_id, %{allbert_pack_epoch: epoch}) do
     %{
       request: %{channel: :cli, user_id: user_id, operator_id: user_id, app_id: :stocksage},
       channel: :cli,
@@ -107,6 +113,7 @@ defmodule Mix.Tasks.Stocksage.Agents do
       active_app: :stocksage
     }
     |> put_in([:request, :active_app], :stocksage)
+    |> Map.put(:allbert_pack_epoch, epoch)
   end
 
   defp print_result({:ok, {:list, agents}}) do
@@ -231,56 +238,113 @@ defmodule Mix.Tasks.Stocksage.Agents do
     |> Map.new()
   end
 
-  defp create_debug_objective(user_id, agent_id, ticker) do
-    Objectives.create_objective(%{
-      user_id: user_id,
-      title: "debug.delegate.#{agent_id}",
-      objective: "Smoke #{agent_id} for #{ticker}",
-      active_app: "stocksage",
-      status: "open",
-      source_intent: "mix stocksage.agents smoke"
-    })
+  defp create_debug_objective(user_id, agent_id, ticker, context) do
+    :ok = validate_epoch(context)
+
+    Objectives.create_objective(
+      %{
+        user_id: user_id,
+        title: "debug.delegate.#{agent_id}",
+        objective: "Smoke #{agent_id} for #{ticker}",
+        active_app: "stocksage",
+        status: "open",
+        source_intent: "mix stocksage.agents smoke"
+      },
+      context
+    )
   end
 
-  defp create_debug_step(objective, agent_id, params) do
-    Objectives.create_step(%{
-      objective_id: objective.id,
-      kind: "delegate_agent",
-      status: "selected",
-      stage: "execute_step",
-      delegate_agent_id: agent_id,
-      action_params: params
-    })
+  defp create_debug_step(objective, agent_id, params, context) do
+    :ok = validate_epoch(context)
+
+    Objectives.create_step(
+      %{
+        objective_id: objective.id,
+        kind: "delegate_agent",
+        status: "selected",
+        stage: "execute_step",
+        delegate_agent_id: agent_id,
+        action_params: params
+      },
+      context
+    )
   end
 
-  defp finish_debug_objective(objective, step, %{status: :completed} = response) do
+  defp finish_debug_objective(objective, step, %{status: :completed} = response, context) do
+    :ok = validate_epoch(context)
+
     {:ok, _step} =
-      Objectives.update_step(step, %{
-        status: "completed",
-        stage: "observe_step",
-        result_summary: response.message
-      })
+      Objectives.update_step(
+        step,
+        %{
+          status: "completed",
+          stage: "observe_step",
+          result_summary: response.message
+        },
+        context
+      )
+
+    after_smoke_step_update()
+    :ok = validate_epoch(context)
 
     {:ok, _objective} =
-      Objectives.update_objective(objective, %{
-        status: "completed",
-        progress_summary: response.message,
-        completed_at: DateTime.utc_now()
-      })
+      Objectives.update_objective(
+        objective,
+        %{
+          status: "completed",
+          progress_summary: response.message,
+          completed_at: DateTime.utc_now()
+        },
+        context
+      )
 
     :ok
   end
 
-  defp finish_debug_objective(objective, step, response) do
+  defp finish_debug_objective(objective, step, response, context) do
+    :ok = validate_epoch(context)
+
     {:ok, _step} =
-      Objectives.update_step(step, %{status: "failed", result_summary: inspect(response)})
+      Objectives.update_step(
+        step,
+        %{status: "failed", result_summary: inspect(response)},
+        context
+      )
+
+    after_smoke_step_update()
+    :ok = validate_epoch(context)
 
     {:ok, _objective} =
-      Objectives.update_objective(objective, %{
-        status: "failed",
-        progress_summary: inspect(response)
-      })
+      Objectives.update_objective(
+        objective,
+        %{
+          status: "failed",
+          progress_summary: inspect(response)
+        },
+        context
+      )
 
     :ok
+  end
+
+  defp with_ready_context(fun) do
+    case EffectGuard.admit_ready() do
+      {:ok, epoch} -> fun.(%{allbert_pack_epoch: epoch})
+      {:error, _reason} -> Mix.raise("Allbert product is not ready; retry the command.")
+    end
+  end
+
+  defp validate_epoch(%{allbert_pack_epoch: epoch}) do
+    case EffectGuard.validate(epoch) do
+      :ok -> :ok
+      {:error, _reason} -> raise "Allbert product is not ready; retry the command."
+    end
+  end
+
+  defp after_smoke_step_update do
+    :stocksage
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:after_smoke_step_update, fn -> :ok end)
+    |> then(& &1.())
   end
 end

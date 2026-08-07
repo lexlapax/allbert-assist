@@ -14,6 +14,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Channels.TUI.SlashCommands
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
@@ -552,7 +553,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "transient report acknowledgement cannot restart the raw TUI or interrupt its attended FIFO" do
     configure_tui!()
-    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+    assert {:ok, _setting} = put_setting("objectives.fanout.enabled", false, %{audit?: false})
     parent = self()
     attempts = :counters.new(1, [:atomics])
 
@@ -1384,8 +1385,8 @@ defmodule AllbertAssist.Channels.TUITest do
   end
 
   test "operator slash commands require mapped TUI identity before runner dispatch" do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("channels.tui.identity_map", [], %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.tui.identity_map", [], %{audit?: false})
     parent = self()
 
     assert {:ok, server} =
@@ -1937,7 +1938,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "auto input driver visibly rejects a disabled identity entry and stays usable" do
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.tui.identity_map",
                [
                  %{
@@ -1979,7 +1980,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "raw TUI accepts lifecycle output and the next line while a Runtime turn is held" do
     configure_tui!()
-    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+    assert {:ok, _setting} = put_setting("objectives.fanout.enabled", false, %{audit?: false})
 
     parent = self()
 
@@ -2141,13 +2142,13 @@ defmodule AllbertAssist.Channels.TUITest do
     configure_tui!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.enabled", true, %{audit?: false})
+             put_setting("objectives.fanout.enabled", true, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             put_setting("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+             put_setting("objectives.fanout.confirm_before_start", true, %{audit?: false})
 
     configure_fanout_roles!()
 
@@ -2198,7 +2199,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "raw TUI advances its attended FIFO when the active worker exits" do
     configure_tui!()
-    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+    assert {:ok, _setting} = put_setting("objectives.fanout.enabled", false, %{audit?: false})
     parent = self()
 
     Application.put_env(:allbert_assist, Runtime,
@@ -2254,7 +2255,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "raw TUI bounds its attended FIFO and stops its active worker on shutdown" do
     configure_tui!()
-    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+    assert {:ok, _setting} = put_setting("objectives.fanout.enabled", false, %{audit?: false})
     parent = self()
 
     Application.put_env(:allbert_assist, Runtime,
@@ -2830,8 +2831,8 @@ defmodule AllbertAssist.Channels.TUITest do
   end
 
   test "adapter rejects unmapped terminal identity without invoking runtime" do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("channels.tui.identity_map", [], %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.tui.identity_map", [], %{audit?: false})
 
     parent = self()
 
@@ -3012,13 +3013,13 @@ defmodule AllbertAssist.Channels.TUITest do
     configure_fanout_roles!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.enabled", true, %{audit?: false})
+             put_setting("objectives.fanout.enabled", true, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             put_setting("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+             put_setting("objectives.fanout.confirm_before_start", false, %{audit?: false})
 
     output_fun =
       case output_failure do
@@ -3082,12 +3083,12 @@ defmodule AllbertAssist.Channels.TUITest do
         else: Application.delete_env(:allbert_assist, :runtime_model_readiness)
     end)
 
-    assert {:ok, _} = Settings.put("providers.openai.enabled", false, %{audit?: false})
-    assert {:ok, _} = Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+    assert {:ok, _} = put_setting("providers.openai.enabled", false, %{audit?: false})
+    assert {:ok, _} = put_setting("intent.direct_answer_model_enabled", true, %{audit?: false})
 
     Enum.each(~w[direct_answer fanout_manager fanout_synthesis], fn role ->
       assert {:ok, _} =
-               Settings.put(
+               put_setting(
                  "model_preferences.tasks.#{role}",
                  ["direct_answer_local"],
                  %{audit?: false}
@@ -3096,10 +3097,10 @@ defmodule AllbertAssist.Channels.TUITest do
   end
 
   defp configure_tui! do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.tui.enabled", true, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.tui.identity_map",
                [
                  %{
@@ -3114,16 +3115,16 @@ defmodule AllbertAssist.Channels.TUITest do
 
   defp configure_pi_tui!(repo) do
     configure_tui!()
-    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("coding.trusted_operator_id", "alice", %{audit?: false})
+    assert {:ok, _setting} = put_setting("coding.pi_mode.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("coding.trusted_operator_id", "alice", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("coding.default_approval_mode", "default", %{audit?: false})
+             put_setting("coding.default_approval_mode", "default", %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("coding.workspace.cwd_jail", repo, %{audit?: false})
+    assert {:ok, _setting} = put_setting("coding.workspace.cwd_jail", repo, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
+             put_setting("coding.model_profile", "pi_coding_local", %{audit?: false})
   end
 
   defp create_admitted_tui_event!(receipt_id, suffix) do
@@ -3258,16 +3259,22 @@ defmodule AllbertAssist.Channels.TUITest do
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "tui-test"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "tui-test"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

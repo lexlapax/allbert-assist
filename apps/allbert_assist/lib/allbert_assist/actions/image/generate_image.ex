@@ -30,6 +30,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata, ResourceURI}
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.{ModelRuntime, Models, Schema, Store}
@@ -184,10 +185,13 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   end
 
   defp generate_image_response(%{provider_type: "openai_compatible"}, model, prompt, opts) do
-    with {:ok, model} <- ReqLLM.model(model),
+    with {:ok, epoch} <- carried_epoch(opts),
+         opts <- Keyword.delete(opts, :allbert_pack_epoch),
+         {:ok, model} <- ReqLLM.model(model),
          {:ok, provider_module} <- ReqLLM.provider(model.provider),
          {:ok, request} <- provider_module.prepare_request(:image, model, prompt, opts),
          request <- Req.Request.merge_options(request, output_format: nil),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, %Req.Response{status: status, body: response}} when status in 200..299 <-
            Req.request(request) do
       {:ok, response}
@@ -446,12 +450,22 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
       size: field(params, :size),
-      receive_timeout: Map.get(profile, :timeout_ms, 120_000)
+      receive_timeout: Map.get(profile, :timeout_ms, 120_000),
+      allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
     )
     |> maybe_put_image_output_format(profile, output_format)
     |> maybe_put_keyword(:req_http_options, req_http_options(context))
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
+
+  defp carried_epoch(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_opts), do: {:error, :product_not_ready}
 
   defp image_bytes(response, output_format) do
     image = safe_image(response)

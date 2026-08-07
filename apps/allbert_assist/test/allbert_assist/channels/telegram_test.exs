@@ -7,6 +7,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Channels.Telegram.Parser
   alias AllbertAssist.Channels.Telegram.Renderer
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Objectives
@@ -552,7 +553,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
     test "voice notes honor voice.audio.max_bytes before file fetch" do
       configure_telegram!()
-      assert {:ok, _setting} = Settings.put("voice.audio.max_bytes", 8, %{audit?: false})
+      assert {:ok, _setting} = put_setting("voice.audio.max_bytes", 8, %{audit?: false})
 
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/getUpdates"
@@ -738,19 +739,19 @@ defmodule AllbertAssist.Channels.TelegramTest do
     assert {:ok, _secret} =
              Secrets.put_secret("secret://channels/telegram/bot_token", "token", %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("channels.telegram.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.telegram.enabled", true, %{audit?: false})
 
     identity_map = Keyword.get(opts, :identity_map, [])
 
     assert {:ok, _setting} =
-             Settings.put("channels.telegram.identity_map", identity_map, %{audit?: false})
+             put_setting("channels.telegram.identity_map", identity_map, %{audit?: false})
   end
 
   defp enable_voice! do
-    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} = put_setting("voice.enabled", true, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+             put_setting("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
                audit?: false
              })
   end
@@ -828,15 +829,18 @@ defmodule AllbertAssist.Channels.TelegramTest do
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "channel-test"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "channel-test"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
 
   defp json(conn, body) do
@@ -851,6 +855,9 @@ defmodule AllbertAssist.Channels.TelegramTest do
       {key, value} -> System.put_env(key, value)
     end)
   end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)

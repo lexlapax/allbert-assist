@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Stocksage.Queue do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Pack.EffectGuard
 
   @shortdoc "Create and inspect local StockSage queue rows"
   @switches [
@@ -26,12 +27,10 @@ defmodule Mix.Tasks.Stocksage.Queue do
   def run(args) do
     Mix.Task.run("app.start")
 
-    args
-    |> dispatch()
-    |> print_result()
+    with_ready_context(fn ready_context -> args |> dispatch(ready_context) |> print_result() end)
   end
 
-  defp dispatch(["create", symbol | rest]) do
+  defp dispatch(["create", symbol | rest], ready_context) do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
@@ -47,13 +46,14 @@ defmodule Mix.Tasks.Stocksage.Queue do
                priority: Keyword.get(opts, :priority, "normal"),
                requested_for: Keyword.get(opts, :requested_for)
              },
-             user_id
+             user_id,
+             ready_context
            ) do
       {:ok, {:created, response.queue_entry}}
     end
   end
 
-  defp dispatch(["list" | rest]) do
+  defp dispatch(["list" | rest], ready_context) do
     {opts, [], invalid} = OptionParser.parse(rest, switches: @switches)
 
     with :ok <- reject_invalid(invalid),
@@ -66,22 +66,23 @@ defmodule Mix.Tasks.Stocksage.Queue do
                status: Keyword.get(opts, :status),
                limit: Keyword.get(opts, :limit, 50)
              },
-             user_id
+             user_id,
+             ready_context
            ) do
       {:ok, {:list, user_id, response.queue_entries}}
     end
   end
 
-  defp dispatch(_args), do: {:error, :usage}
+  defp dispatch(_args, _ready_context), do: {:error, :usage}
 
-  defp run_action(action, params, user_id) do
-    case Runner.run(action, params, context(user_id)) do
+  defp run_action(action, params, user_id, ready_context) do
+    case Runner.run(action, params, context(user_id, ready_context)) do
       {:ok, %{status: :completed} = response} -> {:ok, response}
       {:ok, response} -> {:error, Map.get(response, :error, :action_failed)}
     end
   end
 
-  defp context(user_id) do
+  defp context(user_id, %{allbert_pack_epoch: epoch}) do
     %{
       active_app: :stocksage,
       app_id: :stocksage,
@@ -93,6 +94,14 @@ defmodule Mix.Tasks.Stocksage.Queue do
         active_app: :stocksage
       }
     }
+    |> Map.put(:allbert_pack_epoch, epoch)
+  end
+
+  defp with_ready_context(fun) do
+    case EffectGuard.admit_ready() do
+      {:ok, epoch} -> fun.(%{allbert_pack_epoch: epoch})
+      {:error, _reason} -> Mix.raise("Allbert product is not ready; retry the command.")
+    end
   end
 
   defp print_result({:ok, {:created, entry}}) do

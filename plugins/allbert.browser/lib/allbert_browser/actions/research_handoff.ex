@@ -277,7 +277,9 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
         surface: surface(context),
         source_intent: @action_name,
         trace_prefix: @action_name,
-        session_approved: true
+        session_approved: true,
+        allbert_pack_epoch: Map.fetch!(context, :allbert_pack_epoch),
+        allbert_pack_effect_guard_opts: Map.get(context, :allbert_pack_effect_guard_opts, [])
       ]
       |> maybe_opt(:extract_format, extract_format(params))
       |> maybe_opt(:source_thread_id, thread_id(context))

@@ -18,13 +18,15 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
   defstruct initialized?: false,
             client_id: Mapping.default_client_id(),
             sessions: %{},
-            report_deliveries: []
+            report_deliveries: [],
+            report_delivery_epochs: %{}
 
   @type state :: %__MODULE__{
           initialized?: boolean(),
           client_id: String.t(),
           sessions: map(),
-          report_deliveries: [String.t()]
+          report_deliveries: [String.t()],
+          report_delivery_epochs: %{optional(String.t()) => map()}
         }
 
   @spec new_state() :: state()
@@ -158,13 +160,17 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
          {:ok, epoch} <- EffectGuard.admit_ready(),
          :ok <- EffectGuard.validate(epoch) do
       event =
-        EventRecorder.record_inbound(Mapping.surface(), %{
-          external_event_id: "#{Mapping.surface()}:prompt:#{Ecto.UUID.generate()}",
-          external_user_id: Map.fetch!(session, :client_id),
-          user_id: "public-protocol:#{Map.fetch!(session, :client_id)}",
-          session_id: Map.fetch!(session, :id),
-          payload_summary: "session/prompt"
-        })
+        EventRecorder.record_inbound(
+          Mapping.surface(),
+          %{
+            external_event_id: "#{Mapping.surface()}:prompt:#{Ecto.UUID.generate()}",
+            external_user_id: Map.fetch!(session, :client_id),
+            user_id: "public-protocol:#{Map.fetch!(session, :client_id)}",
+            session_id: Map.fetch!(session, :id),
+            payload_summary: "session/prompt"
+          },
+          %{allbert_pack_epoch: epoch}
+        )
 
       with {:ok, runtime_response} <-
              Runtime.submit_user_input(
@@ -174,7 +180,14 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
            :ok <- persist_and_acknowledge(event, runtime_response, epoch),
            {:ok, final_response} <- await_response(runtime_response),
            {:ok, outbound} <- Mapping.prompt_outbound(final_response, session, request_id) do
-        {:ok, outbound, %{state | report_deliveries: report_delivery_ids(final_response)}}
+        report_deliveries = report_delivery_ids(final_response)
+
+        {:ok, outbound,
+         %{
+           state
+           | report_deliveries: report_deliveries,
+             report_delivery_epochs: Map.new(report_deliveries, &{&1, epoch})
+         }}
       else
         {:error, reason} ->
           maybe_mark_failed(event, reason, epoch)
@@ -209,15 +222,22 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
   defp persist_and_acknowledge(event, response, epoch) do
     with :ok <- EffectGuard.validate(epoch) do
-      case EventRecorder.mark_result_durable(event, response) do
+      case EventRecorder.mark_result_durable(event, response, %{allbert_pack_epoch: epoch}) do
         :ok ->
           with :ok <- EffectGuard.validate(epoch) do
-            Runtime.acknowledge_kickoff_delivery(response, %{channel: "acp_stdio"})
+            Runtime.acknowledge_kickoff_delivery(response, %{
+              channel: "acp_stdio",
+              allbert_pack_epoch: epoch
+            })
           end
 
         {:error, _reason} = error ->
           if EffectGuard.validate(epoch) == :ok,
-            do: Runtime.delivery_failed(response, %{channel: "acp_stdio"})
+            do:
+              Runtime.delivery_failed(response, %{
+                channel: "acp_stdio",
+                allbert_pack_epoch: epoch
+              })
 
           error
       end
@@ -225,7 +245,9 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
   end
 
   defp maybe_mark_failed(event, reason, epoch) do
-    if EffectGuard.validate(epoch) == :ok, do: EventRecorder.mark_failed(event, reason)
+    if EffectGuard.validate(epoch) == :ok,
+      do: EventRecorder.mark_failed(event, reason, %{allbert_pack_epoch: epoch})
+
     :ok
   end
 
@@ -363,29 +385,39 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
   defp acknowledge_report_deliveries(parent_ids, session_id, state) do
     user_id = "public-protocol:#{state.client_id}"
-    Enum.reduce_while(parent_ids, :ok, &acknowledge_report(&1, &2, user_id, session_id))
+
+    Enum.reduce_while(parent_ids, :ok, fn parent_id, result ->
+      acknowledge_report(
+        parent_id,
+        result,
+        user_id,
+        session_id,
+        Map.get(state.report_delivery_epochs, parent_id)
+      )
+    end)
   end
 
-  defp acknowledge_report(parent_id, :ok, user_id, session_id) do
+  defp acknowledge_report(parent_id, :ok, user_id, session_id, epoch) do
     case Objectives.get_objective(user_id, parent_id) do
       {:ok,
        %{fanout_role: "parent", report_delivery_state: "pending", session_id: ^session_id} =
            parent} ->
-        acknowledge_pending_report(parent, user_id)
+        acknowledge_pending_report(parent, user_id, epoch)
 
       _not_delivered_by_worker ->
         {:cont, :ok}
     end
   end
 
-  defp acknowledge_pending_report(parent, user_id) do
+  defp acknowledge_pending_report(parent, user_id, epoch) do
     context = %{
       user_id: user_id,
       thread_id: parent.source_thread_id,
       channel: "acp_stdio",
       origin_thread_ref_id: parent.origin_thread_ref_id,
       origin_thread_ref_digest: parent.origin_thread_ref_digest,
-      origin_receiver_account_ref: parent.origin_receiver_account_ref
+      origin_receiver_account_ref: parent.origin_receiver_account_ref,
+      allbert_pack_epoch: epoch
     }
 
     case Runtime.acknowledge_report_delivery(Fanout.receipt_for(:report, parent.id), context) do
@@ -425,30 +457,43 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     session_id = if is_map(params), do: Map.get(params, "sessionId")
     reason = get_in(error, [:data, "code"]) || Map.get(error, :message) || inspect(error)
 
-    EventRecorder.record_rejection(Mapping.surface(), %{
-      external_event_id: "#{Mapping.surface()}:prompt-rejected:#{Ecto.UUID.generate()}",
-      external_user_id: state.client_id,
-      user_id: "public-protocol:#{state.client_id}",
-      session_id: session_id,
-      payload_summary: "session/prompt rejected",
-      reason: reason
-    })
+    EventRecorder.record_rejection(
+      Mapping.surface(),
+      %{
+        external_event_id: "#{Mapping.surface()}:prompt-rejected:#{Ecto.UUID.generate()}",
+        external_user_id: state.client_id,
+        user_id: "public-protocol:#{state.client_id}",
+        session_id: session_id,
+        payload_summary: "session/prompt rejected",
+        reason: reason
+      },
+      effect_context(state)
+    )
   end
 
   defp record_protocol_rejection(method, params, state, error) do
     session_id = if is_map(params), do: Map.get(params, "sessionId")
     reason = get_in(error, [:data, "code"]) || Map.get(error, :message) || inspect(error)
 
-    EventRecorder.record_rejection(Mapping.surface(), %{
-      external_event_id:
-        "#{Mapping.surface()}:#{method_slug(method)}-rejected:#{Ecto.UUID.generate()}",
-      external_user_id: state.client_id,
-      user_id: "public-protocol:#{state.client_id}",
-      session_id: session_id,
-      payload_summary: "#{method} rejected",
-      reason: reason
-    })
+    EventRecorder.record_rejection(
+      Mapping.surface(),
+      %{
+        external_event_id:
+          "#{Mapping.surface()}:#{method_slug(method)}-rejected:#{Ecto.UUID.generate()}",
+        external_user_id: state.client_id,
+        user_id: "public-protocol:#{state.client_id}",
+        session_id: session_id,
+        payload_summary: "#{method} rejected",
+        reason: reason
+      },
+      effect_context(state)
+    )
   end
+
+  # Protocol rejections can occur before session/prompt admits an epoch. Those
+  # paths must remain effect-free rather than acquiring a new admission.
+  defp effect_context(state),
+    do: %{allbert_pack_epoch: Map.get(state, :allbert_pack_epoch)}
 
   defp method_slug(method) do
     method

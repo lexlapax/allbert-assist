@@ -46,7 +46,7 @@ defmodule AllbertAssist.PlanBuild do
 
     with {:ok, %{objective: objective}} <-
            Objectives.frame(intent_decision, run_context),
-         {:ok, steps} <- persist_steps(objective.id, expanded.steps),
+         {:ok, steps} <- persist_steps(objective.id, expanded.steps, run_context),
          {:ok, run_result} <- Runtime.advance(objective.id, run_context) do
       response_status = start_status(run_result.status)
 
@@ -73,7 +73,7 @@ defmodule AllbertAssist.PlanBuild do
     end
   end
 
-  defp persist_steps(objective_id, steps) do
+  defp persist_steps(objective_id, steps, context) do
     steps
     |> Enum.reduce_while({:ok, []}, fn attrs, {:ok, acc} ->
       attrs =
@@ -81,15 +81,18 @@ defmodule AllbertAssist.PlanBuild do
         |> Map.put(:objective_id, objective_id)
         |> Map.put_new(:stage, "propose_steps")
 
-      with {:ok, step} <- Objectives.create_step(attrs),
+      with {:ok, step} <- Objectives.create_step(attrs, context),
            {:ok, _event} <-
-             Objectives.create_event(%{
-               objective_id: objective_id,
-               step_id: step.id,
-               kind: "step_proposed",
-               summary: "Proposed #{step.kind} objective step.",
-               payload: %{candidate_action: step.candidate_action, provider: step.provider}
-             }) do
+             Objectives.create_event(
+               %{
+                 objective_id: objective_id,
+                 step_id: step.id,
+                 kind: "step_proposed",
+                 summary: "Proposed #{step.kind} objective step.",
+                 payload: %{candidate_action: step.candidate_action, provider: step.provider}
+               },
+               context
+             ) do
         {:cont, {:ok, [step | acc]}}
       else
         {:error, reason} -> {:halt, {:error, reason}}

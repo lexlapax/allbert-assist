@@ -15,15 +15,18 @@ defmodule AllbertAssist.Objectives.Commands.PruneStale do
     state = Map.get(context, :state, %{})
     now = Map.get(params, :now) || Map.get(params, "now") || DateTime.utc_now()
 
-    {:ok, count} = Objectives.abandon_stale_objectives(now: now)
-    directives = schedule_directives(params)
+    with {:ok, count} <- Objectives.abandon_stale_objectives([now: now], params) do
+      directives = schedule_directives(params)
 
-    Commands.finish(
-      :prune_stale,
-      {:ok, %{status: :completed, abandoned: count, pruned_at: now, stage: "prune_stale"}},
-      Map.put(state, :last_summary, %{abandoned: count, pruned_at: now}),
-      directives: directives
-    )
+      Commands.finish(
+        :prune_stale,
+        {:ok, %{status: :completed, abandoned: count, pruned_at: now, stage: "prune_stale"}},
+        Map.put(state, :last_summary, %{abandoned: count, pruned_at: now}),
+        directives: directives
+      )
+    else
+      {:error, reason} -> Commands.finish(:prune_stale, {:error, reason}, state)
+    end
   end
 
   defp schedule_directives(params) do

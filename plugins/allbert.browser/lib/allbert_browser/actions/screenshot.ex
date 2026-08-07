@@ -30,7 +30,8 @@ defmodule AllbertBrowser.Actions.Screenshot do
     decision = Actions.authorize(:browser_screenshot, context)
     session_id = Actions.field(params, :session_id)
 
-    max_bytes = Actions.field(params, :max_bytes) || setting("browser.screenshot.max_bytes", 524_288)
+    max_bytes =
+      Actions.field(params, :max_bytes) || setting("browser.screenshot.max_bytes", 524_288)
 
     cond do
       not Actions.allowed?(decision) ->
@@ -40,7 +41,11 @@ defmodule AllbertBrowser.Actions.Screenshot do
         Actions.denied("browser_screenshot", :browser_screenshot, decision, :missing_session_id)
 
       true ->
-        with {:ok, screenshot} <- Session.screenshot(session_id, max_bytes: max_bytes),
+        with {:ok, screenshot} <-
+               Session.screenshot(
+                 session_id,
+                 [max_bytes: max_bytes] ++ Actions.session_effect_opts(context)
+               ),
              {:ok, artifact} <- cache_screenshot(session_id, screenshot) do
           completed(decision, session_id, put_cache_ref(screenshot, artifact.ref))
         else

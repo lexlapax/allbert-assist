@@ -66,7 +66,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
           advance_step(step, objective, context, remaining, advanced)
 
         true ->
-          complete_plan(objective, advanced)
+          complete_plan(objective, advanced, context)
       end
     end
   end
@@ -90,9 +90,13 @@ defmodule AllbertAssist.PlanBuild.Runtime do
   end
 
   defp run_step(%Step{} = step, objective, context, remaining, advanced) do
-    with {:ok, step} <- resolve_step_params(step, objective),
+    with {:ok, step} <- resolve_step_params(step, objective, context),
          {:ok, result} <-
-           Engine.Agent.authorize_step(%{step_id: step.id, trace_id: trace_id(context)}) do
+           Engine.Agent.authorize_step(%{
+             step_id: step.id,
+             trace_id: trace_id(context),
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
+           }) do
       result_step = Map.get(result, :step)
       result_objective = Map.get(result, :objective, objective)
       response = Map.get(result, :response, %{})
@@ -105,7 +109,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
           do_advance(result_objective, context, remaining - 1, [result_step | advanced])
 
         match?(%Step{status: "failed"}, result_step) ->
-          fail_plan(result_objective, result_step, advanced)
+          fail_plan(result_objective, result_step, advanced, context)
 
         true ->
           do_advance(result_objective, context, remaining - 1, [result_step | advanced])
@@ -129,18 +133,26 @@ defmodule AllbertAssist.PlanBuild.Runtime do
 
   defp continue_approved_step(step, objective, context, remaining, advanced) do
     with {:ok, step} <-
-           Objectives.update_step(step, %{
-             status: "proposed",
-             stage: "propose_steps",
-             confirmation_id: nil,
-             result_summary: nil
-           }),
+           Objectives.update_step(
+             step,
+             %{
+               status: "proposed",
+               stage: "propose_steps",
+               confirmation_id: nil,
+               result_summary: nil
+             },
+             context
+           ),
          {:ok, objective} <-
-           Objectives.update_objective(objective, %{
-             status: "running",
-             current_step_id: nil,
-             progress_summary: "Plan step confirmation approved."
-           }) do
+           Objectives.update_objective(
+             objective,
+             %{
+               status: "running",
+               current_step_id: nil,
+               progress_summary: "Plan step confirmation approved."
+             },
+             context
+           ) do
       continue_approved_step_execution(step, objective, context, remaining, advanced)
     end
   end
@@ -161,19 +173,27 @@ defmodule AllbertAssist.PlanBuild.Runtime do
 
   defp complete_confirmed_ask_user(step, objective, context, remaining, advanced) do
     with {:ok, completed} <-
-           Objectives.transition_step(step, "completed", %{
-             stage: "execute_step",
-             trace_id: trace_id(context),
-             result_summary: "Operator approved checkpoint #{step.confirmation_id || step.id}."
-           }),
+           Objectives.transition_step(
+             step,
+             "completed",
+             %{
+               stage: "execute_step",
+               trace_id: trace_id(context),
+               result_summary: "Operator approved checkpoint #{step.confirmation_id || step.id}."
+             },
+             context
+           ),
          {:ok, _event} <-
-           Objectives.create_event(%{
-             objective_id: objective.id,
-             step_id: completed.id,
-             kind: "step_completed",
-             summary: "Plan checkpoint completed.",
-             payload: %{workflow_step_id: workflow_step_id(completed)}
-           }) do
+           Objectives.create_event(
+             %{
+               objective_id: objective.id,
+               step_id: completed.id,
+               kind: "step_completed",
+               summary: "Plan checkpoint completed.",
+               payload: %{workflow_step_id: workflow_step_id(completed)}
+             },
+             context
+           ) do
       do_advance(objective, context, remaining - 1, [completed | advanced])
     end
   end
@@ -209,31 +229,43 @@ defmodule AllbertAssist.PlanBuild.Runtime do
       }
     }
 
-    with {:ok, confirmation} <- Confirmations.create(attrs),
+    with {:ok, confirmation} <- Confirmations.create(attrs, context),
          {:ok, blocked_step} <-
-           Objectives.transition_step(step, "blocked", %{
-             stage: "authorize_step",
-             confirmation_id: confirmation["id"],
-             trace_id: trace_id(context),
-             result_summary: "Waiting for Plan/Build step confirmation #{confirmation["id"]}."
-           }),
-         {:ok, blocked_objective} <-
-           Objectives.update_objective(objective, %{
-             status: "blocked",
-             current_step_id: blocked_step.id,
-             progress_summary: "Waiting for Plan/Build step confirmation #{confirmation["id"]}."
-           }),
-         {:ok, _event} <-
-           Objectives.create_event(%{
-             objective_id: blocked_objective.id,
-             step_id: blocked_step.id,
-             kind: "blocked",
-             summary: "Plan step blocked for confirmation.",
-             payload: %{
+           Objectives.transition_step(
+             step,
+             "blocked",
+             %{
+               stage: "authorize_step",
                confirmation_id: confirmation["id"],
-               workflow_step_id: workflow_step_id(blocked_step)
-             }
-           }) do
+               trace_id: trace_id(context),
+               result_summary: "Waiting for Plan/Build step confirmation #{confirmation["id"]}."
+             },
+             context
+           ),
+         {:ok, blocked_objective} <-
+           Objectives.update_objective(
+             objective,
+             %{
+               status: "blocked",
+               current_step_id: blocked_step.id,
+               progress_summary: "Waiting for Plan/Build step confirmation #{confirmation["id"]}."
+             },
+             context
+           ),
+         {:ok, _event} <-
+           Objectives.create_event(
+             %{
+               objective_id: blocked_objective.id,
+               step_id: blocked_step.id,
+               kind: "blocked",
+               summary: "Plan step blocked for confirmation.",
+               payload: %{
+                 confirmation_id: confirmation["id"],
+                 workflow_step_id: workflow_step_id(blocked_step)
+               }
+             },
+             context
+           ) do
       {:ok,
        needs_confirmation(
          blocked_objective,
@@ -246,73 +278,95 @@ defmodule AllbertAssist.PlanBuild.Runtime do
 
   defp skip_step(step, context) do
     with {:ok, skipped} <-
-           Objectives.transition_step(step, "skipped", %{
-             stage: "execute_step",
-             trace_id: trace_id(context),
-             result_summary: "Skipped by workflow if condition."
-           }),
+           Objectives.transition_step(
+             step,
+             "skipped",
+             %{
+               stage: "execute_step",
+               trace_id: trace_id(context),
+               result_summary: "Skipped by workflow if condition."
+             },
+             context
+           ),
          {:ok, _event} <-
-           Objectives.create_event(%{
-             objective_id: skipped.objective_id,
-             step_id: skipped.id,
-             kind: "observed",
-             summary: "Plan step skipped by workflow if condition.",
-             payload: %{workflow_step_id: workflow_step_id(skipped)}
-           }) do
+           Objectives.create_event(
+             %{
+               objective_id: skipped.objective_id,
+               step_id: skipped.id,
+               kind: "observed",
+               summary: "Plan step skipped by workflow if condition.",
+               payload: %{workflow_step_id: workflow_step_id(skipped)}
+             },
+             context
+           ) do
       {:ok, skipped}
     end
   end
 
-  defp fail_plan(objective, step, advanced) do
+  defp fail_plan(objective, step, advanced, context) do
     with {:ok, failed} <-
-           Objectives.update_objective(objective, %{
-             status: "failed",
-             current_step_id: step.id,
-             progress_summary: step.result_summary || "Plan step failed."
-           }),
+           Objectives.update_objective(
+             objective,
+             %{
+               status: "failed",
+               current_step_id: step.id,
+               progress_summary: step.result_summary || "Plan step failed."
+             },
+             context
+           ),
          {:ok, _event} <-
-           Objectives.create_event(%{
-             objective_id: failed.id,
-             step_id: step.id,
-             kind: "failed",
-             summary: "Plan run failed.",
-             payload: %{workflow_step_id: workflow_step_id(step)}
-           }) do
+           Objectives.create_event(
+             %{
+               objective_id: failed.id,
+               step_id: step.id,
+               kind: "failed",
+               summary: "Plan run failed.",
+               payload: %{workflow_step_id: workflow_step_id(step)}
+             },
+             context
+           ) do
       {:ok, terminal(:failed, failed, [step | advanced])}
     end
   end
 
-  defp complete_plan(objective, advanced) do
+  defp complete_plan(objective, advanced, context) do
     with {:ok, completed} <-
-           Objectives.update_objective(objective, %{
-             status: "completed",
-             current_step_id: nil,
-             completed_at: DateTime.utc_now(),
-             progress_summary: "Plan run completed."
-           }),
+           Objectives.update_objective(
+             objective,
+             %{
+               status: "completed",
+               current_step_id: nil,
+               completed_at: DateTime.utc_now(),
+               progress_summary: "Plan run completed."
+             },
+             context
+           ),
          {:ok, _event} <-
-           Objectives.create_event(%{
-             objective_id: completed.id,
-             kind: "completed",
-             summary: "Plan run completed.",
-             payload: %{advanced_step_count: length(advanced)}
-           }) do
+           Objectives.create_event(
+             %{
+               objective_id: completed.id,
+               kind: "completed",
+               summary: "Plan run completed.",
+               payload: %{advanced_step_count: length(advanced)}
+             },
+             context
+           ) do
       {:ok, terminal(:completed, completed, advanced)}
     end
   end
 
-  defp resolve_step_params(%Step{kind: "action"} = step, objective) do
+  defp resolve_step_params(%Step{kind: "action"} = step, objective, context) do
     with {:ok, params} <- decode_map(step.action_params),
          resolved <- substitute(params, runtime_for_step(step, objective)) do
       if resolved == params do
         {:ok, step}
       else
-        Objectives.update_step(step, %{action_params: resolved})
+        Objectives.update_step(step, %{action_params: resolved}, context)
       end
     end
   end
 
-  defp resolve_step_params(step, _objective), do: {:ok, step}
+  defp resolve_step_params(step, _objective, _context), do: {:ok, step}
 
   defp runtime_for_step(step, objective) do
     access = resource_access(step)

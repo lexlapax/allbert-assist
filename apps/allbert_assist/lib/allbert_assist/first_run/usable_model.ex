@@ -35,7 +35,10 @@ defmodule AllbertAssist.FirstRun.UsableModel do
 
   @spec select_local(map(), keyword()) :: {:ok, selection()} | {:error, :no_usable_model}
   def select_local(settings, opts \\ []) when is_map(settings) do
-    doctor = Keyword.get(opts, :doctor, &ModelDoctor.diagnose/1)
+    doctor =
+      Keyword.get(opts, :doctor, fn profile ->
+        ModelDoctor.diagnose(profile, Keyword.get(opts, :context, %{}))
+      end)
 
     local_profiles(settings)
     |> Enum.find_value(fn {name, attrs} ->
@@ -55,7 +58,10 @@ defmodule AllbertAssist.FirstRun.UsableModel do
           {:ok, selection()} | {:error, :no_usable_model}
   def select_local_for_task(task, settings, opts \\ [])
       when is_binary(task) and is_map(settings) do
-    doctor = Keyword.get(opts, :doctor, &ModelDoctor.diagnose/1)
+    doctor =
+      Keyword.get(opts, :doctor, fn profile ->
+        ModelDoctor.diagnose(profile, Keyword.get(opts, :context, %{}))
+      end)
 
     profiles = task_local_profiles(task, settings)
 

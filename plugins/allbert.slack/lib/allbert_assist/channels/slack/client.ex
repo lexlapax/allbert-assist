@@ -3,6 +3,7 @@ defmodule AllbertAssist.Channels.Slack.Client do
 
   alias AllbertAssist.External.HttpPolicy
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings.Secrets
 
   @base_url "https://slack.com/api"
@@ -78,23 +79,36 @@ defmodule AllbertAssist.Channels.Slack.Client do
   end
 
   defp run_request(method, token_ref, path, request_opts, opts) do
-    with :ok <- validate_token_ref(token_ref),
+    with {:ok, epoch} <- carried_epoch(opts),
+         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- validate_token_ref(token_ref),
          {:ok, token} <- resolve_token(token_ref),
          request <- build_request(method, token_ref, path, request_opts),
          :ok <- validate_policy(request, request_opts, opts) do
-      [
-        method: method,
-        url: request.url,
-        headers: [{"authorization", "Bearer " <> token}],
-        retry: false,
-        redirect: false,
-        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
-      ]
-      |> Keyword.merge(request_opts)
-      |> Keyword.merge(Keyword.take(opts, [:plug]))
-      |> Req.request()
+      request =
+        [
+          method: method,
+          url: request.url,
+          headers: [{"authorization", "Bearer " <> token}],
+          retry: false,
+          redirect: false,
+          receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+        ]
+        |> Keyword.merge(request_opts)
+        |> Keyword.merge(Keyword.take(opts, [:plug]))
+
+      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)), do: Req.request(request)
     end
   end
+
+  defp carried_epoch(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp real_auth_test_scopes(token_ref, opts) do
     case run_request(:post, token_ref, "/auth.test", [], opts) do

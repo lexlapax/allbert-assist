@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.RateLimiter
@@ -22,6 +23,11 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
+
+    original_wait_observer =
+      Application.get_env(:allbert_assist_web, :openai_fanout_wait_observer)
+
+    original_fanout_awaiter = Application.get_env(:allbert_assist_web, :openai_fanout_awaiter)
 
     parent = self()
 
@@ -56,6 +62,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Runtime, original_runtime_config)
+      restore_web_env(:openai_fanout_wait_observer, original_wait_observer)
+      restore_web_env(:openai_fanout_awaiter, original_fanout_awaiter)
       RateLimiter.reset_for_test()
       File.rm_rf!(root)
     end)
@@ -193,6 +201,81 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     assert get_resp_header(conn, "content-type") == ["text/event-stream; charset=utf-8"]
     assert conn.resp_body =~ "\"object\":\"chat.completion.chunk\""
     assert conn.resp_body =~ "data: [DONE]"
+  end
+
+  test "streaming readiness loss cancels continuation with no post-loss durable result or ACK",
+       %{conn: conn, token: token} do
+    user_id = "public-protocol:openai-client"
+
+    assert {:ok, parent} =
+             Objectives.create_objective(%{
+               user_id: user_id,
+               title: "OpenAI readiness loss",
+               objective: "Remain pending after the SSE epoch is lost",
+               fanout_role: "parent",
+               source_channel: "openai_api",
+               source_surface: "api"
+             })
+
+    test_pid = self()
+    Application.put_env(:allbert_assist_web, :openai_fanout_wait_observer, test_pid)
+
+    Application.put_env(:allbert_assist_web, :openai_fanout_awaiter, fn _parent,
+                                                                        _user,
+                                                                        _timeout ->
+      receive do
+        :never -> :unreachable
+      end
+    end)
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, _request ->
+        {:ok,
+         %{
+           message: "Fan-out kickoff before readiness loss",
+           status: :completed,
+           actions: [],
+           fanout: %{parent_id: parent.id, delivery_context: %{}}
+         }}
+      end,
+      fanout_timeout_ms: 30_000
+    )
+
+    request =
+      Task.async(fn ->
+        conn
+        |> auth_conn(token)
+        |> post_json(%{
+          "model" => "local",
+          "stream" => true,
+          "messages" => [%{"role" => "user", "content" => "Stream across loss"}]
+        })
+      end)
+
+    assert_receive {:openai_fanout_waiting, request_pid, epoch, barrier_ref}, 5_000
+    assert request_pid == request.pid
+
+    event_before = latest_openai_event!()
+    parent_before = AllbertAssist.Repo.reload!(parent)
+    assert event_before.status == "processed"
+    refute parent_before.report_delivery_state == "delivered"
+
+    send(request_pid, {:DOWN, barrier_ref, :process, epoch.barrier_pid, :shutdown})
+    response_conn = Task.await(request, 5_000)
+
+    assert response_conn.status == 200
+    assert response_conn.resp_body =~ "Fan-out kickoff before readiness loss"
+    assert response_conn.resp_body =~ ~s("allbert_status":"working")
+    refute response_conn.resp_body =~ "data: [DONE]"
+
+    event_after = AllbertAssist.Repo.reload!(event_before)
+    parent_after = AllbertAssist.Repo.reload!(parent)
+
+    assert event_after.status == event_before.status
+    assert event_after.payload_summary == event_before.payload_summary
+    assert parent_after.kickoff_delivery_state == parent_before.kickoff_delivery_state
+    assert parent_after.report_delivery_state == parent_before.report_delivery_state
+    refute parent_after.report_delivery_state == "delivered"
   end
 
   test "fanout non-streaming records kickoff before start and holds for joined report", %{
@@ -521,8 +604,21 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
   defp context, do: %{actor: "test", channel: "test", audit?: false}
 
+  defp latest_openai_event! do
+    AllbertAssist.Repo.one!(
+      from(event in Event,
+        where: event.channel == "openai_api",
+        order_by: [desc: event.inserted_at],
+        limit: 1
+      )
+    )
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp restore_web_env(key, nil), do: Application.delete_env(:allbert_assist_web, key)
+  defp restore_web_env(key, value), do: Application.put_env(:allbert_assist_web, key, value)
 
   defp eventually(fun, attempts \\ 100)
   defp eventually(fun, 0), do: assert(fun.())

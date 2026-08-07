@@ -22,12 +22,16 @@ defmodule AllbertAssist.FirstRun.Enablement.BootWorker do
 
     with %ActivationContext{} <- context,
          :ok <- ActivationGuard.validate(allbert_pack_activation: context) do
-      runner = Keyword.get(opts, :runner, &FirstRun.reconcile_enablement/0)
+      runner =
+        Keyword.get(opts, :runner, fn context ->
+          FirstRun.reconcile_enablement(context: %{allbert_pack_activation: context})
+        end)
+
       latch = Keyword.get(opts, :latch)
 
       result =
         if is_nil(latch) or not Latch.completed?(latch) do
-          result = runner.()
+          result = run_authorizing_boot(runner, context)
           if latch, do: Latch.complete(latch)
           result
         else
@@ -44,4 +48,11 @@ defmodule AllbertAssist.FirstRun.Enablement.BootWorker do
 
   @impl true
   def handle_continue(:stop, state), do: {:stop, :normal, state}
+
+  defp run_authorizing_boot(runner, context) do
+    case :erlang.fun_info(runner, :arity) do
+      {:arity, 1} -> runner.(context)
+      {:arity, 0} -> runner.()
+    end
+  end
 end

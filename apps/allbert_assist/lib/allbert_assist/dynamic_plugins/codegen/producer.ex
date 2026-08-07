@@ -34,7 +34,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
          {:ok, role_packets, generated, budget} <- Roles.run(gap, profile, budget, context),
          {:ok, draft, manifest} <- write_draft(gap, profile, budget, generated, role_packets),
          :ok <- audit_draft_requested(gap, draft, profile, budget, context),
-         :ok <- record_objective_event(gap, draft, profile, budget) do
+         :ok <- record_objective_event(gap, draft, profile, budget, context) do
       {:ok,
        %{
          draft: Draft.summary(draft),
@@ -68,7 +68,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
              evidence: evidence
            ),
          :ok <- audit_draft_repaired(draft, repaired_draft, profile, budget, evidence, context),
-         :ok <- record_repair_objective_event(gap, repaired_draft, profile, budget, evidence) do
+         :ok <-
+           record_repair_objective_event(gap, repaired_draft, profile, budget, evidence, context) do
       {:ok,
        %{
          draft: Draft.summary(repaired_draft),
@@ -222,17 +223,26 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     end
   end
 
-  defp record_objective_event(%CapabilityGap{objective_id: nil}, _draft, _profile, _budget),
-    do: :ok
+  defp record_objective_event(
+         %CapabilityGap{objective_id: nil},
+         _draft,
+         _profile,
+         _budget,
+         _context
+       ),
+       do: :ok
 
-  defp record_objective_event(%CapabilityGap{} = gap, %Draft{} = draft, profile, budget) do
-    case Objectives.create_event(%{
-           objective_id: gap.objective_id,
-           step_id: gap.step_id,
-           kind: "observed",
-           summary: "Dynamic codegen draft requested for #{draft.slug}.",
-           payload: objective_event_payload(gap, draft, profile, budget)
-         }) do
+  defp record_objective_event(%CapabilityGap{} = gap, %Draft{} = draft, profile, budget, context) do
+    case Objectives.create_event(
+           %{
+             objective_id: gap.objective_id,
+             step_id: gap.step_id,
+             kind: "observed",
+             summary: "Dynamic codegen draft requested for #{draft.slug}.",
+             payload: objective_event_payload(gap, draft, profile, budget)
+           },
+           context
+         ) do
       {:ok, _event} -> :ok
       {:error, reason} -> {:error, {:dynamic_codegen_objective_event_failed, reason}}
     end
@@ -243,7 +253,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
          _draft,
          _profile,
          _budget,
-         _evidence
+         _evidence,
+         _context
        ),
        do: :ok
 
@@ -252,15 +263,19 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
          %Draft{} = draft,
          profile,
          budget,
-         evidence
+         evidence,
+         context
        ) do
-    case Objectives.create_event(%{
-           objective_id: gap.objective_id,
-           step_id: gap.step_id,
-           kind: "observed",
-           summary: "Dynamic codegen draft repaired for #{draft.slug}.",
-           payload: objective_repair_event_payload(gap, draft, profile, budget, evidence)
-         }) do
+    case Objectives.create_event(
+           %{
+             objective_id: gap.objective_id,
+             step_id: gap.step_id,
+             kind: "observed",
+             summary: "Dynamic codegen draft repaired for #{draft.slug}.",
+             payload: objective_repair_event_payload(gap, draft, profile, budget, evidence)
+           },
+           context
+         ) do
       {:ok, _event} -> :ok
       {:error, reason} -> {:error, {:dynamic_codegen_objective_event_failed, reason}}
     end

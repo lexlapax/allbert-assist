@@ -11,6 +11,7 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
   alias AllbertAssist.Confirmations.Store.Commands
   alias AllbertAssist.Confirmations.Store.Persistence
   alias AllbertAssist.JidoBacked
+  alias AllbertAssist.Pack.EffectGuard
 
   @create "allbert.confirmations.store.create"
   @read "allbert.confirmations.store.read"
@@ -54,9 +55,16 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
   end
 
   @doc false
-  def create(attrs, opts \\ []) when is_map(attrs) and is_list(opts) do
-    dispatch(@create, %{attrs: attrs, opts: opts})
+  def create(attrs, effect_context, opts \\ [])
+
+  def create(attrs, effect_context, opts)
+      when is_map(attrs) and is_map(effect_context) and is_list(opts) do
+    with :ok <- validate_effect_context(effect_context) do
+      dispatch(@create, %{attrs: attrs, effect_context: effect_context, opts: opts})
+    end
   end
+
+  def create(_attrs, _effect_context, _opts), do: {:error, :product_not_ready}
 
   @doc false
   def read(id) when is_binary(id), do: dispatch(@read, %{id: id})
@@ -70,28 +78,50 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
   end
 
   @doc false
-  def resolve(id, status, resolution_attrs \\ %{}, opts \\ [])
-      when is_binary(id) and is_map(resolution_attrs) and is_list(opts) do
-    dispatch(@resolve, %{
-      id: id,
-      status: status,
-      resolution_attrs: resolution_attrs,
-      opts: opts
-    })
+  def resolve(id, status, resolution_attrs, effect_context, opts \\ [])
+
+  def resolve(id, status, resolution_attrs, effect_context, opts)
+      when is_binary(id) and is_map(resolution_attrs) and is_map(effect_context) and is_list(opts) do
+    with :ok <- validate_effect_context(effect_context) do
+      dispatch(@resolve, %{
+        id: id,
+        status: status,
+        resolution_attrs: resolution_attrs,
+        effect_context: effect_context,
+        opts: opts
+      })
+    end
   end
 
-  @doc false
-  def annotate_resolution(id, attrs, opts \\ [])
-      when is_binary(id) and is_map(attrs) and is_list(opts) do
-    dispatch(@annotate_resolution, %{
-      id: id,
-      attrs: attrs,
-      opts: opts
-    })
-  end
+  def resolve(_id, _status, _attrs, _effect_context, _opts), do: {:error, :product_not_ready}
 
   @doc false
-  def expire(opts \\ []) when is_list(opts), do: dispatch(@expire, %{opts: opts})
+  def annotate_resolution(id, attrs, effect_context, opts \\ [])
+
+  def annotate_resolution(id, attrs, effect_context, opts)
+      when is_binary(id) and is_map(attrs) and is_map(effect_context) and is_list(opts) do
+    with :ok <- validate_effect_context(effect_context) do
+      dispatch(@annotate_resolution, %{
+        id: id,
+        attrs: attrs,
+        effect_context: effect_context,
+        opts: opts
+      })
+    end
+  end
+
+  def annotate_resolution(_id, _attrs, _effect_context, _opts), do: {:error, :product_not_ready}
+
+  @doc false
+  def expire(effect_context, opts \\ [])
+
+  def expire(effect_context, opts) when is_map(effect_context) and is_list(opts) do
+    with :ok <- validate_effect_context(effect_context) do
+      dispatch(@expire, %{effect_context: effect_context, opts: opts})
+    end
+  end
+
+  def expire(_effect_context, _opts), do: {:error, :product_not_ready}
 
   @doc false
   def ensure_root!, do: Persistence.ensure_root!()
@@ -103,4 +133,11 @@ defmodule AllbertAssist.Confirmations.Store.Agent do
       timeout: :infinity
     )
   end
+
+  defp validate_effect_context(%{allbert_pack_activation: _}), do: {:error, :product_not_ready}
+
+  defp validate_effect_context(%{allbert_pack_epoch: epoch} = context),
+    do: EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
+
+  defp validate_effect_context(_context), do: {:error, :product_not_ready}
 end

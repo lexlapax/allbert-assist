@@ -216,16 +216,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   end
 
   defmodule ProcessStore do
-    def recover_composition(agent), do: {:ok, Agent.get(agent, fn _state -> 0 end)}
+    def recover_composition(agent, _opts), do: {:ok, Agent.get(agent, fn _state -> 0 end)}
 
-    def claim_next_composition(agent) do
+    def claim_next_composition(agent, _opts) do
       Agent.get_and_update(agent, fn
         %{claims: [claim | rest]} = state -> {{:ok, claim}, %{state | claims: rest}}
         %{claims: []} = state -> {:none, state}
       end)
     end
 
-    def select_composition(agent, claim, source, body, provenance) do
+    def select_composition(agent, claim, source, body, provenance, _opts) do
       listener =
         Agent.get_and_update(agent, fn state ->
           updated =
@@ -251,7 +251,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     alias AllbertAssist.Objectives.Fanout.Report
     alias AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest.ProcessStore
 
-    def recover_composition(agent) do
+    def recover_composition(agent, _opts) do
       {result, listener} =
         Agent.get_and_update(agent, fn
           %{inflight: claim, selected: []} = state when is_map(claim) ->
@@ -272,7 +272,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
       result
     end
 
-    def claim_next_composition(agent) do
+    def claim_next_composition(agent, _opts) do
       Agent.get_and_update(agent, fn
         %{claimed?: false, claim: claim} = state ->
           {{:ok, claim}, %{state | claimed?: true, inflight: claim}}
@@ -282,7 +282,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
       end)
     end
 
-    def select_composition(agent, claim, source, body, provenance) do
+    def select_composition(agent, claim, source, body, provenance, _opts) do
       listener =
         Agent.get_and_update(agent, fn state ->
           {Map.get(state, :selection_listener),

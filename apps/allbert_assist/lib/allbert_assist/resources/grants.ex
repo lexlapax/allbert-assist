@@ -442,7 +442,7 @@ defmodule AllbertAssist.Resources.Grants do
 
   defp settings_context(attrs) do
     attrs
-    |> Map.take([:actor, :channel, :surface, :audit?])
+    |> Map.take([:actor, :channel, :surface, :audit?, :allbert_pack_epoch])
     |> Map.put_new(:actor, "local")
     |> Map.put_new(:channel, :resource_grants)
   end

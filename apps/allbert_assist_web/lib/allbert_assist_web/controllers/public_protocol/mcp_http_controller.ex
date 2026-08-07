@@ -205,13 +205,17 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
     context = Map.get(conn.assigns, :public_protocol_context, %{})
     client_id = get_in(context, [:public_protocol, :client_id])
 
-    EventRecorder.record_rejection(@surface, %{
-      external_event_id: "#{@surface}:rejected:#{Ecto.UUID.generate()}",
-      external_user_id: client_id,
-      user_id: if(client_id, do: "public-protocol:#{client_id}"),
-      reason: reason,
-      payload_summary: "mcp_http rejection"
-    })
+    EventRecorder.record_rejection(
+      @surface,
+      %{
+        external_event_id: "#{@surface}:rejected:#{Ecto.UUID.generate()}",
+        external_user_id: client_id,
+        user_id: if(client_id, do: "public-protocol:#{client_id}"),
+        reason: reason,
+        payload_summary: "mcp_http rejection"
+      },
+      %{allbert_pack_epoch: conn.private[:allbert_pack_epoch]}
+    )
 
     :ok
   end

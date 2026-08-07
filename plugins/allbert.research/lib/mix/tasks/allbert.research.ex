@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Allbert.Research do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertResearch.DelegateObjective
 
@@ -23,9 +24,7 @@ defmodule Mix.Tasks.Allbert.Research do
     try do
       Mix.Task.run("app.start")
 
-      args
-      |> dispatch()
-      |> print_result()
+      with_epoch(fn ready_context -> args |> dispatch(ready_context) |> print_result() end)
     catch
       {:research_error, code, message} ->
         Mix.shell().error(message)
@@ -33,7 +32,7 @@ defmodule Mix.Tasks.Allbert.Research do
     end
   end
 
-  defp dispatch(args) do
+  defp dispatch(args, ready_context) do
     {opts, positional, invalid} =
       OptionParser.parse(args,
         strict: [max_sources: :integer, user: :string, operator: :string]
@@ -43,7 +42,7 @@ defmodule Mix.Tasks.Allbert.Research do
 
     case positional do
       [target] ->
-        run_research(target, opts)
+        run_research(target, opts, ready_context)
 
       [] ->
         fail!(@usage_exit, usage())
@@ -53,14 +52,14 @@ defmodule Mix.Tasks.Allbert.Research do
     end
   end
 
-  defp run_research(target, opts) do
+  defp run_research(target, opts, ready_context) do
     user_id = user_id!(opts)
-    ensure_research_registered!()
+    ensure_research_registered!(ready_context)
     ensure_research_enabled!()
-    ensure_browser_ready!()
+    ensure_browser_ready!(ready_context)
 
     max_sources = Keyword.get(opts, :max_sources)
-    {:ok, session_id} = start_session!(target, user_id)
+    {:ok, session_id} = start_session!(target, user_id, ready_context)
 
     with {:ok, entry} <- AgentRegistry.lookup(AllbertResearch.Runtime.agent_id()),
          {:ok, run} <-
@@ -69,7 +68,9 @@ defmodule Mix.Tasks.Allbert.Research do
              max_sources: max_sources,
              channel: :cli,
              source_intent: "mix allbert.research",
-             trace_prefix: "cli_research"
+             trace_prefix: "cli_research",
+             engine: objective_engine(),
+             allbert_pack_epoch: ready_context.allbert_pack_epoch
            ) do
       {:ok,
        %{
@@ -109,14 +110,15 @@ defmodule Mix.Tasks.Allbert.Research do
     end
   end
 
-  defp start_session!(target, user_id) do
+  defp start_session!(target, user_id, ready_context) do
     context = %{
       actor: user_id,
       user_id: user_id,
       operator_id: user_id,
       channel: :cli,
       surface: "research.cli",
-      confirmation: %{approved?: true}
+      confirmation: %{approved?: true},
+      allbert_pack_epoch: ready_context.allbert_pack_epoch
     }
 
     params = %{
@@ -136,42 +138,36 @@ defmodule Mix.Tasks.Allbert.Research do
     end
   end
 
-  defp ensure_research_registered! do
-    _ = PluginRegistry.register_module(AllbertResearch.Plugin)
-    _ = AppRegistry.register(AllbertResearch.App)
-    ensure_research_supervisor!()
+  defp ensure_research_registered!(ready_context) do
+    ensure_epoch!(ready_context)
 
+    with {:ok, _plugin} <- PluginRegistry.lookup("allbert.research", registry_opts(:plugin)),
+         {:ok, _app} <- AppRegistry.lookup(:allbert_research, registry_opts(:app)) do
+      ensure_research_supervisor!(ready_context)
+      ensure_research_agent_registered!(ready_context)
+    else
+      {:error, _reason} ->
+        fail!(@failure_exit, "research.specialist metadata is not registered.")
+    end
+  end
+
+  defp ensure_research_agent_registered!(ready_context) do
     case AgentRegistry.lookup(AllbertResearch.Runtime.agent_id()) do
       {:ok, _entry} ->
         :ok
 
       {:error, :not_found} ->
-        AllbertResearch.Runtime.register_if_available(
-          AllbertResearch.Agent,
-          AllbertResearch.Agent
-        )
-
-        case AgentRegistry.lookup(AllbertResearch.Runtime.agent_id()) do
-          {:ok, _entry} -> :ok
-          {:error, _reason} -> fail!(@failure_exit, "research.specialist is not registered.")
-        end
+        ensure_epoch!(ready_context)
+        fail!(@failure_exit, "research.specialist is not registered.")
     end
   end
 
-  defp ensure_research_supervisor! do
+  defp ensure_research_supervisor!(ready_context) do
     if Process.whereis(AllbertResearch.Supervisor) do
       :ok
     else
-      case AllbertResearch.Supervisor.start_link([]) do
-        {:ok, _pid} ->
-          :ok
-
-        {:error, {:already_started, _pid}} ->
-          :ok
-
-        {:error, reason} ->
-          fail!(@failure_exit, "Unable to start research supervisor: #{inspect(reason)}")
-      end
+      ensure_epoch!(ready_context)
+      fail!(@failure_exit, "research supervisor is unavailable; retry after Pack recovery.")
     end
   end
 
@@ -188,10 +184,14 @@ defmodule Mix.Tasks.Allbert.Research do
     end
   end
 
-  defp ensure_browser_ready! do
-    ensure_browser_supervisor!()
+  defp ensure_browser_ready!(ready_context) do
+    ensure_browser_supervisor!(ready_context)
 
-    case Runner.run("browser_doctor", %{}, %{actor: "local", channel: :cli}) do
+    case Runner.run("browser_doctor", %{}, %{
+           actor: "local",
+           channel: :cli,
+           allbert_pack_epoch: ready_context.allbert_pack_epoch
+         }) do
       {:ok, %{status: :completed, doctor: %{live_check_status: :ok}}} ->
         :ok
 
@@ -203,20 +203,12 @@ defmodule Mix.Tasks.Allbert.Research do
     end
   end
 
-  defp ensure_browser_supervisor! do
+  defp ensure_browser_supervisor!(ready_context) do
     if Process.whereis(AllbertBrowser.Supervisor) do
       :ok
     else
-      case AllbertBrowser.Supervisor.start_link([]) do
-        {:ok, _pid} ->
-          :ok
-
-        {:error, {:already_started, _pid}} ->
-          :ok
-
-        {:error, reason} ->
-          fail!(@failure_exit, "Unable to start browser supervisor: #{inspect(reason)}")
-      end
+      ensure_epoch!(ready_context)
+      fail!(@failure_exit, "browser supervisor is unavailable; retry after Pack recovery.")
     end
   end
 
@@ -225,6 +217,45 @@ defmodule Mix.Tasks.Allbert.Research do
       %URI{host: host} when is_binary(host) and host != "" -> host
       _other -> nil
     end
+  end
+
+  defp with_epoch(fun) do
+    case EffectGuard.admit_ready() do
+      {:ok, epoch} ->
+        fun.(%{allbert_pack_epoch: epoch})
+
+      {:error, _reason} ->
+        fail!(@failure_exit, "Allbert product is not ready; retry the command.")
+    end
+  end
+
+  defp validate_epoch(%{allbert_pack_epoch: epoch}), do: EffectGuard.validate(epoch)
+
+  defp ensure_epoch!(ready_context) do
+    case validate_epoch(ready_context) do
+      :ok ->
+        :ok
+
+      {:error, _reason} ->
+        fail!(@failure_exit, "Allbert product is not ready; retry the command.")
+    end
+  end
+
+  defp registry_opts(kind) do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:registry_owners, %{})
+    |> Map.get(kind)
+    |> case do
+      nil -> []
+      server -> [server: server]
+    end
+  end
+
+  defp objective_engine do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:objective_engine, AllbertAssist.Objectives.Engine.Agent)
   end
 
   defp summary(%{delegate_response: %{summary: summary}}), do: summary

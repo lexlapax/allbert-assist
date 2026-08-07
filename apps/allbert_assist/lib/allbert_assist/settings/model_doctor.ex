@@ -9,6 +9,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
 
   alias AllbertAssist.External.TLS
   alias AllbertAssist.Maps
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.ModelRuntime
@@ -456,26 +457,40 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp request(method, uri, headers, timeout_ms, context) do
     url = URI.to_string(uri)
 
-    [
-      method: method,
-      url: url,
-      headers: headers,
-      receive_timeout: timeout_ms,
-      retry: false,
-      redirect: false,
-      max_redirects: 0,
-      compressed: false,
-      decode_body: false
-    ]
-    |> maybe_put(:plug, req_test_plug(context))
-    |> Keyword.merge(TLS.connect_options())
-    |> Req.request()
-    |> case do
-      {:ok, response} -> {:ok, response}
-      {:error, %Req.TransportError{} = error} -> {:error, {:transport_error, error.reason, url}}
-      {:error, reason} -> {:error, {:transport_error, reason, url}}
+    with {:ok, epoch} <- carried_epoch(context) do
+      request =
+        [
+          method: method,
+          url: url,
+          headers: headers,
+          receive_timeout: timeout_ms,
+          retry: false,
+          redirect: false,
+          max_redirects: 0,
+          compressed: false,
+          decode_body: false
+        ]
+        |> maybe_put(:plug, req_test_plug(context))
+        |> Keyword.merge(TLS.connect_options())
+
+      with :ok <- EffectGuard.validate(epoch),
+           result <- Req.request(request) do
+        case result do
+          {:ok, response} ->
+            {:ok, response}
+
+          {:error, %Req.TransportError{} = error} ->
+            {:error, {:transport_error, error.reason, url}}
+
+          {:error, reason} ->
+            {:error, {:transport_error, reason, url}}
+        end
+      end
     end
   end
+
+  defp carried_epoch(%{allbert_pack_epoch: epoch}), do: {:ok, epoch}
+  defp carried_epoch(_context), do: {:error, :product_not_ready}
 
   defp local_tags_url(nil), do: {:ok, "http://localhost:11434/api/tags"}
 

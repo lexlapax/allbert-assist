@@ -19,6 +19,7 @@ defmodule AllbertAssist.Channels.SignalTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertSignal.Settings.Fragment, as: SignalSettingsFragment
@@ -209,7 +210,12 @@ defmodule AllbertAssist.Channels.SignalTest do
 
     server = :"signal-adapter-#{System.unique_integer([:positive])}"
 
-    assert {:ok, pid} = Adapter.start_link(name: server, client_opts: [mode: :stub])
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               client_opts: [mode: :stub],
+               readiness_server: ready_effect_guard_server()
+             )
 
     assert {:ok, %{processed: 1, duplicates: 0, rejected: 0, failed: 0}} =
              Adapter.simulate_daemon_notification(server, notification)
@@ -245,7 +251,12 @@ defmodule AllbertAssist.Channels.SignalTest do
 
     server = :"signal-adapter-dupe-#{System.unique_integer([:positive])}"
 
-    assert {:ok, pid} = Adapter.start_link(name: server, client_opts: [mode: :stub])
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               client_opts: [mode: :stub],
+               readiness_server: ready_effect_guard_server()
+             )
 
     assert {:ok, %{processed: 1, duplicates: 0}} =
              Adapter.simulate_daemon_notification(server, notification)
@@ -286,7 +297,8 @@ defmodule AllbertAssist.Channels.SignalTest do
                  mode: :loopback_http,
                  base_url: "http://127.0.0.1:8080",
                  plug: {Req.Test, __MODULE__}
-               ]
+               ],
+               readiness_server: ready_effect_guard_server()
              )
 
     Req.Test.allow(__MODULE__, self(), pid)
@@ -307,25 +319,25 @@ defmodule AllbertAssist.Channels.SignalTest do
 
   defp configure_signal!(root) do
     assert {:ok, _setting} =
-             Settings.put("channels.signal.account_identifier", "+15551234567", %{audit?: false})
+             put_setting("channels.signal.account_identifier", "+15551234567", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.signal.local_aci", @local_aci, %{audit?: false})
+             put_setting("channels.signal.local_aci", @local_aci, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.signal.data_dir", Path.join(root, "signal"), %{audit?: false})
+             put_setting("channels.signal.data_dir", Path.join(root, "signal"), %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.signal.identity_map",
                [%{external_user_id: @aci, user_id: "alice"}],
                %{audit?: false}
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.signal.allowed_aci_ids", [@aci], %{audit?: false})
+             put_setting("channels.signal.allowed_aci_ids", [@aci], %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("channels.signal.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.signal.enabled", true, %{audit?: false})
   end
 
   defp json(conn, body) do
@@ -334,6 +346,15 @@ defmodule AllbertAssist.Channels.SignalTest do
     conn
     |> put_resp_content_type("application/json")
     |> send_resp(status, Jason.encode!(body))
+  end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
+
+  defp ready_effect_guard_server do
+    ReadyEffectContext.context()
+    |> Map.fetch!(:allbert_pack_effect_guard_opts)
+    |> Keyword.fetch!(:server)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

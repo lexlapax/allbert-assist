@@ -12,6 +12,9 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Step
+  alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Repo
 
   @origin_fields ~w[
     user_id source_thread_id source_channel source_surface session_id active_app source_intent
@@ -84,6 +87,7 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
       origin
       |> Map.put(:title, @forged_label_corpus.parent_title)
       |> Map.put(:objective, @forged_label_corpus.parent_objective)
+      |> Map.merge(effect_context())
 
     {:ok, frame} = Fanout.frame(attrs, @forged_label_corpus.tasks)
     frame
@@ -111,7 +115,7 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   def select_pending!(parent_id, source)
       when is_binary(parent_id) and source in [:model, :fallback] do
     {:ok, %{parent: %{id: ^parent_id}, frozen: _frozen} = claim} =
-      Fanout.claim_next_composition()
+      Fanout.claim_next_composition(effect_options())
 
     select_claim!(claim, source)
   end
@@ -119,7 +123,10 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   def select_claim!(%{parent: parent, frozen: frozen} = claim, source)
       when source in [:model, :fallback] do
     {selected_source, body, provenance} = selection!(source, frozen)
-    {:ok, _selected} = Fanout.select_composition(claim, selected_source, body, provenance)
+
+    {:ok, _selected} =
+      Fanout.select_composition(claim, selected_source, body, provenance, effect_options())
+
     {:ok, reloaded_parent} = Objectives.get_objective(parent.id)
     reloaded_children = Fanout.children(reloaded_parent)
     report_body = reloaded_parent.report_body
@@ -138,7 +145,7 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   end
 
   defp select_next_report(source, attempts) when attempts > 0 do
-    case Fanout.claim_next_composition() do
+    case Fanout.claim_next_composition(effect_options()) do
       {:ok, claim} ->
         {:ok, select_claim!(claim, source)}
 
@@ -172,15 +179,20 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   @spec complete_child!(struct(), String.t()) :: struct()
   def complete_child!(child, observation) when is_binary(observation) do
     {:ok, step} =
-      Objectives.create_step(%{
+      %Step{}
+      |> Step.changeset(%{
+        id: Objectives.new_id("step"),
         objective_id: child.id,
         kind: "action",
         status: "completed",
         stage: "observe_step",
         candidate_action: "append_memory",
-        action_params: %{memory: child.objective},
+        action_params: Jason.encode!(%{memory: child.objective}),
         result_summary: observation
       })
+      |> Repo.insert()
+
+    {:ok, epoch} = EffectGuard.admit_ready()
 
     {:ok, %{child: %{status: "completed", current_step_id: step_id}}} =
       TerminalTransitions.terminalize_child(
@@ -196,7 +208,8 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
           summary: String.slice(observation, 0, 500),
           step_id: step.id,
           step_status: "completed"
-        }
+        },
+        effect_context: %{allbert_pack_epoch: epoch}
       )
 
     true = step_id == step.id
@@ -252,5 +265,12 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
       {:ok, value} when is_binary(value) and value != "" -> :ok
       _missing_or_invalid -> raise ArgumentError, "fixture origin requires #{inspect(key)}"
     end
+  end
+
+  defp effect_options, do: [effect_context: effect_context()]
+
+  defp effect_context do
+    {:ok, epoch} = EffectGuard.admit_ready()
+    %{allbert_pack_epoch: epoch}
   end
 end

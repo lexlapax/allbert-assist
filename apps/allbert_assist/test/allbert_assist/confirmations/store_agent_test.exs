@@ -8,6 +8,7 @@ defmodule AllbertAssist.Confirmations.StoreAgentTest do
   alias AllbertAssist.Confirmations.Store.Persistence
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Jido.AgentServer
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
@@ -53,11 +54,12 @@ defmodule AllbertAssist.Confirmations.StoreAgentTest do
 
   test "cold start with existing pending YAML records rehydrates projection" do
     assert {:ok, first} =
-             Persistence.create(base_attrs("conf_one"), now: now())
+             Persistence.create(base_attrs("conf_one"), effect_context(), now: now())
 
     assert {:ok, second} =
              Persistence.create(
                base_attrs("conf_two") |> put_in([:target_action, :name], "other_action"),
+               effect_context(),
                now: now()
              )
 
@@ -70,7 +72,9 @@ defmodule AllbertAssist.Confirmations.StoreAgentTest do
   end
 
   test "create read list resolve and expire preserve result shapes" do
-    assert {:ok, created} = Store.create(base_attrs("conf_create"), ttl_minutes: 1, now: now())
+    assert {:ok, created} =
+             Store.create(base_attrs("conf_create"), effect_context(), ttl_minutes: 1, now: now())
+
     assert {:ok, ^created} = Store.read(created["id"])
     assert [^created] = Store.list()
 
@@ -79,16 +83,17 @@ defmodule AllbertAssist.Confirmations.StoreAgentTest do
                created["id"],
                :denied,
                %{resolver_actor: "local", resolver_channel: :cli},
+               effect_context(),
                now: DateTime.add(now(), 1, :second)
              )
 
     assert resolved["status"] == "denied"
 
     assert {:ok, expired} =
-             Store.create(base_attrs("conf_expire"), ttl_minutes: 1, now: now())
+             Store.create(base_attrs("conf_expire"), effect_context(), ttl_minutes: 1, now: now())
 
     assert {:ok, [{:ok, expired_resolved}]} =
-             Store.expire(now: DateTime.add(now(), 120, :second))
+             Store.expire(effect_context(), now: DateTime.add(now(), 120, :second))
 
     assert expired_resolved["id"] == expired["id"]
     assert expired_resolved["status"] == "expired"
@@ -98,7 +103,9 @@ defmodule AllbertAssist.Confirmations.StoreAgentTest do
     previous_trap_exit = Process.flag(:trap_exit, true)
 
     try do
-      assert {:ok, record} = Persistence.create(base_attrs("conf_restart"), now: now())
+      assert {:ok, record} =
+               Persistence.create(base_attrs("conf_restart"), effect_context(), now: now())
+
       {:ok, pid} = start_test_agent()
 
       Process.exit(pid, :kill)
@@ -120,7 +127,7 @@ defmodule AllbertAssist.Confirmations.StoreAgentTest do
     File.write!(bad_path, "id: bad\nstatus: purple\n")
 
     assert [] = Store.list()
-    assert {:ok, []} = Store.expire(now: DateTime.add(now(), 120, :second))
+    assert {:ok, []} = Store.expire(effect_context(), now: DateTime.add(now(), 120, :second))
   end
 
   defp start_test_agent do
@@ -140,6 +147,7 @@ defmodule AllbertAssist.Confirmations.StoreAgentTest do
   end
 
   defp now, do: ~U[2026-05-02 12:00:00Z]
+  defp effect_context, do: ReadyEffectContext.context()
 
   defp restore_env(original_env) do
     Enum.each(original_env, fn

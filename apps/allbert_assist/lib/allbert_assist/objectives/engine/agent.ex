@@ -55,22 +55,24 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
   @impl true
   def rebuild_state(opts) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
-    {:ok, abandoned} = Objectives.abandon_stale_objectives(now: now)
-    active = Objectives.active_objectives(now: now)
 
-    {:ok,
-     %{
-       active_objectives: Map.new(active, &{&1.id, Objectives.objective_summary(&1)}),
-       current_stage: Map.new(active, &{&1.id, &1.status}),
-       loop_counts: Map.new(active, &{&1.id, &1.loop_count || 0}),
-       last_acceptance_verdicts: %{},
-       proposer_hints: proposer_hints(active),
-       last_rebuilt_at: now |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
-       last_command: :rebuild,
-       last_result: {:ok, %{active: length(active), abandoned: abandoned}},
-       last_error: nil,
-       last_summary: %{active: length(active), abandoned: abandoned}
-     }}
+    with {:ok, abandoned} <- maybe_abandon_stale(opts, now) do
+      active = Objectives.active_objectives(now: now)
+
+      {:ok,
+       %{
+         active_objectives: Map.new(active, &{&1.id, Objectives.objective_summary(&1)}),
+         current_stage: Map.new(active, &{&1.id, &1.status}),
+         loop_counts: Map.new(active, &{&1.id, &1.loop_count || 0}),
+         last_acceptance_verdicts: %{},
+         proposer_hints: proposer_hints(active),
+         last_rebuilt_at: now |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
+         last_command: :rebuild,
+         last_result: {:ok, %{active: length(active), abandoned: abandoned}},
+         last_error: nil,
+         last_summary: %{active: length(active), abandoned: abandoned}
+       }}
+    end
   end
 
   @doc false
@@ -152,6 +154,18 @@ defmodule AllbertAssist.Objectives.Engine.Agent do
        attrs
      )
      |> Map.merge(Map.take(state, [:active_objectives, :current_stage, :loop_counts]))}
+  end
+
+  # Supervisor startup has no effect receipt. It rehydrates the read model only;
+  # stale-objective mutation is reserved for an explicit E1-bearing rebuild.
+  defp maybe_abandon_stale(opts, now) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} ->
+        Objectives.abandon_stale_objectives([now: now], %{allbert_pack_epoch: epoch})
+
+      :error ->
+        {:ok, 0}
+    end
   end
 
   defp dispatch(server, signal_type, params) do

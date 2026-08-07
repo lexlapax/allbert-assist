@@ -13,8 +13,14 @@ defmodule AllbertAssistWeb.PackReadiness.HTTPGate do
     observer = Keyword.get(opts, :observer, AllbertAssistWeb.PackReadiness)
 
     case observer.admit() do
-      {:ok, epoch} -> put_private(conn, :allbert_pack_epoch, epoch)
-      {:error, :product_not_ready} -> unavailable(conn)
+      {:ok, epoch} ->
+        conn
+        |> put_private(:allbert_pack_epoch, epoch)
+        |> assign(:allbert_pack_epoch, epoch)
+        |> register_before_send(&validate_response_commit(&1, observer, epoch))
+
+      {:error, :product_not_ready} ->
+        unavailable(conn)
     end
   end
 
@@ -45,4 +51,23 @@ defmodule AllbertAssistWeb.PackReadiness.HTTPGate do
     do: ~s({"error":{"code":"product_not_ready","message":"Allbert product is not ready."}})
 
   defp body(_conn), do: "Allbert product is not ready.\n"
+
+  defp validate_response_commit(conn, observer, epoch) do
+    case observer.validate(epoch) do
+      :ok -> conn
+      {:error, _reason} -> freeze_unavailable_response(conn)
+    end
+  end
+
+  defp freeze_unavailable_response(conn) do
+    conn
+    |> put_status(503)
+    |> delete_resp_header("content-length")
+    |> delete_resp_header("content-encoding")
+    |> delete_resp_header("transfer-encoding")
+    |> put_resp_header("retry-after", @retry_after)
+    |> put_resp_header("cache-control", "no-store")
+    |> put_resp_content_type(content_type(conn))
+    |> Map.put(:resp_body, body(conn))
+  end
 end

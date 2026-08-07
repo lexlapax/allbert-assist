@@ -1,3 +1,126 @@
+defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle do
+  @moduledoc false
+
+  alias AllbertAssist.Objectives.Lifecycle
+  alias AllbertAssist.Pack.EffectGuard
+
+  def run(child_id, opts \\ []) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Lifecycle.run(child_id, Keyword.put_new(opts, :allbert_pack_epoch, epoch))
+    end
+  end
+
+  def reconcile_quality_protocol_upgrade(objective, opts \\ []) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Lifecycle.reconcile_quality_protocol_upgrade(
+        objective,
+        Keyword.put_new(opts, :allbert_pack_epoch, epoch)
+      )
+    end
+  end
+end
+
+defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering do
+  @moduledoc false
+
+  alias AllbertAssist.Objectives.Steering
+  alias AllbertAssist.Pack.EffectGuard
+
+  def steer(user_id, objective_id, directive) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Steering.steer(user_id, objective_id, directive, %{allbert_pack_epoch: epoch})
+    end
+  end
+
+  def apply_pending(objective_id) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Steering.apply_pending(objective_id, %{allbert_pack_epoch: epoch})
+    end
+  end
+end
+
+defmodule AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness do
+  @moduledoc false
+
+  use GenServer
+
+  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, opts)
+  def replace(server), do: GenServer.call(server, :replace)
+
+  @impl true
+  def init(opts) do
+    {:ok,
+     %{
+       active: spawn(fn -> Process.sleep(:infinity) end),
+       replacement: spawn(fn -> Process.sleep(:infinity) end),
+       replaced?: false,
+       replace_after_status_calls: Keyword.get(opts, :replace_after_status_calls),
+       status_calls: 0
+     }}
+  end
+
+  @impl true
+  def handle_call(:status, _from, %{active: active, replacement: replacement} = state) do
+    status_calls = state.status_calls + 1
+
+    replaced? =
+      state.replaced? or
+        (is_integer(state.replace_after_status_calls) and
+           status_calls > state.replace_after_status_calls)
+
+    barrier = if replaced?, do: replacement, else: active
+
+    {:reply,
+     {:ok,
+      %{
+        phase: :ready,
+        barrier_pid: barrier,
+        snapshot_digest: String.duplicate("a", 64),
+        expected_ids: [],
+        subscribed_ids: [],
+        acked_ids: [],
+        diagnostics: []
+      }}, %{state | replaced?: replaced?, status_calls: status_calls}}
+  end
+
+  def handle_call(:replace, _from, state), do: {:reply, :ok, %{state | replaced?: true}}
+
+  @impl true
+  def terminate(_reason, %{active: active, replacement: replacement}) do
+    Process.exit(active, :kill)
+    Process.exit(replacement, :kill)
+  end
+end
+
+defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives do
+  @moduledoc false
+
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Pack.EffectGuard
+
+  def get_objective(id), do: Objectives.get_objective(id)
+  def list_events(id, opts \\ []), do: Objectives.list_events(id, opts)
+  def list_steps(id), do: Objectives.list_steps(id)
+
+  def fanout_confirmation_target(confirmation),
+    do: Objectives.fanout_confirmation_target(confirmation)
+
+  def fanout_confirmation_target(confirmation, opts),
+    do: Objectives.fanout_confirmation_target(confirmation, opts)
+
+  def create_step(attrs) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Objectives.create_step(attrs, %{allbert_pack_epoch: epoch})
+    end
+  end
+
+  def transition_step(step, status, attrs) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Objectives.transition_step(step, status, attrs, %{allbert_pack_epoch: epoch})
+    end
+  end
+end
+
 defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
@@ -8,15 +131,16 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   alias AllbertAssist.Confirmations.Store.Persistence, as: ConfirmationPersistence
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Memory
-  alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
-  alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
-  alias AllbertAssist.Objectives.Steering
+  alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle, as: Lifecycle
+  alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering, as: Steering
   alias AllbertAssist.Repo
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Settings.YamlCodec
@@ -77,7 +201,10 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
       send(Keyword.fetch!(opts, :test_pid), {:propose_value, value})
 
       {:ok, _setting} =
-        Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+        Settings.put("objectives.fanout.confirm_before_start", true, %{
+          audit?: false,
+          allbert_pack_epoch: Keyword.fetch!(opts, :allbert_pack_epoch)
+        })
 
       {:ok, state}
     end
@@ -147,14 +274,17 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
       end
 
       {:ok, step} =
-        Objectives.create_step(%{
-          objective_id: objective.id,
-          kind: "action",
-          status: "selected",
-          stage: "propose_steps",
-          candidate_action: "direct_answer",
-          action_params: Jason.encode!(%{text: objective.objective})
-        })
+        Objectives.create_step(
+          %{
+            objective_id: objective.id,
+            kind: "action",
+            status: "selected",
+            stage: "propose_steps",
+            candidate_action: "direct_answer",
+            action_params: Jason.encode!(%{text: objective.objective})
+          },
+          %{allbert_pack_epoch: Keyword.fetch!(opts, :allbert_pack_epoch)}
+        )
 
       {:ok, state |> Map.put(:step, step) |> Map.put(:proposal_count, proposal_count)}
     end
@@ -173,14 +303,17 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
     def operation(:propose, %{objective: objective} = state, opts) do
       {:ok, step} =
-        Objectives.create_step(%{
-          objective_id: objective.id,
-          kind: "action",
-          status: "selected",
-          stage: "propose_steps",
-          candidate_action: Keyword.get(opts, :candidate_action, "direct_answer"),
-          action_params: Jason.encode!(%{text: objective.objective})
-        })
+        Objectives.create_step(
+          %{
+            objective_id: objective.id,
+            kind: "action",
+            status: "selected",
+            stage: "propose_steps",
+            candidate_action: Keyword.get(opts, :candidate_action, "direct_answer"),
+            action_params: Jason.encode!(%{text: objective.objective})
+          },
+          %{allbert_pack_epoch: Keyword.fetch!(opts, :allbert_pack_epoch)}
+        )
 
       {:ok, Map.put(state, :step, step)}
     end
@@ -760,7 +893,8 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   test "a conversation-manager child cannot amplify generated prose or an unreviewed fallback into completion" do
     assert {:ok, _setting} =
              AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{
-               audit?: false
+               audit?: false,
+               allbert_pack_epoch: effect_epoch()
              })
 
     original =
@@ -1080,7 +1214,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              AllbertAssist.Settings.put(
                "objectives.fanout.max_worker_attempts_per_child",
                1,
-               %{audit?: false}
+               %{audit?: false, allbert_pack_epoch: effect_epoch()}
              )
 
     original = "Compare two read-only Project Juniper formats."
@@ -1193,7 +1327,8 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   test "a settings write becomes visible at the next operation, never mid-operation" do
     assert {:ok, _setting} =
              AllbertAssist.Settings.put("objectives.fanout.confirm_before_start", false, %{
-               audit?: false
+               audit?: false,
+               allbert_pack_epoch: effect_epoch()
              })
 
     assert {:ok, child} =
@@ -1301,6 +1436,102 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     refute_receive {:operation, _operation}, 100
   end
 
+  test "same-digest E2 rolls back the lifecycle terminal transition after its child write" do
+    legacy_budget = %{
+      "version" => 1,
+      "child_count" => 2,
+      "manager_attempts" => 1,
+      "worker_attempts_per_child" => 2,
+      "configured_model_calls" => 40,
+      "required_model_calls" => 10,
+      "configured_output_tokens" => 24_000,
+      "required_output_tokens" => 6_144,
+      "max_elapsed_ms" => 300_000
+    }
+
+    assert {:ok, child} =
+             create_grounded_child(
+               "conversation_manager",
+               "Prepare two historical rollback analyses.",
+               "Analyze the first historical rollback fixture.",
+               %{"budget" => legacy_budget}
+             )
+
+    original = Process.whereis(AllbertAssist.Pack.Readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+
+    {:ok, replacement} =
+      AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness.start_link(
+        name: AllbertAssist.Pack.Readiness
+      )
+
+    on_exit(fn ->
+      if Process.whereis(AllbertAssist.Pack.Readiness) == replacement,
+        do: Process.unregister(AllbertAssist.Pack.Readiness)
+
+      if Process.alive?(replacement), do: GenServer.stop(replacement)
+
+      if Process.alive?(original) and is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+        do: Process.register(original, AllbertAssist.Pack.Readiness)
+    end)
+
+    assert {:ok, e1} = EffectGuard.admit_ready()
+
+    assert {:error, :stale_epoch} =
+             AllbertAssist.Objectives.Lifecycle.reconcile_quality_protocol_upgrade(
+               child,
+               allbert_pack_epoch: e1,
+               force_quality_protocol_upgrade?: true,
+               transaction_hook: fn _child ->
+                 :ok =
+                   AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness.replace(
+                     replacement
+                   )
+               end
+             )
+
+    assert {:ok, unchanged} = Objectives.get_objective(child.id)
+    assert unchanged.status == "open"
+    assert unchanged.review_reason == nil
+    refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_failed"))
+  end
+
+  test "same-digest E2 prevents steering from resolving a parked confirmation" do
+    {child, confirmation_id} = park_grounded_counted_confirmation([])
+    assert {:ok, %{"status" => "pending"}} = Confirmations.read(confirmation_id)
+
+    original = Process.whereis(AllbertAssist.Pack.Readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+
+    {:ok, replacement} =
+      AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness.start_link(
+        name: AllbertAssist.Pack.Readiness,
+        replace_after_status_calls: 5
+      )
+
+    on_exit(fn ->
+      if Process.whereis(AllbertAssist.Pack.Readiness) == replacement,
+        do: Process.unregister(AllbertAssist.Pack.Readiness)
+
+      if Process.alive?(replacement), do: GenServer.stop(replacement)
+
+      if Process.alive?(original) and is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+        do: Process.register(original, AllbertAssist.Pack.Readiness)
+    end)
+
+    assert {:ok, e1} = EffectGuard.admit_ready()
+
+    assert {:error, :stale_epoch} =
+             AllbertAssist.Objectives.Steering.steer(
+               "alice",
+               child.id,
+               "Use primary sources.",
+               %{allbert_pack_epoch: e1}
+             )
+
+    assert {:ok, %{"status" => "pending"}} = Confirmations.read(confirmation_id)
+  end
+
   test "confirmation parking persists the step receipt without blocking another run" do
     assert {:ok, child} =
              create_child(%{
@@ -1395,6 +1626,11 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     {child, step, receipt, task_digest}
   end
 
+  defp effect_epoch do
+    {:ok, epoch} = EffectGuard.admit_ready()
+    epoch
+  end
+
   defp create_child(attrs) do
     sibling = %{
       title: "fixture sibling #{System.unique_integer([:positive])}",
@@ -1407,7 +1643,12 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
       objective: "Exercise one child lifecycle in a valid fan-out."
     }
 
-    case Fanout.frame(parent, [Map.delete(attrs, :fanout_role), sibling]) do
+    {:ok, epoch} = EffectGuard.admit_ready()
+
+    case Fanout.frame(
+           Map.put(parent, :allbert_pack_epoch, epoch),
+           [Map.delete(attrs, :fanout_role), sibling]
+         ) do
       {:ok, %{children: [child, _sibling]}} -> {:ok, child}
       {:error, reason} -> {:error, reason}
     end
@@ -1449,7 +1690,12 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
       proposer_hint: %{"fanout_plan" => plan}
     }
 
-    case Fanout.frame(parent, FanoutPlan.child_attrs(compiled)) do
+    {:ok, epoch} = EffectGuard.admit_ready()
+
+    case Fanout.frame(
+           Map.put(parent, :allbert_pack_epoch, epoch),
+           FanoutPlan.child_attrs(compiled)
+         ) do
       {:ok, %{children: [child, _sibling]}} -> {:ok, child}
       {:error, reason} -> {:error, reason}
     end

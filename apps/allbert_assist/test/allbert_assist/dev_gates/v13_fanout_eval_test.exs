@@ -6,6 +6,66 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Settings
+  alias AllbertAssist.Pack.EffectGuard
+
+  defmodule ReplacingReadiness do
+    use GenServer
+
+    def start_link(opts),
+      do: GenServer.start_link(__MODULE__, :ok, name: Keyword.fetch!(opts, :name))
+
+    def init(:ok), do: {:ok, %{calls: 0, e1: barrier(), e2: barrier()}}
+
+    def handle_call(:status, _from, state) do
+      pid = if state.calls == 0, do: state.e1, else: state.e2
+
+      status = %{
+        phase: :ready,
+        barrier_pid: pid,
+        snapshot_digest: String.duplicate("a", 64),
+        expected_ids: [],
+        subscribed_ids: [],
+        acked_ids: [],
+        diagnostics: []
+      }
+
+      {:reply, {:ok, status}, %{state | calls: state.calls + 1}}
+    end
+
+    def terminate(_reason, state),
+      do:
+        (
+          Process.exit(state.e1, :kill)
+          Process.exit(state.e2, :kill)
+        )
+
+    defp barrier, do: spawn(fn -> Process.sleep(:infinity) end)
+  end
+
+  defmodule StableReadiness do
+    use GenServer
+
+    def start_link(opts),
+      do: GenServer.start_link(__MODULE__, :ok, name: Keyword.fetch!(opts, :name))
+
+    def init(:ok), do: {:ok, %{barrier: spawn(fn -> Process.sleep(:infinity) end)}}
+
+    def handle_call(:status, _from, state) do
+      {:reply,
+       {:ok,
+        %{
+          phase: :ready,
+          barrier_pid: state.barrier,
+          snapshot_digest: String.duplicate("a", 64),
+          expected_ids: [],
+          subscribed_ids: [],
+          acked_ids: [],
+          diagnostics: []
+        }}, state}
+    end
+
+    def terminate(_reason, state), do: Process.exit(state.barrier, :kill)
+  end
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
   @fixture_sha256 "0e18ee567d76021a8816a0345dba80f52bf463d72c9699d1cfac308dd64aa0d1"
@@ -68,6 +128,95 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     end
   end
 
+  test "same-digest replacement stops fanout before manager or metrics" do
+    original = Process.whereis(AllbertAssist.Pack.Readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+    {:ok, replacement} = ReplacingReadiness.start_link(name: AllbertAssist.Pack.Readiness)
+
+    on_exit(fn ->
+      if Process.whereis(AllbertAssist.Pack.Readiness) == replacement,
+        do: Process.unregister(AllbertAssist.Pack.Readiness)
+
+      if Process.alive?(replacement), do: GenServer.stop(replacement)
+
+      if Process.alive?(original) and is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+        do: Process.register(original, AllbertAssist.Pack.Readiness)
+    end)
+
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+
+    assert_raise RuntimeError, ~r/product is not ready/, fn ->
+      V13FanoutEval.run(fixture,
+        profile: @profile,
+        manager_profile: @profile,
+        composer_profile: @profile,
+        manager_context: %{allbert_pack_epoch: epoch},
+        composer_context: %{allbert_pack_epoch: epoch},
+        manager: fn _prompt, _context ->
+          send(self(), :manager_called)
+          {:ok, %{}}
+        end
+      )
+    end
+
+    refute_received :manager_called
+  end
+
+  test "conflicting manager control or composer epochs stop before callbacks and metrics" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+    e1 = %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}
+    e2_barrier = spawn(fn -> Process.sleep(:infinity) end)
+    e2 = %{barrier_pid: e2_barrier, snapshot_digest: e1.snapshot_digest}
+    on_exit(fn -> Process.exit(e2_barrier, :kill) end)
+
+    for conflicting_context <- [:manager_context, :control_context, :composer_context] do
+      store = temp_store()
+      on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
+
+      contexts = %{
+        manager_context: %{allbert_pack_epoch: e1},
+        control_context: %{allbert_pack_epoch: e1},
+        composer_context: %{
+          allbert_pack_epoch: e1,
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024
+        }
+      }
+
+      contexts = put_in(contexts, [conflicting_context, :allbert_pack_epoch], e2)
+
+      assert_raise RuntimeError, ~r/conflicting Pack epochs/, fn ->
+        V13FanoutEval.run(fixture,
+          profile: @profile,
+          manager_profile: @profile,
+          composer_profile: @profile,
+          manager_context: contexts.manager_context,
+          control_context: contexts.control_context,
+          composer_context: contexts.composer_context,
+          manager: fn _prompt, _context ->
+            send(self(), :manager_called)
+            {:ok, %{}}
+          end,
+          control_answerer: fn _prompt, _context ->
+            send(self(), :control_called)
+            {:ok, %{message: "unexpected"}}
+          end,
+          composer_authorizer: fn _profile, _context ->
+            send(self(), :authorizer_called)
+            :ok
+          end,
+          store: store
+        )
+      end
+
+      refute_received :manager_called
+      refute_received :control_called
+      refute_received :authorizer_called
+      refute File.exists?(store)
+    end
+  end
+
   test "frozen mixed topology rejects a non-default Worker before settings writes" do
     before = Settings.get("model_preferences.tasks.direct_answer")
 
@@ -94,6 +243,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   end
 
   setup do
+    replace_with_stable_readiness!()
     previous = Application.get_env(:allbert_assist, DirectAnswer)
     Application.put_env(:allbert_assist, DirectAnswer, answerer: QualifiedRevisionAnswerer)
 
@@ -961,6 +1111,22 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       System.tmp_dir!(),
       "v13-fanout-eval-#{System.unique_integer([:positive])}/runs.jsonl"
     )
+  end
+
+  defp replace_with_stable_readiness! do
+    original = Process.whereis(AllbertAssist.Pack.Readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+    {:ok, replacement} = StableReadiness.start_link(name: AllbertAssist.Pack.Readiness)
+
+    on_exit(fn ->
+      if Process.whereis(AllbertAssist.Pack.Readiness) == replacement,
+        do: Process.unregister(AllbertAssist.Pack.Readiness)
+
+      if Process.alive?(replacement), do: GenServer.stop(replacement)
+
+      if Process.alive?(original) and is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+        do: Process.register(original, AllbertAssist.Pack.Readiness)
+    end)
   end
 
   defp write_fixture(fixture) do

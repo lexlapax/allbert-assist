@@ -503,7 +503,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          receipt,
          delivery_context
        ) do
-    case start_turn_task(fn ->
+    case start_turn_task(fn epoch ->
+           delivery_context = Map.put(delivery_context, :allbert_pack_epoch, epoch)
+
            result =
              with :ok <- deliver_report_lines(lines, delivery_output_fun) do
                acknowledge_fun.(receipt, delivery_context)
@@ -968,7 +970,12 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     if SlashCommands.slash?(text) do
       dispatch_slash(text, state)
     else
-      process_inbound_text(text, opts, state)
+      with {:ok, epoch} <- EffectGuard.admit_ready(),
+           :ok <- EffectGuard.validate(epoch) do
+        process_inbound_text(text, Keyword.put(opts, :allbert_pack_epoch, epoch), state)
+      else
+        {:error, _reason} -> {{:error, :product_not_ready}, clear_live_status(state)}
+      end
     end
   end
 
@@ -1030,7 +1037,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
     task_state = quiet_async_task_state(state)
 
-    case start_turn_task(fn ->
+    case start_turn_task(fn epoch ->
            if deferred_start? do
              receive do
                {:start_coding_tui_turn, ^turn_id} -> :ok
@@ -1039,7 +1046,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
            {reply, pi_session} =
              try do
-               {reply, next_state} = process_inbound_text(text, turn_opts, task_state)
+               {reply, next_state} =
+                 process_inbound_text(
+                   text,
+                   Keyword.put(turn_opts, :allbert_pack_epoch, epoch),
+                   task_state
+                 )
+
                {reply, next_state.pi_session}
              rescue
                exception ->
@@ -1484,10 +1497,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     owner = self()
     worker_state = %{state | attended_turn_owner: {owner, turn_id}, auto_input?: false}
 
-    case start_turn_task(fn ->
+    case start_turn_task(fn epoch ->
            receive do
              {:start_attended_turn, ^turn_id} ->
-               {reply, worker_state} = handle_text_submission(text, opts, worker_state)
+               {reply, worker_state} =
+                 handle_text_submission(
+                   text,
+                   Keyword.put(opts, :allbert_pack_epoch, epoch),
+                   worker_state
+                 )
 
                send(
                  owner,
@@ -1651,10 +1669,17 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp stop_attended_turn(state), do: state
 
   defp start_turn_task(fun) do
-    if Process.whereis(AllbertAssist.TaskSupervisor) do
-      Task.Supervisor.start_child(AllbertAssist.TaskSupervisor, fun)
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      guarded_fun = fn -> if EffectGuard.validate(epoch) == :ok, do: fun.(epoch) end
+
+      if Process.whereis(AllbertAssist.TaskSupervisor) do
+        Task.Supervisor.start_child(AllbertAssist.TaskSupervisor, guarded_fun)
+      else
+        Task.start(guarded_fun)
+      end
     else
-      Task.start(fun)
+      {:error, _reason} -> {:error, :product_not_ready}
     end
   end
 
@@ -1671,9 +1696,16 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp process_inbound_text(text, opts, state) do
-    with {:ok, epoch} <- EffectGuard.admit_ready(),
+    with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
          :ok <- EffectGuard.validate(epoch) do
-      fields = fields(text, opts, state)
+      fields =
+        fields(text, opts, state)
+        |> Map.put(:allbert_pack_epoch, epoch)
+        |> Map.put(
+          :allbert_pack_effect_guard_opts,
+          Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+        )
+
       command = ConfirmationCallback.parse_typed_command(fields.text)
       direction = if command == :ignore, do: "inbound", else: "callback"
 
@@ -1681,7 +1713,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         {:ok, %AllbertAssist.Channels.Event{} = event} ->
           handle_received_event(
             event,
-            Map.put(fields, :allbert_pack_epoch, epoch),
+            fields,
             command,
             state
           )
@@ -2153,7 +2185,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       status: "received",
       payload_summary: fields.raw_summary
     }
-    |> Channels.create_event()
+    |> Channels.create_event(fields)
     |> event_result()
   end
 
@@ -2197,9 +2229,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
            end),
          :ok <- handoff_attended_turn(response, state),
          :ok <- EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: @channel}),
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: @channel,
+             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
+             allbert_pack_effect_guard_opts: Map.get(fields, :allbert_pack_effect_guard_opts, [])
+           }),
          state <- reconcile_tracked_fanout_after_kickoff_ack(response, state),
-         {:ok, event} <- mark_processed(event, response, user_id, session_id) do
+         {:ok, event} <- mark_processed(event, response, user_id, session_id, fields) do
       {{:ok, {:processed, event, rendered}}, state}
     else
       {:error, {:inbound_admission_failed, _kind} = reason} ->
@@ -2207,7 +2244,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         Logger.warning("tui inbound admission failed")
 
         if EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)) == :ok,
-          do: mark_inbound_admission_failed(event)
+          do: mark_inbound_admission_failed(event, fields)
 
         :ok =
           emit_rendered(
@@ -2222,7 +2259,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         Logger.debug("tui event rejected: #{inspect(Redactor.redact(reason))}")
 
         if EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)) == :ok,
-          do: mark_rejected_or_failed(event, reason)
+          do: mark_rejected_or_failed(event, reason, fields)
 
         :ok = emit_callback_rejection(command, reason, state)
         {{:ok, :rejected}, state}
@@ -2614,18 +2651,22 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     )
   end
 
-  defp mark_processed(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      thread_id: response_value(response, :thread_id),
-      input_signal_id: response_value(response, :input_signal_id),
-      trace_id: response_value(response, :trace_id)
-    })
+  defp mark_processed(event, response, user_id, session_id, context) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        thread_id: response_value(response, :thread_id),
+        input_signal_id: response_value(response, :input_signal_id),
+        trace_id: response_value(response, :trace_id)
+      },
+      context
+    )
   end
 
-  defp mark_rejected_or_failed(event, reason) do
+  defp mark_rejected_or_failed(event, reason, context) do
     status =
       if reason in [
            :empty_text,
@@ -2639,11 +2680,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          do: "rejected",
          else: "failed"
 
-    Channels.update_event(event, %{status: status, reason: inspect(Redactor.redact(reason))})
+    Channels.update_event(
+      event,
+      %{status: status, reason: inspect(Redactor.redact(reason))},
+      context
+    )
   end
 
-  defp mark_inbound_admission_failed(event) do
-    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
+  defp mark_inbound_admission_failed(event, context) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"}, context)
   end
 
   defp event_result({:ok, %AllbertAssist.Channels.Event{} = event}), do: {:ok, event}

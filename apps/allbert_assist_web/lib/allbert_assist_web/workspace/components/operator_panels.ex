@@ -424,7 +424,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       |> assign_new(:models_loaded?, fn -> false end)
       |> assign_new(:models_notice, fn -> "" end)
       |> assign_new(:models_diagnostics, fn -> "" end)
-      |> assign_new(:model_repair, fn -> model_repair() end)
+      |> assign_new(:model_repair, fn -> model_repair(Map.merge(socket.assigns, assigns)) end)
       |> assign_new(:model_pull_progress, fn -> [] end)
       |> assign_new(:model_pulling?, fn -> false end)
       |> assign_new(:model_doctor, fn -> %{summary: %{}, rows: []} end)
@@ -841,7 +841,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       assign(socket,
         models_loaded?: true,
         models_diagnostics: "",
-        model_repair: model_repair(),
+        model_repair: model_repair(socket.assigns),
         model_doctor: doctor.model_doctor,
         model_catalog: catalog.entries,
         model_roles: catalog.roles,
@@ -852,7 +852,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       {:error, reason} ->
         assign(socket,
           models_loaded?: true,
-          model_repair: model_repair(),
+          model_repair: model_repair(socket.assigns),
           models_diagnostics: inspect(reason)
         )
     end
@@ -993,9 +993,13 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   defp catalog_model_selectable?(entry),
     do: Support.field(entry, :selectable?, false) == true
 
-  defp model_repair do
-    probe = Onboarding.safe_first_model_state()
-    readiness = Onboarding.direct_answer_readiness(first_model_state: probe)
+  defp model_repair(assigns) do
+    context = Support.action_context(assigns)
+    probe = Onboarding.safe_first_model_state(context: context)
+
+    readiness =
+      Onboarding.direct_answer_readiness(first_model_state: probe, context: context)
+
     Onboarding.model_guidance_for(readiness, :quickstart)
   end
 

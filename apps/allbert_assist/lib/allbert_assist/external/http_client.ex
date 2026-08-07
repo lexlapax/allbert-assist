@@ -5,26 +5,37 @@ defmodule AllbertAssist.External.HttpClient do
 
   alias AllbertAssist.External.RequestSpec
   alias AllbertAssist.External.TLS
+  alias AllbertAssist.Pack.EffectGuard
 
-  def request(%RequestSpec{} = spec, opts \\ []) do
-    started = System.monotonic_time()
+  def request(spec, opts \\ [])
 
-    spec
-    |> req_options(opts)
-    |> Req.request()
-    |> case do
-      {:ok, response} ->
-        {:ok, response_result(spec, response, duration_ms(started))}
+  def request(%RequestSpec{} = spec, opts) do
+    with {:ok, epoch} <- carried_epoch(opts) do
+      started = System.monotonic_time()
+      request = req_options(spec, opts)
 
-      {:error, %Req.TransportError{} = error} ->
-        {:ok, transport_error_result(spec, error.reason, duration_ms(started))}
+      with :ok <- EffectGuard.validate(epoch),
+           result <- Req.request(request) do
+        result
+        |> case do
+          {:ok, response} ->
+            {:ok, response_result(spec, response, duration_ms(started))}
 
-      {:error, reason} ->
-        {:ok, transport_error_result(spec, reason, duration_ms(started))}
+          {:error, %Req.TransportError{} = error} ->
+            {:ok, transport_error_result(spec, error.reason, duration_ms(started))}
+
+          {:error, reason} ->
+            {:ok, transport_error_result(spec, reason, duration_ms(started))}
+        end
+      end
     end
   end
 
+  def request(_spec, _opts), do: {:error, :product_not_ready}
+
   defp req_options(spec, opts) do
+    opts = Keyword.delete(opts, :allbert_pack_epoch)
+
     [
       method: method_atom(spec.method),
       url: spec.url,
@@ -129,4 +140,13 @@ defmodule AllbertAssist.External.HttpClient do
 
   defp maybe_put(options, _key, nil), do: options
   defp maybe_put(options, key, value), do: Keyword.put(options, key, value)
+
+  defp carried_epoch(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_opts), do: {:error, :product_not_ready}
 end

@@ -18,6 +18,7 @@ defmodule AllbertAssist.FirstModel.Ollama do
   """
 
   alias AllbertAssist.External.TLS
+  alias AllbertAssist.Pack.{ActivationGuard, EffectGuard}
 
   @default_base_url "http://127.0.0.1:11434"
   @req_options_key :first_model_req_options
@@ -100,8 +101,9 @@ defmodule AllbertAssist.FirstModel.Ollama do
   @spec probe(keyword()) :: probe_result()
   def probe(deps \\ []) do
     binary? = Keyword.get(deps, :binary?, &binary_present?/0)
-    version = Keyword.get(deps, :version, &server_version/0)
-    tags = Keyword.get(deps, :tags, &model_tags/0)
+    context = Keyword.get(deps, :context, %{})
+    version = Keyword.get(deps, :version, fn -> server_version(context) end)
+    tags = Keyword.get(deps, :tags, fn -> model_tags(context) end)
     model = Keyword.get(deps, :model, @curated_model)
 
     cond do
@@ -120,8 +122,8 @@ defmodule AllbertAssist.FirstModel.Ollama do
 
   @doc "Probe the local server version endpoint (localhost only)."
   @spec server_version() :: {:ok, String.t()} | :unhealthy | :error
-  def server_version do
-    case get("/api/version") do
+  def server_version(context \\ %{}) do
+    case get("/api/version", context) do
       {:ok, %{"version" => v}} -> {:ok, v}
       {:ok, _other} -> :unhealthy
       :error -> :error
@@ -130,8 +132,8 @@ defmodule AllbertAssist.FirstModel.Ollama do
 
   @doc "List installed model tags (localhost only)."
   @spec model_tags() :: [String.t()]
-  def model_tags do
-    case get("/api/tags") do
+  def model_tags(context \\ %{}) do
+    case get("/api/tags", context) do
       {:ok, %{"models" => models}} when is_list(models) ->
         Enum.map(models, &(&1["name"] || &1["model"]))
 
@@ -142,16 +144,20 @@ defmodule AllbertAssist.FirstModel.Ollama do
 
   # -- localhost HTTP (injectable) -------------------------------------------
 
-  defp get(path) do
-    client = Application.get_env(:allbert_assist, :first_model_http, &default_get/1)
+  defp get(path, context) do
+    client = Application.get_env(:allbert_assist, :first_model_http, &default_get/2)
 
-    case local_url(path) do
-      {:ok, url} -> client.(url)
+    with :ok <- validate_transport_context(context) do
+      case local_url(path) do
+        {:ok, url} -> call_client(client, url, context)
+        {:error, _reason} -> :error
+      end
+    else
       {:error, _reason} -> :error
     end
   end
 
-  defp default_get(url) do
+  defp default_get(url, context) do
     opts =
       [
         method: :get,
@@ -168,18 +174,37 @@ defmodule AllbertAssist.FirstModel.Ollama do
     # v1.0.1 M4.1(A) defense-in-depth: if the HTTP client's supervision tree is
     # not up (a launcher probing before `:req` starts), treat it as a failed
     # probe (:error → conservative "missing") instead of crashing the caller.
-    try do
-      case Req.request(opts) do
-        {:ok, %{status: 200, body: body}} ->
-          decode_body(body)
+    with :ok <- validate_transport_context(context) do
+      try do
+        case Req.request(opts) do
+          {:ok, %{status: 200, body: body}} ->
+            decode_body(body)
 
-        _other ->
-          :error
+          _other ->
+            :error
+        end
+      catch
+        :exit, _reason -> :error
       end
-    catch
-      :exit, _reason -> :error
     end
   end
+
+  defp call_client(client, url, context) do
+    case :erlang.fun_info(client, :arity) do
+      {:arity, 2} -> client.(url, context)
+      {:arity, 1} -> client.(url)
+    end
+  end
+
+  defp validate_transport_context(%{allbert_pack_activation: activation}) do
+    ActivationGuard.validate(allbert_pack_activation: activation)
+  end
+
+  defp validate_transport_context(%{allbert_pack_epoch: epoch} = context) do
+    EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
+  end
+
+  defp validate_transport_context(_context), do: {:error, :product_not_ready}
 
   defp decode_body(body) when is_map(body), do: {:ok, body}
 

@@ -245,13 +245,20 @@ defmodule AllbertAssist.Onboarding do
     # it to both readiness and detect. Previously `detect: FirstRun.detect()` ran a
     # second, live localhost Ollama probe on every post-completion render, ignoring the
     # cached probe surfaces pass in — defeating M7.2 on exactly that path.
-    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
+    probe =
+      Keyword.get_lazy(opts, :first_model_state, fn ->
+        safe_first_model_state(context: Keyword.get(opts, :context, %{}))
+      end)
 
     projection_opts =
       if Keyword.has_key?(opts, :enablement_result) do
-        [model_state: probe, enablement_result: Keyword.get(opts, :enablement_result)]
+        [
+          model_state: probe,
+          enablement_result: Keyword.get(opts, :enablement_result),
+          context: Keyword.get(opts, :context, %{})
+        ]
       else
-        [model_state: probe]
+        [model_state: probe, context: Keyword.get(opts, :context, %{})]
       end
 
     projection = FirstRun.readiness_projection(projection_opts)
@@ -268,7 +275,11 @@ defmodule AllbertAssist.Onboarding do
       profile_reviewed?: marker["profile_reviewed"] == true,
       editing?: marker["wizard_direct_entry"] == true,
       complete?: marker["onboarding_complete"] == true,
-      detect: FirstRun.detect(first_model_state: probe)
+      detect:
+        FirstRun.detect(
+          first_model_state: probe,
+          context: Keyword.get(opts, :context, %{})
+        )
     }
   end
 
@@ -333,7 +344,7 @@ defmodule AllbertAssist.Onboarding do
         if step == "profile_review", do: FirstRun.mark_profile_reviewed()
         maybe_record_model_decline(step)
         state = wizard_state(opts)
-        maybe_enable_model_answer(step, state)
+        maybe_enable_model_answer(step, state, opts)
 
         projection_opts =
           Keyword.put(opts, :enablement_result, state.direct_answer_enablement_result)
@@ -360,22 +371,24 @@ defmodule AllbertAssist.Onboarding do
   # is never enabled — a below-floor/needs-runtime machine still routes to BYOK guidance.
   # The key is in `@safe_write_keys` (seed-only authority), so this needs no new grant.
   @model_answer_enable_steps ["model_path", "first_chat", "optional_connect"]
-  defp maybe_enable_model_answer(step, %{direct_answer_readiness: :ready})
+  defp maybe_enable_model_answer(step, %{direct_answer_readiness: :ready}, opts)
        when step in @model_answer_enable_steps do
     unless explicitly_disabled?() do
-      Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true})
+      context = settings_context(opts)
+
+      Settings.put("intent.direct_answer_model_enabled", true, context)
       # F5 Q1: with a ready model, also enable model-assisted intent classification so the
       # router's fallback picks intents by meaning rather than weak keyword overlap. Both
       # keys are seed-authority @safe_write_keys — no new grant. (The router hardening in
       # DescriptorResolver/Disambiguator is what fixes the observed mis-routes; this raises
       # fallback quality.)
-      Settings.put("intent.model_assist_enabled", true, %{audit?: true})
+      Settings.put("intent.model_assist_enabled", true, context)
     end
 
     :ok
   end
 
-  defp maybe_enable_model_answer(_step, _state), do: :ok
+  defp maybe_enable_model_answer(_step, _state, _opts), do: :ok
 
   @doc """
   The wizard-completion readiness signal: true when the model path is genuinely
@@ -407,13 +420,22 @@ defmodule AllbertAssist.Onboarding do
   end
 
   @doc "Explicitly re-enable model-backed answers from the one-time affordance."
-  @spec reenable_model_answers() :: :ok | {:error, term()}
-  def reenable_model_answers do
+  @spec reenable_model_answers(keyword()) :: :ok | {:error, term()}
+  def reenable_model_answers(opts \\ []) do
+    context = settings_context(opts)
+
     with {:ok, _setting} <-
-           Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true}),
-         {:ok, _setting} <- Settings.put("intent.model_assist_enabled", true, %{audit?: true}) do
+           Settings.put("intent.direct_answer_model_enabled", true, context),
+         {:ok, _setting} <- Settings.put("intent.model_assist_enabled", true, context) do
       FirstRun.merge_marker(%{"model_answers_declined" => false})
     end
+  end
+
+  defp settings_context(opts) do
+    opts
+    |> Keyword.get(:effect_context, %{})
+    |> Map.put(:audit?, true)
+    |> Map.put_new(:allbert_pack_epoch, Keyword.get(opts, :allbert_pack_epoch))
   end
 
   defp explicitly_disabled? do
@@ -491,7 +513,7 @@ defmodule AllbertAssist.Onboarding do
   @spec wizard_reset(keyword()) :: wizard()
   def wizard_reset(opts \\ []) do
     FirstRun.reset_onboarding()
-    cancel_active_objective(Keyword.get(opts, :user_id, "local"))
+    cancel_active_objective(Keyword.get(opts, :user_id, "local"), opts)
     wizard_state(opts)
   end
 
@@ -510,7 +532,7 @@ defmodule AllbertAssist.Onboarding do
     if FirstRun.read_marker()[@reconcile_flag] == true do
       :ok
     else
-      cancel_active_objective(Keyword.get(opts, :user_id, "local"))
+      cancel_active_objective(Keyword.get(opts, :user_id, "local"), opts)
       FirstRun.merge_marker(%{@reconcile_flag => true})
       :ok
     end
@@ -589,7 +611,10 @@ defmodule AllbertAssist.Onboarding do
   def readiness_label(opts \\ []) do
     # M7.2: get_lazy so an injected probe skips the live probe entirely (the old
     # eager default ran `first_model_state/0` on *every* call, injected or not).
-    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
+    probe =
+      Keyword.get_lazy(opts, :first_model_state, fn ->
+        safe_first_model_state(context: Keyword.get(opts, :context, %{}))
+      end)
 
     Presentation.substrate(probe)
   end
@@ -597,13 +622,20 @@ defmodule AllbertAssist.Onboarding do
   @doc "Project DirectAnswer task readiness without changing wizard substrate completion."
   @spec direct_answer_readiness(keyword()) :: Presentation.readiness()
   def direct_answer_readiness(opts \\ []) do
-    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
+    probe =
+      Keyword.get_lazy(opts, :first_model_state, fn ->
+        safe_first_model_state(context: Keyword.get(opts, :context, %{}))
+      end)
 
     projection_opts =
       if Keyword.has_key?(opts, :enablement_result) do
-        [model_state: probe, enablement_result: Keyword.get(opts, :enablement_result)]
+        [
+          model_state: probe,
+          enablement_result: Keyword.get(opts, :enablement_result),
+          context: Keyword.get(opts, :context, %{})
+        ]
       else
-        [model_state: probe]
+        [model_state: probe, context: Keyword.get(opts, :context, %{})]
       end
 
     FirstRun.readiness_projection(projection_opts).direct_answer_readiness
@@ -614,18 +646,23 @@ defmodule AllbertAssist.Onboarding do
   exception or a hung/absent local runtime degrades to `:runtime_missing` (→
   `Needs runtime`) rather than blocking or crashing the surface (M7.2).
   """
-  @spec safe_first_model_state() :: FirstRun.model_state()
-  def safe_first_model_state do
+  @spec safe_first_model_state(keyword() | map()) :: FirstRun.model_state()
+  def safe_first_model_state(opts \\ [])
+
+  def safe_first_model_state(context) when is_map(context),
+    do: safe_first_model_state(context: context)
+
+  def safe_first_model_state(opts) when is_list(opts) do
     # M7.7: an injectable override (set only in the test/gate env) keeps `release.v063`
     # hermetic — no live localhost Ollama probe decides a wizard render there.
     case Application.get_env(:allbert_assist, :first_model_state_override) do
       state when is_atom(state) and not is_nil(state) -> state
-      _none -> guarded_first_model_state()
+      _none -> guarded_first_model_state(Keyword.get(opts, :context, %{}))
     end
   end
 
-  defp guarded_first_model_state do
-    FirstRun.first_model_state()
+  defp guarded_first_model_state(context) do
+    FirstRun.first_model_state(context: context)
   rescue
     _error -> :runtime_missing
   catch
@@ -642,7 +679,11 @@ defmodule AllbertAssist.Onboarding do
   """
   @spec model_path_guidance(keyword()) :: model_guidance()
   def model_path_guidance(opts \\ []) do
-    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
+    probe =
+      Keyword.get_lazy(opts, :first_model_state, fn ->
+        safe_first_model_state(context: Keyword.get(opts, :context, %{}))
+      end)
+
     track = Keyword.get(opts, :track, :quickstart)
     label = readiness_label(first_model_state: probe)
     build_guidance(label, track)
@@ -762,11 +803,17 @@ defmodule AllbertAssist.Onboarding do
 
   # Best-effort: `--reset` must always clear the marker even if the objective
   # store is unavailable, so a cancel failure never blocks the reset.
-  defp cancel_active_objective(user_id) do
+  defp cancel_active_objective(user_id, opts) do
     with {:ok, user_id} <- normalize_user_id(user_id),
          {:ok, %Objective{} = objective} <-
            Objectives.find_active_by_source_intent(user_id, @source_intent) do
-      _ = Objectives.update_objective(objective, %{status: "cancelled", current_step_id: nil})
+      _ =
+        Objectives.update_objective(
+          objective,
+          %{status: "cancelled", current_step_id: nil},
+          %{allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)}
+        )
+
       :ok
     else
       _ -> :ok

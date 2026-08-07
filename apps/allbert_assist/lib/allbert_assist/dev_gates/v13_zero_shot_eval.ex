@@ -14,6 +14,7 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Repo
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
 
@@ -42,6 +43,8 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
       end
 
     wall_ms = System.monotonic_time(:millisecond) - started
+
+    :ok = require_current_epoch(result.allbert_pack_epoch)
 
     TestMetrics.record(%{
       store: store,
@@ -97,14 +100,16 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
     projection = Keyword.get(opts, :projection, Projection)
     replay_answerer = Keyword.get(opts, :replay_answerer, ReqLLMAnswerer)
 
-    put_setting!("intent.direct_answer_model_enabled", true)
-    put_setting!("model_preferences.tasks.direct_answer", [profile])
-    put_setting!("active_memory.enabled", false)
-    baseline = run_direct_rows(rows, projection)
+    {:ok, epoch} = EffectGuard.admit_ready()
+    :ok = EffectGuard.validate(epoch)
+    put_setting!("intent.direct_answer_model_enabled", true, epoch)
+    put_setting!("model_preferences.tasks.direct_answer", [profile], epoch)
+    put_setting!("active_memory.enabled", false, epoch)
+    baseline = run_direct_rows(rows, projection, epoch)
 
-    put_setting!("active_memory.enabled", true)
-    memory = run_direct_rows(rows, projection)
-    replay = run_replay_rows(rows, replay_answerer)
+    put_setting!("active_memory.enabled", true, epoch)
+    memory = run_direct_rows(rows, projection, epoch)
+    replay = run_replay_rows(rows, replay_answerer, epoch)
 
     baseline_score = score(rows, baseline)
     memory_score = score(rows, memory)
@@ -124,7 +129,13 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
 
     failed_answers = Map.new(failed_rows, &{&1, get_in(memory, [&1, :message])})
 
-    %{status: status, stats: stats, failed_rows: failed_rows, failed_answers: failed_answers}
+    %{
+      status: status,
+      stats: stats,
+      failed_rows: failed_rows,
+      failed_answers: failed_answers,
+      allbert_pack_epoch: epoch
+    }
   end
 
   def score(rows, outputs) when is_list(rows) and is_map(outputs) do
@@ -153,14 +164,17 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
     }
   end
 
-  defp run_direct_rows(rows, projection) do
+  defp run_direct_rows(rows, projection, epoch) do
     Map.new(rows, fn row ->
+      :ok = require_current_epoch(epoch)
+
       {:ok, response} =
         DirectAnswer.run(%{text: prompt(row)}, %{
           actor: "local",
           user_id: "local",
           request_started_at: "2026-07-30T12:00:00Z",
-          memory_projection: projection
+          memory_projection: projection,
+          allbert_pack_epoch: epoch
         })
 
       {row["id"],
@@ -173,14 +187,16 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
     end)
   end
 
-  defp run_replay_rows(rows, answerer) do
-    {:ok, resolution} = Models.for(:direct_answer, %{actor: "local"})
+  defp run_replay_rows(rows, answerer, epoch) do
+    :ok = require_current_epoch(epoch)
+    {:ok, resolution} = Models.for(:direct_answer, %{actor: "local", allbert_pack_epoch: epoch})
 
     rows
     |> Enum.filter(&(&1["kind"] == "positive"))
     |> Map.new(fn row ->
       context = %{
         model_profile: resolution.profile,
+        allbert_pack_epoch: epoch,
         active_memory: [
           %{
             chunk_id: "source-replay-#{row["id"]}",
@@ -189,6 +205,8 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
           }
         ]
       }
+
+      :ok = require_current_epoch(epoch)
 
       result =
         case answerer.answer(prompt(row), context) do
@@ -377,10 +395,23 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
   defp rate(_count, 0), do: 0.0
   defp rate(count, total), do: Float.round(count / total, 4)
 
-  defp put_setting!(key, value) do
-    case Settings.put(key, value, %{audit?: false, actor: "v13-zero-shot"}) do
+  defp put_setting!(key, value, epoch) do
+    :ok = EffectGuard.validate(epoch)
+
+    case Settings.put(key, value, %{
+           audit?: false,
+           actor: "v13-zero-shot",
+           allbert_pack_epoch: epoch
+         }) do
       {:ok, _setting} -> :ok
       {:error, reason} -> raise "unable to configure #{key}: #{inspect(reason)}"
+    end
+  end
+
+  defp require_current_epoch(epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> :ok
+      {:error, _reason} -> raise "Allbert product is not ready; retry the v1.3 zero-shot eval."
     end
   end
 

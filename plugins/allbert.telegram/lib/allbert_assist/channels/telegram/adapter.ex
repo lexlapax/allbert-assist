@@ -113,6 +113,8 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
              state.offset,
              state.poll_timeout_seconds,
              state.req_options
+             |> Keyword.put(:allbert_pack_epoch, epoch)
+             |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
            ) do
         {:ok, updates} when is_list(updates) ->
           state = Map.put(state, :effect_epoch, epoch)
@@ -164,7 +166,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
         process_callback_update(fields, state)
 
       {:unsupported, %{external_event_id: external_event_id, type: type}} ->
-        insert_rejected_event(external_event_id, type)
+        insert_rejected_event(external_event_id, type, state)
 
       {:malformed, reason} ->
         {:error, {:malformed, reason}}
@@ -172,7 +174,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp process_text_update(fields, state) do
-    case insert_received_event(fields, "inbound") do
+    case insert_received_event(fields, "inbound", state) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         handle_text_message(event, carry_epoch(fields, state), state)
 
@@ -185,7 +187,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp process_voice_update(fields, state) do
-    case insert_received_event(fields, "inbound") do
+    case insert_received_event(fields, "inbound", state) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         handle_voice_message(event, carry_epoch(fields, state), state)
 
@@ -198,7 +200,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp process_callback_update(fields, state) do
-    case insert_received_event(fields, "callback") do
+    case insert_received_event(fields, "callback", state) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         handle_callback(event, carry_epoch(fields, state), state)
 
@@ -210,7 +212,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end
   end
 
-  defp insert_received_event(fields, direction) do
+  defp insert_received_event(fields, direction, state) do
     %{
       channel: "telegram",
       provider: @provider,
@@ -222,11 +224,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
       status: "received",
       payload_summary: Map.get(fields, :raw_summary)
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result()
   end
 
-  defp insert_rejected_event(external_event_id, reason) do
+  defp insert_rejected_event(external_event_id, reason, state) do
     %{
       channel: "telegram",
       provider: @provider,
@@ -236,7 +238,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
       reason: reason,
       payload_summary: "unsupported telegram update"
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result(:rejected)
   end
 
@@ -263,11 +265,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
            end),
          :ok <- record_outbound_refs(response, fields, delivered),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}),
-         {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+         {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
       {:ok, :processed}
     else
       {:error, reason} ->
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:ok, :rejected}
     end
   end
@@ -305,7 +307,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
                end),
              :ok <- record_outbound_refs(response, fields, delivered),
              :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}),
-             {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+             {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
           {:ok, :processed}
         end
 
@@ -316,12 +318,12 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
           {:ok, :processed}
 
         {:error, reason} ->
-          {:ok, _event} = mark_rejected_or_failed(event, reason)
+          {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
           {:ok, :rejected}
       end
     else
       {:error, reason} ->
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:ok, :rejected}
     end
   end
@@ -518,11 +520,21 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
         |> Map.merge(extra_metadata)
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
+    |> Runtime.submit_user_input(
+      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
+      allbert_pack_effect_guard_opts: Map.fetch!(fields, :allbert_pack_effect_guard_opts)
+    )
   end
 
   defp carry_epoch(fields, state),
-    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+    do: Map.merge(fields, effect_context(state))
+
+  defp effect_context(state) do
+    %{
+      allbert_pack_epoch: Map.fetch!(state, :effect_epoch),
+      allbert_pack_effect_guard_opts: state.effect_guard_opts
+    }
+  end
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
@@ -538,9 +550,14 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp fetch_voice_audio(fields, state) do
     max_bytes = voice_download_max_bytes()
-    req_options = Keyword.put(state.req_options, :max_response_bytes, max_bytes)
 
-    with {:ok, file} <- Client.get_file(state.token, fields.voice_file_id, state.req_options),
+    req_options =
+      state.req_options
+      |> Keyword.put(:max_response_bytes, max_bytes)
+      |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+      |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
+
+    with {:ok, file} <- Client.get_file(state.token, fields.voice_file_id, req_options),
          {:ok, file_path} <- telegram_file_path(file),
          :ok <- validate_telegram_file_size(file, max_bytes),
          {:ok, body} <- Client.download_file(state.token, file_path, req_options),
@@ -719,6 +736,8 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
         state.req_options
         |> Keyword.merge(reply_markup: keyboard)
         |> maybe_put_reply_options(fields)
+        |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+        |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
 
       case Client.send_message(state.token, chat_id, chunk, opts) do
         {:ok, message} ->
@@ -758,27 +777,31 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end)
   end
 
-  defp mark_processed(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      thread_id: response_value(response, :thread_id),
-      input_signal_id: response_value(response, :input_signal_id),
-      trace_id: response_value(response, :trace_id)
-    })
+  defp mark_processed(event, response, user_id, session_id, context) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        thread_id: response_value(response, :thread_id),
+        input_signal_id: response_value(response, :input_signal_id),
+        trace_id: response_value(response, :trace_id)
+      },
+      context
+    )
   end
 
-  defp mark_rejected_or_failed(event, {:delivery_failed, reason}) do
-    Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))})
+  defp mark_rejected_or_failed(event, {:delivery_failed, reason}, context) do
+    Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))}, context)
   end
 
-  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}) do
-    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
+  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}, context) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"}, context)
   end
 
-  defp mark_rejected_or_failed(event, reason) do
-    Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
+  defp mark_rejected_or_failed(event, reason, context) do
+    Channels.update_event(event, %{status: "rejected", reason: inspect(reason)}, context)
   end
 
   defp handle_callback(event, fields, state) do
@@ -795,7 +818,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
            run_confirmation_action(action, confirmation_id, user_id, session_id, fields),
          {:ok, chunks, _keyboard} <- render_confirmation_response(response, state),
          :ok <- deliver_callback_result(fields.external_chat_id, chunks, state),
-         {:ok, _event} <- mark_callback_processed(event, response, user_id, session_id) do
+         {:ok, _event} <- mark_callback_processed(event, response, user_id, session_id, fields) do
       _ack_result = answer_callback(fields.callback_query_id, confirmation_reply(response), state)
       {:ok, :processed}
     else
@@ -803,7 +826,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
         _ack_result =
           answer_callback(fields.callback_query_id, callback_error_text(reason), state)
 
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:ok, :rejected}
     end
   end
@@ -886,22 +909,31 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp answer_callback(callback_query_id, message, state) do
-    case Client.answer_callback_query(state.token, callback_query_id, message, state.req_options) do
+    opts =
+      state.req_options
+      |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+      |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
+
+    case Client.answer_callback_query(state.token, callback_query_id, message, opts) do
       {:ok, true} -> :ok
       {:ok, _result} -> :ok
       {:error, reason} -> {:error, {:callback_ack_failed, reason}}
     end
   end
 
-  defp mark_callback_processed(event, response, user_id, session_id) do
+  defp mark_callback_processed(event, response, user_id, session_id, context) do
     runner_metadata = response_value(response, :runner_metadata) || %{}
 
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      input_signal_id: response_value(runner_metadata, :requested_signal_id)
-    })
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        input_signal_id: response_value(runner_metadata, :requested_signal_id)
+      },
+      context
+    )
   end
 
   defp confirmation_reply(%{message: message}) when is_binary(message), do: message
@@ -991,6 +1023,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
           Map.get(thread, "message_thread_id") || Map.get(thread, :message_thread_id)
       )
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+      |> Keyword.put(
+        :allbert_pack_effect_guard_opts,
+        Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+      )
 
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("telegram"),
          {:ok, token} <- resolve_token(settings),
@@ -1007,6 +1044,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
       opts
       |> Keyword.get(:req_options, [])
       |> Keyword.merge(Keyword.take(opts, [:receive_timeout]))
+      |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+      |> Keyword.put(
+        :allbert_pack_effect_guard_opts,
+        Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+      )
 
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("telegram"),
          {:ok, token} <- resolve_token(settings),
@@ -1033,7 +1075,8 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp validate_outbound_epoch(opts) do
     with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
-         :ok <- EffectGuard.validate(epoch) do
+         :ok <-
+           EffectGuard.validate(epoch, Keyword.get(opts, :allbert_pack_effect_guard_opts, [])) do
       :ok
     else
       _error -> {:error, :product_not_ready}

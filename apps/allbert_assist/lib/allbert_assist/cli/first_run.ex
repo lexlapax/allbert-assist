@@ -91,11 +91,11 @@ defmodule AllbertAssist.CLI.FirstRun do
           enablement_result: map() | nil
         }
   def readiness_projection(opts \\ []) do
-    model_state = Keyword.get_lazy(opts, :model_state, &projection_model_state/0)
+    model_state = Keyword.get_lazy(opts, :model_state, fn -> projection_model_state(opts) end)
 
     enablement_result =
       opts
-      |> Keyword.get_lazy(:enablement_result, fn -> safe_preview_enablement(model_state) end)
+      |> Keyword.get_lazy(:enablement_result, fn -> safe_preview_enablement(model_state, opts) end)
       |> normalize_enablement_result()
 
     substrate_readiness = Presentation.substrate(model_state)
@@ -112,7 +112,7 @@ defmodule AllbertAssist.CLI.FirstRun do
     }
   end
 
-  defp projection_model_state do
+  defp projection_model_state(opts) do
     case Application.get_env(:allbert_assist, :first_model_state_override) do
       state
       when state in [
@@ -126,12 +126,12 @@ defmodule AllbertAssist.CLI.FirstRun do
         state
 
       _other ->
-        first_model_state()
+        first_model_state(context: Keyword.get(opts, :context, %{}))
     end
   end
 
-  defp safe_preview_enablement(model_state) do
-    preview_enablement(model_state)
+  defp safe_preview_enablement(model_state, opts) do
+    preview_enablement(model_state, opts)
   rescue
     _error -> nil
   catch
@@ -154,7 +154,12 @@ defmodule AllbertAssist.CLI.FirstRun do
         {model_state, opts}
 
       :error ->
-        {first_model_state(), opts}
+        probe_deps =
+          opts
+          |> Keyword.take([:ollama_probe, :configured_local_probe, :hardware_ok?, :byok_ready?])
+          |> Keyword.put(:context, Keyword.get(opts, :context, %{}))
+
+        {first_model_state(probe_deps), opts}
     end
   end
 
@@ -223,7 +228,7 @@ defmodule AllbertAssist.CLI.FirstRun do
           state
 
         _other ->
-          first_model_state()
+          first_model_state(context: Keyword.get(opts, :context, %{}))
       end
     end)
   end
@@ -242,7 +247,8 @@ defmodule AllbertAssist.CLI.FirstRun do
   end
 
   defp resolve_model_probe(deps) do
-    ollama = Keyword.get(deps, :ollama_probe, &default_ollama_probe/0)
+    context = Keyword.get(deps, :context, %{})
+    ollama = Keyword.get(deps, :ollama_probe, fn -> default_ollama_probe(context) end)
     configured = Keyword.get(deps, :configured_local_probe, configured_probe(deps))
 
     case configured.() do
@@ -254,7 +260,7 @@ defmodule AllbertAssist.CLI.FirstRun do
   defp configured_probe(deps) do
     if Keyword.has_key?(deps, :ollama_probe),
       do: fn -> :not_configured end,
-      else: &configured_local_probe/0
+      else: fn -> configured_local_probe(Keyword.get(deps, :context, %{})) end
   end
 
   defp classify_model_probe(probe, floor_ok, byok?) do
@@ -269,11 +275,11 @@ defmodule AllbertAssist.CLI.FirstRun do
   defp details(state, model_state \\ nil), do: %{state: state, first_model_state: model_state}
 
   @doc "A short onboarding summary map (backing `allbert admin onboarding`)."
-  def onboarding_summary do
+  def onboarding_summary(opts \\ []) do
     {:ok,
      %{
-       state: detect(),
-       first_model_state: first_model_state(),
+       state: detect(context: Keyword.get(opts, :context, %{})),
+       first_model_state: first_model_state(context: Keyword.get(opts, :context, %{})),
        home: Paths.home(),
        home_initialized: home_initialized?(),
        onboarding_complete: onboarding_complete?()
@@ -357,18 +363,18 @@ defmodule AllbertAssist.CLI.FirstRun do
   # localhost server / curated model). Localhost-only — no external egress in
   # detection; the guided install and pull are separate confirmation-gated
   # actions. The spec keeps every model-state branch reachable for callers.
-  @spec default_ollama_probe() :: :model_ready | :model_missing | :unhealthy | :missing
-  defp default_ollama_probe do
-    Ollama.probe()
+  @spec default_ollama_probe(map()) :: :model_ready | :model_missing | :unhealthy | :missing
+  defp default_ollama_probe(context) do
+    Ollama.probe(context: context)
   end
 
   # v1.0.5 M8.4: a configured, reachable local endpoint is local runtime.
   # Reuse ModelDoctor's bounded/read-only provider probe so WSL2 can use a
   # Windows-host Ollama without pretending an Ollama binary exists in Linux.
-  defp configured_local_probe do
+  defp configured_local_probe(context) do
     Settings.with_resolved_settings(fn ->
       with {:ok, profile} <- Settings.get("model_preferences.primary"),
-           {:ok, summary} <- ModelDoctor.diagnose(profile),
+           {:ok, summary} <- ModelDoctor.diagnose(profile, context),
            :local_endpoint <- summary.endpoint_kind do
         configured_local_result(summary)
       else

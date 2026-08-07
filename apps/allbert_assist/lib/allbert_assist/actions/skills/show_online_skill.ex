@@ -69,7 +69,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
   defp execute_show(id, source, permission_decision, context) do
-    case RegistryClient.show(source, id) do
+    case RegistryClient.show(source, id, context) do
       {:ok, detail} ->
         summary =
           detail

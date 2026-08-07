@@ -12,6 +12,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
   alias AllbertAssist.Channels.Matrix.Renderer
   alias AllbertAssist.Channels.Outbound
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -634,12 +635,12 @@ defmodule AllbertAssist.Channels.MatrixTest do
              })
 
     assert {:ok, _setting} =
-             Settings.put("channels.matrix.homeserver_url", "https://matrix.example.com", %{
+             put_setting("channels.matrix.homeserver_url", "https://matrix.example.com", %{
                audit?: false
              })
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.matrix.access_token_ref",
                "secret://channels/matrix/access_token",
                %{
@@ -648,12 +649,12 @@ defmodule AllbertAssist.Channels.MatrixTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.matrix.allowed_room_ids", ["!room:example.com"], %{
+             put_setting("channels.matrix.allowed_room_ids", ["!room:example.com"], %{
                audit?: false
              })
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.matrix.identity_map",
                [
                  %{external_user_id: "@alice:example.com", user_id: "alice"}
@@ -661,7 +662,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
                %{audit?: false}
              )
 
-    assert {:ok, _setting} = Settings.put("channels.matrix.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.matrix.enabled", true, %{audit?: false})
   end
 
   defp matrix_text_event(event_id, text) do
@@ -673,15 +674,18 @@ defmodule AllbertAssist.Channels.MatrixTest do
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "matrix-test"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "matrix-test"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
 
   defp assert_matrix_sync_query(conn, since \\ nil) do
@@ -708,6 +712,9 @@ defmodule AllbertAssist.Channels.MatrixTest do
     |> put_resp_content_type("application/json")
     |> send_resp(status, Jason.encode!(body))
   end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

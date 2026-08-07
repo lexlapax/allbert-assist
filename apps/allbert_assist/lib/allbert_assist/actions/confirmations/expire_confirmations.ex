@@ -28,7 +28,10 @@ defmodule AllbertAssist.Actions.Confirmations.ExpireConfirmations do
 
     if PermissionGate.allowed?(permission_decision) do
       {:ok, results} =
-        Confirmations.expire(resolution_attrs: Context.resolution_attrs(context, "ttl expired"))
+        Confirmations.expire(
+          context,
+          resolution_attrs: Context.resolution_attrs(context, "ttl expired")
+        )
 
       expired = Enum.flat_map(results, &expired_record/1)
 

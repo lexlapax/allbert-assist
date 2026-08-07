@@ -89,7 +89,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   def handle_event("wizard_advance", %{"step" => step}, socket) do
     socket =
-      case OnboardingContext.wizard_advance(step) do
+      case OnboardingContext.wizard_advance(step, %{}, effect_opts(socket)) do
         {:ok, _state} ->
           socket
           |> notify_model_disclosure_refresh()
@@ -142,7 +142,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   def handle_event("reenable_model_answers", _params, socket) do
     socket =
-      case OnboardingContext.reenable_model_answers() do
+      case OnboardingContext.reenable_model_answers(effect_opts(socket)) do
         :ok ->
           socket
           |> notify_model_disclosure_refresh()
@@ -809,8 +809,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   end
 
   defp refresh_model_readiness(socket) do
-    probe = OnboardingContext.safe_first_model_state()
-    projection = FirstRun.readiness_projection(model_state: probe)
+    context = %{allbert_pack_epoch: socket.assigns.allbert_pack_epoch}
+    probe = OnboardingContext.safe_first_model_state(context: context)
+    projection = FirstRun.readiness_projection(model_state: probe, context: context)
 
     assign(socket,
       onboarding_probe: probe,
@@ -824,7 +825,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     wizard =
       OnboardingContext.wizard_state(
         first_model_state: socket.assigns.onboarding_probe,
-        enablement_result: socket.assigns.onboarding_enablement_result
+        enablement_result: socket.assigns.onboarding_enablement_result,
+        context: %{allbert_pack_epoch: socket.assigns.allbert_pack_epoch}
       )
 
     socket
@@ -1090,6 +1092,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       }
     }
   end
+
+  defp effect_opts(socket), do: [effect_context: action_context(socket)]
 
   defp user_id(context), do: field(context, :user_id) || @local_user_id
 

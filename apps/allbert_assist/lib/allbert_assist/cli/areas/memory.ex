@@ -728,7 +728,8 @@ defmodule AllbertAssist.CLI.Areas.Memory do
       actor: user_id,
       user_id: user_id,
       operator_id: user_id,
-      surface: surface(ctx)
+      surface: surface(ctx),
+      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch)
     )
   end
 

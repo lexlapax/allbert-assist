@@ -129,7 +129,7 @@ defmodule AllbertAssist.Pack.ActivationGateTest do
          plugin_child_supervisor: plugin_child_supervisor,
          effect_children: [
            {AllbertAssist.FirstRun.Enablement.BootWorker,
-            runner: fn -> send(caller, :first_run_reconciled) end},
+            runner: fn activation -> send(caller, {:first_run_reconciled, activation}) end},
            {Probe, notify: self()}
          ]
        ]}
@@ -143,7 +143,7 @@ defmodule AllbertAssist.Pack.ActivationGateTest do
     assert :ok = ReadinessStub.activate(valid_digest(), barrier)
 
     assert_receive :residual_effect_started
-    assert_receive :first_run_reconciled
+    assert_receive {:first_run_reconciled, %AllbertAssist.Pack.ActivationContext{}}
     assert_receive {:activation_acked, _subscription_ref, digest}
     assert %{phase: :ready, effect_supervisor: effect_pid} = ActivationGate.status(gate)
     assert is_pid(effect_pid)

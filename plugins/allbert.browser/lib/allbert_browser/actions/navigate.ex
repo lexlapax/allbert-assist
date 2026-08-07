@@ -50,7 +50,7 @@ defmodule AllbertBrowser.Actions.Navigate do
         Actions.denied("browser_navigate", :browser_navigate, decision, :permission_denied)
 
       Actions.approval_resume?(context) or grant?(ref, context) ->
-        navigate(params, decision, session_id, url, ref)
+        navigate(params, context, decision, session_id, url, ref)
 
       true ->
         Actions.confirmation(
@@ -65,8 +65,13 @@ defmodule AllbertBrowser.Actions.Navigate do
     end
   end
 
-  defp navigate(params, decision, session_id, url, ref) do
-    case Session.navigate(session_id, url, wait_until: Actions.field(params, :wait_until)) do
+  defp navigate(params, context, decision, session_id, url, ref) do
+    case Session.navigate(
+           session_id,
+           url,
+           [wait_until: Actions.field(params, :wait_until)] ++
+             Actions.session_effect_opts(context)
+         ) do
       {:ok, page_meta} ->
         {:ok,
          %{

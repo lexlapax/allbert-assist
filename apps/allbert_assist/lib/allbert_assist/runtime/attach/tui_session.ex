@@ -101,6 +101,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
         live_receipts: MapSet.new(),
         control_tasks: %{},
         last_cancel_reason: nil,
+        allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch),
         closing?: false
       }
 
@@ -166,7 +167,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       |> Map.put(:render_state, :thinking)
 
     state =
-      case InputReceipt.mark_in_progress(event) do
+      case InputReceipt.mark_in_progress(event, %{allbert_pack_epoch: state.allbert_pack_epoch}) do
         {:ok, _event} ->
           enqueue_protocol(
             state,
@@ -203,7 +204,9 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       |> Map.put(:render_state, :idle)
 
     state =
-      case InputReceipt.mark_terminal(event, outcome, safe_refs) do
+      case InputReceipt.mark_terminal(event, outcome, safe_refs, %{
+             allbert_pack_epoch: state.allbert_pack_epoch
+           }) do
         {:ok, terminal_event} ->
           refs = %{
             receipt_message_id: terminal_event.receipt_message_id,
@@ -678,7 +681,8 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       max_text_bytes: state.max_text_bytes,
       profile: state.profile,
       session_ref: state.session_ref,
-      verified_operator_id: state.verified_operator_id
+      verified_operator_id: state.verified_operator_id,
+      allbert_pack_epoch: state.allbert_pack_epoch
     }
 
     task =
@@ -719,7 +723,8 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       input_receipt_id: payload.input_receipt_id,
       text: payload.text,
       max_text_bytes: context.max_text_bytes,
-      session_id: context.session_ref
+      session_id: context.session_ref,
+      allbert_pack_epoch: context.allbert_pack_epoch
     }
 
     case InputReceipt.gate(attrs, duplicate_owner: context.duplicate_owner) do
@@ -746,7 +751,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   end
 
   defp admit_input(context, receipt_id, text, event) do
-    case InputReceipt.mark_admitted(event, %{}) do
+    case InputReceipt.mark_admitted(event, %{}, %{allbert_pack_epoch: context.allbert_pack_epoch}) do
       {:ok, admitted_event} ->
         case context.adapter_module.submit_admitted(
                context.adapter_pid,
@@ -758,7 +763,11 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
             {:input_admitted, receipt_id}
 
           {:error, reason} ->
-            _ = InputReceipt.mark_terminal(admitted_event, :failed, %{})
+            _ =
+              InputReceipt.mark_terminal(admitted_event, :failed, %{}, %{
+                allbert_pack_epoch: context.allbert_pack_epoch
+              })
+
             {:input_error, receipt_id, reason}
         end
 

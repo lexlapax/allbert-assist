@@ -7,12 +7,16 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
   """
 
   alias AllbertAssist.Skills.Online.Source
+  alias AllbertAssist.Pack.EffectGuard
 
-  def search(%Source{} = source, query) when is_binary(query) do
+  def search(source, query, context \\ %{})
+
+  def search(%Source{} = source, query, context) when is_binary(query) and is_map(context) do
     with :ok <- Source.validate_enabled(source),
          {:ok, body} <-
            request(source, search_url(source),
-             params: %{"q" => query, "limit" => source.max_listing_results}
+             params: %{"q" => query, "limit" => source.max_listing_results},
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
            ) do
       results =
         body
@@ -31,22 +35,31 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
     end
   end
 
-  def show(%Source{} = source, id) when is_binary(id) do
+  def show(source, id, context \\ %{})
+
+  def show(%Source{} = source, id, context) when is_binary(id) and is_map(context) do
     with :ok <- Source.validate_enabled(source) do
-      case request(source, detail_api_url(source, id)) do
+      case request(source, detail_api_url(source, id),
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
+           ) do
         {:ok, body} -> {:ok, detail_from_body(body, source, id)}
-        {:error, _reason} -> fetch_detail_page(source, id)
+        {:error, _reason} -> fetch_detail_page(source, id, context)
       end
     end
   end
 
-  defp fetch_detail_page(source, id) do
-    with {:ok, body} <- request(source, detail_page_url(source, id)) do
+  defp fetch_detail_page(source, id, context) do
+    with {:ok, body} <-
+           request(source, detail_page_url(source, id),
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
+           ) do
       {:ok, detail_from_body(body, source, id)}
     end
   end
 
-  defp request(source, url, opts \\ []) do
+  defp request(source, url, opts) do
+    req_opts = Keyword.delete(opts, :allbert_pack_epoch)
+
     req_opts =
       [
         method: :get,
@@ -55,24 +68,36 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
         redirect: false,
         receive_timeout: 5000
       ]
-      |> Keyword.merge(opts)
+      |> Keyword.merge(req_opts)
       |> Keyword.merge(source.req_options)
 
-    case Req.request(req_opts) do
-      {:ok, %{status: status, body: body}} when status in 200..299 ->
-        if response_size(body) <= source.max_download_bytes do
-          {:ok, body}
-        else
-          {:error, {:online_skill_response_too_large, response_size(body)}}
-        end
+    with {:ok, epoch} <- carried_epoch(opts),
+         :ok <- EffectGuard.validate(epoch) do
+      case Req.request(req_opts) do
+        {:ok, %{status: status, body: body}} when status in 200..299 ->
+          if response_size(body) <= source.max_download_bytes do
+            {:ok, body}
+          else
+            {:error, {:online_skill_response_too_large, response_size(body)}}
+          end
 
-      {:ok, %{status: status}} ->
-        {:error, {:online_skill_source_http_error, status}}
+        {:ok, %{status: status}} ->
+          {:error, {:online_skill_source_http_error, status}}
 
-      {:error, reason} ->
-        {:error, {:online_skill_source_request_failed, reason}}
+        {:error, reason} ->
+          {:error, {:online_skill_source_request_failed, reason}}
+      end
     end
   end
+
+  defp carried_epoch(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_opts), do: {:error, :product_not_ready}
 
   defp search_url(source), do: source.api_url <> "/search"
 

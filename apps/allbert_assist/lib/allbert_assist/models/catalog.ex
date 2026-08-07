@@ -15,7 +15,12 @@ defmodule AllbertAssist.Models.Catalog do
           {:ok, %{version: pos_integer(), entries: [map()], roles: [map()], diagnostics: [map()]}}
   def list(opts \\ []) do
     {shipped, diagnostics} = shipped_catalog(opts)
-    pulled = Keyword.get_lazy(opts, :pulled_models, &Ollama.model_tags/0)
+
+    pulled =
+      Keyword.get_lazy(opts, :pulled_models, fn ->
+        Ollama.model_tags(Keyword.get(opts, :context, %{}))
+      end)
+
     profiles = Keyword.get_lazy(opts, :profiles, &configured_profiles/0)
     roles = Keyword.get_lazy(opts, :roles, &configured_roles/0)
 

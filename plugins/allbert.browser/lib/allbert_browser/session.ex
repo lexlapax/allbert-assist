@@ -9,10 +9,12 @@ defmodule AllbertBrowser.Session do
   use GenServer
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertBrowser.Driver
 
   defstruct [
     :id,
+    :allbert_pack_epoch,
     :driver_state,
     :created_at,
     :last_activity_at,
@@ -27,6 +29,14 @@ defmodule AllbertBrowser.Session do
 
     spec = {__MODULE__, Keyword.put(opts, :session_id, session_id)}
 
+    with :ok <- validate_epoch(opts) do
+      start_session_child(spec, session_id)
+    else
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp start_session_child(spec, session_id) do
     case DynamicSupervisor.start_child(AllbertBrowser.SessionSupervisor, spec) do
       {:ok, _pid} -> {:ok, session_id}
       {:error, {:already_started, _pid}} -> {:ok, session_id}
@@ -77,14 +87,17 @@ defmodule AllbertBrowser.Session do
   @impl true
   def init(opts) do
     session_id = Keyword.fetch!(opts, :session_id)
+    epoch = Keyword.get(opts, :allbert_pack_epoch)
 
-    with {:ok, driver_state} <- Driver.start_session(opts) do
+    with :ok <- validate_epoch(opts),
+         {:ok, driver_state} <- Driver.start_session(opts) do
       now = DateTime.utc_now()
       {idle_timer, idle_timer_ref} = schedule_idle_timeout()
 
       {:ok,
        %__MODULE__{
          id: session_id,
+         allbert_pack_epoch: epoch,
          driver_state: driver_state,
          created_at: now,
          last_activity_at: now,
@@ -97,7 +110,7 @@ defmodule AllbertBrowser.Session do
 
   @impl true
   def handle_call({:navigate, url, opts}, _from, state) do
-    case Driver.navigate(state.driver_state, url, opts) do
+    case with_effect_epoch(opts, fn -> Driver.navigate(state.driver_state, url, opts) end) do
       {:ok, %{state: driver_state, page_meta: page_meta}} ->
         {:reply, {:ok, page_meta},
          state
@@ -114,14 +127,14 @@ defmodule AllbertBrowser.Session do
   end
 
   def handle_call({:extract, format, opts}, _from, state) do
-    case Driver.extract(state.driver_state, format, opts) do
+    case with_effect_epoch(opts, fn -> Driver.extract(state.driver_state, format, opts) end) do
       {:ok, extraction} -> {:reply, {:ok, extraction}, mark_activity(state)}
       {:error, reason} -> {:reply, {:error, reason}, state}
     end
   end
 
   def handle_call({:click, selector, opts}, _from, state) do
-    case Driver.click(state.driver_state, selector, opts) do
+    case with_effect_epoch(opts, fn -> Driver.click(state.driver_state, selector, opts) end) do
       {:ok, %{state: driver_state, click: click}} ->
         {:reply, {:ok, click}, state |> Map.put(:driver_state, driver_state) |> mark_activity()}
 
@@ -134,7 +147,7 @@ defmodule AllbertBrowser.Session do
   end
 
   def handle_call({:fill, selector, opts}, _from, state) do
-    case Driver.fill(state.driver_state, selector, opts) do
+    case with_effect_epoch(opts, fn -> Driver.fill(state.driver_state, selector, opts) end) do
       {:ok, %{state: driver_state, fill: fill}} ->
         {:reply, {:ok, fill}, state |> Map.put(:driver_state, driver_state) |> mark_activity()}
 
@@ -147,9 +160,10 @@ defmodule AllbertBrowser.Session do
   end
 
   def handle_call({:download, url, opts}, _from, state) do
-    case Driver.download(state.driver_state, url, opts) do
+    case with_effect_epoch(opts, fn -> Driver.download(state.driver_state, url, opts) end) do
       {:ok, %{state: driver_state, download: download}} ->
-        {:reply, {:ok, download}, state |> Map.put(:driver_state, driver_state) |> mark_activity()}
+        {:reply, {:ok, download},
+         state |> Map.put(:driver_state, driver_state) |> mark_activity()}
 
       {:ok, download} ->
         {:reply, {:ok, download}, mark_activity(state)}
@@ -160,7 +174,7 @@ defmodule AllbertBrowser.Session do
   end
 
   def handle_call({:screenshot, opts}, _from, state) do
-    case Driver.screenshot(state.driver_state, opts) do
+    case with_effect_epoch(opts, fn -> Driver.screenshot(state.driver_state, opts) end) do
       {:ok, %{state: driver_state} = result} ->
         {:reply, {:ok, Map.delete(result, :state)},
          state |> Map.put(:driver_state, driver_state) |> mark_activity()}
@@ -213,16 +227,32 @@ defmodule AllbertBrowser.Session do
     cancel_timer(state.idle_timer)
     {idle_timer, idle_timer_ref} = schedule_idle_timeout()
 
-    %{state | last_activity_at: DateTime.utc_now(), idle_timer: idle_timer, idle_timer_ref: idle_timer_ref}
+    %{
+      state
+      | last_activity_at: DateTime.utc_now(),
+        idle_timer: idle_timer,
+        idle_timer_ref: idle_timer_ref
+    }
   end
 
   defp schedule_lifetime_timeout do
-    Process.send_after(self(), :max_lifetime_timeout, setting("browser.session.max_lifetime_ms", 300_000))
+    Process.send_after(
+      self(),
+      :max_lifetime_timeout,
+      setting("browser.session.max_lifetime_ms", 300_000)
+    )
   end
 
   defp schedule_idle_timeout do
     ref = make_ref()
-    timer = Process.send_after(self(), {:idle_timeout, ref}, setting("browser.session.idle_timeout_ms", 60_000))
+
+    timer =
+      Process.send_after(
+        self(),
+        {:idle_timeout, ref},
+        setting("browser.session.idle_timeout_ms", 60_000)
+      )
+
     {timer, ref}
   end
 
@@ -237,6 +267,23 @@ defmodule AllbertBrowser.Session do
     case Settings.get(key) do
       {:ok, value} -> value
       {:error, _reason} -> fallback
+    end
+  end
+
+  defp validate_epoch(opts) do
+    case EffectGuard.validate(
+           Keyword.get(opts, :allbert_pack_epoch),
+           Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+         ) do
+      :ok -> :ok
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp with_effect_epoch(opts, fun) do
+    case validate_epoch(opts) do
+      :ok -> fun.()
+      {:error, _reason} -> {:error, :product_not_ready}
     end
   end
 end

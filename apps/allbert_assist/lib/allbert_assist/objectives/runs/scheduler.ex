@@ -166,7 +166,9 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
              kickoff_delivery_state: "acknowledged",
              report_delivery_state: "not_ready"
            }} ->
-            state.coordinator_starter.(Keyword.merge(opts, parent_id: parent_id))
+            state.coordinator_starter.(
+              Keyword.merge(opts, parent_id: parent_id, allbert_pack_epoch: epoch)
+            )
 
           {:ok, _objective} ->
             {:error, :kickoff_not_acknowledged}
@@ -290,15 +292,19 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
       {:error, _reason} ->
         {:noreply, schedule_recovery_retry(state, parent_id)}
 
-      {:ok, _epoch} ->
-        recover_coordinator(parent_id, state)
+      {:ok, epoch} ->
+        recover_coordinator(parent_id, state, epoch)
     end
   end
 
-  defp recover_coordinator(parent_id, state) do
+  defp recover_coordinator(parent_id, state, epoch) do
     case recovery_required(parent_id) do
       {:ok, true} ->
-        case state.coordinator_starter.(parent_id: parent_id, recovery?: true) do
+        case state.coordinator_starter.(
+               parent_id: parent_id,
+               recovery?: true,
+               allbert_pack_epoch: epoch
+             ) do
           {:ok, pid} ->
             {:noreply, track_coordinator_state(state, parent_id, pid)}
 

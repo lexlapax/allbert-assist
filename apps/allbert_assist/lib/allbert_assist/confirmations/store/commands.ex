@@ -43,8 +43,8 @@ defmodule AllbertAssist.Confirmations.Store.Commands.Create do
   alias AllbertAssist.Confirmations.Store.Persistence
 
   @impl true
-  def run(%{attrs: attrs, opts: opts}, _context) do
-    Commands.finish(:create, Persistence.create(attrs, opts))
+  def run(%{attrs: attrs, effect_context: effect_context, opts: opts}, _context) do
+    Commands.finish(:create, Persistence.create(attrs, effect_context, opts))
   end
 end
 
@@ -91,8 +91,17 @@ defmodule AllbertAssist.Confirmations.Store.Commands.Resolve do
   alias AllbertAssist.Confirmations.Store.Persistence
 
   @impl true
-  def run(%{id: id, status: status, resolution_attrs: attrs, opts: opts}, _context) do
-    Commands.finish(:resolve, Persistence.resolve(id, status, attrs, opts))
+  def run(
+        %{
+          id: id,
+          status: status,
+          resolution_attrs: attrs,
+          effect_context: effect_context,
+          opts: opts
+        },
+        _context
+      ) do
+    Commands.finish(:resolve, Persistence.resolve(id, status, attrs, effect_context, opts))
   end
 end
 
@@ -107,8 +116,11 @@ defmodule AllbertAssist.Confirmations.Store.Commands.AnnotateResolution do
   alias AllbertAssist.Confirmations.Store.Persistence
 
   @impl true
-  def run(%{id: id, attrs: attrs, opts: opts}, _context) do
-    Commands.finish(:annotate_resolution, Persistence.annotate_resolution(id, attrs, opts))
+  def run(%{id: id, attrs: attrs, effect_context: effect_context, opts: opts}, _context) do
+    Commands.finish(
+      :annotate_resolution,
+      Persistence.annotate_resolution(id, attrs, effect_context, opts)
+    )
   end
 end
 
@@ -123,14 +135,14 @@ defmodule AllbertAssist.Confirmations.Store.Commands.Expire do
   alias AllbertAssist.Confirmations.Store.Persistence
 
   @impl true
-  def run(%{opts: opts}, _context) do
+  def run(%{effect_context: effect_context, opts: opts}, _context) do
     sweep_at =
       opts
       |> Keyword.get(:now, DateTime.utc_now())
       |> DateTime.truncate(:second)
       |> DateTime.to_iso8601()
 
-    Commands.finish(:expire, Persistence.expire(opts), last_sweep_at: sweep_at)
+    Commands.finish(:expire, Persistence.expire(effect_context, opts), last_sweep_at: sweep_at)
   end
 end
 

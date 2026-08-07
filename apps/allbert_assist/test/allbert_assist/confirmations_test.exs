@@ -6,6 +6,7 @@ defmodule AllbertAssist.ConfirmationsTest do
   alias AllbertAssist.Confirmations.Record
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
 
@@ -44,7 +45,7 @@ defmodule AllbertAssist.ConfirmationsTest do
 
   test "create stores a redacted pending confirmation record", %{home: home} do
     assert {:ok, record} =
-             Confirmations.create(base_attrs(), ttl_minutes: 10, now: now())
+             Confirmations.create(base_attrs(), effect_context(), ttl_minutes: 10, now: now())
 
     id = record["id"]
     pending_path = Path.join([home, "confirmations", "pending", "#{id}.yml"])
@@ -92,7 +93,7 @@ defmodule AllbertAssist.ConfirmationsTest do
         nested: %{key_ref: "secret://providers/openai/api_key"}
       })
 
-    assert {:ok, record} = Confirmations.create(attrs, now: now())
+    assert {:ok, record} = Confirmations.create(attrs, effect_context(), now: now())
     assert record["resume_params_ref"]["key_ref"] == "secret://system/integrity_v1"
     assert record["resume_params_ref"]["nested"]["key_ref"] == "[SECRET_REF]"
   end
@@ -109,7 +110,7 @@ defmodule AllbertAssist.ConfirmationsTest do
       "selected_action_module" => AllbertAssist.Actions.Intent.ExternalNetworkRequest
     }
 
-    assert {:ok, record} = Confirmations.create(base_attrs(), context, now: now())
+    assert {:ok, record} = Confirmations.create(base_attrs(), effect_context(context), now: now())
     assert record["objective_id"] == "obj-child"
     assert record["step_id"] == "step-action"
     assert record["objective_binding_version"] == 2
@@ -135,27 +136,37 @@ defmodule AllbertAssist.ConfirmationsTest do
     }
 
     assert {:error, {:confirmation_binding_mismatch, :objective_id}} =
-             Confirmations.create(Map.put(base_attrs(), :objective_id, "obj-other"), context)
+             Confirmations.create(
+               Map.put(base_attrs(), :objective_id, "obj-other"),
+               effect_context(context)
+             )
 
     assert {:error, {:confirmation_binding_mismatch, :step_id}} =
-             Confirmations.create(Map.put(base_attrs(), :step_id, "step-other"), context)
+             Confirmations.create(
+               Map.put(base_attrs(), :step_id, "step-other"),
+               effect_context(context)
+             )
 
     assert {:error, {:confirmation_binding_mismatch, :target_action}} =
              Confirmations.create(
                put_in(base_attrs(), [:target_action, :name], "run_shell_command"),
-               context
+               effect_context(context)
              )
 
     assert {:error, {:confirmation_binding_mismatch, :target_action_module}} =
              Confirmations.create(
                put_in(base_attrs(), [:target_action, :module], "Wrong.Module"),
-               context
+               effect_context(context)
              )
   end
 
   test "context-bound create does not fabricate absent runner provenance" do
     assert {:ok, record} =
-             Confirmations.create(base_attrs(), %{user_id: "alice", channel: :test}, now: now())
+             Confirmations.create(
+               base_attrs(),
+               effect_context(%{user_id: "alice", channel: :test}),
+               now: now()
+             )
 
     assert record["objective_binding_kind"] == "ordinary"
     assert record["target_action"]["name"] == "external_network_request"
@@ -166,7 +177,7 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert {:ok, record} =
              Confirmations.create(
                base_attrs(),
-               %{objective_id: "obj-root", step_id: "step-root"},
+               effect_context(%{objective_id: "obj-root", step_id: "step-root"}),
                now: now()
              )
 
@@ -179,12 +190,12 @@ defmodule AllbertAssist.ConfirmationsTest do
   test "caller attributes cannot forge the internally derived binding kind" do
     attrs = Map.put(base_attrs(), :objective_binding_kind, "fanout_child")
 
-    assert {:ok, record} = Confirmations.create(attrs, now: now())
+    assert {:ok, record} = Confirmations.create(attrs, effect_context(), now: now())
     assert record["objective_binding_version"] == 2
     assert record["objective_binding_kind"] == "ordinary"
   end
 
-  test "production action entrypoints bind confirmation creation to runner context" do
+  test "production confirmation creation has no uncarried callsites" do
     repo_root = Path.expand("../../../..", __DIR__)
 
     files =
@@ -217,16 +228,11 @@ defmodule AllbertAssist.ConfirmationsTest do
         sites
       end)
 
-    assert raw_sites
-           |> Enum.map(fn {path, _line} -> Path.relative_to(path, repo_root) end)
-           |> Enum.sort() == [
-             "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex",
-             "apps/allbert_assist/lib/allbert_assist/runtime.ex"
-           ]
+    assert raw_sites == []
   end
 
   test "resolve moves pending records to resolved state and keeps channel handoff", %{home: home} do
-    assert {:ok, record} = Confirmations.create(base_attrs(), now: now())
+    assert {:ok, record} = Confirmations.create(base_attrs(), effect_context(), now: now())
     id = record["id"]
 
     assert {:ok, resolved} =
@@ -240,6 +246,7 @@ defmodule AllbertAssist.ConfirmationsTest do
                  resolution_reason: "not needed",
                  same_channel?: false
                },
+               effect_context(),
                now: DateTime.add(now(), 60, :second)
              )
 
@@ -263,7 +270,8 @@ defmodule AllbertAssist.ConfirmationsTest do
       |> put_in([:runner_metadata, :messages], [%{api_key: "sk-runner"}, :visible | :tail])
       |> put_in([:params_summary, :resource_refs], [%{secret: "sk-param"} | :tail])
 
-    assert {:ok, record} = Confirmations.create(attrs, ttl_minutes: 10, now: now())
+    assert {:ok, record} =
+             Confirmations.create(attrs, effect_context(), ttl_minutes: 10, now: now())
 
     assert record["runner_metadata"]["messages"] == [
              %{"api_key" => "[REDACTED]"},
@@ -287,6 +295,7 @@ defmodule AllbertAssist.ConfirmationsTest do
                  target_result: %{messages: [%{api_key: "sk-result"} | :tail]},
                  remembered_grants: [%{token: "sk-grant"} | :tail]
                },
+               effect_context(),
                now: DateTime.add(now(), 60, :second)
              )
 
@@ -302,17 +311,20 @@ defmodule AllbertAssist.ConfirmationsTest do
   end
 
   test "expire resolves only records past their ttl" do
-    assert {:ok, expired} = Confirmations.create(base_attrs(), ttl_minutes: 1, now: now())
+    assert {:ok, expired} =
+             Confirmations.create(base_attrs(), effect_context(), ttl_minutes: 1, now: now())
 
     assert {:ok, current} =
              Confirmations.create(
                Map.put(base_attrs(), :id, "conf_current"),
+               effect_context(),
                ttl_minutes: 30,
                now: now()
              )
 
     assert {:ok, results} =
              Confirmations.expire(
+               effect_context(),
                now: DateTime.add(now(), 120, :second),
                resolution_attrs: %{resolver_channel: :system, resolution_reason: "ttl expired"}
              )
@@ -359,6 +371,8 @@ defmodule AllbertAssist.ConfirmationsTest do
   end
 
   defp now, do: ~U[2026-05-02 12:00:00Z]
+
+  defp effect_context(context \\ %{}), do: ReadyEffectContext.attach(context)
 
   defp temp_path(name) do
     Path.join(

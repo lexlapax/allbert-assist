@@ -60,38 +60,42 @@ defmodule AllbertAssist.CLI.Areas.Sessions do
     end
   end
 
-  defp route(["show" | rest], _ctx) do
+  defp route(["show" | rest], ctx) do
     {opts, [], invalid} = parse_opts(rest)
 
     with :ok <- reject_invalid(invalid),
          {:ok, identity} <- identity(opts),
          {:ok, session_id} <- session_id(opts) do
-      run_action("show_session_scratchpad", %{user_id: identity.user_id, session_id: session_id})
+      run_action(
+        "show_session_scratchpad",
+        %{user_id: identity.user_id, session_id: session_id},
+        ctx
+      )
     end
   end
 
-  defp route(["set-active-app" | rest], _ctx) do
+  defp route(["set-active-app" | rest], ctx) do
     {opts, args, invalid} = parse_opts(rest)
 
     with :ok <- reject_invalid(invalid),
          {:ok, identity} <- identity(opts),
          {:ok, session_id} <- session_id(opts),
          {:ok, app_id} <- single_arg(args, "APP is required") do
-      run_action("set_active_app", %{
-        user_id: identity.user_id,
-        session_id: session_id,
-        app_id: app_id
-      })
+      run_action(
+        "set_active_app",
+        %{user_id: identity.user_id, session_id: session_id, app_id: app_id},
+        ctx
+      )
     end
   end
 
-  defp route(["clear-active-app" | rest], _ctx) do
+  defp route(["clear-active-app" | rest], ctx) do
     {opts, [], invalid} = parse_opts(rest)
 
     with :ok <- reject_invalid(invalid),
          {:ok, identity} <- identity(opts),
          {:ok, session_id} <- session_id(opts) do
-      run_action("clear_active_app", %{user_id: identity.user_id, session_id: session_id})
+      run_action("clear_active_app", %{user_id: identity.user_id, session_id: session_id}, ctx)
     end
   end
 
@@ -169,9 +173,9 @@ defmodule AllbertAssist.CLI.Areas.Sessions do
 
   # -- action + read helpers -------------------------------------------------
 
-  defp run_action(action, params) do
+  defp run_action(action, params, ctx) do
     with {:ok, response} <-
-           Runner.run(action, params, %{request: Map.put(params, :channel, :cli)}) do
+           Runner.run(action, params, action_context(ctx, %{user_id: params.user_id})) do
       case Map.get(response, :status) do
         :completed -> {:ok, {:action, response}}
         _status -> {:error, Map.get(response, :error, :action_failed)}
@@ -200,7 +204,8 @@ defmodule AllbertAssist.CLI.Areas.Sessions do
       user_id: user_id,
       operator_id: user_id,
       surface: surface(ctx),
-      source: :operator_cli
+      source: :operator_cli,
+      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch)
     )
   end
 

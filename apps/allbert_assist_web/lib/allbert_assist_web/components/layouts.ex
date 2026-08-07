@@ -626,8 +626,15 @@ defmodule AllbertAssistWeb.Layouts do
   defp bool_attribute(true), do: "true"
   defp bool_attribute(_value), do: nil
 
-  defp root_settings_snapshot do
-    case Runner.run("resolved_settings_snapshot", %{}, root_read_context()) do
+  # The endpoint's HTTP readiness gate admits one exact epoch for this request
+  # and exposes it through the root-layout assigns. The layout must never
+  # compatibility-admit a replacement epoch while rendering an admitted page.
+  # Non-HTTP renders (for example component previews) stay inert and use the
+  # static defaults rather than invoking the runtime action.
+  defp root_settings_snapshot(nil), do: AllbertAssist.Settings.defaults()
+
+  defp root_settings_snapshot(epoch) do
+    case Runner.run("resolved_settings_snapshot", %{}, root_read_context(epoch)) do
       {:ok, %{status: :completed, settings: settings}} when is_map(settings) ->
         settings
 
@@ -636,8 +643,11 @@ defmodule AllbertAssistWeb.Layouts do
     end
   end
 
-  defp root_read_context do
-    ContextBuilder.live_view_context(%{}, surface: "AllbertAssistWeb.Layouts")
+  defp root_read_context(epoch) do
+    ContextBuilder.live_view_context(%{},
+      surface: "AllbertAssistWeb.Layouts",
+      allbert_pack_epoch: epoch
+    )
   end
 
   defp setting_value(settings, key, default) when is_map(settings) do

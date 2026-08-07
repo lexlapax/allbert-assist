@@ -34,7 +34,7 @@ defmodule AllbertAssist.CLI.Areas.Plan do
     {:plan_error, _code, message} -> {:error, {:raw, message}}
   end
 
-  defp do_route(["list" | args], _ctx) do
+  defp do_route(["list" | args], ctx) do
     {opts, rest, invalid} =
       OptionParser.parse(args, strict: [format: :string, status: :string, user: :string])
 
@@ -50,14 +50,14 @@ defmodule AllbertAssist.CLI.Areas.Plan do
       |> drop_nil()
 
     with {:ok, %{status: :completed, output_data: output_data}} <-
-           Runner.run("list_plan_runs", params, context(params[:user_id])) do
+           Runner.run("list_plan_runs", params, context(ctx, params[:user_id])) do
       {:ok, {:list, output_data, opts[:format]}}
     else
       {:ok, response} -> {:error, response}
     end
   end
 
-  defp do_route(["show", objective_id | args], _ctx) do
+  defp do_route(["show", objective_id | args], ctx) do
     {opts, rest, invalid} = OptionParser.parse(args, strict: [user: :string])
     reject_invalid!(invalid)
     reject_rest!(rest, "show")
@@ -65,7 +65,7 @@ defmodule AllbertAssist.CLI.Areas.Plan do
     params = %{id: objective_id, user_id: user_id(opts)}
 
     with {:ok, %{status: :completed} = response} <-
-           Runner.run("show_objective", params, context(params.user_id)) do
+           Runner.run("show_objective", params, context(ctx, params.user_id)) do
       {:ok, {:show, response}}
     else
       {:ok, %{status: :not_found}} -> fail!(@not_found_exit, "Plan run not found.")
@@ -73,7 +73,7 @@ defmodule AllbertAssist.CLI.Areas.Plan do
     end
   end
 
-  defp do_route(["cancel", objective_id | args], _ctx) do
+  defp do_route(["cancel", objective_id | args], ctx) do
     {opts, rest, invalid} = OptionParser.parse(args, strict: [reason: :string, user: :string])
     reject_invalid!(invalid)
     reject_rest!(rest, "cancel")
@@ -85,7 +85,7 @@ defmodule AllbertAssist.CLI.Areas.Plan do
     }
 
     with {:ok, %{status: :cancelled} = response} <-
-           Runner.run("cancel_plan_run", params, context(params.user_id)) do
+           Runner.run("cancel_plan_run", params, context(ctx, params.user_id)) do
       {:ok, {:cancel, response}}
     else
       {:ok, response} -> {:error, response}
@@ -132,10 +132,15 @@ defmodule AllbertAssist.CLI.Areas.Plan do
   defp render({:error, {:raw, message}}), do: Render.error(message)
   defp render({:error, reason}), do: Render.error("Plan command failed: #{inspect(reason)}")
 
-  defp context(nil), do: context("local")
+  defp context(ctx, nil), do: context(ctx, "local")
 
-  defp context(user_id) do
-    ContextBuilder.cli_context(actor: "local", user_id: user_id, surface: "mix allbert.plan")
+  defp context(ctx, user_id) do
+    ContextBuilder.cli_context(
+      actor: "local",
+      user_id: user_id,
+      surface: "mix allbert.plan",
+      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch)
+    )
   end
 
   defp user_id(opts), do: Keyword.get(opts, :user, "local")

@@ -37,8 +37,14 @@ defmodule AllbertAssist.Objectives.Runs.RunServer do
            child_id: child_id,
            parent_id: Keyword.fetch!(opts, :parent_id),
            coordinator: Keyword.fetch!(opts, :coordinator),
+           allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch),
            lifecycle_opts:
              Keyword.get(opts, :lifecycle_opts, [])
+             |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+             |> Keyword.put(
+               :allbert_pack_effect_guard_opts,
+               Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+             )
              |> Keyword.put_new(:cancel_token, cancel_token)
          }, {:continue, :run}}
 

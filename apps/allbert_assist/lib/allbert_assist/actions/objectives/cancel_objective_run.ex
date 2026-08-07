@@ -41,21 +41,25 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
          {:ok, objective} <- Objectives.get_objective(objective_id),
          true <- objective.user_id == user_id,
          true <- is_binary(reason) and String.trim(reason) != "" do
-      respond(objective, decision, cancel_targets(objective, user_id, reason))
+      respond(objective, decision, cancel_targets(objective, user_id, reason, context))
     else
       false -> {:ok, denied(decision)}
       {:error, {:objective_not_found, _objective_id}} -> {:ok, error(decision, :not_found)}
     end
   end
 
-  defp cancel_targets(%{fanout_role: "parent"} = parent, user_id, reason) do
+  defp cancel_targets(%{fanout_role: "parent"} = parent, user_id, reason, context) do
     case Fanout.parent_projection(parent) do
       %{phase: phase, children: children} when phase in [:awaiting_kickoff, :running] ->
         active_children = Enum.filter(children, &(&1.status in @cancellable_statuses))
 
-        with :ok <- request_all(active_children, user_id, reason),
-             {:ok, tier} <- cancel_all(active_children, user_id, reason),
-             {:ok, join} <- Fanout.reconcile_parent(parent.id, recovered?: false),
+        with :ok <- request_all(active_children, user_id, reason, context),
+             {:ok, tier} <- cancel_all(active_children, user_id, reason, context),
+             {:ok, join} <-
+               Fanout.reconcile_parent(parent.id,
+                 recovered?: false,
+                 effect_context: %{allbert_pack_epoch: field(context, :allbert_pack_epoch)}
+               ),
              {:ok, joined} <- require_joined(join) do
           {:ok, {:cancelled, tier, joined}}
         end
@@ -72,9 +76,9 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
     end
   end
 
-  defp cancel_targets(objective, user_id, reason) do
-    with :ok <- request_all([objective], user_id, reason),
-         {:ok, tier} <- cancel_all([objective], user_id, reason),
+  defp cancel_targets(objective, user_id, reason, context) do
+    with :ok <- request_all([objective], user_id, reason, context),
+         {:ok, tier} <- cancel_all([objective], user_id, reason, context),
          {:ok, cancelled} <- Objectives.get_objective(objective.id) do
       {:ok, {:cancelled, tier, cancelled}}
     end
@@ -129,35 +133,35 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
 
   defp respond(_requested, decision, {:error, reason}), do: {:ok, error(decision, reason)}
 
-  defp request_all(targets, user_id, reason) do
-    Enum.reduce_while(targets, :ok, &request_one(&1, &2, user_id, reason))
+  defp request_all(targets, user_id, reason, context) do
+    Enum.reduce_while(targets, :ok, &request_one(&1, &2, user_id, reason, context))
   end
 
-  defp cancel_all(targets, user_id, reason) do
-    Enum.reduce_while(targets, {:ok, :cooperative}, &cancel_one(&1, &2, user_id, reason))
+  defp cancel_all(targets, user_id, reason, context) do
+    Enum.reduce_while(targets, {:ok, :cooperative}, &cancel_one(&1, &2, user_id, reason, context))
   end
 
-  defp request_one(objective, :ok, user_id, reason) do
-    case Objectives.request_cancellation(user_id, objective.id, reason) do
+  defp request_one(objective, :ok, user_id, reason, context) do
+    case Objectives.request_cancellation(user_id, objective.id, reason, context) do
       {:ok, _requested} -> {:cont, :ok}
       {:error, error} -> continue_if_terminal(objective.id, :ok, error)
     end
   end
 
-  defp cancel_one(objective, {:ok, highest}, user_id, reason) do
+  defp cancel_one(objective, {:ok, highest}, user_id, reason, context) do
     {:ok, tier} = Cancel.cancel(objective.id)
-    persist_cancel(objective, user_id, reason, highest, tier)
+    persist_cancel(objective, user_id, reason, highest, tier, context)
   end
 
-  defp persist_cancel(objective, user_id, reason, highest, tier) do
-    case Objectives.cancel(user_id, objective.id, reason) do
-      {:ok, _result} -> record_cancel_tier(objective.id, reason, highest, tier)
+  defp persist_cancel(objective, user_id, reason, highest, tier, context) do
+    case Objectives.cancel(user_id, objective.id, reason, context) do
+      {:ok, _result} -> record_cancel_tier(objective.id, reason, highest, tier, context)
       {:error, error} -> continue_terminal_cancel(objective.id, highest, tier, error)
     end
   end
 
-  defp record_cancel_tier(objective_id, reason, highest, tier) do
-    case record_tier(objective_id, tier, reason) do
+  defp record_cancel_tier(objective_id, reason, highest, tier, context) do
+    case record_tier(objective_id, tier, reason, context) do
       {:ok, _event} -> {:cont, {:ok, higher_tier(highest, tier)}}
       {:error, error} -> {:halt, {:error, error}}
     end
@@ -193,13 +197,16 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
   defp cancellation_message(requested, _final, tier),
     do: "Objective run #{requested.id} cancelled (#{tier})."
 
-  defp record_tier(objective_id, tier, reason) do
-    Objectives.create_event(%{
-      objective_id: objective_id,
-      kind: "run_cancelled",
-      summary: "Run cancellation reached #{tier}",
-      payload: %{tier: tier, reason: reason}
-    })
+  defp record_tier(objective_id, tier, reason, context) do
+    Objectives.create_event(
+      %{
+        objective_id: objective_id,
+        kind: "run_cancelled",
+        summary: "Run cancellation reached #{tier}",
+        payload: %{tier: tier, reason: reason}
+      },
+      context
+    )
   end
 
   defp higher_tier(left, right), do: if(@tiers[left] >= @tiers[right], do: left, else: right)

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
   """
 
   alias AllbertAssist.Settings.Vault
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Voice.LocalRuntime.Auth
 
   @metadata_hosts ~w[metadata.google.internal metadata 169.254.169.254]
@@ -45,30 +46,36 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
     request_headers = Keyword.get(request_opts, :headers, [])
     request_opts = Keyword.delete(request_opts, :headers)
 
-    [
-      method: method,
-      url: endpoint.url,
-      headers: endpoint.headers ++ request_headers,
-      receive_timeout: timeout_ms(profile),
-      retry: false,
-      redirect: false,
-      max_redirects: 0
-    ]
-    |> Keyword.merge(request_opts)
-    |> maybe_put(:plug, req_test_plug(opts))
-    |> Req.request()
-    |> case do
-      {:ok, %{status: status} = response} when status >= 200 and status < 300 ->
-        {:ok, response}
+    with {:ok, epoch} <- carried_epoch(opts) do
+      request =
+        [
+          method: method,
+          url: endpoint.url,
+          headers: endpoint.headers ++ request_headers,
+          receive_timeout: timeout_ms(profile),
+          retry: false,
+          redirect: false,
+          max_redirects: 0
+        ]
+        |> Keyword.merge(request_opts)
+        |> maybe_put(:plug, req_test_plug(opts))
 
-      {:ok, %{status: status}} ->
-        {:error, {:voice_http_error, status}}
+      with :ok <- EffectGuard.validate(epoch),
+           result <- Req.request(request) do
+        case result do
+          {:ok, %{status: status} = response} when status >= 200 and status < 300 ->
+            {:ok, response}
 
-      {:error, %Req.TransportError{} = error} ->
-        {:error, {:voice_transport_error, error.reason}}
+          {:ok, %{status: status}} ->
+            {:error, {:voice_http_error, status}}
 
-      {:error, reason} ->
-        {:error, {:voice_transport_error, reason}}
+          {:error, %Req.TransportError{} = error} ->
+            {:error, {:voice_transport_error, error.reason}}
+
+          {:error, reason} ->
+            {:error, {:voice_transport_error, reason}}
+        end
+      end
     end
   end
 
@@ -342,6 +349,15 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
     |> Keyword.get(:req_options, [])
     |> Keyword.get(:plug, Keyword.get(opts, :plug))
   end
+
+  defp carried_epoch(opts) when is_list(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_opts), do: {:error, :product_not_ready}
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)

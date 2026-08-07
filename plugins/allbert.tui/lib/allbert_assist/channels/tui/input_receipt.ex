@@ -71,7 +71,8 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
         operator_id: operator_id,
         profile: profile,
         receipt_id: receipt_id,
-        session_id: Map.get(attrs, :session_id)
+        session_id: Map.get(attrs, :session_id),
+        allbert_pack_epoch: Map.get(attrs, :allbert_pack_epoch)
       })
     else
       {:error, :invalid_profile} -> {:error, :invalid_identity}
@@ -84,37 +85,51 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
   @spec mark_admitted(Event.t(), map()) ::
           {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
   def mark_admitted(%Event{} = event, safe_refs) when is_map(safe_refs) do
-    with {:ok, refs} <- safe_refs(safe_refs, @admission_ref_keys) do
-      transition(event, &admit_transition(&1, refs))
-    end
+    mark_admitted(event, safe_refs, %{})
   end
 
   def mark_admitted(_event, _safe_refs), do: {:error, :invalid_receipt_transition}
 
+  def mark_admitted(%Event{} = event, safe_refs, context)
+      when is_map(safe_refs) and is_map(context) do
+    with {:ok, refs} <- safe_refs(safe_refs, @admission_ref_keys) do
+      transition(event, context, &admit_transition(&1, refs, context))
+    end
+  end
+
   @spec mark_in_progress(Event.t()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
   def mark_in_progress(%Event{} = event) do
-    transition(event, fn current ->
+    mark_in_progress(event, %{})
+  end
+
+  def mark_in_progress(_event), do: {:error, :invalid_receipt_transition}
+
+  def mark_in_progress(%Event{} = event, context) when is_map(context) do
+    transition(event, context, fn current ->
       case current.receipt_state do
-        "admitted" -> Channels.update_event(current, %{receipt_state: "in_progress"})
+        "admitted" -> Channels.update_event(current, %{receipt_state: "in_progress"}, context)
         "in_progress" -> {:ok, current}
         _other -> {:error, :invalid_receipt_transition}
       end
     end)
   end
 
-  def mark_in_progress(_event), do: {:error, :invalid_receipt_transition}
-
   @spec mark_terminal(Event.t(), :completed | :rejected | :failed, map()) ::
           {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
   def mark_terminal(%Event{} = event, outcome, safe_refs)
       when outcome in [:completed, :rejected, :failed] and is_map(safe_refs) do
-    with {:ok, refs} <- safe_refs(safe_refs, @terminal_ref_keys) do
-      transition(event, &terminal_transition(&1, outcome, refs))
-    end
+    mark_terminal(event, outcome, safe_refs, %{})
   end
 
   def mark_terminal(_event, _outcome, _safe_refs),
     do: {:error, :invalid_receipt_transition}
+
+  def mark_terminal(%Event{} = event, outcome, safe_refs, context)
+      when outcome in [:completed, :rejected, :failed] and is_map(safe_refs) and is_map(context) do
+    with {:ok, refs} <- safe_refs(safe_refs, @terminal_ref_keys) do
+      transition(event, context, &terminal_transition(&1, outcome, refs, context))
+    end
+  end
 
   defp gate_transaction(context) do
     case Repo.transaction(fn -> insert_or_load(context) end, mode: :immediate) do
@@ -123,7 +138,7 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
     end
   end
 
-  defp transition(%Event{} = event, fun) when is_function(fun, 1) do
+  defp transition(%Event{} = event, context, fun) when is_map(context) and is_function(fun, 1) do
     case Repo.transaction(fn -> apply_transition(event, fun) end, mode: :immediate) do
       {:ok, result} -> result
       {:error, _reason} -> {:error, :invalid_receipt_transition}
@@ -150,21 +165,25 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
     end
   end
 
-  defp admit_transition(%Event{receipt_state: "received"} = current, refs) do
+  defp admit_transition(%Event{receipt_state: "received"} = current, refs, context) do
     with {:ok, reconciled_refs} <- reconcile_refs(current, refs) do
-      Channels.update_event(current, Map.put(reconciled_refs, :receipt_state, "admitted"))
+      Channels.update_event(
+        current,
+        Map.put(reconciled_refs, :receipt_state, "admitted"),
+        context
+      )
     end
   end
 
-  defp admit_transition(%Event{receipt_state: "admitted"} = current, refs) do
+  defp admit_transition(%Event{receipt_state: "admitted"} = current, refs, _context) do
     if refs_match?(current, refs),
       do: {:ok, current},
       else: {:error, :invalid_receipt_transition}
   end
 
-  defp admit_transition(_current, _refs), do: {:error, :invalid_receipt_transition}
+  defp admit_transition(_current, _refs, _context), do: {:error, :invalid_receipt_transition}
 
-  defp terminal_transition(%Event{receipt_state: state} = current, outcome, refs)
+  defp terminal_transition(%Event{receipt_state: state} = current, outcome, refs, context)
        when state in ["admitted", "in_progress"] do
     with {:ok, canonical_outcome} <- canonical_terminal_outcome(current.status, outcome),
          {:ok, reconciled_refs} <- reconcile_refs(current, refs) do
@@ -178,11 +197,11 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
           status: terminal_status(canonical_outcome)
         })
 
-      Channels.update_event(current, attrs)
+      Channels.update_event(current, attrs, context)
     end
   end
 
-  defp terminal_transition(%Event{} = current, outcome, refs) do
+  defp terminal_transition(%Event{} = current, outcome, refs, _context) do
     with {:ok, canonical_outcome} <- canonical_terminal_outcome(current.status, outcome) do
       terminal_state = Atom.to_string(canonical_outcome)
 
@@ -262,7 +281,7 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
       receipt_state: "received"
     }
 
-    case Channels.create_event(attrs) do
+    case Channels.create_event(attrs, %{allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)}) do
       {:ok, event} ->
         {:ok, %{disposition: :dispatch, event: event, normalized_text: context.normalized_text}}
 
@@ -287,7 +306,9 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
            ),
          {:ok, current} <- reload_verified_receipt(event),
          :ok <- validate_receipt_state(current) do
-      reconcile_duplicate(current, context.duplicate_owner)
+      reconcile_duplicate(current, context.duplicate_owner, %{
+        allbert_pack_epoch: context.allbert_pack_epoch
+      })
     else
       {:ok, false} -> {:error, :receipt_conflict}
       {:error, :receipt_conflict} = error -> error
@@ -297,38 +318,47 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
 
   defp reconcile_duplicate(
          %Event{receipt_state: state} = event,
-         :orphaned
+         :orphaned,
+         context
        )
        when state in ["received", "admitted", "in_progress"] do
     case durable_terminal_outcome(event.status) do
-      {:ok, outcome} -> reconcile_terminal_duplicate(event, outcome)
-      :nonterminal -> reconcile_unknown_duplicate(event)
+      {:ok, outcome} -> reconcile_terminal_duplicate(event, outcome, context)
+      :nonterminal -> reconcile_unknown_duplicate(event, context)
       :invalid -> {:error, :receipt_conflict}
     end
   end
 
-  defp reconcile_duplicate(%Event{} = event, _duplicate_owner),
+  defp reconcile_duplicate(%Event{} = event, _duplicate_owner, _context),
     do: {:ok, duplicate_result(event)}
 
-  defp reconcile_terminal_duplicate(event, outcome) do
+  defp reconcile_terminal_duplicate(event, outcome, context) do
     terminal_state = Atom.to_string(outcome)
 
-    case Channels.update_event(event, %{
-           receipt_state: terminal_state,
-           receipt_outcome: terminal_state,
-           status: terminal_status(outcome)
-         }) do
+    case Channels.update_event(
+           event,
+           %{
+             receipt_state: terminal_state,
+             receipt_outcome: terminal_state,
+             status: terminal_status(outcome)
+           },
+           context
+         ) do
       {:ok, terminal} -> {:ok, duplicate_result(terminal)}
       {:error, changeset} -> {:error, changeset}
     end
   end
 
-  defp reconcile_unknown_duplicate(event) do
-    case Channels.update_event(event, %{
-           receipt_state: "outcome_unknown",
-           receipt_outcome: "outcome_unknown",
-           status: "failed"
-         }) do
+  defp reconcile_unknown_duplicate(event, context) do
+    case Channels.update_event(
+           event,
+           %{
+             receipt_state: "outcome_unknown",
+             receipt_outcome: "outcome_unknown",
+             status: "failed"
+           },
+           context
+         ) do
       {:ok, unknown} -> {:ok, duplicate_result(unknown)}
       {:error, changeset} -> {:error, changeset}
     end

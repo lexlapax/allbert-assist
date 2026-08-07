@@ -466,7 +466,10 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   defp result_event(%{status: :completed}), do: :succeeded
   defp result_event(_result), do: :failed
 
-  defp req_opts(context), do: [plug: req_plug(context)] |> Enum.reject(&is_nil(elem(&1, 1)))
+  defp req_opts(context) do
+    [allbert_pack_epoch: Map.get(context, :allbert_pack_epoch), plug: req_plug(context)]
+    |> Enum.reject(&is_nil(elem(&1, 1)))
+  end
 
   defp req_plug(context) do
     get_in(context, [:external, :req_plug]) ||

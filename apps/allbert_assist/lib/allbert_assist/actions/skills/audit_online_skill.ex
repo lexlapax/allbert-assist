@@ -70,7 +70,7 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
   defp execute_audit(id, source, permission_decision, context) do
-    with {:ok, detail} <- RegistryClient.show(source, id) do
+    with {:ok, detail} <- RegistryClient.show(source, id, context) do
       audit =
         detail
         |> Audit.run()

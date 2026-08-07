@@ -56,7 +56,8 @@ defmodule AllbertAssist.Execution.SkillScriptRunner do
              env: runner_env(spec.env),
              timeout_ms: spec.timeout_ms,
              max_output_bytes: spec.max_output_bytes,
-             execution_id: Keyword.get(opts, :execution_id, Ecto.UUID.generate())
+             execution_id: Keyword.get(opts, :execution_id, Ecto.UUID.generate()),
+             allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)
            ) do
       {:ok,
        %{

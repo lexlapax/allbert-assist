@@ -8,9 +8,13 @@ defmodule Mix.Tasks.Allbert.AskTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
+  alias AllbertAssist.CLI.Ask, as: CLIAsk
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Memory
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime
@@ -23,14 +27,26 @@ defmodule Mix.Tasks.Allbert.AskTest do
     use GenServer
 
     def start_link(opts),
-      do: GenServer.start_link(__MODULE__, :ok, name: Keyword.fetch!(opts, :name))
+      do:
+        GenServer.start_link(
+          __MODULE__,
+          Keyword.get(opts, :mode, :replace_after_first_status),
+          name: Keyword.fetch!(opts, :name)
+        )
+
+    def rotate(server), do: GenServer.call(server, :rotate)
 
     @impl true
-    def init(:ok), do: {:ok, %{status_calls: 0, e1: spawn_epoch(), e2: spawn_epoch()}}
+    def init(mode),
+      do: {:ok, %{mode: mode, status_calls: 0, epoch: :e1, e1: spawn_epoch(), e2: spawn_epoch()}}
 
     @impl true
     def handle_call(:status, _from, state) do
-      epoch = if state.status_calls == 0, do: state.e1, else: state.e2
+      epoch =
+        case state.mode do
+          :replace_after_first_status -> if(state.status_calls == 0, do: state.e1, else: state.e2)
+          :manual -> Map.fetch!(state, state.epoch)
+        end
 
       {:reply,
        {:ok,
@@ -44,6 +60,8 @@ defmodule Mix.Tasks.Allbert.AskTest do
           diagnostics: []
         }}, %{state | status_calls: state.status_calls + 1}}
     end
+
+    def handle_call(:rotate, _from, state), do: {:reply, :ok, %{state | epoch: :e2}}
 
     @impl true
     def terminate(_reason, state) do
@@ -183,6 +201,63 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
     assert Repo.aggregate(Event, :count, :id) == before_count
     refute_received {:agent_request, _request}
+  end
+
+  test "packaged CLI ask does not acknowledge a response after a same-digest epoch replacement" do
+    original_readiness = Process.whereis(AllbertAssist.Pack.Readiness)
+    assert is_pid(original_readiness)
+    true = Process.unregister(AllbertAssist.Pack.Readiness)
+
+    {:ok, replacement_readiness} =
+      EpochReadiness.start_link(name: AllbertAssist.Pack.Readiness, mode: :manual)
+
+    on_exit(fn ->
+      unregister_if_current(replacement_readiness)
+
+      if Process.alive?(replacement_readiness), do: GenServer.stop(replacement_readiness)
+
+      if Process.alive?(original_readiness) and
+           is_nil(Process.whereis(AllbertAssist.Pack.Readiness)),
+         do: Process.register(original_readiness, AllbertAssist.Pack.Readiness)
+    end)
+
+    test_pid = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} =
+                 Fanout.frame(
+                   %{
+                     user_id: request.user_id,
+                     title: "Epoch replacement acknowledgement",
+                     objective: "Do not acknowledge after E2",
+                     source_channel: "cli",
+                     source_thread_id: request.thread_id
+                   },
+                   ["hold until delivery acknowledgement"]
+                 )
+
+        send(test_pid, {:pending_fanout, parent.id})
+        assert :ok = EpochReadiness.rotate(replacement_readiness)
+
+        {:ok,
+         %{
+           message: "response returned under E1",
+           status: :completed,
+           actions: [],
+           fanout: %{parent_id: parent.id, delivery_state: "pending"},
+           fanout_start_receipt: receipt
+         }}
+      end
+    )
+
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+
+    assert {output, 1} = CLIAsk.run(["do not acknowledge"], allbert_pack_epoch: epoch)
+    assert output =~ "Allbert product is not ready"
+    assert_receive {:pending_fanout, parent_id}
+
+    assert {:ok, %{kickoff_delivery_state: "pending"}} = Objectives.get_objective(parent_id)
   end
 
   test "renders and acknowledges a pending CLI model disclosure before transport" do

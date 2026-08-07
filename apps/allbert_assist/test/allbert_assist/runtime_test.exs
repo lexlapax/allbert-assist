@@ -11,6 +11,7 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.Session
   alias AllbertAssist.Session.Scratchpad
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   setup do
@@ -143,6 +144,25 @@ defmodule AllbertAssist.RuntimeTest do
              "Say hello from the runtime boundary.",
              "Runtime response: Say hello from the runtime boundary."
            ]
+  end
+
+  test "carries exact epoch and guard options to the agent runner" do
+    {:ok, barrier} = ReadyEffectContext.start_link([])
+
+    # Use one barrier for the caller-provided E1, so this specifically proves
+    # Runtime does not replace the supplied test guard options with globals.
+    {:ok, epoch} = AllbertAssist.Pack.EffectGuard.admit_ready(server: barrier)
+    guard_opts = [server: barrier]
+
+    assert {:ok, _response} =
+             Runtime.submit_user_input(
+               %{text: "explicit epoch", channel: :test, operator_id: "local"},
+               allbert_pack_epoch: epoch,
+               allbert_pack_effect_guard_opts: guard_opts
+             )
+
+    assert_received {:agent_request,
+                     %{allbert_pack_epoch: ^epoch, allbert_pack_effect_guard_opts: ^guard_opts}}
   end
 
   test "persists model payload while returning surface payload for renderers" do

@@ -376,7 +376,7 @@ defmodule StockSage.Actions.RunAnalysis do
       source_intent: "stocksage.run_analysis"
     }
 
-    case Objectives.create_objective(attrs) do
+    case Objectives.create_objective(attrs, context) do
       {:ok, objective} ->
         validated = %{validated | objective_id: objective.id}
         context = Map.put(context, :objective_id, objective.id)
@@ -396,6 +396,7 @@ defmodule StockSage.Actions.RunAnalysis do
       analysis_date: Date.to_iso8601(validated.analysis_date),
       user_id: validated.user_id,
       operator_id: validated.user_id,
+      allbert_pack_epoch: Map.get(context, :allbert_pack_epoch),
       objective_id: step_ref.objective_id,
       step_id: step_ref.step_id,
       thread_id: validated.thread_id || Actions.field(context, :thread_id),

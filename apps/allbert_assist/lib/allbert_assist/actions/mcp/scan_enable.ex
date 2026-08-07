@@ -104,7 +104,11 @@ defmodule AllbertAssist.Actions.Mcp.ScanEnable do
   end
 
   defp scan_opts(params, context, user_id) do
-    %{user_id: user_id, operator_id: operator_id(params, context, user_id)}
+    %{
+      user_id: user_id,
+      operator_id: operator_id(params, context, user_id),
+      action_context: context
+    }
   end
 
   defp user_id(params, context) do

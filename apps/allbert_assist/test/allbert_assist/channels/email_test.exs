@@ -7,6 +7,7 @@ defmodule AllbertAssist.Channels.EmailTest do
   alias AllbertAssist.Channels.Email.Renderer
   alias AllbertAssist.Channels.Email.SmtpClient
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Objectives
@@ -395,7 +396,7 @@ defmodule AllbertAssist.Channels.EmailTest do
       configure_email!(identity_map: [%{external_user_id: "alice@example.com", user_id: "alice"}])
 
       assert {:ok, _setting} =
-               Settings.put("channels.email.max_body_bytes", 4, %{audit?: false})
+               put_setting("channels.email.max_body_bytes", 4, %{audit?: false})
 
       fake = start_fake_imap!(%{"2" => plain_email("msg-oversized@example.com")})
       server = :"email-oversized-#{System.unique_integer([:positive])}"
@@ -537,21 +538,21 @@ defmodule AllbertAssist.Channels.EmailTest do
              })
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.imap_host", "imap.example.com", %{audit?: false})
+             put_setting("channels.email.imap_host", "imap.example.com", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.smtp_host", "smtp.example.com", %{audit?: false})
+             put_setting("channels.email.smtp_host", "smtp.example.com", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.imap_username", "alice", %{audit?: false})
+             put_setting("channels.email.imap_username", "alice", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.smtp_username", "alice", %{audit?: false})
+             put_setting("channels.email.smtp_username", "alice", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.from_address", "allbert@example.com", %{audit?: false})
+             put_setting("channels.email.from_address", "allbert@example.com", %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("channels.email.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = put_setting("channels.email.enabled", true, %{audit?: false})
 
     identity_map =
       Keyword.get(opts, :identity_map, [
@@ -559,7 +560,7 @@ defmodule AllbertAssist.Channels.EmailTest do
       ])
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.identity_map", identity_map, %{audit?: false})
+             put_setting("channels.email.identity_map", identity_map, %{audit?: false})
   end
 
   defp configure_runtime! do
@@ -685,15 +686,18 @@ defmodule AllbertAssist.Channels.EmailTest do
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "channel-test"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "channel-test"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
 
   defp restore_env(original_env) do
@@ -702,6 +706,9 @@ defmodule AllbertAssist.Channels.EmailTest do
       {key, value} -> System.put_env(key, value)
     end)
   end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)

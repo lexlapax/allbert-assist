@@ -99,7 +99,11 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     with {:ok, epoch} <- carried_epoch(context),
          :ok <- EffectGuard.validate(epoch) do
       event =
-        EventRecorder.record_inbound(surface, public_event_attrs(name, params, context, surface))
+        EventRecorder.record_inbound(
+          surface,
+          public_event_attrs(name, params, context, surface),
+          context
+        )
 
       result =
         with {:ok, tools} <- enabled_tools(surface),
@@ -108,7 +112,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
              {:ok, response} <-
                Runner.run(name, normalized_params, runner_context(context, capability, surface)) do
           if EffectGuard.validate(epoch) == :ok,
-            do: EventRecorder.mark_result(event, {:ok, response})
+            do: EventRecorder.mark_result(event, {:ok, response}, context)
 
           response_to_payload(response, name, context, surface)
         end
@@ -118,7 +122,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
           ok
 
         {:error, reason} = error ->
-          if EffectGuard.validate(epoch) == :ok, do: mark_tool_error(event, reason)
+          if EffectGuard.validate(epoch) == :ok, do: mark_tool_error(event, reason, context)
           error
       end
     else
@@ -158,7 +162,8 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
           if EffectGuard.validate(epoch) == :ok do
             EventRecorder.record_rejection(
               surface,
-              resource_event_attrs(uri, context, surface, reason)
+              resource_event_attrs(uri, context, surface, reason),
+              context
             )
           end
 
@@ -257,10 +262,11 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     end
   end
 
-  defp mark_tool_error(event, {:tool_not_exposed, _name} = reason),
-    do: EventRecorder.mark_rejected(event, reason)
+  defp mark_tool_error(event, {:tool_not_exposed, _name} = reason, context),
+    do: EventRecorder.mark_rejected(event, reason, context)
 
-  defp mark_tool_error(event, reason), do: EventRecorder.mark_failed(event, reason)
+  defp mark_tool_error(event, reason, context),
+    do: EventRecorder.mark_failed(event, reason, context)
 
   defp normalize_tool_params(params, module) when is_map(params) and is_atom(module) do
     key_map = schema_key_map(module)

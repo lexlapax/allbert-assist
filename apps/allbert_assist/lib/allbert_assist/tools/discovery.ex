@@ -628,7 +628,11 @@ defmodule AllbertAssist.Tools.Discovery do
              timeout_ms: integer_opt(opts, :probe_timeout_ms, 1_000),
              max_response_bytes: integer_opt(opts, :probe_max_response_bytes, 1_024)
            }),
-         {:ok, result} <- HttpClient.request(spec, plug: req_plug(opt(opts, :context, %{}))) do
+         {:ok, result} <-
+           HttpClient.request(spec,
+             allbert_pack_epoch: Map.get(opt(opts, :context, %{}), :allbert_pack_epoch),
+             plug: req_plug(opt(opts, :context, %{}))
+           ) do
       probe_result(result)
     else
       {:error, %RequestSpec{} = spec} ->

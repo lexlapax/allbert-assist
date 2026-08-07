@@ -170,7 +170,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         {handle_interaction(fields, state), state}
 
       {:unsupported, fields} ->
-        {insert_rejected_event(fields.external_event_id, fields.type), state}
+        {insert_rejected_event(fields.external_event_id, fields.type, state), state}
 
       {:malformed, reason} ->
         {{:error, {:malformed, reason}}, state}
@@ -178,7 +178,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   end
 
   defp handle_message(fields, state) do
-    case insert_received_event(fields, "inbound") do
+    case insert_received_event(fields, "inbound", state) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         process_received_message(event, carry_epoch(fields, state), state)
 
@@ -197,9 +197,9 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     # cannot delay it past the 3s window. The adapter only resolves the business
     # callback (confirmation), symmetric with the Slack adapter, whose envelope
     # ack is owned by SocketModePort (M8R3).
-    case insert_received_event(fields, "callback") do
+    case insert_received_event(fields, "callback", state) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        process_callback(event, fields, state)
+        process_callback(event, carry_epoch(fields, state), state)
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -209,7 +209,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     end
   end
 
-  defp insert_received_event(fields, direction) do
+  defp insert_received_event(fields, direction, state) do
     %{
       channel: "discord",
       provider: @provider,
@@ -221,11 +221,11 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       status: "received",
       payload_summary: fields.raw_summary
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result()
   end
 
-  defp insert_rejected_event(external_event_id, reason) do
+  defp insert_rejected_event(external_event_id, reason, state) do
     %{
       channel: "discord",
       provider: @provider,
@@ -235,7 +235,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       reason: to_string(reason),
       payload_summary: "unsupported discord event"
     }
-    |> Channels.create_event()
+    |> Channels.create_event(effect_context(state))
     |> event_result(:rejected)
   end
 
@@ -252,7 +252,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     else
       {:error, reason} ->
         Logger.debug("discord simulated event rejected: #{inspect(Redactor.redact(reason))}")
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:ok, :rejected}
     end
   end
@@ -272,7 +272,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
                ),
              {:ok, rendered} <- render_confirmation_response(response, state),
              {:ok, _delivered} <- deliver_rendered(fields, rendered, state),
-             {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
+             {:ok, event} <- mark_callback_processed(event, response, user_id, session_id, fields) do
           {:ok, event, rendered}
         end
 
@@ -285,7 +285,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
                end),
              :ok <- record_outbound_refs(response, fields, delivered),
              :ok <- Runtime.acknowledge_deliveries(response, %{channel: "discord"}),
-             {:ok, event} <- mark_processed(event, response, user_id, session_id) do
+             {:ok, event} <- mark_processed(event, response, user_id, session_id, fields) do
           {:ok, event, rendered}
         end
     end
@@ -301,12 +301,12 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
            run_confirmation_callback(fields, state, user_id, session_id, inbound_trust),
          {:ok, rendered} <- render_confirmation_response(response, state),
          {:ok, _delivered} <- deliver_callback_result(fields, rendered, state),
-         {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
+         {:ok, event} <- mark_callback_processed(event, response, user_id, session_id, fields) do
       {:ok, {:processed, event, rendered}}
     else
       {:error, reason} ->
         Logger.debug("discord callback rejected: #{inspect(Redactor.redact(reason))}")
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         {:ok, :rejected}
     end
   end
@@ -430,12 +430,20 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
           inbound_trust: inbound_trust
         }
       },
-      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
+      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
+      allbert_pack_effect_guard_opts: Map.fetch!(fields, :allbert_pack_effect_guard_opts)
     )
   end
 
   defp carry_epoch(fields, state),
-    do: Map.put(fields, :allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+    do: Map.merge(fields, effect_context(state))
+
+  defp effect_context(state) do
+    %{
+      allbert_pack_epoch: Map.fetch!(state, :effect_epoch),
+      allbert_pack_effect_guard_opts: state.effect_guard_opts
+    }
+  end
 
   defp renderer_opts(state) do
     [
@@ -455,6 +463,8 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
              fields.thread_channel_id || fields.channel_id,
              payload,
              state.client_opts
+             |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+             |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
            ) do
         {:ok, message} ->
           {:cont, {:ok, delivered ++ [%{part_id: to_string(index), message: message}]}}
@@ -556,6 +566,8 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
                fields.channel_id || fields.external_chat_id,
                payload,
                state.client_opts
+               |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
+               |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
              ) do
           {:ok, message} ->
             {:cont, {:ok, delivered ++ [%{part_id: to_string(index), message: message}]}}
@@ -594,28 +606,36 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     end)
   end
 
-  defp mark_processed(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      thread_id: response_value(response, :thread_id),
-      input_signal_id: response_value(response, :input_signal_id),
-      trace_id: response_value(response, :trace_id)
-    })
+  defp mark_processed(event, response, user_id, session_id, context) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        thread_id: response_value(response, :thread_id),
+        input_signal_id: response_value(response, :input_signal_id),
+        trace_id: response_value(response, :trace_id)
+      },
+      context
+    )
   end
 
-  defp mark_callback_processed(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      input_signal_id:
-        response_value(response_value(response, :runner_metadata) || %{}, :requested_signal_id)
-    })
+  defp mark_callback_processed(event, response, user_id, session_id, context) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        input_signal_id:
+          response_value(response_value(response, :runner_metadata) || %{}, :requested_signal_id)
+      },
+      context
+    )
   end
 
-  defp mark_rejected_or_failed(event, reason) do
+  defp mark_rejected_or_failed(event, reason, context) do
     status =
       case reason do
         reason
@@ -636,7 +656,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
           "failed"
       end
 
-    Channels.update_event(event, %{status: status, reason: bounded_event_reason(reason)})
+    Channels.update_event(event, %{status: status, reason: bounded_event_reason(reason)}, context)
   end
 
   defp bounded_event_reason({:inbound_admission_failed, _kind}),
@@ -677,7 +697,14 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       {:ok, settings} ->
         token_ref = Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token")
 
-        req_options = Keyword.get(opts, :req_options, [])
+        req_options =
+          opts
+          |> Keyword.get(:req_options, [])
+          |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+          |> Keyword.put(
+            :allbert_pack_effect_guard_opts,
+            Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+          )
 
         with :ok <- validate_outbound_epoch(opts) do
           case Client.create_message(token_ref, target, payload, req_options) do
@@ -696,7 +723,15 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       when is_binary(target) and is_binary(provider_message_id) and is_binary(body) do
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("discord") do
       token_ref = Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token")
-      req_options = Keyword.get(opts, :req_options, [])
+
+      req_options =
+        opts
+        |> Keyword.get(:req_options, [])
+        |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+        |> Keyword.put(
+          :allbert_pack_effect_guard_opts,
+          Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
+        )
 
       with :ok <- validate_outbound_epoch(opts) do
         case Client.update_message(
@@ -724,7 +759,8 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
 
   defp validate_outbound_epoch(opts) do
     with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
-         :ok <- EffectGuard.validate(epoch) do
+         :ok <-
+           EffectGuard.validate(epoch, Keyword.get(opts, :allbert_pack_effect_guard_opts, [])) do
       :ok
     else
       _error -> {:error, :product_not_ready}

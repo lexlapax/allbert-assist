@@ -143,12 +143,16 @@ defmodule Mix.Tasks.Allbert.Ask do
 
     with {:ok, epoch} <- EffectGuard.admit_ready(),
          :ok <- EffectGuard.validate(epoch) do
-      event = EventRecorder.record_inbound(:cli, surface_event_attrs(request, prompt, user_id))
+      event =
+        EventRecorder.record_inbound(:cli, surface_event_attrs(request, prompt, user_id), %{
+          allbert_pack_epoch: epoch
+        })
+
       result = Runtime.submit_user_input(request, allbert_pack_epoch: epoch)
 
       case EffectGuard.validate(epoch) do
         :ok ->
-          EventRecorder.mark_result(event, result)
+          EventRecorder.mark_result(event, result, %{allbert_pack_epoch: epoch})
           {:ok, result, epoch}
 
         {:error, _reason} ->

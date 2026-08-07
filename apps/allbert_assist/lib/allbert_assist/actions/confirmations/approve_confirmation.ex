@@ -684,7 +684,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       }
 
       updated_record =
-        case Confirmations.annotate_resolution(confirmation_id, resolution_metadata(metadata)) do
+        case Confirmations.annotate_resolution(
+               confirmation_id,
+               resolution_metadata(metadata),
+               context
+             ) do
           {:ok, updated} -> updated
           {:error, _reason} -> Map.get(approval, :confirmation)
         end
@@ -798,7 +802,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     _ = append_research_handoff_message(record, context, confirmation_id, outcome)
 
     updated_record =
-      case Confirmations.annotate_resolution(confirmation_id, metadata) do
+      case Confirmations.annotate_resolution(confirmation_id, metadata, context) do
         {:ok, updated} -> updated
         {:error, _reason} -> Map.get(approved, :confirmation)
       end
@@ -816,7 +820,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       _ =
         Confirmations.annotate_resolution(
           confirmation_id,
-          Map.put(research_handoff_metadata(outcome), :target_async?, true)
+          Map.put(research_handoff_metadata(outcome), :target_async?, true),
+          context
         )
 
       # v1.0.1 M4.2.4: deliver the outcome to the originating thread (the
@@ -1128,7 +1133,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       resolution_attrs =
         Context.resolution_attrs(context, reason, record, resolution_metadata(metadata))
 
-      case Confirmations.resolve(id, status, resolution_attrs) do
+      case Confirmations.resolve(id, status, resolution_attrs, context) do
         {:ok, record} ->
           completed(record, permission_decision, Map.put(metadata, :idempotent?, false))
 
@@ -1678,7 +1683,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       metadata = final_run_analysis_metadata(response)
 
       updated_record =
-        case Confirmations.annotate_resolution(confirmation_id, metadata) do
+        case Confirmations.annotate_resolution(confirmation_id, metadata, context) do
           {:ok, record} -> record
           {:error, _reason} -> Map.get(approval, :confirmation)
         end
@@ -1707,7 +1712,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         {:ok, %{status: :completed} = response} ->
           target_result = Map.get(response, :dynamic_plugin_metadata, %{status: :completed})
 
-          complete_dynamic_resume(approved_record, permission_decision, %{
+          complete_dynamic_resume(approved_record, permission_decision, context, %{
             target_policy_decision: target_decision,
             target_resumed?: true,
             target_status: :completed,
@@ -1721,7 +1726,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
               error: Map.get(response, :error)
             })
 
-          complete_dynamic_resume(approved_record, permission_decision, %{
+          complete_dynamic_resume(approved_record, permission_decision, context, %{
             target_policy_decision: target_decision,
             target_resumed?: false,
             target_status: Map.get(response, :status, :denied),
@@ -1743,13 +1748,13 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         target_result: %{status: :resuming}
       })
 
-    Confirmations.resolve(Map.fetch!(record, "id"), :approved, resolution_attrs)
+    Confirmations.resolve(Map.fetch!(record, "id"), :approved, resolution_attrs, context)
   end
 
-  defp complete_dynamic_resume(record, permission_decision, metadata) do
+  defp complete_dynamic_resume(record, permission_decision, context, metadata) do
     attrs = resolution_metadata(metadata)
 
-    case Confirmations.annotate_resolution(Map.fetch!(record, "id"), attrs) do
+    case Confirmations.annotate_resolution(Map.fetch!(record, "id"), attrs, context) do
       {:ok, updated_record} ->
         completed(updated_record, permission_decision, Map.put(metadata, :idempotent?, false))
 
@@ -1778,7 +1783,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       _ =
         Confirmations.annotate_resolution(
           confirmation_id,
-          Map.put(metadata, :target_async?, true)
+          Map.put(metadata, :target_async?, true),
+          context
         )
 
       mark_run_analysis_step_finished(record, response, context)
@@ -1981,11 +1987,16 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp mark_run_analysis_step_running(record, resume_params, context) do
-    mark_run_analysis_step(record, :running, %{
-      result_summary:
-        "Approved; StockSage #{run_analysis_engine(resume_params)} analysis is running.",
-      trace_id: Map.get(context, :trace_id)
-    })
+    mark_run_analysis_step(
+      record,
+      :running,
+      %{
+        result_summary:
+          "Approved; StockSage #{run_analysis_engine(resume_params)} analysis is running.",
+        trace_id: Map.get(context, :trace_id)
+      },
+      context
+    )
   end
 
   defp mark_run_analysis_step_finished(record, %{status: status} = response, context) do
@@ -1993,40 +2004,52 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     step_status = if completed?, do: :completed, else: :failed
     result = run_analysis_target_result(response)
 
-    mark_run_analysis_step(record, step_status, %{
-      result_summary: run_analysis_result_summary(result),
-      trace_id: Map.get(context, :trace_id)
-    })
+    mark_run_analysis_step(
+      record,
+      step_status,
+      %{
+        result_summary: run_analysis_result_summary(result),
+        trace_id: Map.get(context, :trace_id)
+      },
+      context
+    )
   end
 
   defp mark_run_analysis_step_finished(record, response, context) do
     mark_run_analysis_step_finished(record, Map.put(response, :status, :failed), context)
   end
 
-  defp mark_run_analysis_step(record, status, attrs) do
+  defp mark_run_analysis_step(record, status, attrs, context) do
     with objective_id when is_binary(objective_id) and objective_id != "" <- objective_id(record),
          step_id when is_binary(step_id) and step_id != "" <- step_id(record),
          {:ok, objective} <- Objectives.get_objective(objective_id),
          false <- terminal_objective?(objective),
          step when not is_nil(step) <- find_objective_step(objective_id, step_id),
          false <- terminal_step?(step) do
-      _ = Objectives.transition_step(step, status, attrs)
+      _ = Objectives.transition_step(step, status, attrs, context)
 
       _ =
-        Objectives.update_objective(objective, %{
-          status: objective_status_for_step(status),
-          current_step_id: step.id,
-          progress_summary: Map.get(attrs, :result_summary)
-        })
+        Objectives.update_objective(
+          objective,
+          %{
+            status: objective_status_for_step(status),
+            current_step_id: step.id,
+            progress_summary: Map.get(attrs, :result_summary)
+          },
+          context
+        )
 
       _ =
-        Objectives.create_event(%{
-          objective_id: objective.id,
-          step_id: step.id,
-          kind: objective_event_kind_for_step(status),
-          summary: Map.get(attrs, :result_summary),
-          payload: %{status: status}
-        })
+        Objectives.create_event(
+          %{
+            objective_id: objective.id,
+            step_id: step.id,
+            kind: objective_event_kind_for_step(status),
+            summary: Map.get(attrs, :result_summary),
+            payload: %{status: status}
+          },
+          context
+        )
 
       :ok
     else

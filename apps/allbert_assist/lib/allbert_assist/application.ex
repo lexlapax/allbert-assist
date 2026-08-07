@@ -174,8 +174,14 @@ defmodule AllbertAssist.Application do
     do: children ++ [AllbertAssist.PublicProtocol.ResultReadbackSweeper]
 
   defp maybe_add_objective_runtime(children) do
+    scheduler_opts =
+      Application.get_env(:allbert_assist, AllbertAssist.Objectives.Runs.Scheduler, [])
+
     children ++
-      [AllbertAssist.Objectives.Runs.Supervisor, AllbertAssist.Objectives.Runs.Scheduler]
+      [
+        AllbertAssist.Objectives.Runs.Supervisor,
+        {AllbertAssist.Objectives.Runs.Scheduler, scheduler_opts}
+      ]
   end
 
   defp maybe_add_intent_index(children), do: children ++ [AllbertAssist.Intent.Router.Index]

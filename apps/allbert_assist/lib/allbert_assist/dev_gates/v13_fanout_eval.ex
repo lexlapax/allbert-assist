@@ -26,6 +26,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   alias AllbertAssist.DevGates.TestMetrics
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.FanoutManager
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.CanonicalJSON
@@ -166,7 +167,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         [
           control_answerer: &direct_answer/2,
           control_profile: profiles.worker,
-          control_context: control_context(profiles.worker),
+          control_context: control_context(profiles.worker, profiles.allbert_pack_epoch),
           control_output: control_output
         ]
       else
@@ -180,8 +181,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
             profile: profiles.manager,
             manager_profile: profiles.manager,
             composer_profile: profiles.synthesis,
-            manager_context: manager_context(profiles.manager),
-            composer_context: composer_context(profiles.synthesis),
+            manager_context: manager_context(profiles.manager, profiles.allbert_pack_epoch),
+            composer_context: composer_context(profiles.synthesis, profiles.allbert_pack_epoch),
             composer_client: Composer,
             role_profile_bindings: profiles.bindings,
             command: command,
@@ -244,6 +245,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   @doc "Evaluate the fixture and append one content-free TestMetrics row."
   @spec run(map(), keyword()) :: result()
   def run(fixture, opts) when is_map(fixture) and is_list(opts) do
+    epoch = ready_epoch!(opts)
+    :ok = require_current_epoch(epoch)
     started = System.monotonic_time(:millisecond)
     fixture_sha256 = validated_fixture_sha256!(fixture)
     manager = Keyword.get(opts, :manager, &FanoutManager.respond/2)
@@ -252,8 +255,19 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       Keyword.get(opts, :manager_context, %{
         model_profile: Keyword.fetch!(opts, :manager_profile)
       })
+      |> Map.put(:allbert_pack_epoch, epoch)
 
-    control = control_row(opts)
+    composer_context =
+      opts
+      |> Keyword.fetch!(:composer_context)
+      |> Map.put(:allbert_pack_epoch, epoch)
+
+    control_opts =
+      Keyword.update(opts, :control_context, %{allbert_pack_epoch: epoch}, fn context ->
+        Map.put(context, :allbert_pack_epoch, epoch)
+      end)
+
+    control = control_row(control_opts)
     fov3 = manager_row(fixture, @fov3_id, manager, manager_context)
     fov4 = manager_row(fixture, @fov4_id, manager, manager_context)
 
@@ -264,7 +278,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         Keyword.get(opts, :composer_client, Composer),
         Keyword.get(opts, :composer_authorizer, &authorize_composer/2),
         Keyword.fetch!(opts, :composer_profile),
-        Keyword.fetch!(opts, :composer_context)
+        composer_context
       )
 
     rows = List.wrap(control) ++ [fov3, fov4] ++ composition_rows
@@ -282,6 +296,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         Keyword.get(opts, :role_profile_bindings, %{})
       )
       |> Map.merge(control_stats(control))
+
+    :ok = require_current_epoch(epoch)
 
     TestMetrics.record(%{
       store: Keyword.get(opts, :store),
@@ -331,6 +347,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       |> Map.put(:model_profile, Keyword.get(opts, :control_profile))
 
     {context, counter} = ProviderAttempt.attach(context)
+    :ok = require_current_epoch(Map.get(context, :allbert_pack_epoch))
     result = invoke(fn -> answerer.(@fov4_prompt, context) end)
     calls = ProviderAttempt.count(counter)
     message = control_message(result)
@@ -346,6 +363,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       passed?: calls == 1 and is_binary(message) and message != ""
     }
 
+    :ok = require_current_epoch(Map.get(context, :allbert_pack_epoch))
     write_control_transcript(Keyword.get(opts, :control_output), row, message)
     row
   end
@@ -393,6 +411,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   end
 
   defp manager_row(fixture, id, manager, context) do
+    :ok = require_current_epoch(Map.get(context, :allbert_pack_epoch))
     row = find_case(fixture, id)
     result = invoke(fn -> manager.(row["prompt"], context) end)
     facts = manager_facts(result)
@@ -489,7 +508,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     {context, counter} = ProviderAttempt.attach(context)
 
     with {:ok, snapshot} <- fixture_snapshot(composition_case["snapshot"]),
+         :ok <- require_current_epoch(Map.get(context, :allbert_pack_epoch)),
          :ok <- authorize_result(invoke(fn -> authorizer.(profile, context) end)),
+         :ok <- require_current_epoch(Map.get(context, :allbert_pack_epoch)),
          {:ok, prepared} <-
            synthesis_result(
              invoke(fn ->
@@ -824,7 +845,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
           bindings: map()
         }
   def configure_profiles!(profile_name, opts \\ []) do
-    context = %{actor: "v13-fanout-eval", audit?: false}
+    {:ok, epoch} = EffectGuard.admit_ready()
+    :ok = EffectGuard.validate(epoch)
+    context = %{actor: "v13-fanout-eval", audit?: false, allbert_pack_epoch: epoch}
     mixed_mistral? = Keyword.get(opts, :mixed_mistral?, false)
 
     if mixed_mistral? and profile_name != "direct_answer_local" do
@@ -841,9 +864,12 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
     with {:ok, worker_profile} <- Settings.resolve_model_profile(profile_name),
          :ok <- validate_worker_profile(worker_profile, mixed_mistral?),
+         :ok <- validate_epoch(epoch),
          :ok <- maybe_seed_mixed_mistral(mixed_mistral?, context),
          {:ok, configured} <- resolve_role_profiles(names),
+         :ok <- validate_epoch(epoch),
          :ok <- enable_role_providers(configured, context),
+         :ok <- validate_epoch(epoch),
          {:ok, _} <-
            Settings.put("model_preferences.tasks.direct_answer", [profile_name], context),
          {:ok, _} <-
@@ -856,7 +882,13 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
          {:ok, %{profile: synthesis}} <- Models.for(:fanout_synthesis, context),
          {:ok, bindings} <-
            profile_bindings(%{worker: worker, manager: manager, synthesis: synthesis}) do
-      %{worker: worker, manager: manager, synthesis: synthesis, bindings: bindings}
+      %{
+        worker: worker,
+        manager: manager,
+        synthesis: synthesis,
+        bindings: bindings,
+        allbert_pack_epoch: epoch
+      }
     else
       {:error, reason} -> raise "unable to configure v1.3 fan-out profile: #{inspect(reason)}"
     end
@@ -910,6 +942,13 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     end)
   end
 
+  defp validate_epoch(epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> :ok
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
   defp profile_bindings(profiles) do
     Enum.reduce_while(profiles, {:ok, %{}}, fn {role, profile}, {:ok, bindings} ->
       case profile_binding(role, profile) do
@@ -959,35 +998,73 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp optional_sha256(value) when is_binary(value) and value != "", do: sha256(value)
   defp optional_sha256(_missing), do: nil
 
-  defp manager_context(_profile) do
+  defp manager_context(_profile, epoch) do
     %{
       actor: "local",
       user_id: "local",
       request: %{channel: :cli},
-      model_enabled?: true
+      model_enabled?: true,
+      allbert_pack_epoch: epoch
     }
   end
 
   # The control is one ordinary single-turn request on the Worker head: same
   # surface, same disclosure, no fan-out capability in the context.
-  defp control_context(_profile) do
+  defp control_context(_profile, epoch) do
     %{
       actor: "local",
       user_id: "local",
       request: %{channel: :cli},
-      model_enabled?: true
+      model_enabled?: true,
+      allbert_pack_epoch: epoch
     }
   end
 
-  defp direct_answer(text, context), do: DirectAnswer.run(%{text: text}, context)
+  defp direct_answer(text, context) do
+    :ok = require_current_epoch(Map.get(context, :allbert_pack_epoch))
+    DirectAnswer.run(%{text: text}, context)
+  end
 
-  defp composer_context(profile) do
+  defp composer_context(profile, epoch) do
     {:ok, limits} = Budget.limits()
 
     %{
       max_output_tokens: min(limit(profile, :max_tokens, 1_024), 1_024),
-      timeout_ms: Enum.min([limit(profile, :timeout_ms, 10_000), limits.max_elapsed_ms, 60_000])
+      timeout_ms: Enum.min([limit(profile, :timeout_ms, 10_000), limits.max_elapsed_ms, 60_000]),
+      allbert_pack_epoch: epoch
     }
+  end
+
+  defp require_current_epoch(epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> :ok
+      {:error, _reason} -> raise "Allbert product is not ready; retry the v1.3 fan-out eval."
+    end
+  end
+
+  # `run/2` is the public gate boundary. Production callers inherit the epoch
+  # admitted while configuring profiles; pure fixture callers admit once here.
+  # Every nested callback receives that same exact epoch rather than admitting
+  # independently.
+  defp ready_epoch!(opts) do
+    epochs =
+      for key <- [:manager_context, :control_context, :composer_context],
+          context = Keyword.get(opts, key),
+          is_map(context),
+          Map.has_key?(context, :allbert_pack_epoch),
+          do: Map.fetch!(context, :allbert_pack_epoch)
+
+    case Enum.uniq(epochs) do
+      [] ->
+        {:ok, epoch} = EffectGuard.admit_ready()
+        epoch
+
+      [epoch] ->
+        epoch
+
+      _conflicting_epochs ->
+        raise "Allbert product is not ready; conflicting Pack epochs were supplied."
+    end
   end
 
   defp authorize_composer(profile, _context) do

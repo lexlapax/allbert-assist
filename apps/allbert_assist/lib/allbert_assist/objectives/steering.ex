@@ -13,12 +13,20 @@ defmodule AllbertAssist.Objectives.Steering do
 
   def steer(user_id, objective_id, directive)
       when is_binary(user_id) and is_binary(objective_id) and is_binary(directive) do
-    with {:ok, objective} <- Objectives.get_objective(user_id, objective_id),
+    {:error, :product_not_ready}
+  end
+
+  @spec steer(String.t(), String.t(), String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def steer(user_id, objective_id, directive, context)
+      when is_binary(user_id) and is_binary(objective_id) and is_binary(directive) and
+             is_map(context) do
+    with :ok <- Objectives.validate_effect_context(context),
+         {:ok, objective} <- Objectives.get_objective(user_id, objective_id),
          :ok <- ensure_fanout_child(objective),
          :ok <- ensure_active(objective),
          {:ok, {objective, event}} <-
-           record_directive(objective, user_id, String.trim(directive)),
-         :ok <- cancel_parked_confirmation(objective, event.id) do
+           record_directive(objective, user_id, String.trim(directive), context),
+         :ok <- cancel_parked_confirmation(objective, event.id, context) do
       notify_runner(objective.id, event.id)
 
       if objective.fanout_role == "child",
@@ -38,7 +46,19 @@ defmodule AllbertAssist.Objectives.Steering do
   defp ensure_fanout_child(_objective), do: {:error, :not_fanout_child}
 
   @spec apply_pending(String.t()) :: {:ok, map()} | {:error, term()}
-  def apply_pending(objective_id) when is_binary(objective_id) do
+  def apply_pending(objective_id) when is_binary(objective_id), do: {:error, :product_not_ready}
+
+  @spec apply_pending(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def apply_pending(objective_id, context) when is_binary(objective_id) and is_map(context) do
+    with :ok <- Objectives.validate_effect_context(context),
+         {:ok, objective} <- Objectives.get_objective(objective_id) do
+      apply_pending_events(objective, context)
+    end
+  end
+
+  defp apply_pending_events(objective, context) do
+    objective_id = objective.id
+
     with {:ok, objective} <- Objectives.get_objective(objective_id) do
       events = Objectives.list_events(objective_id, limit: 200)
 
@@ -50,20 +70,20 @@ defmodule AllbertAssist.Objectives.Steering do
       events
       |> Enum.filter(&(&1.kind == "steer_directive" and not MapSet.member?(applied, &1.id)))
       |> Enum.reverse()
-      |> Enum.reduce_while({:ok, objective}, &apply_pending_event/2)
+      |> Enum.reduce_while({:ok, objective}, &apply_pending_event(&1, &2, context))
     end
   end
 
-  defp apply_pending_event(event, {:ok, current}) do
-    with :ok <- cancel_parked_confirmation(current, event.id),
-         {:ok, updated} <- apply_one(current, event) do
+  defp apply_pending_event(event, {:ok, current}, context) do
+    with :ok <- cancel_parked_confirmation(current, event.id, context),
+         {:ok, updated} <- apply_one(current, event, context) do
       {:cont, {:ok, updated}}
     else
       error -> {:halt, error}
     end
   end
 
-  defp record_directive(objective, user_id, directive) when directive != "" do
+  defp record_directive(objective, user_id, directive, context) when directive != "" do
     event_id = Objectives.new_id("evt")
 
     Repo.transaction(
@@ -71,14 +91,18 @@ defmodule AllbertAssist.Objectives.Steering do
         with {:ok, current} <- Objectives.get_objective(user_id, objective.id),
              :ok <- ensure_fanout_child(current),
              :ok <- ensure_active(current),
+             :ok <- Objectives.validate_effect_context(context),
              {:ok, event} <-
-               Objectives.create_event(%{
-                 id: event_id,
-                 objective_id: current.id,
-                 kind: "steer_directive",
-                 summary: "Operator steered objective",
-                 payload: %{directive: directive}
-               }) do
+               Objectives.create_event(
+                 %{
+                   id: event_id,
+                   objective_id: current.id,
+                   kind: "steer_directive",
+                   summary: "Operator steered objective",
+                   payload: %{directive: directive}
+                 },
+                 context
+               ) do
           {current, event}
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -92,30 +116,37 @@ defmodule AllbertAssist.Objectives.Steering do
     end
   end
 
-  defp record_directive(_objective, _user_id, ""), do: {:error, :empty_directive}
+  defp record_directive(_objective, _user_id, "", _context), do: {:error, :empty_directive}
 
-  defp cancel_parked_confirmation(objective, steering_event_id) do
+  defp cancel_parked_confirmation(objective, steering_event_id, context) do
     objective.id
     |> Objectives.list_steps()
     |> Enum.filter(&(&1.status == "blocked" and is_binary(&1.confirmation_id)))
     |> Enum.reduce_while(:ok, fn step, :ok ->
-      case cancel_confirmation(step.confirmation_id, steering_event_id) do
+      case cancel_confirmation(step.confirmation_id, steering_event_id, context) do
         :ok -> {:cont, :ok}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
   end
 
-  defp cancel_confirmation(confirmation_id, steering_event_id) do
+  defp cancel_confirmation(confirmation_id, steering_event_id, context) do
     case Confirmations.read(confirmation_id) do
       {:ok, %{"status" => "pending"}} ->
-        Confirmations.resolve(confirmation_id, "cancelled", %{
-          resolution_reason: "superseded_by_steer",
-          resolver_metadata: %{steering_event_id: steering_event_id},
-          decision_source: "operator_steering"
-        })
-        |> case do
-          {:ok, _record} -> :ok
+        with :ok <- Objectives.validate_effect_context(context),
+             {:ok, _record} <-
+               Confirmations.resolve(
+                 confirmation_id,
+                 "cancelled",
+                 %{
+                   resolution_reason: "superseded_by_steer",
+                   resolver_metadata: %{steering_event_id: steering_event_id},
+                   decision_source: "operator_steering"
+                 },
+                 context
+               ) do
+          :ok
+        else
           {:error, reason} -> {:error, reason}
         end
 
@@ -127,7 +158,7 @@ defmodule AllbertAssist.Objectives.Steering do
     end
   end
 
-  defp apply_one(objective, event) do
+  defp apply_one(objective, event, context) do
     directive = payload(event)["directive"]
 
     TerminalTransitions.transition_active_child(
@@ -141,6 +172,7 @@ defmodule AllbertAssist.Objectives.Steering do
       },
       "steer_applied",
       %{directive_event_id: event.id},
+      effect_context: context,
       signal: {:run_steered, %{}}
     )
   end

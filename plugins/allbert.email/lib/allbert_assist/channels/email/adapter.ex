@@ -169,7 +169,12 @@ defmodule AllbertAssist.Channels.Email.Adapter do
         {:ok, fields} ->
           fields = put_thread_fields(fields, state)
 
-          case insert_received_event(fields, uid, event_direction(fields, state)) do
+          case insert_received_event(
+                 fields,
+                 uid,
+                 event_direction(fields, state),
+                 state.effect_epoch
+               ) do
             {:ok, %AllbertAssist.Channels.Event{} = event} ->
               process_parsed_email(state, event, carry_epoch(fields, state), uid)
 
@@ -204,19 +209,19 @@ defmodule AllbertAssist.Channels.Email.Adapter do
            end),
          :ok <- record_outbound_ref(response, fields, delivered),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: "email"}),
-         {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+         {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
       :processed
     else
       {:command, action, confirmation_id} ->
         handle_email_command(state, event, fields, uid, action, confirmation_id)
 
       {:error, reason} ->
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         rejected_or_failed(reason)
     end
   end
 
-  defp insert_received_event(fields, uid, direction) do
+  defp insert_received_event(fields, uid, direction, epoch) do
     %{
       channel: "email",
       provider: @provider,
@@ -228,7 +233,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
       status: "received",
       payload_summary: payload_summary(fields)
     }
-    |> Channels.create_event()
+    |> Channels.create_event(%{allbert_pack_epoch: epoch})
     |> event_result()
   end
 
@@ -387,11 +392,11 @@ defmodule AllbertAssist.Channels.Email.Adapter do
            run_confirmation_action(action, confirmation_id, user_id, session_id, fields, uid),
          {:ok, subject, body, _html_body} <- render_confirmation_response(response, fields, state),
          {:ok, _delivered} <- deliver_reply(fields, subject, body, state),
-         {:ok, _event} <- mark_callback_processed(event, response, user_id, session_id) do
+         {:ok, _event} <- mark_callback_processed(event, response, user_id, session_id, fields) do
       :processed
     else
       {:error, reason} ->
-        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, _event} = mark_rejected_or_failed(event, reason, fields)
         rejected_or_failed(reason)
     end
   end
@@ -545,38 +550,46 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
   defp references(fields), do: "<#{fields.message_id}>"
 
-  defp mark_processed(event, response, user_id, session_id) do
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      thread_id: response_value(response, :thread_id),
-      input_signal_id: response_value(response, :input_signal_id),
-      trace_id: response_value(response, :trace_id)
-    })
+  defp mark_processed(event, response, user_id, session_id, context) do
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        thread_id: response_value(response, :thread_id),
+        input_signal_id: response_value(response, :input_signal_id),
+        trace_id: response_value(response, :trace_id)
+      },
+      context
+    )
   end
 
-  defp mark_rejected_or_failed(event, {:delivery_failed, reason}) do
-    Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))})
+  defp mark_rejected_or_failed(event, {:delivery_failed, reason}, context) do
+    Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))}, context)
   end
 
-  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}) do
-    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
+  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}, context) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"}, context)
   end
 
-  defp mark_rejected_or_failed(event, reason) do
-    Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
+  defp mark_rejected_or_failed(event, reason, context) do
+    Channels.update_event(event, %{status: "rejected", reason: inspect(reason)}, context)
   end
 
-  defp mark_callback_processed(event, response, user_id, session_id) do
+  defp mark_callback_processed(event, response, user_id, session_id, context) do
     runner_metadata = response_value(response, :runner_metadata) || %{}
 
-    Channels.update_event(event, %{
-      status: "processed",
-      user_id: user_id,
-      session_id: session_id,
-      input_signal_id: response_value(runner_metadata, :requested_signal_id)
-    })
+    Channels.update_event(
+      event,
+      %{
+        status: "processed",
+        user_id: user_id,
+        session_id: session_id,
+        input_signal_id: response_value(runner_metadata, :requested_signal_id)
+      },
+      context
+    )
   end
 
   defp rejected_or_failed({:delivery_failed, _reason}), do: :failed

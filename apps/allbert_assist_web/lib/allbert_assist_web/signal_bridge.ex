@@ -66,6 +66,14 @@ defmodule AllbertAssistWeb.SignalBridge do
 
   @impl true
   def handle_call({:open, epoch}, _from, state) do
+    if state.validate_fun.(epoch) != :ok do
+      {:reply, {:error, :unavailable}, state}
+    else
+      open_validated(epoch, state)
+    end
+  end
+
+  defp open_validated(epoch, state) do
     if epoch == state.epoch do
       {:reply, :ok, state}
     else
@@ -78,7 +86,7 @@ defmodule AllbertAssistWeb.SignalBridge do
           workspace: @workspace_pattern
         }
         |> Enum.map(fn {kind, pattern} ->
-          {kind, subscribe(kind, pattern, state.subscribe_fun)}
+          {kind, subscribe(kind, pattern, epoch, state)}
         end)
         |> Map.new()
 
@@ -163,7 +171,15 @@ defmodule AllbertAssistWeb.SignalBridge do
     :exit, _repo_unavailable -> nil
   end
 
-  defp subscribe(kind, pattern, subscribe_fun) do
+  defp subscribe(kind, pattern, epoch, %{subscribe_fun: subscribe_fun, validate_fun: validate_fun}) do
+    if validate_fun.(epoch) != :ok do
+      nil
+    else
+      subscribe_once(kind, pattern, subscribe_fun)
+    end
+  end
+
+  defp subscribe_once(kind, pattern, subscribe_fun) do
     case subscribe_fun.(AllbertAssist.SignalBus, pattern) do
       {:ok, subscription_id} ->
         subscription_id

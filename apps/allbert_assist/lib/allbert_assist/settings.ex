@@ -6,6 +6,7 @@ defmodule AllbertAssist.Settings do
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Jobs.Managed
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Memory.ReviewCadence
   alias AllbertAssist.Settings.ModelRoles
   alias AllbertAssist.Settings.Schema
@@ -24,8 +25,19 @@ defmodule AllbertAssist.Settings do
   defdelegate ensure_root!(), to: Store
   defdelegate read_user_settings(), to: Store
 
-  def write_user_settings(settings, opts \\ []) do
-    case Store.write_user_settings(settings, opts) do
+  # The central facade is an effect boundary.  Store remains deliberately pure
+  # so fixture/setup code can use it directly; product writes must carry E1.
+  def write_user_settings(settings, opts \\ []),
+    do: write_user_settings(settings, opts, %{})
+
+  def write_user_settings(settings, opts, context) when is_map(context) do
+    result =
+      with :ok <- validate_effect_epoch(context),
+           {:ok, _settings} = write_result <- Store.write_user_settings(settings, opts) do
+        write_result
+      end
+
+    case result do
       {:ok, _settings} = result ->
         _diagnostics = reconcile_direct_answer_disclosure()
         result
@@ -34,6 +46,8 @@ defmodule AllbertAssist.Settings do
         error
     end
   end
+
+  def write_user_settings(_settings, _opts, _context), do: {:error, :product_not_ready}
 
   # v1.0.2 M8.4: turn-scoped resolved-settings snapshot — pin one resolution
   # per intent turn / policy evaluation. See `Store.with_resolved_settings/1`
@@ -76,6 +90,9 @@ defmodule AllbertAssist.Settings do
     {storage_key, storage_value} = write_key_value(key, value)
 
     with :ok <- validate_write_alias_value(key, value),
+         # This remains adjacent to the Store mutation: none of the audit,
+         # signal, or post-write reconciliation paths run after E1 is stale.
+         :ok <- validate_effect_epoch(context),
          {:ok, settings, user_settings, diagnostics} <-
            Store.put_user_setting(storage_key, storage_value, context) do
       diagnostics =
@@ -465,4 +482,12 @@ defmodule AllbertAssist.Settings do
     do: Map.get(context, key, Map.get(context, Atom.to_string(key)))
 
   defp context_value(_context, _key), do: nil
+
+  defp validate_effect_epoch(%{allbert_pack_activation: _carrier}),
+    do: {:error, :product_not_ready}
+
+  defp validate_effect_epoch(%{allbert_pack_epoch: epoch} = context),
+    do: EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
+
+  defp validate_effect_epoch(_context), do: {:error, :product_not_ready}
 end

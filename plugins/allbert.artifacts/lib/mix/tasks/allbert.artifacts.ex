@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Redactor
 
   @shortdoc "Browse Artifacts Central metadata"
@@ -16,7 +17,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
 
     with {:ok, params} <- list_params(rest),
          {:ok, %{status: :completed, artifacts: artifacts}} <-
-           Runner.run("list_artifacts", params, cli_context()) do
+           run_with_ready_context("list_artifacts", params) do
       if artifacts == [] do
         Mix.shell().info("artifacts: none")
       else
@@ -34,7 +35,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   def run(["show", artifact_ref | _rest]) do
     Mix.Task.run("app.start")
 
-    case Runner.run("get_artifact", get_params(artifact_ref), cli_context()) do
+    case run_with_ready_context("get_artifact", get_params(artifact_ref)) do
       {:ok, %{status: :completed, artifact: artifact}} ->
         print_artifact_detail(artifact)
 
@@ -46,7 +47,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   def run(["threads", artifact_ref | _rest]) do
     Mix.Task.run("app.start")
 
-    case Runner.run("artifact_threads", artifact_ref_params(artifact_ref), cli_context()) do
+    case run_with_ready_context("artifact_threads", artifact_ref_params(artifact_ref)) do
       {:ok, %{status: :completed, links: []}} ->
         Mix.shell().info("artifact threads: none")
 
@@ -61,7 +62,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   def run(["doctor" | _rest]) do
     Mix.Task.run("app.start")
 
-    case Runner.run("artifact_doctor", %{}, cli_context()) do
+    case run_with_ready_context("artifact_doctor", %{}) do
       {:ok, %{status: :completed, doctor: doctor}} ->
         gc_last_check = raw_map_value(doctor, :gc_last_check, %{})
 
@@ -88,7 +89,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   def run(["rm", artifact_ref | _rest]) do
     Mix.Task.run("app.start")
 
-    case Runner.run("delete_artifact", artifact_ref_params(artifact_ref), cli_context()) do
+    case run_with_ready_context("delete_artifact", artifact_ref_params(artifact_ref)) do
       {:ok, %{status: :needs_confirmation, confirmation_id: confirmation_id, artifact: artifact}} ->
         Mix.shell().info(
           "artifact delete needs confirmation: #{confirmation_id} #{short_sha(artifact.sha256)}"
@@ -157,11 +158,20 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   defp artifact_ref_params("artifact://sha256/" <> _sha = uri), do: %{artifact_uri: uri}
   defp artifact_ref_params(sha), do: %{sha256: sha}
 
-  defp cli_context do
+  defp run_with_ready_context(action, params) do
+    with {:ok, epoch} <- EffectGuard.admit_ready() do
+      Runner.run(action, params, cli_context(epoch))
+    else
+      {:error, _reason} -> {:ok, %{status: :unavailable, error: :product_not_ready}}
+    end
+  end
+
+  defp cli_context(epoch) do
     %{
       actor: "local",
       user_id: "local",
       channel: :cli,
+      allbert_pack_epoch: epoch,
       request: %{
         user_id: "local",
         operator_id: "local",

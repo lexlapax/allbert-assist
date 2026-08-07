@@ -3,6 +3,8 @@ defmodule AllbertAssistWeb.SignalBridgeSupervisor do
 
   use DynamicSupervisor
 
+  alias AllbertAssistWeb.PackReadiness
+
   @spec start_link(keyword()) :: Supervisor.on_start()
   def start_link(opts \\ []) do
     DynamicSupervisor.start_link(__MODULE__, :ok, name: Keyword.get(opts, :name, __MODULE__))
@@ -10,6 +12,16 @@ defmodule AllbertAssistWeb.SignalBridgeSupervisor do
 
   @spec open(map(), DynamicSupervisor.supervisor()) :: {:ok, pid()} | {:error, term()}
   def open(epoch, supervisor \\ __MODULE__) when is_map(epoch) do
+    with :ok <- PackReadiness.validate(epoch) do
+      open_child(epoch, supervisor)
+    else
+      {:error, _reason} -> {:error, :unavailable}
+    end
+  catch
+    :exit, _reason -> {:error, :unavailable}
+  end
+
+  defp open_child(epoch, supervisor) do
     case DynamicSupervisor.start_child(supervisor, {AllbertAssistWeb.SignalBridge, []}) do
       {:ok, pid} ->
         case AllbertAssistWeb.SignalBridge.open(pid, epoch) do
@@ -24,8 +36,6 @@ defmodule AllbertAssistWeb.SignalBridgeSupervisor do
       {:error, _reason} = error ->
         error
     end
-  catch
-    :exit, _reason -> {:error, :unavailable}
   end
 
   @impl true

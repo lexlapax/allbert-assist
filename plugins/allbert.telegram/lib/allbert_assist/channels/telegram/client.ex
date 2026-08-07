@@ -3,6 +3,7 @@ defmodule AllbertAssist.Channels.Telegram.Client do
 
   alias AllbertAssist.External.HttpPolicy
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Pack.EffectGuard
 
   @base_url "https://api.telegram.org"
   @default_max_response_bytes 1_048_576
@@ -125,19 +126,25 @@ defmodule AllbertAssist.Channels.Telegram.Client do
     url = file_url(token, file_path)
     request_opts = [receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)]
 
-    with :ok <- validate_policy(:get, url, request_opts, max_response_bytes) do
-      [
-        method: :get,
-        url: url,
-        retry: false,
-        redirect: false,
-        decode_body: false,
-        receive_timeout: Keyword.get(request_opts, :receive_timeout),
-        into: capped_body(max_response_bytes)
-      ]
-      |> maybe_put(:plug, Keyword.get(opts, :plug))
-      |> Req.request()
-      |> normalize_file_response(max_response_bytes)
+    with {:ok, epoch} <- carried_epoch(opts),
+         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- validate_policy(:get, url, request_opts, max_response_bytes) do
+      request =
+        [
+          method: :get,
+          url: url,
+          retry: false,
+          redirect: false,
+          decode_body: false,
+          receive_timeout: Keyword.get(request_opts, :receive_timeout),
+          into: capped_body(max_response_bytes)
+        ]
+        |> maybe_put(:plug, Keyword.get(opts, :plug))
+
+      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+           response <- Req.request(request) do
+        normalize_file_response(response, max_response_bytes)
+      end
     end
   end
 
@@ -149,24 +156,39 @@ defmodule AllbertAssist.Channels.Telegram.Client do
 
     max_response_bytes = Keyword.get(opts, :max_response_bytes, @default_max_response_bytes)
 
-    with :ok <- validate_policy(method, url, request_opts, max_response_bytes) do
+    with {:ok, epoch} <- carried_epoch(opts),
+         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- validate_policy(method, url, request_opts, max_response_bytes) do
       request_opts =
         request_opts
         |> Keyword.delete(:params)
         |> Keyword.delete(:max_response_bytes)
 
-      [
-        method: method,
-        url: url,
-        retry: false,
-        redirect: false
-      ]
-      |> Keyword.merge(request_opts)
-      |> maybe_put(:plug, Keyword.get(opts, :plug))
-      |> Req.request()
-      |> normalize_response()
+      request =
+        [
+          method: method,
+          url: url,
+          retry: false,
+          redirect: false
+        ]
+        |> Keyword.merge(request_opts)
+        |> maybe_put(:plug, Keyword.get(opts, :plug))
+
+      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+           response <- Req.request(request) do
+        normalize_response(response)
+      end
     end
   end
+
+  defp carried_epoch(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> {:ok, epoch}
+      :error -> {:error, :product_not_ready}
+    end
+  end
+
+  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp validate_policy(method, url, request_opts, max_response_bytes) do
     uri = URI.parse(url)

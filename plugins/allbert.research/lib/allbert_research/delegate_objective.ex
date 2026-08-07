@@ -12,6 +12,7 @@ defmodule AllbertResearch.DelegateObjective do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
+  alias AllbertAssist.Pack.EffectGuard
 
   @doc """
   Create and execute one bounded research delegate objective.
@@ -32,6 +33,8 @@ defmodule AllbertResearch.DelegateObjective do
       run. Never durable — per ADR 0040 the session floor is not grantable.
     * `:source_intent` — objective provenance (default `"mix allbert.research"`).
     * `:trace_prefix` — trace id prefix (default `"cli_research"`).
+    * `:engine` — objective engine owner (defaults to the supervised production
+      engine; private test owners may be supplied explicitly).
 
   Returns `{:ok, run}` with `:command`, `:objective`, `:step`, `:result`,
   `:status`, and `:confirmation_id`, or `{:error, reason}`.
@@ -40,15 +43,23 @@ defmodule AllbertResearch.DelegateObjective do
   def start(user_id, target, opts \\ []) do
     command = command_for_target(target)
     trace_prefix = Keyword.get(opts, :trace_prefix, "cli_research")
+    engine = Keyword.get(opts, :engine, EngineAgent)
 
-    with {:ok, objective} <- create_objective(user_id, target, opts),
+    with {:ok, epoch} <- carried_epoch(opts),
+         :ok <- validate_epoch(epoch),
+         {:ok, objective} <- create_objective(user_id, target, opts),
+         :ok <- validate_epoch(epoch),
          {:ok, step} <- create_step(objective, command, target, user_id, opts),
+         :ok <- validate_epoch(epoch),
          {:ok, execute_result} <-
-           EngineAgent.execute_step(%{
+           EngineAgent.execute_step(engine, %{
              step_id: step.id,
-             trace_id: "#{trace_prefix}_#{System.unique_integer([:positive])}"
+             trace_id: "#{trace_prefix}_#{System.unique_integer([:positive])}",
+             allbert_pack_epoch: epoch
            }),
-         {:ok, objective} <- maybe_observe_completed(objective, execute_result, trace_prefix) do
+         :ok <- validate_epoch(epoch),
+         {:ok, objective} <-
+           maybe_observe_completed(objective, execute_result, trace_prefix, epoch, engine) do
       run = %{
         command: command,
         objective: objective,
@@ -58,8 +69,10 @@ defmodule AllbertResearch.DelegateObjective do
         confirmation_id: Map.get(execute_result, :confirmation_id)
       }
 
-      emit_research_result(run, target)
-      {:ok, run}
+      with :ok <- validate_epoch(epoch) do
+        emit_research_result(run, target)
+        {:ok, run}
+      end
     end
   end
 
@@ -120,21 +133,24 @@ defmodule AllbertResearch.DelegateObjective do
     |> maybe_put(:source_channel, channel_value(Keyword.get(opts, :channel)))
     |> maybe_put(:source_surface, surface_value(Keyword.get(opts, :surface)))
     |> maybe_put(:source_thread_id, thread_value(Keyword.get(opts, :source_thread_id)))
-    |> Objectives.create_objective()
+    |> Objectives.create_objective(%{allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)})
   end
 
   defp create_step(objective, command, target, user_id, opts) do
-    Objectives.create_step(%{
-      objective_id: objective.id,
-      kind: "delegate_agent",
-      status: "selected",
-      stage: "execute_step",
-      delegate_agent_id: AllbertResearch.Runtime.agent_id(),
-      action_params: %{
-        command: Atom.to_string(command),
-        params: params_for(command, target, user_id, opts)
-      }
-    })
+    Objectives.create_step(
+      %{
+        objective_id: objective.id,
+        kind: "delegate_agent",
+        status: "selected",
+        stage: "execute_step",
+        delegate_agent_id: AllbertResearch.Runtime.agent_id(),
+        action_params: %{
+          command: Atom.to_string(command),
+          params: params_for(command, target, user_id, opts)
+        }
+      },
+      %{allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)}
+    )
   end
 
   defp params_for(command, target, user_id, opts) do
@@ -159,24 +175,58 @@ defmodule AllbertResearch.DelegateObjective do
   defp channel_value(_channel), do: nil
 
   defp surface_value(surface) when is_binary(surface) and surface != "", do: surface
+
   defp surface_value(surface) when is_atom(surface) and not is_nil(surface),
     do: Atom.to_string(surface)
 
   defp surface_value(_surface), do: nil
 
-  defp maybe_observe_completed(objective, %{status: :completed, step: step}, trace_prefix)
+  defp maybe_observe_completed(
+         objective,
+         %{status: :completed, step: step},
+         trace_prefix,
+         epoch,
+         engine
+       )
        when not is_nil(step) do
-    case EngineAgent.observe_step(%{
-           step_id: step.id,
-           trace_id: "#{trace_prefix}_observe_#{System.unique_integer([:positive])}"
-         }) do
-      {:ok, %{objective: objective}} -> {:ok, objective}
-      {:error, _reason} -> Objectives.get_objective(objective.id)
+    with :ok <- validate_epoch(epoch) do
+      case EngineAgent.observe_step(engine, %{
+             step_id: step.id,
+             trace_id: "#{trace_prefix}_observe_#{System.unique_integer([:positive])}",
+             allbert_pack_epoch: epoch
+           }) do
+        {:ok, %{objective: objective}} -> {:ok, objective}
+        {:error, _reason} -> Objectives.get_objective(objective.id)
+      end
     end
   end
 
-  defp maybe_observe_completed(objective, _execute_result, _trace_prefix),
+  defp maybe_observe_completed(objective, _execute_result, _trace_prefix, _epoch, _engine),
     do: Objectives.get_objective(objective.id)
+
+  defp carried_epoch(opts) when is_list(opts) do
+    if Keyword.keyword?(opts) do
+      case Keyword.get_values(opts, :allbert_pack_epoch) do
+        [%{barrier_pid: pid, snapshot_digest: digest} = epoch]
+        when map_size(epoch) == 2 and is_pid(pid) and is_binary(digest) ->
+          {:ok, epoch}
+
+        _missing_duplicate_or_malformed ->
+          {:error, :product_not_ready}
+      end
+    else
+      {:error, :product_not_ready}
+    end
+  end
+
+  defp carried_epoch(_opts), do: {:error, :product_not_ready}
+
+  defp validate_epoch(epoch) do
+    case EffectGuard.validate(epoch) do
+      :ok -> :ok
+      {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)

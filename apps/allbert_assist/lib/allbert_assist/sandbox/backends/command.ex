@@ -14,7 +14,8 @@ defmodule AllbertAssist.Sandbox.Backends.Command do
       env: Keyword.get(opts, :env, []),
       cd: Keyword.get(opts, :cd, File.cwd!()),
       on_timeout: on_timeout,
-      execution_id: Keyword.get(opts, :execution_id, Ecto.UUID.generate())
+      execution_id: Keyword.get(opts, :execution_id, Ecto.UUID.generate()),
+      allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)
     ]
 
     case ProcessOwner.run(executable, args, owner_opts) do

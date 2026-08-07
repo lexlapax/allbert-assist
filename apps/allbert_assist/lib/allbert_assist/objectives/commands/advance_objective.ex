@@ -20,7 +20,7 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
          {:ok, execute_patch, execute_result, execute_directives} <-
            Commands.run_subcommand(
              Commands.ExecuteStep,
-             %{step_id: step.id, trace_id: trace_id(params, context)},
+             subcommand_params(step.id, params, context),
              context
            ),
          {:ok, executed_step} <- executed_step(execute_result),
@@ -28,7 +28,7 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
          {:ok, observe_patch, observe_result, observe_directives} <-
            Commands.run_subcommand(
              Commands.ObserveStep,
-             %{step_id: executed_step.id, trace_id: trace_id(params, context)},
+             subcommand_params(executed_step.id, params, context),
              context
            ) do
       state =
@@ -107,6 +107,16 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
   defp trace_id(params, context) do
     field(params, :trace_id) || field(context, :trace_id)
   end
+
+  defp subcommand_params(step_id, params, context) do
+    %{step_id: step_id, trace_id: trace_id(params, context)}
+    |> maybe_put_epoch(params)
+  end
+
+  defp maybe_put_epoch(params, %{allbert_pack_epoch: epoch}),
+    do: Map.put(params, :allbert_pack_epoch, epoch)
+
+  defp maybe_put_epoch(params, _legacy), do: params
 
   defp field(map, key), do: Maps.field_truthy(map, key)
 end

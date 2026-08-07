@@ -40,6 +40,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.FirstRun.Enablement
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings.ModelDoctor
   alias AllbertAssist.Signals
@@ -118,7 +119,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   defp pull(model, permission_decision, progress_context) do
     case do_pull(model, progress_context) do
       {:ok, summary, progress} ->
-        {message, output_data} = post_pull_enablement(model)
+        {message, output_data} = post_pull_enablement(model, progress_context)
 
         {:ok,
          %{
@@ -153,15 +154,21 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   # proves only the host-managed Ollama target. Model Doctor remains the
   # readiness authority for the configured profile endpoint, so a custom local
   # endpoint cannot be enabled by an unrelated model on localhost.
-  defp post_pull_enablement(model) do
+  defp post_pull_enablement(model, progress_context) do
     runner =
       Application.get_env(
         :allbert_assist,
         @post_pull_enablement_key,
-        &default_post_pull_enablement/1
+        &default_post_pull_enablement/2
       )
 
-    case runner.(model) do
+    result =
+      case :erlang.fun_info(runner, :arity) do
+        {:arity, 2} -> runner.(model, progress_context)
+        {:arity, 1} -> runner.(model)
+      end
+
+    case result do
       {:ok, result} when is_map(result) ->
         message = post_pull_message(model, result)
 
@@ -206,12 +213,18 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   defp post_pull_message(model, _result),
     do: "Pulled #{model}, but model answers are not ready. Review the Models panel."
 
-  defp default_post_pull_enablement(model) do
-    doctor = Application.get_env(:allbert_assist, @post_pull_doctor_key, &ModelDoctor.diagnose/1)
+  defp default_post_pull_enablement(model, progress_context) do
+    doctor =
+      Application.get_env(:allbert_assist, @post_pull_doctor_key, fn profile ->
+        ModelDoctor.diagnose(profile, progress_context)
+      end)
 
     Enablement.reconcile(:local_ready,
       doctor: doctor,
-      context: %{trigger: :model_pull, pulled_model: model}
+      context:
+        progress_context
+        |> Map.take([:allbert_pack_epoch])
+        |> Map.merge(%{trigger: :model_pull, pulled_model: model})
     )
   end
 
@@ -226,7 +239,8 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   end
 
   defp default_pull(model, progress_context) do
-    with {:ok, url} <- Ollama.local_url("/api/pull") do
+    with {:ok, epoch} <- carried_epoch(progress_context),
+         {:ok, url} <- Ollama.local_url("/api/pull") do
       opts =
         [
           method: :post,
@@ -240,26 +254,32 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
         ]
         |> Keyword.merge(Application.get_env(:allbert_assist, @req_options_key, []))
 
-      case Req.request(opts) do
-        {:ok, %{status: 200} = resp} ->
-          {events, progress} =
-            resp
-            |> collector()
-            |> flush_collector(model, progress_context)
+      with :ok <- EffectGuard.validate(epoch),
+           result <- Req.request(opts) do
+        case result do
+          {:ok, %{status: 200} = resp} ->
+            {events, progress} =
+              resp
+              |> collector()
+              |> flush_collector(model, progress_context)
 
-          {:ok, summarize_events(events), progress}
+            {:ok, summarize_events(events), progress}
 
-        {:ok, %{status: code}} ->
-          {:error, {:http, code}}
+          {:ok, %{status: code}} ->
+            {:error, {:http, code}}
 
-        {:error, %Req.TransportError{} = error} ->
-          {:error, error.reason}
+          {:error, %Req.TransportError{} = error} ->
+            {:error, error.reason}
 
-        {:error, reason} ->
-          {:error, reason}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end
     end
   end
+
+  defp carried_epoch(%{allbert_pack_epoch: epoch}), do: {:ok, epoch}
+  defp carried_epoch(_context), do: {:error, :product_not_ready}
 
   defp normalize_pull_result({:ok, summary, progress}), do: {:ok, summary, progress}
   defp normalize_pull_result({:ok, summary}), do: {:ok, summary, []}
@@ -410,7 +430,8 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
           Map.get(params, "thread_id"),
           context_value(context, :thread_id),
           request_value(context, :thread_id)
-        ])
+        ]),
+      allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
     }
   end
 

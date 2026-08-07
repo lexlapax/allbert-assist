@@ -119,6 +119,11 @@ config :allbert_assist, AllbertAssist.Jobs.Scheduler,
   enabled?: false,
   managed_reconcile_on_start?: false
 
+# The application-level fan-out scheduler starts before ExUnit can grant SQL
+# sandbox ownership. Focused tests exercise startup rehydration explicitly with
+# injected loaders; the suite-owned scheduler remains quiescent at boot.
+config :allbert_assist, AllbertAssist.Objectives.Runs.Scheduler, rehydrate?: false
+
 config :allbert_assist, AllbertAssist.Workspace.Fragment.SigningSecret, bootstrap_on_start?: false
 
 config :allbert_assist, StockSage.Agents.LLM, enabled?: false

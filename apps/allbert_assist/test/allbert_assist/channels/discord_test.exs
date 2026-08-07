@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   alias AllbertAssist.Channels.Discord.Client.GatewayPort
   alias AllbertAssist.Channels.Discord.Parser
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -625,7 +626,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
   test "adapter rejects channel messages when inbound trust is denied" do
     assert {:ok, _setting} =
-             Settings.put("permissions.channel_message_inbound", "denied", %{audit?: false})
+             put_setting("permissions.channel_message_inbound", "denied", %{audit?: false})
 
     assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
 
@@ -853,7 +854,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
   defp configure_discord do
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.discord.bot_token_ref",
                "secret://channels/discord/bot_token",
                %{
@@ -862,16 +863,16 @@ defmodule AllbertAssist.Channels.DiscordTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.discord.application_id", "123456", %{audit?: false})
+             put_setting("channels.discord.application_id", "123456", %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.discord.allowed_guild_ids", ["987654321"], %{audit?: false})
+             put_setting("channels.discord.allowed_guild_ids", ["987654321"], %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("channels.discord.allowed_channel_ids", ["22222"], %{audit?: false})
+             put_setting("channels.discord.allowed_channel_ids", ["22222"], %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put(
+             put_setting(
                "channels.discord.identity_map",
                [%{"external_user_id" => "11111", "user_id" => "alice", "enabled" => true}],
                %{audit?: false}
@@ -886,15 +887,18 @@ defmodule AllbertAssist.Channels.DiscordTest do
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "discord-test"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "discord-test"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
 
   defp gateway_state(overrides) do
@@ -939,4 +943,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
       100 -> flunk("expected Discord capture message")
     end
   end
+
+  defp put_setting(key, value, context),
+    do: Settings.put(key, value, ReadyEffectContext.attach(context))
 end

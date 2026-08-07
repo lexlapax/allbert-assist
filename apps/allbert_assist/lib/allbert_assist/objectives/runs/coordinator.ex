@@ -19,6 +19,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler, Supervisor}
   alias AllbertAssist.Objectives.Runs.Worker.Grounding
   alias AllbertAssist.Objectives.Steering
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
 
@@ -57,10 +58,21 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         {:ok,
          %{
            parent_id: parent_id,
+           allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch),
+           effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
+           effect_guard_opts:
+             Keyword.get(
+               opts,
+               :allbert_pack_effect_guard_opts,
+               Keyword.get(opts, :effect_guard_opts, [])
+             ),
            run_opts: Keyword.get(opts, :run_opts, []),
            monitors: %{},
            recovery?: recovery?,
-           join_reconciler: Keyword.get(opts, :join_reconciler, &Fanout.reconcile_parent/2),
+           join_reconciler:
+             Keyword.get(opts, :join_reconciler, fn parent_id, reconcile_opts ->
+               Fanout.reconcile_parent(parent_id, reconcile_opts)
+             end),
            join_retry_count: 0,
            run_starter:
              Keyword.get(opts, :run_starter, fn child_spec ->
@@ -193,7 +205,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp reconcile_missing_run(%{status: "blocked"} = child, state) do
-    case Objectives.Lifecycle.reconcile_blocked(child.id) do
+    case Objectives.Lifecycle.reconcile_blocked(child.id, effect_context_opts(state)) do
       {:ok, :runnable} ->
         request_or_start(child.id, state)
 
@@ -240,8 +252,26 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp start_run(child_id, state) do
-    opts = [child_id: child_id, parent_id: state.parent_id, coordinator: self()] ++ state.run_opts
+    opts =
+      [
+        child_id: child_id,
+        parent_id: state.parent_id,
+        coordinator: self(),
+        allbert_pack_epoch: state.allbert_pack_epoch,
+        allbert_pack_effect_guard_opts: state.effect_guard_opts
+      ] ++ state.run_opts
 
+    case validate_epoch(state) do
+      :ok ->
+        start_run_child(child_id, opts, state)
+
+      {:error, _reason} ->
+        Scheduler.release(child_id)
+        schedule_run_start_retry(state, child_id)
+    end
+  end
+
+  defp start_run_child(child_id, opts, state) do
     case state.run_starter.({RunServer, opts}) do
       {:ok, pid} ->
         monitor_run(child_id, pid, state)
@@ -258,6 +288,9 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         schedule_run_start_retry(state, child_id)
     end
   end
+
+  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts, allbert_pack_epoch: epoch}),
+    do: guard.validate(epoch, opts)
 
   defp handle_run_down(child_id, reason, state) do
     state = %{state | monitors: Map.delete(state.monitors, child_id)}
@@ -372,10 +405,9 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
   defp reconcile_quality_protocol_upgrade(child, state) do
     transition_opts =
-      recovery_transition_opts(
-        state,
-        {:run_failed, %{reason: "quality_protocol_upgrade_required"}}
-      )
+      state
+      |> recovery_transition_opts({:run_failed, %{reason: "quality_protocol_upgrade_required"}})
+      |> Keyword.put(:allbert_pack_epoch, state.allbert_pack_epoch)
 
     case Objectives.Lifecycle.reconcile_quality_protocol_upgrade(child, transition_opts) do
       {:ok, :current} ->
@@ -499,7 +531,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
          :fail_quality_protocol_upgrade = intent,
          state
        ) do
-    case Steering.apply_pending(child.id) do
+    case Steering.apply_pending(child.id, effect_context(state)) do
       {:ok, _steered} ->
         schedule_recovery_transition_retry(
           state,
@@ -546,13 +578,18 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp recovery_transition_opts(state, signal) do
-    [transaction_hook: state.recovery_transaction_hook, signal: signal]
+    [
+      transaction_hook: state.recovery_transaction_hook,
+      signal: signal,
+      effect_context: effect_context(state)
+    ]
   end
 
   defp reconcile_pending_steering_before_review(child, reason, state) do
     reason_text = bounded_review_reason("uncertain_effect", reason)
 
-    with {:ok, steered} <- Steering.apply_pending(child.id) do
+    with {:ok, steered} <-
+           Steering.apply_pending(child.id, effect_context(state)) do
       TerminalTransitions.transition_active_child(
         steered,
         %{status: "blocked", review_reason: reason_text},
@@ -624,7 +661,10 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   defp maybe_join(state) do
     case reconcile_join(state) do
       {:ok, {joined, parent}} when joined in [:joined_now, :already_joined] ->
-        case Objectives.Lifecycle.reconcile_confirmation_outcomes(parent.id) do
+        case Objectives.Lifecycle.reconcile_confirmation_outcomes(
+               parent.id,
+               effect_context(state)
+             ) do
           :ok ->
             :ok
 
@@ -666,7 +706,11 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp reconcile_join(state) do
-    state.join_reconciler.(state.parent_id, recovered?: state.recovery?)
+    state.join_reconciler.(
+      state.parent_id,
+      recovered?: state.recovery?,
+      effect_context: effect_context(state)
+    )
   rescue
     exception ->
       if TransientError.transient?(exception) do
@@ -684,6 +728,18 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         exit(reason)
       end
   end
+
+  defp effect_context(state),
+    do: %{
+      allbert_pack_epoch: state.allbert_pack_epoch,
+      allbert_pack_effect_guard_opts: state.effect_guard_opts
+    }
+
+  defp effect_context_opts(state),
+    do: [
+      allbert_pack_epoch: state.allbert_pack_epoch,
+      allbert_pack_effect_guard_opts: state.effect_guard_opts
+    ]
 
   defp retry_join(%{join_retry_count: retries} = state) do
     delay =

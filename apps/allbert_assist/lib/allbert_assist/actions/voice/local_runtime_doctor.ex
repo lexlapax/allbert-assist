@@ -26,7 +26,11 @@ defmodule AllbertAssist.Actions.Voice.LocalRuntimeDoctor do
   @impl true
   def run(_params, context) do
     permission_decision = PermissionGate.authorize(:voice_local_runtime_manage, context)
-    doctor = LocalRuntime.doctor()
+
+    doctor =
+      LocalRuntime.doctor(
+        req_options: [allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)]
+      )
 
     {:ok,
      %{

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Channels do
 
   alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Channels.Event
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
@@ -42,8 +43,11 @@ defmodule AllbertAssist.Channels do
     :receipt_outcome
   ]
 
-  @spec create_event(map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t()}
-  def create_event(attrs) when is_map(attrs) do
+  @spec create_event(map()) :: {:error, :product_not_ready}
+  def create_event(attrs) when is_map(attrs), do: create_event(attrs, %{})
+
+  @spec create_event(map(), map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def create_event(attrs, context) when is_map(attrs) and is_map(context) do
     attrs =
       attrs
       |> atomize_known_keys(@known_event_keys)
@@ -53,25 +57,36 @@ defmodule AllbertAssist.Channels do
       |> redact_event_attrs()
       |> bound_summary_fields()
 
-    %Event{}
-    |> Event.changeset(attrs)
-    |> Repo.insert()
-    |> tap_event(&emit_created_signals/1)
+    # Keep the E1 check immediately next to the persistence effect.  In
+    # particular, a same-digest replacement must not reach Repo or signals.
+    with :ok <- validate_effect_epoch(context),
+         result <- %Event{} |> Event.changeset(attrs) |> Repo.insert() do
+      tap_event(result, &emit_created_signals/1)
+    end
   end
 
-  @spec update_event(Event.t(), map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t()}
-  def update_event(%Event{} = event, attrs) when is_map(attrs) do
+  def create_event(_attrs, _context), do: {:error, :product_not_ready}
+
+  @spec update_event(Event.t(), map()) :: {:error, :product_not_ready}
+  def update_event(%Event{} = event, attrs) when is_map(attrs),
+    do: update_event(event, attrs, %{})
+
+  @spec update_event(Event.t(), map(), map()) ::
+          {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
+  def update_event(%Event{} = event, attrs, context) when is_map(attrs) and is_map(context) do
     attrs =
       attrs
       |> atomize_known_keys(@known_event_keys)
       |> redact_event_attrs()
       |> bound_summary_fields()
 
-    event
-    |> Event.changeset(attrs)
-    |> Repo.update()
-    |> tap_event(&emit_updated_signals(event, &1))
+    with :ok <- validate_effect_epoch(context),
+         result <- event |> Event.changeset(attrs) |> Repo.update() do
+      tap_event(result, &emit_updated_signals(event, &1))
+    end
   end
+
+  def update_event(_event, _attrs, _context), do: {:error, :product_not_ready}
 
   @spec get_event_by_external_id(String.t(), String.t()) :: Event.t() | nil
   def get_event_by_external_id(channel, external_event_id)
@@ -462,4 +477,12 @@ defmodule AllbertAssist.Channels do
   defp known_key(key, known_keys) when is_binary(key) do
     Enum.find(known_keys, key, &(Atom.to_string(&1) == key))
   end
+
+  defp validate_effect_epoch(%{allbert_pack_activation: _carrier}),
+    do: {:error, :product_not_ready}
+
+  defp validate_effect_epoch(%{allbert_pack_epoch: epoch} = context),
+    do: EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
+
+  defp validate_effect_epoch(_context), do: {:error, :product_not_ready}
 end
