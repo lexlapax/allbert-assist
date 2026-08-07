@@ -11,6 +11,12 @@ before any file moves, so binding every other kernel milestone while omitting it
 would leave the central invariant unbound. Closeout evidence records the
 implemented inventory; it does not reopen the decisions in this ADR.
 
+Implementation sequencing clarification (2026-08-06): M1.a creates the minimal
+kernel/composition OTP application shells required to realize §§1–4 and freezes
+Pack behavior before the action sweep. M8 later populates that existing kernel
+with only the R2-frozen relocation targets. This is the original ownership
+decision made executable, not a new tier or scope change.
+
 The v1.4 M0 admission audit found no eligible ADR 0046 consumer, and the
 operator selected migration option A on 2026-08-06. Consequently v1.4 realizes
 no maintenance projection or runtime migration machinery. The additive
@@ -23,8 +29,9 @@ operator decision 2026-08-06. That document is analysis; this ADR is the
 decision. Where they disagree, this ADR wins — and they do disagree in two
 places, recorded in Consequences.
 
-Amends **ADR 0017** (plugin contract) and **ADR 0031** (settings schema
-fragments and authority), both of which remain in force. Adds application
+Amends **ADR 0017** (plugin contract), **ADR 0031** (settings schema fragments
+and authority), and the entry-owner clauses of **ADR 0076** (packaging and
+unified CLI); all remain in force outside the stated amendments. Adds application
 ownership and pack-contract evidence to the public-contract inventory while
 keeping every v1.0 obligation binding (see §7).
 
@@ -96,9 +103,15 @@ later named packs.
 Composition hosts such as the release and web applications may depend on the
 kernel and packs to assemble a product, but they do not thereby become a third
 capability tier. v1.4 realizes this role as descriptorless
-`allbert_composition`, owner of `AllbertAssist.Pack.CompositionCoordinator`.
-Domain behavior placed in it or any other composition host still violates this
-decision.
+`allbert_composition`, owner of `AllbertAssist.Pack.CompositionCoordinator`,
+`AllbertAssist.Pack.ProductBootstrap`, and
+`AllbertAssist.Pack.ProductCLI`. ProductCLI owns only source/packaged entry
+orchestration—attach-first selection and fail-closed composition bootstrap—and
+delegates command classification and rendering downward through the residual
+`AllbertAssist.CLI` plan contract. Neither the kernel nor residual depends
+upward on composition. These modules assemble the product; they contribute no
+domain capability or Pack descriptor. Domain behavior placed in them or any
+other composition host still violates this decision.
 
 ### 2. The invariant is compile-enforced, not linted
 
@@ -140,9 +153,11 @@ unrelated to the plane.
 That inversion work may change source and therefore is not part of relocation.
 **A relocation that changes a relocated module's content is not a relocation.**
 Once the dependency-closure gate is green, v1.4 M8 is a pure `git mv` of source
-and tests plus application/dependency declarations. Blob equality for moved
-files and the absence of kernel-to-pack compile edges are release evidence. The
-operator decision keeps relocation in v1.4, with this serial barrier binding.
+and tests into the M1.a-created kernel plus only move-manifest-approved
+dependency/resource deltas. It does not scaffold the application or edit the
+Pack files already resident there. Blob equality for moved files and the absence
+of kernel-to-pack compile edges are release evidence. The operator decision
+keeps relocation in v1.4, with this serial barrier binding.
 
 ### 4. Pack identity, discovery, and contribution contract
 
@@ -306,15 +321,41 @@ not contain a shipped-pack list. An effectful pack child starts dormant and
 subscribes with its validated pack id after its application supervisor is up.
 The coordinator finalizes a descriptor snapshot, starts/verifies the expected
 applications in the frozen DAG, then opens the barrier with that snapshot's
-digest and expected pack ids. A subscriber receives at most one ready result per
-snapshot digest; a late subscriber receives the already-open result. Until
-then it performs no transport, job, provider, or other effect. M0 freezes the
-exact call/message shape, bounded timeout, diagnostics, and supervision/restart
-semantics. A timeout or coordinator/barrier failure keeps product readiness
-false and stops/restarts the affected composition subtree; it never lets an
-already-dormant child infer readiness. Tests prove one-shot activation, late
-subscription, timeout, coordinator restart before and after opening, and zero
-effect on every failure path.
+digest and expected pack ids. A subscriber receives at most one activation per
+barrier epoch; a subscriber arriving during the bounded opening handshake is
+included deterministically. Until then it performs no transport, job, provider,
+or other effect. M0 froze these behavioral requirements and restart invariant;
+M1.a3 freezes the exact call/message/ACK shape, timeout, diagnostics, and
+supervision protocol before implementation. Product readiness follows only
+after every required gate acknowledges successful activation. Timeout, NACK,
+required-subscriber loss, or coordinator/barrier failure keeps or returns
+product readiness false and stops/restarts the affected composition/effect
+subtrees; it never lets a dormant child infer readiness. Tests prove one-shot
+activation per epoch, subscription during opening, acknowledged readiness,
+timeout/NACK/loss handling, coordinator restart before and after readiness, zero
+collecting-phase effects, only rostered authorizing-boot effects, and zero
+surviving effect processes after post-open loss.
+Kernel-owned `AllbertAssist.Pack.EffectGuard` validates the exact barrier-pid/
+snapshot-digest token at public and steady-state effect boundaries through the
+sole public `:allbert_pack_epoch` context/option key. The separate internal
+`AllbertAssist.Pack.ActivationContext` is accepted only at generated,
+roster-proven boot-completion callsites. Generic kernel
+`AllbertAssist.Pack.ActivationGuard` contains no shipped ids or callsite list and
+validates only the exact live `:authorizing` pack/gate/barrier/reference/digest
+tuple held by Readiness; ACK atomically revokes it. The carrier is rejected at
+every public boundary. Surfaces and residual steady-state code carry the ready
+token downward; they do not infer readiness or depend on Web admission state.
+Both guards are liveness only and never grant Security authority.
+
+The v1.0 freeze forbids turning a missing v1.4 carrier into a ready-phase break
+at an existing public facade. Generated compatibility rows therefore preserve
+the frozen `AllbertAssist.Actions.Runner.run/3`, its retained pre-v1.4 default-
+argument `/2` export, and `AllbertAssist.Runtime.submit_user_input/1`: with no
+carrier the owning facade admits one
+already-ready epoch and revalidates exactly that epoch at the final boundary,
+without starting composition or substituting a replacement epoch. New and
+first-party surface paths carry their original admitted epoch; the compatibility
+path is not a way for stale E1 work to join E2.
 
 No maintenance exception ships in v1.4. A future carrier that satisfies ADR
 0046's admission rule must separately bind a closed maintenance topology; Pack
@@ -603,6 +644,12 @@ radius, not build speed, and claiming otherwise would oversell it.
 expected: this release creates the boundary, not the whole kernel. Turn Engine
 consolidation is the one change that genuinely needs a major and is reserved for
 2.0.
+
+The boundary lands in two mechanically distinct stages: M1.a creates the small
+application shell and kernel-owned Pack substrate so ownership and dependency
+direction are compile-enforced during inversion; M8 adds the remaining concerns
+through the R2 hash-pure move manifest. Only the latter bytes participate in the
+relocation identity proof.
 
 Two of the source analysis's recommendations were **overridden** by the
 2026-08-06 operator decision, and this ADR records the override rather than the

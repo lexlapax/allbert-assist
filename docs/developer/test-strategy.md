@@ -1713,8 +1713,10 @@ defense.
 
 `release.v14` is a bounded, non-stacking structural/behavioral delta. It owns
 pack contribution ordering and collision proofs, Settings-fragment composition
-and explicit migration/rollback, direct Security authorization after
-`PermissionGate` retirement, current-roster parameter-contract reconciliation,
+plus the M0-proven empty/inert `settings_migrations/0` seam (no v1.4 runner,
+maintenance projection, migration FV, or rollback row), direct Security
+authorization after `PermissionGate` retirement, current-roster
+parameter-contract reconciliation,
 complete action-envelope parity, gate-owner manifests, kernel dependency
 direction, pure-relocation hashes, pack release/license assets, and the v1.4
 topology supplement. It must not invoke predecessor gates, `release`, or
@@ -1722,6 +1724,44 @@ topology supplement. It must not invoke predecessor gates, `release`, or
 supplement never weakens the frozen v1 contract. The active v1.4 plan names the
 exact focused files, serial lanes, checkpoint handoffs, packaged feature rows,
 and the one final aggregate rejoin.
+
+M1.a is checkpointed as M1.a1 boundary/projection, M1.a2 shadow registry, and
+M1.a3 readiness/effect activation. Each is one logical handoff represented by
+adjacent commits: implementation/docs/manifest SHA `A`, then docs-only evidence
+SHA `B`. Commit unpushed `A`, run preflight first and all assigned focused,
+affected serial, assembly, `release.v1`, predecessor-compatibility, and
+`precommit` gates with `HEAD == A`, clean tree, `full_sha == A`, and
+`dirty == false`; a failure replaces unpushed `A` and repeats the entire clean
+handoff set. `B` records only `A`'s results, then runs exact-clean
+`git diff --check HEAD^..HEAD` and the docs gate. Verify `HEAD^ == A` and push the pair
+together before the successor. Dirty rows remain iteration diagnostics, never
+checkpoint evidence. After fixture reconciliation, M1.a1 runs the first bounded
+assembled-release finalizer smoke; M1.a3 reruns it for activated packaged entry
+topology. The frozen `release.v132` definition is not edited and repeats once at
+the M1.a3 implementation-SHA handoff.
+
+The same adjacent `A`/`B` protocol applies to every later v1.4 numbered
+implementation milestone and named source checkpoint. Artifact generations and
+promotion are external-evidence phases; tracked-byte remediation returns to a
+new source pair. This is how milestone metrics remain exact-clean without a
+commit attempting to contain or test its own not-yet-known SHA.
+
+M1.a1 generalizes owner-lane execution as
+`mix allbert.test serial-owner --owner OWNER --lane LANE --partitions N`.
+Owners resolve from the checked owner/CWD inventory; `kernel` and `composition`
+join the existing owner set, unknown owner/lane pairs fail, and `serial-core`
+remains a compatibility alias for `serial-owner --owner core`. The existing
+per-partition temporary Home/database, sparse-empty, and structured-metrics
+contracts apply unchanged. `external_runtime_serial` and
+`security_eval_serial` remain single-VM lanes and reject any partition count
+other than one for every owner. An M1.a checkpoint records metric identities as the
+tuple of full SHA, gate, owner, lane, partition, and partition count. M1.a1's
+`release-assembly --checkpoint v14-m1a1` wrapper likewise owns its disposable
+Home and appends wall-time plus `.rel`, raw-`.app`, and sealed Pack-projection
+digests. M1.a3's `--checkpoint v14-m1a3` mode repeats those assertions and adds
+composition `.app`, ProductCLI/ProductBootstrap/Coordinator membership,
+packaged launcher target, pure help/version no-state smoke, and entrypoint
+digests. Raw `mix release` output alone is not handoff evidence.
 
 `release.v18` follows the same non-stacking rule. It is a bounded v1.8 delta
 whose steps own profiling, confirmed role-remap customization/recovery,

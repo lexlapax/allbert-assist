@@ -385,7 +385,7 @@ rather than assigning the same foundation to a later release.
    flagship: the kernel application and Pack contribution boundary; triad
    `docs/plans/v1.4-plan.md` + request-flow; constrained by ADR 0046's admission
    rule and ADR 0065, plus ADR 0098 for the kernel inversions. M0 / R0 passed
-   2026-08-06 at exact-clean pushed SHA `df68a4b65`; M1.a is next. No planned
+   2026-08-06 at exact-clean pushed SHA `df68a4b65`; M1.a1 is next. No planned
    candidate is an eligible real ADR 0046 migration, so
    approved option A keeps the runner deferred and removes its maintenance/FV/
    DoD scope from v1.4.**) The settings and action spine, sequenced first because
@@ -401,6 +401,10 @@ rather than assigning the same foundation to a later release.
    closure/inversion before pure relocation of Home/Paths, Security Central
    with `HttpPolicy`, and the Capability plane, and
    **three proven pack extractions** (`notes_files`, then telegram and email).
+   M1.a creates the minimal kernel/composition application boundaries and Pack
+   substrate; M8 later populates the existing kernel with only R2-frozen
+   hash-pure relocation targets. This sequencing makes the accepted ownership
+   executable without weakening the pure-move proof.
    M0 freezes descriptorless `allbert_composition` as the non-capability
    coordinator host and completed the independent gate-root reconciliation at
    652 test files/4,627 manifest rows before any inversion; the durable M0

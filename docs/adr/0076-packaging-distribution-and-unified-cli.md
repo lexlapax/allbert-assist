@@ -265,6 +265,34 @@ same way; relying on `eval` to have started it is a defect. The release smoke re
 (M8.8) now exercises a bare/first-run command through the packaged `eval` path so this
 class of "loaded-not-started" gap is caught before an operator.
 
+## Amendment (v1.4 M1.a3, 2026-08-06) — composition owns entry orchestration
+
+ADR 0098 moves only the shared entry owner. Descriptorless
+`allbert_composition` owns both `AllbertAssist.Pack.ProductCLI.run_entry/1` and
+`main/1`. `run_entry/1` owns the required pre-dispatch Req startup, attach-first
+selection, readiness-bound embedded bootstrap, and returned stream/output/code
+tuple; `main/1` alone prints and halts. Residual `AllbertAssist.CLI`
+retains the single command table, classifier/EntryPlan, renderer, and attached/
+local dispatch APIs; neither residual nor kernel depends upward on composition.
+The old residual `main/1` and `run_entry/1` owners retire rather than delegate
+upward.
+
+The behavioral decisions in this ADR remain unchanged. `licenses` is still
+classified before Req, attachment, or product bootstrap and still reads only
+packaged evidence. Other runtime-free paths preserve the v0.63 idempotent Req
+startup where the entry plan assigns it. Runtime-needing paths receive an exact
+Pack epoch and fail closed before effect when readiness is missing or stale.
+Raw release eval remains an explicit unsafe operator/debug escape; repository-
+owned product validation must use the v1.4 ProductBootstrap guard.
+Residual compatibility `AllbertAssist.CLI.run/1` and `run_attached/1` preserve
+ready-phase dispatch by admitting one already-ready kernel epoch and
+revalidating that exact token at the effect boundary; neither starts
+composition, attaches, or retries against a replacement epoch. ProductCLI and
+Runtime Attach production paths continue to carry their bootstrap/daemon-
+admitted epochs instead. An Attach readiness rejection uses the additive
+existing-wire error `{:error, {:command_rejected, :product_not_ready}}` and is a
+final stderr/exit-3 result, never a transport-failure fallback.
+
 ## Amendment (v1.0.5 M8, 2026-07-21) — cross-process settings and service lifecycle
 
 The signed `v1.0.5-rc.1` WSL2 rehearsal exposed two packaged-process failures
