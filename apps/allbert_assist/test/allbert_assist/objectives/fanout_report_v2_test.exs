@@ -647,14 +647,17 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       summary = "registered action result #{child.queue_position}"
 
       assert {:ok, step} =
-               Objectives.create_step(%{
-                 objective_id: child.id,
-                 kind: "action",
-                 status: "completed",
-                 stage: "observe_step",
-                 candidate_action: "append_memory",
-                 result_summary: summary
-               })
+               Objectives.create_step(
+                 %{
+                   objective_id: child.id,
+                   kind: "action",
+                   status: "completed",
+                   stage: "observe_step",
+                   candidate_action: "append_memory",
+                   result_summary: summary
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, _child} =
                child
@@ -667,15 +670,18 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                |> Repo.update()
 
       assert {:ok, _event} =
-               Objectives.create_event(%{
-                 objective_id: child.id,
-                 kind: "run_completed",
-                 payload: %{
-                   summary: summary,
-                   step_id: step.id,
-                   step_status: "completed"
-                 }
-               })
+               Objectives.create_event(
+                 %{
+                   objective_id: child.id,
+                   kind: "run_completed",
+                   payload: %{
+                     summary: summary,
+                     step_id: step.id,
+                     step_status: "completed"
+                   }
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end)
 
     assert {:ok, terminal_parent} =
@@ -699,16 +705,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              |> Repo.update()
 
     assert {:ok, _join_event} =
-             Objectives.create_event(%{
-               objective_id: parent.id,
-               kind: "fanout_joined",
-               payload: %{
-                 status: "completed",
-                 join_outcome: "success",
-                 report_composition_state: "queued",
-                 report_input_digest: frozen.input_digest
-               }
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: parent.id,
+                 kind: "fanout_joined",
+                 payload: %{
+                   status: "completed",
+                   join_outcome: "success",
+                   report_composition_state: "queued",
+                   report_input_digest: frozen.input_digest
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     synthesis = "The two registered-action observations complement the joined request."
     assert {:ok, prepared} = Report.prepare_synthesis(frozen.snapshot, accepted_result(synthesis))
@@ -999,14 +1008,17 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         answer = "Verified accepted observation for child #{child.queue_position}."
 
         assert {:ok, step} =
-                 Objectives.create_step(%{
-                   objective_id: child.id,
-                   kind: "action",
-                   status: "completed",
-                   stage: "observe_step",
-                   candidate_action: "direct_answer",
-                   action_params: %{text: child.objective}
-                 })
+                 Objectives.create_step(
+                   %{
+                     objective_id: child.id,
+                     kind: "action",
+                     status: "completed",
+                     stage: "observe_step",
+                     candidate_action: "direct_answer",
+                     action_params: %{text: child.objective}
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
         assert {:ok, task_digest} = QualityPolicy.digest(contract)
@@ -1049,15 +1061,18 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  |> Repo.update()
 
         assert {:ok, event} =
-                 Objectives.create_event(%{
-                   objective_id: child.id,
-                   kind: "run_completed",
-                   payload: %{
-                     quality_receipt: receipt,
-                     step_id: step.id,
-                     step_status: "completed"
-                   }
-                 })
+                 Objectives.create_event(
+                   %{
+                     objective_id: child.id,
+                     kind: "run_completed",
+                     payload: %{
+                       quality_receipt: receipt,
+                       step_id: step.id,
+                       step_status: "completed"
+                     }
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         {child.id, %{digest: receipt_digest, event: event, step: step}}
       end)
@@ -1083,14 +1098,17 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     first_binding = Map.fetch!(receipt_bindings, first_child.id)
 
     assert {:ok, decoy_step} =
-             Objectives.create_step(%{
-               objective_id: first_child.id,
-               kind: "action",
-               status: "completed",
-               stage: "observe_step",
-               candidate_action: "direct_answer",
-               action_params: %{text: "decoy later step"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: first_child.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "observe_step",
+                 candidate_action: "direct_answer",
+                 action_params: %{text: "decoy later step"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _frozen} = Fanout.report_input(parent)
 
@@ -1121,11 +1139,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              |> Repo.update()
 
     assert {:ok, duplicate_event} =
-             Objectives.create_event(%{
-               objective_id: first_child.id,
-               kind: "run_completed",
-               payload: %{}
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: first_child.id,
+                 kind: "run_completed",
+                 payload: %{}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :invalid_fanout_report_quality_receipt} = Fanout.report_input(parent)
 
@@ -1228,15 +1249,18 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         summary = "Historical accepted observation #{child.queue_position}."
 
         assert {:ok, step} =
-                 Objectives.create_step(%{
-                   objective_id: child.id,
-                   kind: "action",
-                   status: "completed",
-                   stage: "observe_step",
-                   candidate_action: "direct_answer",
-                   action_params: %{text: child.objective},
-                   result_summary: summary
-                 })
+                 Objectives.create_step(
+                   %{
+                     objective_id: child.id,
+                     kind: "action",
+                     status: "completed",
+                     stage: "observe_step",
+                     candidate_action: "direct_answer",
+                     action_params: %{text: child.objective},
+                     result_summary: summary
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         assert {:ok, child} =
                  child
@@ -1282,11 +1306,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
           end
 
         assert {:ok, event} =
-                 Objectives.create_event(%{
-                   objective_id: child.id,
-                   kind: "run_completed",
-                   payload: payload
-                 })
+                 Objectives.create_event(
+                   %{
+                     objective_id: child.id,
+                     kind: "run_completed",
+                     payload: payload
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         {child.id, %{event: event, step: step, summary: summary}}
       end)
@@ -1492,13 +1519,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              )
 
     assert {:ok, completed_step} =
-             Objectives.create_step(%{
-               objective_id: completed.id,
-               kind: "action",
-               status: "selected",
-               stage: "execute_step",
-               candidate_action: "append_memory"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: completed.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "execute_step",
+                 candidate_action: "append_memory"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, completed} =
              Lifecycle.run(completed.id,
@@ -1510,13 +1540,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert completed.current_step_id == completed_step.id
 
     assert {:ok, cancelled_step} =
-             Objectives.create_step(%{
-               objective_id: cancelled.id,
-               kind: "action",
-               status: "selected",
-               stage: "execute_step",
-               candidate_action: "append_memory"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: cancelled.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "execute_step",
+                 candidate_action: "append_memory"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, cancelled} =
              Lifecycle.run(cancelled.id,
@@ -1528,13 +1561,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert cancelled.current_step_id == cancelled_step.id
 
     assert {:ok, failed_step} =
-             Objectives.create_step(%{
-               objective_id: failed.id,
-               kind: "action",
-               status: "selected",
-               stage: "execute_step",
-               candidate_action: "append_memory"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: failed.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "execute_step",
+                 candidate_action: "append_memory"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :forced_failure} =
              Lifecycle.run(failed.id,
@@ -1584,11 +1620,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
            }
 
     assert {:ok, forged_event} =
-             Objectives.create_event(%{
-               objective_id: cancelled.id,
-               kind: "run_completed",
-               payload: %{summary: "forged completion"}
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: cancelled.id,
+                 kind: "run_completed",
+                 payload: %{summary: "forged completion"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :invalid_fanout_report_completion_event} = Fanout.report_input(joined)
 
@@ -1614,13 +1653,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     Enum.zip(children, ["running", "completed"])
     |> Enum.each(fn {child, step_status} ->
       assert {:ok, step} =
-               Objectives.create_step(%{
-                 objective_id: child.id,
-                 kind: "action",
-                 status: step_status,
-                 stage: "execute_step",
-                 candidate_action: "direct_answer"
-               })
+               Objectives.create_step(
+                 %{
+                   objective_id: child.id,
+                   kind: "action",
+                   status: step_status,
+                   stage: "execute_step",
+                   candidate_action: "direct_answer"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, _child} =
                child
@@ -1691,14 +1733,17 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         summary = "action #{index} completed"
 
         assert {:ok, step} =
-                 Objectives.create_step(%{
-                   objective_id: child.id,
-                   kind: "action",
-                   status: "completed",
-                   stage: "execute_step",
-                   candidate_action: action,
-                   result_summary: summary
-                 })
+                 Objectives.create_step(
+                   %{
+                     objective_id: child.id,
+                     kind: "action",
+                     status: "completed",
+                     stage: "execute_step",
+                     candidate_action: action,
+                     result_summary: summary
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         assert {:ok, _child} =
                  child
@@ -1711,15 +1756,18 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  |> Repo.update()
 
         assert {:ok, event} =
-                 Objectives.create_event(%{
-                   objective_id: child.id,
-                   kind: "run_completed",
-                   payload: %{
-                     summary: summary,
-                     step_id: step.id,
-                     step_status: "completed"
-                   }
-                 })
+                 Objectives.create_event(
+                   %{
+                     objective_id: child.id,
+                     kind: "run_completed",
+                     payload: %{
+                       summary: summary,
+                       step_id: step.id,
+                       step_status: "completed"
+                     }
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         %{child: child, step: step, event: event, summary: summary}
       end)
@@ -2084,14 +2132,17 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
           "observation-tail-#{child.queue_position}"
 
       assert {:ok, step} =
-               Objectives.create_step(%{
-                 objective_id: child.id,
-                 kind: "action",
-                 status: "completed",
-                 stage: "observe_step",
-                 candidate_action: "direct_answer",
-                 action_params: %{text: child.objective}
-               })
+               Objectives.create_step(
+                 %{
+                   objective_id: child.id,
+                   kind: "action",
+                   status: "completed",
+                   stage: "observe_step",
+                   candidate_action: "direct_answer",
+                   action_params: %{text: child.objective}
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
       assert {:ok, task_digest} = QualityPolicy.digest(contract)
@@ -2118,15 +2169,18 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                |> Repo.update()
 
       assert {:ok, event} =
-               Objectives.create_event(%{
-                 objective_id: child.id,
-                 kind: "run_completed",
-                 payload: %{
-                   quality_receipt: receipt,
-                   step_id: step.id,
-                   step_status: "completed"
-                 }
-               })
+               Objectives.create_event(
+                 %{
+                   objective_id: child.id,
+                   kind: "run_completed",
+                   payload: %{
+                     quality_receipt: receipt,
+                     step_id: step.id,
+                     step_status: "completed"
+                   }
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert byte_size(event.payload) <= 2_000
     end)
@@ -2195,11 +2249,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert byte_size(CanonicalJSON.encode(selection_event)) <= 2_000
 
     assert {:ok, event} =
-             Objectives.create_event(%{
-               objective_id: parent.id,
-               kind: "fanout_report_selected",
-               payload: selection_event
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: parent.id,
+                 kind: "fanout_report_selected",
+                 payload: selection_event
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert byte_size(event.payload) <= 2_000
   end
@@ -2348,11 +2405,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                |> Repo.update()
 
       assert {:ok, _event} =
-               Objectives.create_event(%{
-                 objective_id: child.id,
-                 kind: "run_completed",
-                 payload: %{summary: summary}
-               })
+               Objectives.create_event(
+                 %{
+                   objective_id: child.id,
+                   kind: "run_completed",
+                   payload: %{summary: summary}
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end)
 
     terminal_parent = %{
@@ -2377,16 +2437,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              |> Repo.update()
 
     assert {:ok, join_event} =
-             Objectives.create_event(%{
-               objective_id: parent.id,
-               kind: "fanout_joined",
-               payload: %{
-                 status: "completed",
-                 join_outcome: "success",
-                 report_composition_state: "queued",
-                 report_input_digest: legacy.input_digest
-               }
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: parent.id,
+                 kind: "fanout_joined",
+                 payload: %{
+                   status: "completed",
+                   join_outcome: "success",
+                   report_composition_state: "queued",
+                   report_input_digest: legacy.input_digest
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {parent, legacy, join_event}
   end
@@ -2425,9 +2488,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       Application.put_env(:allbert_assist, DirectAnswer, answerer: DeterministicDraftAnswerer)
 
       assert {:ok, _setting} =
-               AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
-                 audit?: false
-               })
+               AllbertAssist.Settings.put(
+                 "intent.direct_answer_model_enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   audit?: false
+                 })
+               )
 
       callback.()
     after
@@ -2437,9 +2504,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
       case previous_enabled do
         {:ok, enabled} ->
-          AllbertAssist.Settings.put("intent.direct_answer_model_enabled", enabled, %{
-            audit?: false
-          })
+          AllbertAssist.Settings.put(
+            "intent.direct_answer_model_enabled",
+            enabled,
+            AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+              audit?: false
+            })
+          )
 
         _unavailable ->
           :ok

@@ -429,12 +429,15 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     for index <- 1..51 do
       assert {:ok, _unrelated} =
-               Objectives.create_objective(%{
-                 user_id: "alice",
-                 source_thread_id: "other-thread-#{index}",
-                 title: "Newer unrelated objective #{index}",
-                 objective: "Unrelated work #{index}"
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "alice",
+                   source_thread_id: "other-thread-#{index}",
+                   title: "Newer unrelated objective #{index}",
+                   objective: "Unrelated work #{index}"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
 
     refute Enum.any?(Objectives.list_objectives("alice"), &(&1.id == active_parent.id))
@@ -639,14 +642,17 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     confirmation_id = "conf_legacy_fanout"
 
     assert {:ok, parked_step} =
-             Objectives.create_step(%{
-               objective_id: parked.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "list_objectives",
-               action_params: %{}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: parked.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "list_objectives",
+                 action_params: %{}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     modern_record = %{
       "id" => confirmation_id,
@@ -703,9 +709,14 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              Objectives.fanout_confirmation_target(objective_record)
 
     assert {:ok, parked_step} =
-             Objectives.transition_step(parked_step, "blocked", %{
-               confirmation_id: confirmation_id
-             })
+             Objectives.transition_step(
+               parked_step,
+               "blocked",
+               %{
+                 confirmation_id: confirmation_id
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _parked} =
              TerminalTransitions.transition_active_child(
@@ -762,19 +773,27 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              |> Objectives.fanout_confirmation_target()
 
     assert {:ok, sibling_step} =
-             Objectives.create_step(%{
-               objective_id: sibling.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "list_objectives",
-               action_params: %{}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: sibling.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "list_objectives",
+                 action_params: %{}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _sibling_step} =
-             Objectives.transition_step(sibling_step, "blocked", %{
-               confirmation_id: confirmation_id
-             })
+             Objectives.transition_step(
+               sibling_step,
+               "blocked",
+               %{
+                 confirmation_id: confirmation_id
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :ambiguous_confirmation_target} =
              Objectives.fanout_confirmation_target(modern_record)
@@ -793,19 +812,27 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     confirmation_id = "conf_provenance_free_fanout"
 
     assert {:ok, parked_step} =
-             Objectives.create_step(%{
-               objective_id: parked.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "list_objectives",
-               action_params: %{}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: parked.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "list_objectives",
+                 action_params: %{}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, parked_step} =
-             Objectives.transition_step(parked_step, "blocked", %{
-               confirmation_id: confirmation_id
-             })
+             Objectives.transition_step(
+               parked_step,
+               "blocked",
+               %{
+                 confirmation_id: confirmation_id
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _parked} =
              TerminalTransitions.transition_active_child(
@@ -824,19 +851,27 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert target_step.id == parked_step.id
 
     assert {:ok, sibling_step} =
-             Objectives.create_step(%{
-               objective_id: sibling.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "list_objectives",
-               action_params: %{}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: sibling.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "list_objectives",
+                 action_params: %{}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _sibling_step} =
-             Objectives.transition_step(sibling_step, "blocked", %{
-               confirmation_id: confirmation_id
-             })
+             Objectives.transition_step(
+               sibling_step,
+               "blocked",
+               %{
+                 confirmation_id: confirmation_id
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :ambiguous_confirmation_target} =
              Objectives.fanout_confirmation_target(%{"id" => confirmation_id})
@@ -881,15 +916,18 @@ defmodule AllbertAssist.Objectives.FanoutTest do
       summary = "result #{child.queue_position}"
 
       assert {:ok, step} =
-               Objectives.create_step(%{
-                 objective_id: child.id,
-                 kind: "action",
-                 status: "completed",
-                 stage: "execute_step",
-                 candidate_action: "append_memory",
-                 trace_id: "trace-selected-#{child.queue_position}",
-                 result_summary: summary
-               })
+               Objectives.create_step(
+                 %{
+                   objective_id: child.id,
+                   kind: "action",
+                   status: "completed",
+                   stage: "execute_step",
+                   candidate_action: "append_memory",
+                   trace_id: "trace-selected-#{child.queue_position}",
+                   result_summary: summary
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       complete_action_child!(child, step)
     end)
@@ -1043,15 +1081,18 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     assert {:ok, action_step} =
-             Objectives.create_step(%{
-               objective_id: first.id,
-               kind: "action",
-               status: "completed",
-               stage: "execute_step",
-               candidate_action: "append_memory",
-               trace_id: "trace-frozen",
-               result_summary: "effect completed"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: first.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "execute_step",
+                 candidate_action: "append_memory",
+                 trace_id: "trace-frozen",
+                 result_summary: "effect completed"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     complete_action_child!(first, action_step)
     complete_legacy_child!(second)
@@ -1065,17 +1106,24 @@ defmodule AllbertAssist.Objectives.FanoutTest do
            }
 
     assert {:error, :fanout_report_input_frozen} =
-             Objectives.update_step(action_step, %{trace_id: "trace-mutated"})
+             Objectives.update_step(
+               action_step,
+               %{trace_id: "trace-mutated"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :fanout_report_input_frozen} =
-             Objectives.create_step(%{
-               objective_id: first.id,
-               kind: "action",
-               status: "completed",
-               stage: "execute_step",
-               candidate_action: "late_action",
-               trace_id: "trace-late"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: first.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "execute_step",
+                 candidate_action: "late_action",
+                 trace_id: "trace-late"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, frozen_after} = Fanout.report_input(parent.id)
     assert frozen_after.input_digest == frozen_before.input_digest
@@ -1089,15 +1137,18 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     assert {:ok, action_step} =
-             Objectives.create_step(%{
-               objective_id: first.id,
-               kind: "action",
-               status: "completed",
-               stage: "execute_step",
-               candidate_action: "append_memory",
-               trace_id: "trace-before-freeze",
-               result_summary: "effect completed"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: first.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "execute_step",
+                 candidate_action: "append_memory",
+                 trace_id: "trace-before-freeze",
+                 result_summary: "effect completed"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     complete_action_child!(first, action_step)
     complete_legacy_child!(second)
@@ -1284,32 +1335,38 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     now = DateTime.utc_now()
 
     assert {:ok, corrupt_parent} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "over-limit corrupt parent",
-               objective: "must be skipped before authority queries",
-               fanout_role: "parent",
-               join_policy: "all_terminal",
-               join_outcome: "success",
-               status: "completed",
-               report_delivery_state: "not_ready",
-               completed_at: DateTime.add(now, -10, :second)
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "over-limit corrupt parent",
+                 objective: "must be skipped before authority queries",
+                 fanout_role: "parent",
+                 join_policy: "all_terminal",
+                 join_outcome: "success",
+                 status: "completed",
+                 report_delivery_state: "not_ready",
+                 completed_at: DateTime.add(now, -10, :second)
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     corrupt_child_ids =
       for queue_position <- 0..16 do
         assert {:ok, child} =
-                 Objectives.create_objective(%{
-                   user_id: "alice",
-                   title: "corrupt child #{queue_position}",
-                   objective: "terminal child #{queue_position}",
-                   fanout_role: "child",
-                   parent_objective_id: corrupt_parent.id,
-                   queue_position: queue_position,
-                   status: "completed",
-                   last_observation_summary: "corrupt result #{queue_position}",
-                   completed_at: DateTime.add(now, -10, :second)
-                 })
+                 Objectives.create_objective(
+                   %{
+                     user_id: "alice",
+                     title: "corrupt child #{queue_position}",
+                     objective: "terminal child #{queue_position}",
+                     fanout_role: "child",
+                     parent_objective_id: corrupt_parent.id,
+                     queue_position: queue_position,
+                     status: "completed",
+                     last_observation_summary: "corrupt result #{queue_position}",
+                     completed_at: DateTime.add(now, -10, :second)
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         child.id
       end
@@ -2274,12 +2331,15 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
   test "an empty fan-out parent is inconsistent rather than terminal" do
     assert {:ok, parent} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Empty parent",
-               objective: "No children",
-               fanout_role: "parent"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Empty parent",
+                 objective: "No children",
+                 fanout_role: "parent"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert %{
              phase: :inconsistent,
@@ -2370,17 +2430,20 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              Fanout.parent_projection(parent)
 
     assert {:ok, _missing_provenance_event} =
-             Objectives.create_event(%{
-               objective_id: parent.id,
-               kind: "fanout_report_selected",
-               payload: %{
-                 source: "deterministic_fallback",
-                 input_digest: selected.report_input_digest,
-                 body_sha256:
-                   :crypto.hash(:sha256, selected.report_body)
-                   |> Base.encode16(case: :lower)
-               }
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: parent.id,
+                 kind: "fanout_report_selected",
+                 payload: %{
+                   source: "deterministic_fallback",
+                   input_digest: selected.report_input_digest,
+                   body_sha256:
+                     :crypto.hash(:sha256, selected.report_body)
+                     |> Base.encode16(case: :lower)
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert %{phase: :inconsistent, authoritatively_joined?: false} =
              Fanout.parent_projection(parent)
@@ -2431,19 +2494,22 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              |> Repo.update_all(set: [payload: v1_join_payload])
 
     assert {:ok, _selection_event} =
-             Objectives.create_event(%{
-               objective_id: parent.id,
-               kind: "fanout_report_selected",
-               payload: %{
-                 source: "deterministic_fallback",
-                 fallback_reason: "model_disabled",
-                 layout_version: 1,
-                 input_digest: v1_frozen.input_digest,
-                 body_sha256:
-                   :crypto.hash(:sha256, v1_frozen.fallback_body)
-                   |> Base.encode16(case: :lower)
-               }
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: parent.id,
+                 kind: "fanout_report_selected",
+                 payload: %{
+                   source: "deterministic_fallback",
+                   fallback_reason: "model_disabled",
+                   layout_version: 1,
+                   input_digest: v1_frozen.input_digest,
+                   body_sha256:
+                     :crypto.hash(:sha256, v1_frozen.fallback_body)
+                     |> Base.encode16(case: :lower)
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert Fanout.parent_projection(parent).phase == :joined
 
@@ -2461,17 +2527,20 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     for {id, position} <- [{"obj_orphan_one", 0}, {"obj_orphan_two", 1}] do
       assert {:ok, _child} =
-               Objectives.create_objective(%{
-                 id: id,
-                 user_id: "alice",
-                 title: id,
-                 objective: id,
-                 fanout_role: "child",
-                 parent_objective_id: parent_id,
-                 queue_position: position,
-                 status: "completed",
-                 completed_at: DateTime.utc_now()
-               })
+               Objectives.create_objective(
+                 %{
+                   id: id,
+                   user_id: "alice",
+                   title: id,
+                   objective: id,
+                   fanout_role: "child",
+                   parent_objective_id: parent_id,
+                   queue_position: position,
+                   status: "completed",
+                   completed_at: DateTime.utc_now()
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
 
     assert %{phase: :inconsistent, parent: nil, children_terminal?: true} =
@@ -2486,17 +2555,29 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     assert {:error, :fanout_active_transition_required} =
-             Objectives.update_objective(child, %{status: "completed"})
+             Objectives.update_objective(
+               child,
+               %{status: "completed"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :fanout_parent_transition_required} =
-             Objectives.update_objective(parent, %{
-               status: "completed",
-               join_outcome: "success",
-               report_delivery_state: "pending"
-             })
+             Objectives.update_objective(
+               parent,
+               %{
+                 status: "completed",
+                 join_outcome: "success",
+                 report_delivery_state: "pending"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :fanout_active_transition_required} =
-             Objectives.update_objective(child, %{status: "running"})
+             Objectives.update_objective(
+               child,
+               %{status: "running"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     for attrs <- [
           %{title: "mutated title"},
@@ -2506,7 +2587,11 @@ defmodule AllbertAssist.Objectives.FanoutTest do
           %{source_intent: "mutated source"}
         ] do
       assert {:error, :fanout_structure_immutable} =
-               Objectives.update_objective(child, attrs)
+               Objectives.update_objective(
+                 child,
+                 attrs,
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
 
     assert {:ok, %{status: "running"}} =
@@ -2528,7 +2613,11 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert %{child: %{status: "completed"}} = complete_legacy_child!(stale)
 
     assert {:error, {:fanout_active_compare_and_set_failed, "completed"}} =
-             Objectives.update_objective(stale, %{progress_summary: "stale writer"})
+             Objectives.update_objective(
+               stale,
+               %{progress_summary: "stale writer"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, {:active_transition_compare_and_set_failed, "completed"}} =
              TerminalTransitions.transition_active_child(
@@ -2552,21 +2641,30 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     attrs = %{user_id: "alice", title: "One", objective: "One", fanout_role: "parent"}
 
     assert {:ok, _first} =
-             Objectives.create_objective(Map.put(attrs, :fanout_start_receipt_digest, "same"))
+             Objectives.create_objective(
+               Map.put(attrs, :fanout_start_receipt_digest, "same"),
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, changeset} =
-             Objectives.create_objective(Map.put(attrs, :fanout_start_receipt_digest, "same"))
+             Objectives.create_objective(
+               Map.put(attrs, :fanout_start_receipt_digest, "same"),
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert "has already been taken" in errors_on(changeset).fanout_start_receipt_digest
 
     assert {:error, invalid} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Invalid",
-               objective: "Invalid",
-               fanout_role: "parent",
-               kickoff_delivery_state: "sent"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Invalid",
+                 objective: "Invalid",
+                 fanout_role: "parent",
+                 kickoff_delivery_state: "sent"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert "is invalid" in errors_on(invalid).kickoff_delivery_state
   end
@@ -2742,11 +2840,14 @@ defmodule AllbertAssist.Objectives.FanoutTest do
   defp record_legacy_completion_events!(children, summary) do
     Enum.each(children, fn child ->
       assert {:ok, _event} =
-               Objectives.create_event(%{
-                 objective_id: child.id,
-                 kind: "run_completed",
-                 payload: %{summary: String.slice(summary, 0, 500)}
-               })
+               Objectives.create_event(
+                 %{
+                   objective_id: child.id,
+                   kind: "run_completed",
+                   payload: %{summary: String.slice(summary, 0, 500)}
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end)
   end
 

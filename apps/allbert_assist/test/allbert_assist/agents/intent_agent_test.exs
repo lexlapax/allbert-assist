@@ -56,7 +56,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     configure_external()
-    Settings.put("workspace.signal_bridge.log_dropped_fragments", false, %{audit?: false})
+
+    Settings.put(
+      "workspace.signal_bridge.log_dropped_fragments",
+      false,
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+    )
 
     on_exit(fn ->
       if original_config do
@@ -1110,20 +1115,42 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   end
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp put_import_policy! do
     assert {:ok, _setting} =
-             Settings.put("permissions.online_skill_import", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.online_skill_import",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
-    assert {:ok, _setting} = Settings.put("permissions.skill_write", "allowed", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.skill_write",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp put_package_policy!(root) do
@@ -1141,6 +1168,11 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 end

@@ -65,22 +65,39 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
 
   defp configure_signal!(root) do
     assert {:ok, _setting} =
-             Settings.put("channels.signal.account_identifier", "+15551234567", %{audit?: false})
+             Settings.put(
+               "channels.signal.account_identifier",
+               "+15551234567",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.signal.local_aci", @aci, %{audit?: false})
+             Settings.put(
+               "channels.signal.local_aci",
+               @aci,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.signal.data_dir", Path.join(root, "signal"), %{audit?: false})
+             Settings.put(
+               "channels.signal.data_dir",
+               Path.join(root, "signal"),
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.identity_map",
                [%{external_user_id: @aci, user_id: "alice"}],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert {:ok, _setting} = Settings.put("channels.signal.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.signal.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

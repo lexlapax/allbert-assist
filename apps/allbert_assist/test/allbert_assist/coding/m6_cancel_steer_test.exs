@@ -245,7 +245,12 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
   end
 
   defp configure_tui! do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -257,7 +262,7 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
                    "enabled" => true
                  }
                ],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

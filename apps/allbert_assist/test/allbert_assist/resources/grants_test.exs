@@ -46,7 +46,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
                    "created_at" => DateTime.utc_now() |> DateTime.to_iso8601()
                  }
                ],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -205,7 +205,11 @@ defmodule AllbertAssist.Resources.GrantsTest do
     import = Ref.remote_skill_import("https://example.com/skills/demo/SKILL.md")
 
     assert {:ok, _setting} =
-             Settings.put("permissions.online_skill_import", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.online_skill_import",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _grant} = Grants.remember(summarize, audit?: false)
     assert {:error, :no_matching_grant} = find(import, :online_skill_import)
@@ -216,7 +220,11 @@ defmodule AllbertAssist.Resources.GrantsTest do
     remote = Ref.remote_skill_import("https://example.com/skills/demo/SKILL.md")
 
     assert {:ok, _setting} =
-             Settings.put("permissions.online_skill_import", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.online_skill_import",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _grant} = Grants.remember(local, audit?: false)
     assert {:error, :no_matching_grant} = find(remote, :online_skill_import)
@@ -288,7 +296,11 @@ defmodule AllbertAssist.Resources.GrantsTest do
     assert {:ok, ^grant} = find(ref, :external_network)
 
     assert {:ok, _setting} =
-             Settings.put("permissions.external_network", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.external_network",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error, {:policy_denied, decision}} = find(ref, :external_network)
     assert decision.permission == :external_network

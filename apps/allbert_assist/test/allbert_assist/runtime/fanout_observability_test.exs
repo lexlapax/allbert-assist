@@ -20,19 +20,39 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.enabled", true, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.confirm_before_start",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.telegram.autonomous_notify.enabled", false, %{audit?: false})
+             Settings.put(
+               "channels.telegram.autonomous_notify.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Application.put_env(:allbert_assist, Runtime, decomposer: fn _text, _context -> :single end)
 
@@ -249,7 +269,11 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
 
   test "shadow planning is durable as advisory-only without creating work" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "shadow", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "shadow",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     text = "Research two options and compare them."
 

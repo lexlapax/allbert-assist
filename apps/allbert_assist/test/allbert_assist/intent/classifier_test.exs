@@ -67,7 +67,13 @@ defmodule AllbertAssist.Intent.ClassifierTest do
     Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
 
     assert Router.strategy() == :two_stage_local
-    assert {:ok, _setting} = Settings.put("intent.model_assist_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "intent.model_assist_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, decision} =
              Engine.decide(EvalFixtures.request(text: @quoted_preference_prompt))
@@ -81,7 +87,12 @@ defmodule AllbertAssist.Intent.ClassifierTest do
     Application.put_env(:allbert_assist, Classifier, classifier: RaisingClassifier)
     Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
 
-    assert {:ok, _setting} = Settings.put("intent.model_assist_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "intent.model_assist_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, decision} =
              Engine.decide(EvalFixtures.request(text: "Remember Project Juniper"),
@@ -306,7 +317,13 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
   defp enable_fake_classifier! do
     Application.put_env(:allbert_assist, Classifier, classifier: FakeClassifier)
-    assert {:ok, _setting} = Settings.put("intent.model_assist_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "intent.model_assist_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_home(nil), do: System.delete_env("ALLBERT_HOME")

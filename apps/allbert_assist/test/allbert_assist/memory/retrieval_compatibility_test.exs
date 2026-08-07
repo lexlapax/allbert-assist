@@ -153,7 +153,13 @@ defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
     claim_id = Ecto.UUID.generate()
     assert {:ok, _kept} = Claims.append(claim_id, nil, transition(value: "Flag independent fact"))
     assert {:ok, _build} = Projection.rebuild(projection)
-    assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.index_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, result} =
              ActiveMemory.retrieve("flag independent fact",
@@ -171,7 +177,12 @@ defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
     assert {:ok, _kept} =
              Claims.append(claim_id, nil, transition(value: "Fallback canonical fact"))
 
-    assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.index_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              SearchMemory.run(

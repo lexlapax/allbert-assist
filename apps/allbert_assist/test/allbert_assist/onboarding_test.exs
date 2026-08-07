@@ -320,14 +320,17 @@ defmodule AllbertAssist.OnboardingTest do
       # A leftover v0.62 onboarding objective (created directly — the framing flow is
       # retired). The reconcile identifies it by its source_intent.
       assert {:ok, objective} =
-               Objectives.create_objective(%{
-                 user_id: "alice",
-                 status: "open",
-                 title: "First-run onboarding",
-                 objective: "legacy",
-                 active_app: "allbert",
-                 source_intent: "first_run_onboarding"
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "alice",
+                   status: "open",
+                   title: "First-run onboarding",
+                   objective: "legacy",
+                   active_app: "allbert",
+                   source_intent: "first_run_onboarding"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       objective_id = objective.id
 
@@ -531,7 +534,11 @@ defmodule AllbertAssist.OnboardingTest do
 
     test "sticky false can complete and receives exactly one durable re-enable offer" do
       assert {:ok, _setting} =
-               Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+               Settings.put(
+                 "intent.direct_answer_model_enabled",
+                 false,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       Onboarding.wizard_start(:quickstart)
 

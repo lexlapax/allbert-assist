@@ -6,12 +6,15 @@ defmodule AllbertAssist.Plugins.Email.RendererTest do
 
   test "approval handoff rendering includes objective context and stale warning" do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               status: "running"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "running"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     handoff = %{
       confirmation_id: "conf_email_objective",
@@ -25,7 +28,12 @@ defmodule AllbertAssist.Plugins.Email.RendererTest do
       summary: "Run StockSage analysis."
     }
 
-    assert {:ok, _objective} = Objectives.update_objective(objective, %{status: "cancelled"})
+    assert {:ok, _objective} =
+             Objectives.update_objective(
+               objective,
+               %{status: "cancelled"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, subject, body, nil} =
              Renderer.render_approval_handoff(handoff, subject: "Approval required")
@@ -37,4 +45,3 @@ defmodule AllbertAssist.Plugins.Email.RendererTest do
     assert body =~ "ALLBERT:SHOW:conf_email_objective"
   end
 end
-

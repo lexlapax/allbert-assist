@@ -70,14 +70,17 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
     other_user = unique_user("other")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: user,
-               source_thread_id: "thr_a",
-               active_app: "stocksage",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               acceptance_criteria: AcceptanceCriteria.single_step()
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 source_thread_id: "thr_a",
+                 active_app: "stocksage",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 acceptance_criteria: AcceptanceCriteria.single_step()
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert objective.status == "open"
     assert objective.loop_count == 0
@@ -236,7 +239,11 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
 
     Enum.each(protected_updates, fn {field, value} ->
       assert {:error, :fanout_structure_immutable} =
-               Objectives.update_objective(child, %{field => value})
+               Objectives.update_objective(
+                 child,
+                 %{field => value},
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, unchanged} = Objectives.get_objective(child.id)
       assert Map.fetch!(unchanged, field) == Map.fetch!(child, field)

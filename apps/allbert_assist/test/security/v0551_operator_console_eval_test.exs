@@ -229,7 +229,7 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
              Settings.put(
                "channels.discord.bot_token_ref",
                "secret://channels/discord/bot_token",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert SlashCommands.requires_identity?("/settings get channels.discord.bot_token_ref")
@@ -299,7 +299,12 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   end
 
   defp configure_tui! do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -311,7 +316,7 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
                    "enabled" => true
                  }
                ],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

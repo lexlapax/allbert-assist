@@ -95,23 +95,31 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
              })
 
     assert {:ok, _setting} =
-             Settings.put("channels.matrix.homeserver_url", "https://matrix.example.com", %{
-               audit?: false
-             })
+             Settings.put(
+               "channels.matrix.homeserver_url",
+               "https://matrix.example.com",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.matrix.access_token_ref",
                "secret://channels/matrix/access_token",
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  audit?: false
-               }
+               })
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.matrix.allowed_room_ids", ["!room:example.com"], %{
-               audit?: false
-             })
+             Settings.put(
+               "channels.matrix.allowed_room_ids",
+               ["!room:example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp context do

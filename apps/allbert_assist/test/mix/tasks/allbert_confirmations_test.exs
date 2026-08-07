@@ -114,12 +114,15 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
 
   test "show renders objective snapshot and stale warning" do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               status: "running"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "running"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     attrs =
       base_attrs()
@@ -135,10 +138,14 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
     assert {:ok, record} = Confirmations.create(attrs)
 
     assert {:ok, _cancelled} =
-             Objectives.update_objective(objective, %{
-               status: "cancelled",
-               progress_summary: "Cancelled for stale confirmation test."
-             })
+             Objectives.update_objective(
+               objective,
+               %{
+                 status: "cancelled",
+                 progress_summary: "Cancelled for stale confirmation test."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     show_output =
       capture_io(fn ->
@@ -284,7 +291,12 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp put_bash_validation_settings!(workspace) do
@@ -302,12 +314,33 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
-    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("coding.trusted_operator_id", "local", %{audit?: false})
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _setting} =
-             Settings.put("coding.default_approval_mode", "accept-edits", %{audit?: false})
+             Settings.put(
+               "coding.pi_mode.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.trusted_operator_id",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.default_approval_mode",
+               "accept-edits",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp pi_context(workspace) do

@@ -320,7 +320,14 @@ defmodule AllbertAssist.Security.OperatorReviewTest do
   end
 
   defp put_setting!(key, value) do
-    case Settings.put(key, value, %{actor: "security_eval", audit?: false}) do
+    case Settings.put(
+           key,
+           value,
+           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+             actor: "security_eval",
+             audit?: false
+           })
+         ) do
       {:ok, _setting} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end

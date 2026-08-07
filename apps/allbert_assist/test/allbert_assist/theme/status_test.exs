@@ -56,16 +56,33 @@ defmodule AllbertAssist.Theme.StatusTest do
     File.write!(snippet_path, "#workspace-shell { --allbert-space-2: 0.25rem; }\n")
     File.write!(layout_path, "launcher_order:\n  - output\n  - workspace:settings\n")
 
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "midnight", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "midnight",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["compact"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.layout.override_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     summary = Status.summary()
 
@@ -89,16 +106,32 @@ defmodule AllbertAssist.Theme.StatusTest do
 
   test "summary bounds unsafe selections and missing file diagnostics", %{home: home} do
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.active", "../secret", %{audit?: false})
+             Settings.put(
+               "workspace.theme.active",
+               "../secret",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["../bad"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["../bad"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.layout.override_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     summary = Status.summary()
 

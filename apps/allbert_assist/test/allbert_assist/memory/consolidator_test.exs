@@ -32,7 +32,13 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
     assert disabled.scanned == 0
     assert Repo.aggregate(ConsolidationControl, :count) == 0
 
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert {:ok, ungranted} = Consolidator.run("alice")
     assert ungranted.stopped_reason == "origin_grant_required"
     assert Repo.aggregate(ConsolidationControl, :count) == 0
@@ -80,7 +86,13 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
     assert response.result.hosted_transport_count == 0
     refute inspect(response.result) =~ "concise evidence"
 
-    assert {:ok, _setting} = Settings.put("permissions.memory_propose", "denied")
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.memory_propose",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert {:ok, denied} = ConsolidateMemory.run(%{}, context)
     assert denied.status == :denied
   end
@@ -139,10 +151,19 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
   end
 
   defp enable! do
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _setting} =
-             Settings.put("memory.collection.origin_grants", ["local_operator"])
+             Settings.put(
+               "memory.collection.origin_grants",
+               ["local_operator"],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp append!(content) do

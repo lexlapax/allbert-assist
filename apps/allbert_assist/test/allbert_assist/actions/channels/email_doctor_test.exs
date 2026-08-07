@@ -101,19 +101,39 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
              })
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.imap_host", "imap.example.com", %{audit?: false})
+             Settings.put(
+               "channels.email.imap_host",
+               "imap.example.com",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.smtp_host", "smtp.example.com", %{audit?: false})
+             Settings.put(
+               "channels.email.smtp_host",
+               "smtp.example.com",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.imap_username", "alice", %{audit?: false})
+             Settings.put(
+               "channels.email.imap_username",
+               "alice",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.smtp_username", "alice", %{audit?: false})
+             Settings.put(
+               "channels.email.smtp_username",
+               "alice",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.email.from_address", "allbert@example.com", %{audit?: false})
+             Settings.put(
+               "channels.email.from_address",
+               "allbert@example.com",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context do

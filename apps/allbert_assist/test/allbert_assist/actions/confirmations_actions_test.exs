@@ -198,7 +198,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert {:ok, record} = Confirmations.create(Map.put(base_attrs(), :id, "conf_policy_change"))
 
     assert {:ok, _setting} =
-             Settings.put("permissions.external_network", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.external_network",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run("approve_confirmation", %{id: record["id"]}, %{
@@ -217,7 +221,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
 
   test "approval respects cross-channel approval settings" do
     assert {:ok, _setting} =
-             Settings.put("confirmations.allow_cross_channel_approval", false, %{audit?: false})
+             Settings.put(
+               "confirmations.allow_cross_channel_approval",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, record} = Confirmations.create(Map.put(base_attrs(), :id, "conf_cross_channel"))
 
@@ -236,7 +244,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
 
   test "deny requires a reason when configured" do
     assert {:ok, _setting} =
-             Settings.put("confirmations.require_reason_for_denial", true, %{audit?: false})
+             Settings.put(
+               "confirmations.require_reason_for_denial",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, record} = Confirmations.create(base_attrs())
 
@@ -251,7 +263,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
 
   test "confirmation decision permission can deny approval" do
     assert {:ok, _setting} =
-             Settings.put("permissions.confirmation_decide", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.confirmation_decide",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, record} = Confirmations.create(base_attrs())
 

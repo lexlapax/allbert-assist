@@ -115,12 +115,20 @@ defmodule AllbertAssist.FirstModelTest do
     assert Ollama.curated_floor_gb() == 8
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("first_model.curated_model", "qwen2.5:3b", %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "first_model.curated_model",
+               "qwen2.5:3b",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("first_model.curated_floor_gb", 16, %{audit?: false})
+             AllbertAssist.Settings.put(
+               "first_model.curated_floor_gb",
+               16,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Ollama.curated_model() == "qwen2.5:3b"
     assert Ollama.curated_floor_gb() == 16
@@ -258,9 +266,13 @@ defmodule AllbertAssist.FirstModelTest do
       # needs_confirmation floor only applies once the operator opts the permission
       # in, so we grant it first.
       assert {:ok, _} =
-               AllbertAssist.Settings.put("permissions.command_execute", "needs_confirmation", %{
-                 audit?: false
-               })
+               AllbertAssist.Settings.put(
+                 "permissions.command_execute",
+                 "needs_confirmation",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   audit?: false
+                 })
+               )
 
       assert {:ok, gated} =
                Runner.run("install_ollama", %{}, %{actor: "local", channel: :cli})

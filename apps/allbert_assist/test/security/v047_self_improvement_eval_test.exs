@@ -197,10 +197,19 @@ defmodule AllbertAssist.Security.V047SelfImprovementEvalTest do
   end
 
   defp enable_self_improvement! do
-    assert {:ok, _setting} = Settings.put("self_improvement.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "self_improvement.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("self_improvement.trace_index.enabled", true, %{audit?: false})
+             Settings.put(
+               "self_improvement.trace_index.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp suggestion!(type, kind, summary) do

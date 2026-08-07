@@ -128,7 +128,11 @@ defmodule AllbertAssist.Workspace.OfflineTest do
 
   test "rejects offline snapshots that exceed the canvas tile body limit" do
     assert {:ok, _setting} =
-             Settings.put("workspace.canvas.tile_body_max_bytes", 1024, %{audit?: false})
+             Settings.put(
+               "workspace.canvas.tile_body_max_bytes",
+               1024,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, tile} =
              Canvas.add_tile(tile_attrs("thread-body-limit", "user-body-limit", "base"))
@@ -150,7 +154,11 @@ defmodule AllbertAssist.Workspace.OfflineTest do
     assert {:ok, tile} = Canvas.add_tile(tile_attrs("thread-denied", "user-denied", "base"))
 
     assert {:ok, _setting} =
-             Settings.put("permissions.workspace_canvas_write", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.workspace_canvas_write",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run(

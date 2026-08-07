@@ -70,7 +70,11 @@ defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
 
   test "flags missing group allowlist as a warning" do
     assert {:ok, _setting} =
-             Settings.put("channels.telegram.allow_group_chats", true, %{audit?: false})
+             Settings.put(
+               "channels.telegram.allow_group_chats",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} = TelegramDoctor.run(%{}, context())
 

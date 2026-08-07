@@ -72,7 +72,11 @@ defmodule AllbertAssist.Theme.LayoutTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.layout.override_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     context = %{
       registered_apps: [%{app_id: :stocksage, display_name: "StockSage"}],
@@ -115,7 +119,11 @@ defmodule AllbertAssist.Theme.LayoutTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.layout.override_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     layout = Layout.current()
 

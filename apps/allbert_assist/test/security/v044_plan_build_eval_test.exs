@@ -146,7 +146,11 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
     assert error.pointer == "/"
 
     assert {:ok, _setting} =
-             Settings.put("workflows.max_param_bytes_per_step", 8, %{audit?: false})
+             Settings.put(
+               "workflows.max_param_bytes_per_step",
+               8,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, workflow} = Loader.load("single_step")
     assert {:error, error} = Validator.validate(workflow)

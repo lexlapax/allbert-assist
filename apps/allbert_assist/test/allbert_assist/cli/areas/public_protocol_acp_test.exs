@@ -61,7 +61,11 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocolAcpTest do
   end
 
   defp put_setting(key, value) do
-    case Settings.put(key, value, %{audit?: false}) do
+    case Settings.put(
+           key,
+           value,
+           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+         ) do
       :ok -> :ok
       {:ok, _} -> :ok
       other -> other

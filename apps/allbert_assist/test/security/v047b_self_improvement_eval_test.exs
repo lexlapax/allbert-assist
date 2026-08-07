@@ -191,9 +191,13 @@ defmodule AllbertAssist.Security.V047bSelfImprovementEvalTest do
     assert draft.payload["handoff"]["install_requested"] == false
 
     assert {:ok, _setting} =
-             Settings.put("permissions.marketplace_install", "needs_confirmation", %{
-               audit?: false
-             })
+             Settings.put(
+               "permissions.marketplace_install",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, pending} =
              Runner.run(
@@ -210,23 +214,31 @@ defmodule AllbertAssist.Security.V047bSelfImprovementEvalTest do
 
   defp enable_dynamic_codegen!(profile) do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{
-                 "enabled" => true,
-                 "provider_profile" => profile
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{
+                   "enabled" => true,
+                   "provider_profile" => profile
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp enable_dynamic_loader! do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{
-                 "enabled" => true,
-                 "provider_profile" => "local",
-                 "live_loader_enabled" => true
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{
+                   "enabled" => true,
+                   "provider_profile" => "local",
+                   "live_loader_enabled" => true
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp write_gate_passed_action_draft(slug) do

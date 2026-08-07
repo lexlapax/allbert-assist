@@ -368,15 +368,19 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
 
   defp enable_sandbox! do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "sandbox" => %{
-                 "elixir" => %{
-                   "enabled" => true,
-                   "backend" => "docker",
-                   "image" => "fixture:local"
+             Settings.write_user_settings(
+               %{
+                 "sandbox" => %{
+                   "elixir" => %{
+                     "enabled" => true,
+                     "backend" => "docker",
+                     "image" => "fixture:local"
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp policy(backend, host) do

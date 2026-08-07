@@ -418,7 +418,17 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     put!("channels.telegram.autonomous_notify.enabled", true)
   end
 
-  defp put!(key, value), do: assert({:ok, _} = Settings.put(key, value, %{audit?: false}))
+  defp put!(key, value),
+    do:
+      assert(
+        {:ok, _} =
+          Settings.put(
+            key,
+            value,
+            AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+          )
+      )
+
   defp bind(id, assertions), do: AssertBinding.check!(id, assertions)
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

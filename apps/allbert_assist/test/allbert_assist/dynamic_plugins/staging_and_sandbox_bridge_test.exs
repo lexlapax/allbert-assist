@@ -248,23 +248,31 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
 
   defp enable_dynamic_codegen! do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{"enabled" => true}
-             })
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{"enabled" => true}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp enable_dynamic_codegen_and_sandbox! do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{"enabled" => true},
-               "sandbox" => %{
-                 "elixir" => %{
-                   "enabled" => true,
-                   "backend" => "docker",
-                   "image" => "fixture:local"
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{"enabled" => true},
+                 "sandbox" => %{
+                   "elixir" => %{
+                     "enabled" => true,
+                     "backend" => "docker",
+                     "image" => "fixture:local"
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp write_valid_draft(slug, opts \\ []) do

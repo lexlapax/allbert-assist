@@ -186,7 +186,11 @@ defmodule AllbertAssist.Coding.M1ReadSearchActionsTest do
 
   test "permission setting can block read tools before filesystem access", %{workspace: workspace} do
     assert {:ok, _setting} =
-             Settings.put("permissions.coding_file_read", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.coding_file_read",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} = Runner.run("read", %{path: "README.md"}, context(workspace))
 

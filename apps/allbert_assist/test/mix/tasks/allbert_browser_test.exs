@@ -33,7 +33,13 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
     assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
     ensure_browser_supervisor()
     close_all_sessions()
-    assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       close_all_sessions()

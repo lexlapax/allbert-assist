@@ -15,19 +15,25 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     other_user = unique_user("read_actions_other")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: user,
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               active_app: "stocksage"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 active_app: "stocksage"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _bob} =
-             Objectives.create_objective(%{
-               user_id: other_user,
-               title: "Analyze MSFT",
-               objective: "Complete one analysis for MSFT."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: other_user,
+                 title: "Analyze MSFT",
+                 objective: "Complete one analysis for MSFT."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} = Runner.run("list_objectives", %{user_id: user}, %{})
 
@@ -41,20 +47,26 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     user = unique_user("read_actions_statuses")
 
     assert {:ok, blocked} =
-             Objectives.create_objective(%{
-               user_id: user,
-               title: "Blocked work",
-               objective: "Waiting on operator.",
-               status: "blocked"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 title: "Blocked work",
+                 objective: "Waiting on operator.",
+                 status: "blocked"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _completed} =
-             Objectives.create_objective(%{
-               user_id: user,
-               title: "Completed work",
-               objective: "Already done.",
-               status: "completed"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 title: "Completed work",
+                 objective: "Already done.",
+                 status: "completed"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              Runner.run(
@@ -73,30 +85,39 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     other_user = unique_user("show_objective_other")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: user,
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               active_app: "stocksage"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 active_app: "stocksage"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "proposed",
-               stage: "propose_steps",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               action_params: %{ticker: "AAPL"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "proposed",
+                 stage: "propose_steps",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 action_params: %{ticker: "AAPL"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _event} =
-             Objectives.create_event(%{
-               objective_id: objective.id,
-               step_id: step.id,
-               kind: "step_proposed",
-               summary: "Proposed step."
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: objective.id,
+                 step_id: step.id,
+                 kind: "step_proposed",
+                 summary: "Proposed step."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              Runner.run("show_objective", %{id: objective.id, user_id: user}, %{})
@@ -157,22 +178,28 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     user = unique_user("cancel_objective")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: user,
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               status: "blocked"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "blocked"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "blocked",
-               stage: "authorize_step",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               confirmation_id: "conf_pending"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "blocked",
+                 stage: "authorize_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 confirmation_id: "conf_pending"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              Runner.run(
@@ -227,24 +254,35 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     confirmation_id = unique_id("conf_continue_pending")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: user,
-               title: "Blocked objective",
-               objective: "Wait for approval.",
-               status: "blocked"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 title: "Blocked objective",
+                 objective: "Wait for approval.",
+                 status: "blocked"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "blocked",
-               stage: "authorize_step",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               confirmation_id: confirmation_id
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "blocked",
+                 stage: "authorize_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 confirmation_id: confirmation_id
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
-    assert {:ok, _objective} = Objectives.update_objective(objective, %{current_step_id: step.id})
+    assert {:ok, _objective} =
+             Objectives.update_objective(
+               objective,
+               %{current_step_id: step.id},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _confirmation} =
              Confirmations.create(%{
@@ -271,12 +309,15 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert blocked.reason =~ "Confirmation #{confirmation_id} is still pending"
 
     assert {:ok, abandoned} =
-             Objectives.create_objective(%{
-               user_id: user,
-               title: "Abandoned objective",
-               objective: "Already abandoned.",
-               status: "abandoned"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user,
+                 title: "Abandoned objective",
+                 objective: "Already abandoned.",
+                 status: "abandoned"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, terminal} =
              Runner.run("continue_objective", %{id: abandoned.id, user_id: user}, %{

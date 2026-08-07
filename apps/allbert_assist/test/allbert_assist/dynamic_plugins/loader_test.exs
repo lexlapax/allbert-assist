@@ -118,11 +118,15 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                ["read_only", "memory_write"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.allowed_facades", ["append_memory"], %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.allowed_facades",
+               ["append_memory"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     fixture =
       write_gate_passed_action_draft("loader_delegate_memory", source_kind: :delegated_memory)
@@ -348,12 +352,16 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
 
   defp enable_live_loader! do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{
-                 "enabled" => true,
-                 "live_loader_enabled" => true
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{
+                   "enabled" => true,
+                   "live_loader_enabled" => true
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp write_gate_passed_action_draft(slug, opts \\ []) do

@@ -271,13 +271,17 @@ defmodule AllbertAssist.Security.McpIntegrationEvalTest do
              Settings.put(
                "mcp.servers.demo.headers",
                %{"Authorization" => "secret://mcp/demo/bearer_token"},
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.demo.auth_ref", "secret://mcp/demo/bearer_token", %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.demo.auth_ref",
+               "secret://mcp/demo/bearer_token",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     eval =
       run_eval(
@@ -306,21 +310,43 @@ defmodule AllbertAssist.Security.McpIntegrationEvalTest do
   test "MCP stdio launchers must be explicitly allowlisted before enablement" do
     fixture = EvalInventory.row!("mcp-stdio-startup-policy-001")
 
-    assert {:ok, _setting} = Settings.put("mcp.servers.local.enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.servers.local.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.local.transport", "stdio", %{audit?: false})
-
-    assert {:ok, _setting} = Settings.put("mcp.servers.local.command", "npx", %{audit?: false})
+             Settings.put(
+               "mcp.servers.local.transport",
+               "stdio",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.local.args", ["-y", "server"], %{audit?: false})
+             Settings.put(
+               "mcp.servers.local.command",
+               "npx",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.servers.local.args",
+               ["-y", "server"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     eval =
       run_eval(
         Map.put(fixture, :run, fn _fixture ->
           {:error, {:invalid_setting, field, reason}} =
-            Settings.put("mcp.servers.local.enabled", true, %{audit?: false})
+            Settings.put(
+              "mcp.servers.local.enabled",
+              true,
+              AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+            )
 
           %{
             decision: :denied,
@@ -387,33 +413,66 @@ defmodule AllbertAssist.Security.McpIntegrationEvalTest do
 
   defp configure_http_server(server_id, base_url) do
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.enabled", false, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.transport", "streamable_http", %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.#{server_id}.transport",
+               "streamable_http",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.base_url", base_url, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.base_url",
+               base_url,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com", "other.example"], %{
-               audit?: false
-             })
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com", "other.example"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/mcp"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/mcp"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_methods", ["POST"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_methods",
+               ["POST"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp stub_http_mcp do

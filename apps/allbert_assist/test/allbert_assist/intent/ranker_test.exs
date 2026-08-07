@@ -315,10 +315,19 @@ defmodule AllbertAssist.Intent.RankerTest do
     assert [%{id: "notes_files:write_note"} | _rest] =
              Ranker.rank([search_notes, write_note], %{text: "create a note titled release"})
 
-    {:ok, _} = Settings.put("intent.router_scoring.ranker.descriptor_text_match_boost", 0.0)
+    {:ok, _} =
+      Settings.put(
+        "intent.router_scoring.ranker.descriptor_text_match_boost",
+        0.0,
+        AllbertAssist.TestSupport.ReadyEffectContext.context()
+      )
 
     {:ok, _} =
-      Settings.put("intent.router_scoring.ranker.descriptor_text_match_unit_boost", 0.0)
+      Settings.put(
+        "intent.router_scoring.ranker.descriptor_text_match_unit_boost",
+        0.0,
+        AllbertAssist.TestSupport.ReadyEffectContext.context()
+      )
 
     assert [%{id: "notes_files:search_notes"} | _rest] =
              Ranker.rank([search_notes, write_note], %{text: "create a note titled release"})

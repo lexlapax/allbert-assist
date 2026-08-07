@@ -254,17 +254,37 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   end
 
   defp enable_mcp_stdio! do
-    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("mcp_server.stdio.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.stdio.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp allow_tools!(tools) do
-    assert {:ok, _setting} = Settings.put("mcp_server.tools_enabled", tools, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.tools_enabled",
+               tools,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp allow_namespaces!(namespaces) do
     assert {:ok, _setting} =
-             Settings.put("mcp_server.memory_namespaces_enabled", namespaces, %{audit?: false})
+             Settings.put(
+               "mcp_server.memory_namespaces_enabled",
+               namespaces,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp ensure_stocksage_app_registered! do
@@ -278,13 +298,26 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   end
 
   defp enable_external_fixture! do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context(client_id \\ "stdio-client") do

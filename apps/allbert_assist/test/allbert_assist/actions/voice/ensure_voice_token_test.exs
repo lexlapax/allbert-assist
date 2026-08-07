@@ -24,7 +24,12 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceTokenTest do
 
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
-    Settings.put("permissions.voice_local_runtime_manage", "allowed", %{audit?: false})
+
+    Settings.put(
+      "permissions.voice_local_runtime_manage",
+      "allowed",
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+    )
 
     on_exit(fn ->
       restore_app_env(Paths, original_paths)
@@ -60,7 +65,11 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceTokenTest do
 
   test "honors Security Central denial and does not persist a token" do
     assert {:ok, _setting} =
-             Settings.put("permissions.voice_local_runtime_manage", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.voice_local_runtime_manage",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} = Runner.run("ensure_voice_token", %{}, ctx())
 

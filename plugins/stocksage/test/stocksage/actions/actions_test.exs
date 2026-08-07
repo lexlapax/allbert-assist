@@ -286,9 +286,13 @@ defmodule StockSage.ActionsTest do
     assert [] = Analyses.list_analyses("alice")
 
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "permissions" => %{"stocksage_write" => "denied"}
-             })
+             Settings.write_user_settings(
+               %{
+                 "permissions" => %{"stocksage_write" => "denied"}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, denied} =
              Runner.run(
@@ -303,9 +307,13 @@ defmodule StockSage.ActionsTest do
 
   test "stocksage_write can be denied without affecting read-only actions" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "permissions" => %{"stocksage_write" => "denied"}
-             })
+             Settings.write_user_settings(
+               %{
+                 "permissions" => %{"stocksage_write" => "denied"}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, denied} =
              Runner.run(

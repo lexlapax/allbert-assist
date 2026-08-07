@@ -125,8 +125,19 @@ defmodule AllbertAssist.Artifacts.BackfillTest do
   end
 
   defp enable_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(env) do

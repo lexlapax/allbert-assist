@@ -91,7 +91,11 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
              })
 
     assert {:ok, _setting} =
-             Settings.put("permissions.dynamic_codegen_discard", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.dynamic_codegen_discard",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run("discard_dynamic_draft", %{slug: "runner_discard_denied"}, context())
@@ -164,9 +168,13 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
 
   defp enable_dynamic_codegen!(profile) do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
-             })
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp temp_path(name) do

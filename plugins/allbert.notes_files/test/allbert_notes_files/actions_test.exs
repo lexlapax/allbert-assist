@@ -39,7 +39,11 @@ defmodule AllbertNotesFiles.ActionsTest do
     end
 
     assert {:ok, _setting} =
-             Settings.put("permissions.notes_file_write", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.notes_file_write",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations)
@@ -56,7 +60,9 @@ defmodule AllbertNotesFiles.ActionsTest do
     {:ok, root: root, notes_root: notes_root}
   end
 
-  test "search_notes and read_note are read-only and resource-referenced", %{notes_root: notes_root} do
+  test "search_notes and read_note are read-only and resource-referenced", %{
+    notes_root: notes_root
+  } do
     File.write!(Path.join(notes_root, "onboarding.md"), "# Onboarding\n\nBring the checklist.")
     File.write!(Path.join(notes_root, "scratch.txt"), "Temporary note.")
 
@@ -128,7 +134,11 @@ defmodule AllbertNotesFiles.ActionsTest do
 
   test "denied notes_file_write policy prevents confirmation and write", %{notes_root: notes_root} do
     assert {:ok, _setting} =
-             Settings.put("permissions.notes_file_write", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.notes_file_write",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run("write_note", %{title: "Denied", body: "nope"}, context())

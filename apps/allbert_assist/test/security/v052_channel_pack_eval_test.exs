@@ -282,7 +282,11 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert dm_event.user_id == "alice"
 
     assert {:ok, _setting} =
-             Settings.put("permissions.channel_message_inbound", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.channel_message_inbound",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     denied_by_policy =
       SlackParser.simulated_event(%{
@@ -399,7 +403,11 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert Policy.resolve(:channel_message_inbound).effective == :needs_confirmation
 
     assert {:error, {:invalid_setting, "permissions.channel_message_inbound", _reason}} =
-             Settings.put("permissions.channel_message_inbound", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.channel_message_inbound",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     slack_request =
       SlackClient.chat_post_message_request("secret://channels/slack/bot_token", %{
@@ -591,7 +599,12 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   end
 
   defp put_setting!(key, value) do
-    assert {:ok, _setting} = Settings.put(key, value, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               key,
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp put_secret!(secret_ref, value) do

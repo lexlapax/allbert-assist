@@ -259,14 +259,27 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     registry: registry
   } do
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
-
-    assert {:ok, _setting} = Settings.put("vision.enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "vision.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.vision_input",
+               ["vision_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
@@ -312,10 +325,18 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
   test "session closes automatically after max lifetime", %{registry: registry} do
     assert {:ok, _setting} =
-             Settings.put("browser.session.max_lifetime_ms", 1_000, %{audit?: false})
+             Settings.put(
+               "browser.session.max_lifetime_ms",
+               1_000,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("browser.session.idle_timeout_ms", 60_000, %{audit?: false})
+             Settings.put(
+               "browser.session.idle_timeout_ms",
+               60_000,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
@@ -330,10 +351,18 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
   test "session closes automatically after idle timeout", %{registry: registry} do
     assert {:ok, _setting} =
-             Settings.put("browser.session.max_lifetime_ms", 60_000, %{audit?: false})
+             Settings.put(
+               "browser.session.max_lifetime_ms",
+               60_000,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("browser.session.idle_timeout_ms", 1_000, %{audit?: false})
+             Settings.put(
+               "browser.session.idle_timeout_ms",
+               1_000,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
@@ -430,14 +459,33 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert denied_download.status == :denied
     assert denied_download.error == :browser_download_disabled
 
-    assert {:ok, _setting} = Settings.put("browser.form_fill.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("browser.download.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.form_fill.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.browser_form_fill", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "browser.download.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.browser_download", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.browser_form_fill",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.browser_download",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, pending_fill} =
              Runner.run(
@@ -526,9 +574,13 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert :ok = AllbertBrowser.NavigationPolicy.preflight("https://open.example/page")
 
     assert {:ok, _setting} =
-             Settings.put("browser.navigation.allowed_domains", ["allowed.example"], %{
-               audit?: false
-             })
+             Settings.put(
+               "browser.navigation.allowed_domains",
+               ["allowed.example"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert :ok = AllbertBrowser.NavigationPolicy.preflight("https://allowed.example/page")
 

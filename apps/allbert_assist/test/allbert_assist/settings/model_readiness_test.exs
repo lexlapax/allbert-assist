@@ -50,7 +50,11 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_manager", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.fanout_manager",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       send(test_pid, {:unexpected_hosted_probe, conn.request_path})
@@ -79,10 +83,18 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
     test_pid = self()
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", true, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_synthesis", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.fanout_synthesis",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       send(test_pid, {:unexpected_hosted_probe, conn.request_path})
@@ -111,7 +123,11 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
     test_pid = self()
 
     assert {:ok, _setting} =
-             Settings.put("providers.local_ollama.enabled", false, %{audit?: false})
+             Settings.put(
+               "providers.local_ollama.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       send(test_pid, {:unexpected_disabled_local_probe, conn.request_path})
@@ -147,7 +163,11 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", false, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       send(test_pid, {:unexpected_disabled_hosted_probe, conn.request_path})
@@ -211,7 +231,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:1/v1",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11435/v1")
@@ -244,7 +264,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:11435/v1",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:1/v1")
@@ -299,7 +319,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.local_ollama.endpoint_kind",
                "credentialed_remote",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11435/v1")
@@ -419,7 +439,11 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
 
   test "the direct-answer recommendation follows the task chain's primary fallback" do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", [], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       assert conn.request_path == "/api/tags"

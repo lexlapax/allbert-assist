@@ -150,7 +150,11 @@ defmodule AllbertArtifacts.AppPanelsTest do
     context: context
   } do
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert [surface] = App.workspace_panel_surfaces(context)
     assert {:ok, _surface} = Surface.validate_surface(surface)
@@ -174,14 +178,33 @@ defmodule AllbertArtifacts.AppPanelsTest do
     do: Enum.find(children, &(&1.component == component and &1.id == id))
 
   defp enable_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "allowed", %{audit?: false})
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.artifact_write",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context do

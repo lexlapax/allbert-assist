@@ -122,7 +122,11 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert vision_diagnostic.candidates == ["vision_openai", "vision_gemini", "local"]
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", true, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, vision} = Models.for(:vision_input)
     assert vision.request_kind == :capability
@@ -141,14 +145,22 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "local Ollama media profiles resolve only when selected explicitly" do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.vision_input", ["vision_ollama"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.vision_input",
+               ["vision_ollama"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.image_generation", ["image_ollama"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.image_generation",
+               ["image_ollama"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, vision} = Models.for(:vision_input)
     assert vision.request_kind == :capability
@@ -184,7 +196,7 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["fast", "local"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, resolution} = Models.for(:direct_answer)
@@ -199,12 +211,20 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "an explicitly authored hosted-first direct-answer chain is not reordered" do
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", true, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast", "local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, resolution} = Models.for(:direct_answer)
     assert resolution.profile.name == "fast"
@@ -213,9 +233,13 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "non-empty direct-answer preferences are closed against the global primary" do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:error, {:no_capable_profile, diagnostic}} = Models.for(:direct_answer)
     assert diagnostic.candidates == ["fast"]
@@ -226,7 +250,11 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
            )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", [], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, fallback} = Models.for(:direct_answer)
     assert fallback.source == :primary
@@ -242,7 +270,13 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     for {task, request, required_error} <- roles do
       key = "model_preferences.tasks.#{task}"
 
-      assert {:ok, _setting} = Settings.put(key, ["fast"], %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 key,
+                 ["fast"],
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
       assert {:error, {:no_capable_profile, diagnostic}} = Models.for(request)
       assert diagnostic.candidates == ["fast"]
       refute Enum.any?(diagnostic.diagnostics, &match?(%{profile: "local"}, &1))
@@ -250,15 +284,27 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
       assert {:error,
               {:invalid_setting, ^key,
                {:profile_missing_capability, "voice_stt_fake", "text_generation"}}} =
-               Settings.put(key, ["voice_stt_fake"], %{audit?: false})
+               Settings.put(
+                 key,
+                 ["voice_stt_fake"],
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:error, {:invalid_setting, ^key, ^required_error}} =
-               Settings.put(key, [], %{audit?: false})
+               Settings.put(
+                 key,
+                 [],
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:error, {:invalid_setting, ^key, ^required_error}} =
-               Settings.write_user_settings(%{
-                 "model_preferences" => %{"tasks" => %{task => []}}
-               })
+               Settings.write_user_settings(
+                 %{
+                   "model_preferences" => %{"tasks" => %{task => []}}
+                 },
+                 [],
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
   end
 
@@ -272,9 +318,13 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
              Settings.validate({"model_preferences.tasks.direct_answer", ["voice_stt_fake"]})
 
     assert ^expected_error =
-             Settings.put("model_preferences.tasks.direct_answer", ["voice_stt_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["voice_stt_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, %{}} = Settings.read_user_settings()
 
@@ -284,16 +334,24 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
              Settings.validate({"intent.direct_answer_model_profile", "voice_stt_fake"})
 
     assert ^expected_error =
-             Settings.put("intent.direct_answer_model_profile", "voice_stt_fake", %{
-               audit?: false
-             })
+             Settings.put(
+               "intent.direct_answer_model_profile",
+               "voice_stt_fake",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, %{}} = Settings.read_user_settings()
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast", "local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, ["fast", "local"]} =
              Settings.get("model_preferences.tasks.direct_answer")
@@ -301,11 +359,15 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "legacy persisted direct-answer lists remain readable and skip incapable profiles" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "model_preferences" => %{
-                 "tasks" => %{"direct_answer" => ["voice_stt_fake", "local"]}
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "model_preferences" => %{
+                   "tasks" => %{"direct_answer" => ["voice_stt_fake", "local"]}
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, resolution} = Models.for(:direct_answer)
     assert resolution.profile.name == "local"
@@ -321,26 +383,34 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "legacy persisted text profiles without capability metadata remain runnable and selectable" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "model_profiles" => %{
-                 "legacy_text" => %{
-                   "provider" => "local_ollama",
-                   "model" => "legacy-text:latest"
+             Settings.write_user_settings(
+               %{
+                 "model_profiles" => %{
+                   "legacy_text" => %{
+                     "provider" => "local_ollama",
+                     "model" => "legacy-text:latest"
+                   }
+                 },
+                 "model_preferences" => %{
+                   "tasks" => %{"direct_answer" => ["legacy_text"]}
                  }
                },
-               "model_preferences" => %{
-                 "tasks" => %{"direct_answer" => ["legacy_text"]}
-               }
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, resolution} = Models.for(:direct_answer)
     assert resolution.profile.name == "legacy_text"
     assert resolution.profile.capabilities == []
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["legacy_text"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["legacy_text"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, ["legacy_text"]} =
              Settings.get("model_preferences.tasks.direct_answer")
@@ -353,7 +423,11 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, false} = Settings.get("providers.openai.enabled")
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, user_settings} = Settings.read_user_settings()
     assert get_in(user_settings, ["providers", "openai", "enabled"]) == nil
@@ -369,10 +443,18 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     System.put_env("OPENAI_API_KEY", "operator-env-key")
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", false, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error, {:no_capable_profile, diagnostic}} = Models.for(:direct_answer)
 
@@ -386,14 +468,22 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "primary fallback is used only when the primary profile is capable" do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.text_generation", [], %{audit?: false})
+             Settings.put(
+               "model_preferences.capabilities.text_generation",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, fallback} = Models.for(:text_generation)
     assert fallback.source == :primary
     assert fallback.profile.name == "local"
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.primary", "voice_stt_fake", %{audit?: false})
+             Settings.put(
+               "model_preferences.primary",
+               "voice_stt_fake",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error, {:no_capable_profile, diagnostic}} = Models.for(:text_generation)
     assert diagnostic.candidates == ["voice_stt_fake"]
@@ -404,7 +494,11 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "legacy intent profile keys read and write through model preferences" do
     assert {:ok, primary} =
-             Settings.put("intent.model_profile", "coding_local", %{audit?: false})
+             Settings.put(
+               "intent.model_profile",
+               "coding_local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert primary.key == "intent.model_profile"
     assert primary.value == "coding_local"
@@ -412,12 +506,20 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, "coding_local"} = Settings.get("intent.model_profile")
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.primary", "local", %{audit?: false})
+             Settings.put(
+               "model_preferences.primary",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, "local"} = Settings.get("intent.model_profile")
 
     assert {:ok, direct_answer} =
-             Settings.put("intent.direct_answer_model_profile", "fast", %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_profile",
+               "fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert direct_answer.key == "intent.direct_answer_model_profile"
     assert direct_answer.value == "fast"
@@ -425,26 +527,38 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, "fast"} = Settings.get("intent.direct_answer_model_profile")
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["local", "fast"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["local", "fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", [], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
   end
 
   test "legacy settings files normalize into model preferences" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{
-                 "model_profile" => "coding_local",
-                 "direct_answer_model_profile" => "fast"
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{
+                   "model_profile" => "coding_local",
+                   "direct_answer_model_profile" => "fast"
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, "coding_local"} = Settings.get("model_preferences.primary")
     assert {:ok, ["fast"]} = Settings.get("model_preferences.tasks.direct_answer")
@@ -452,14 +566,22 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   test "preference writes validate profile refs and capability names" do
     assert {:error, {:invalid_setting, "model_preferences.capabilities.speech_to_text", _reason}} =
-             Settings.put("model_preferences.capabilities.speech_to_text", ["missing"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["missing"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:error, {:invalid_setting, "model_preferences.capabilities.shell_execute", _reason}} =
-             Settings.put("model_preferences.capabilities.shell_execute", ["local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.shell_execute",
+               ["local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp restore_env(env) do

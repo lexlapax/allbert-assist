@@ -66,28 +66,48 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
     assert Settings.safe_write_key?("surface_policy.surfaces.cli.list_settings.max_rows")
 
     assert {:ok, resolved} =
-             Settings.put("mcp_server.streamable_http.port", 4100, %{audit?: false})
+             Settings.put(
+               "mcp_server.streamable_http.port",
+               4100,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert resolved.value == 4100
 
     assert {:error, {:invalid_setting, "mcp_server.streamable_http.port", _reason}} =
-             Settings.put("mcp_server.streamable_http.port", 70_000, %{audit?: false})
+             Settings.put(
+               "mcp_server.streamable_http.port",
+               70_000,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error, {:invalid_setting, "mcp_server.streamable_http.bind_host", _reason}} =
-             Settings.put("mcp_server.streamable_http.bind_host", "0.0.0.0", %{audit?: false})
+             Settings.put(
+               "mcp_server.streamable_http.bind_host",
+               "0.0.0.0",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error, {:invalid_setting, "openai_api.path_prefix", _reason}} =
-             Settings.put("openai_api.path_prefix", "/v2", %{audit?: false})
+             Settings.put(
+               "openai_api.path_prefix",
+               "/v2",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error,
             {:invalid_setting, "public_protocol.result_readback_sweep_interval_ms", _reason}} =
-             Settings.put("public_protocol.result_readback_sweep_interval_ms", 0, %{audit?: false})
+             Settings.put(
+               "public_protocol.result_readback_sweep_interval_ms",
+               0,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, resolved_policy} =
              Settings.put(
                "surface_policy.surfaces.mcp_http.list_settings.render_mode",
                "operator_report",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved_policy.value == "operator_report"
@@ -98,7 +118,7 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
              Settings.put(
                "surface_policy.surfaces.mcp_http.list_settings.render_mode",
                "raw",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error,
@@ -106,7 +126,7 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
              Settings.put(
                "surface_policy.surfaces.mcp_http.list_settings.max_rows",
                1001,
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -119,7 +139,13 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
       }
     }
 
-    assert {:ok, resolved} = Settings.put("openai_api.clients", clients, %{audit?: false})
+    assert {:ok, resolved} =
+             Settings.put(
+               "openai_api.clients",
+               clients,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     assert resolved.value == clients
 
     invalid_ref =
@@ -130,22 +156,38 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
       )
 
     assert {:error, {:invalid_setting, "openai_api.clients", _reason}} =
-             Settings.put("openai_api.clients", invalid_ref, %{audit?: false})
+             Settings.put(
+               "openai_api.clients",
+               invalid_ref,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     invalid_rate = put_in(clients, ["local", "rate_limit", "limit"], 0)
 
     assert {:error, {:invalid_setting, "openai_api.clients", _reason}} =
-             Settings.put("openai_api.clients", invalid_rate, %{audit?: false})
+             Settings.put(
+               "openai_api.clients",
+               invalid_rate,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     invalid_client_id = %{"bad id" => clients["local"]}
 
     assert {:error, {:invalid_setting, "openai_api.clients", _reason}} =
-             Settings.put("openai_api.clients", invalid_client_id, %{audit?: false})
+             Settings.put(
+               "openai_api.clients",
+               invalid_client_id,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   test "public tool allowlists reject non-exposable settings actions" do
     assert {:error, {:invalid_setting, "mcp_server.tools_enabled", _reason}} =
-             Settings.put("mcp_server.tools_enabled", ["list_settings"], %{audit?: false})
+             Settings.put(
+               "mcp_server.tools_enabled",
+               ["list_settings"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp temp_root(prefix) do

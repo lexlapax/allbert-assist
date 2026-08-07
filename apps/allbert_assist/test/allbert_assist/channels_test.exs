@@ -34,25 +34,32 @@ defmodule AllbertAssist.ChannelsTest do
   describe "channel events" do
     test "creates and updates durable events" do
       assert {:ok, %Event{} = event} =
-               Channels.create_event(%{
-                 channel: "telegram",
-                 provider: "telegram_bot_api",
-                 direction: "inbound",
-                 external_event_id: "100",
-                 external_user_id: "123",
-                 status: "received",
-                 payload_summary: String.duplicate("x", 700)
-               })
+               Channels.create_event(
+                 %{
+                   channel: "telegram",
+                   provider: "telegram_bot_api",
+                   direction: "inbound",
+                   external_event_id: "100",
+                   external_user_id: "123",
+                   status: "received",
+                   payload_summary: String.duplicate("x", 700)
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert event.payload_summary == String.duplicate("x", 500)
 
       assert {:ok, updated} =
-               Channels.update_event(event, %{
-                 status: "processed",
-                 user_id: "alice",
-                 thread_id: "thread_1",
-                 trace_id: "trace_1"
-               })
+               Channels.update_event(
+                 event,
+                 %{
+                   status: "processed",
+                   user_id: "alice",
+                   thread_id: "thread_1",
+                   trace_id: "trace_1"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert updated.status == "processed"
       assert updated.user_id == "alice"
@@ -62,17 +69,20 @@ defmodule AllbertAssist.ChannelsTest do
 
     test "redacts phone numbers before channel events are persisted" do
       assert {:ok, %Event{} = event} =
-               Channels.create_event(%{
-                 channel: "signal",
-                 provider: "signal_cli",
-                 direction: "inbound",
-                 external_event_id: "signal-phone-redaction",
-                 external_user_id: "+15551234567",
-                 external_chat_id: "signal:+15557654321",
-                 external_message_id: "msg:+442071838750",
-                 status: "received",
-                 payload_summary: "from +15551234567"
-               })
+               Channels.create_event(
+                 %{
+                   channel: "signal",
+                   provider: "signal_cli",
+                   direction: "inbound",
+                   external_event_id: "signal-phone-redaction",
+                   external_user_id: "+15551234567",
+                   external_chat_id: "signal:+15557654321",
+                   external_message_id: "msg:+442071838750",
+                   status: "received",
+                   payload_summary: "from +15551234567"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert event.external_user_id == "[REDACTED_PHONE]"
       assert event.external_chat_id == "signal:[REDACTED_PHONE]"
@@ -94,15 +104,27 @@ defmodule AllbertAssist.ChannelsTest do
         status: "received"
       }
 
-      assert {:ok, _event} = Channels.create_event(attrs)
-      assert {:error, %Ecto.Changeset{}} = Channels.create_event(attrs)
+      assert {:ok, _event} =
+               Channels.create_event(
+                 attrs,
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
+
+      assert {:error, %Ecto.Changeset{}} =
+               Channels.create_event(
+                 attrs,
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, _event} =
-               Channels.create_event(%{
-                 attrs
-                 | direction: "outbound",
-                   external_event_id: "101"
-               })
+               Channels.create_event(
+                 %{
+                   attrs
+                   | direction: "outbound",
+                     external_event_id: "101"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
 
     test "emits channel lifecycle signals from durable event state changes" do
@@ -113,59 +135,79 @@ defmodule AllbertAssist.ChannelsTest do
         try do
           capture_log([level: :info], fn ->
             assert {:ok, inbound} =
-                     Channels.create_event(%{
-                       channel: "telegram",
-                       provider: "telegram_bot_api",
-                       direction: "inbound",
-                       external_event_id: "signal-inbound",
-                       external_user_id: "123",
-                       status: "received"
-                     })
+                     Channels.create_event(
+                       %{
+                         channel: "telegram",
+                         provider: "telegram_bot_api",
+                         direction: "inbound",
+                         external_event_id: "signal-inbound",
+                         external_user_id: "123",
+                         status: "received"
+                       },
+                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     )
 
             assert {:ok, _event} =
-                     Channels.update_event(inbound, %{
-                       status: "processed",
-                       user_id: "alice",
-                       session_id: "ch_tg_signal",
-                       thread_id: "thr_signal",
-                       trace_id: "trace_signal",
-                       input_signal_id: "sig_signal"
-                     })
+                     Channels.update_event(
+                       inbound,
+                       %{
+                         status: "processed",
+                         user_id: "alice",
+                         session_id: "ch_tg_signal",
+                         thread_id: "thr_signal",
+                         trace_id: "trace_signal",
+                         input_signal_id: "sig_signal"
+                       },
+                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     )
 
             assert {:ok, _callback} =
-                     Channels.create_event(%{
-                       channel: "email",
-                       provider: "email_imap",
-                       direction: "callback",
-                       external_event_id: "signal-callback",
-                       external_user_id: "alice@example.com",
-                       status: "received"
-                     })
+                     Channels.create_event(
+                       %{
+                         channel: "email",
+                         provider: "email_imap",
+                         direction: "callback",
+                         external_event_id: "signal-callback",
+                         external_user_id: "alice@example.com",
+                         status: "received"
+                       },
+                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     )
 
             assert {:ok, _rejected} =
-                     Channels.create_event(%{
-                       channel: "email",
-                       provider: "email_imap",
-                       direction: "inbound",
-                       external_event_id: "signal-rejected",
-                       status: "rejected",
-                       reason: ":not_mapped"
-                     })
+                     Channels.create_event(
+                       %{
+                         channel: "email",
+                         provider: "email_imap",
+                         direction: "inbound",
+                         external_event_id: "signal-rejected",
+                         status: "rejected",
+                         reason: ":not_mapped"
+                       },
+                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     )
 
             assert {:ok, failed} =
-                     Channels.create_event(%{
-                       channel: "email",
-                       provider: "email_imap",
-                       direction: "outbound",
-                       external_event_id: "signal-failed",
-                       status: "received"
-                     })
+                     Channels.create_event(
+                       %{
+                         channel: "email",
+                         provider: "email_imap",
+                         direction: "outbound",
+                         external_event_id: "signal-failed",
+                         status: "received"
+                       },
+                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     )
 
             assert {:ok, _event} =
-                     Channels.update_event(failed, %{
-                       status: "failed",
-                       error: "smtp unavailable"
-                     })
+                     Channels.update_event(
+                       failed,
+                       %{
+                         status: "failed",
+                         error: "smtp unavailable"
+                       },
+                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     )
           end)
         after
           Logger.configure(level: original_logger_level)
@@ -181,13 +223,16 @@ defmodule AllbertAssist.ChannelsTest do
 
     test "receipt enrichment does not replay lifecycle signals without a status transition" do
       assert {:ok, event} =
-               Channels.create_event(%{
-                 channel: "tui",
-                 provider: "terminal",
-                 direction: "inbound",
-                 external_event_id: "signal-receipt-enrichment",
-                 status: "processed"
-               })
+               Channels.create_event(
+                 %{
+                   channel: "tui",
+                   provider: "terminal",
+                   direction: "inbound",
+                   external_event_id: "signal-receipt-enrichment",
+                   status: "processed"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       original_logger_level = Logger.level()
       Logger.configure(level: :info)
@@ -196,11 +241,15 @@ defmodule AllbertAssist.ChannelsTest do
         try do
           capture_log([level: :info], fn ->
             assert {:ok, enriched} =
-                     Channels.update_event(event, %{
-                       receipt_state: "completed",
-                       receipt_result_ref: "thread:receipt-enrichment",
-                       receipt_outcome: "completed"
-                     })
+                     Channels.update_event(
+                       event,
+                       %{
+                         receipt_state: "completed",
+                         receipt_result_ref: "thread:receipt-enrichment",
+                         receipt_outcome: "completed"
+                       },
+                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     )
 
             assert enriched.status == "processed"
             assert enriched.direction == "inbound"
@@ -217,13 +266,16 @@ defmodule AllbertAssist.ChannelsTest do
     test "returns max inbound integer event id for Telegram offset derivation" do
       for id <- ["10", "12", "not-an-int"] do
         assert {:ok, _event} =
-                 Channels.create_event(%{
-                   channel: "telegram",
-                   provider: "telegram_bot_api",
-                   direction: "inbound",
-                   external_event_id: id,
-                   status: "received"
-                 })
+                 Channels.create_event(
+                   %{
+                     channel: "telegram",
+                     provider: "telegram_bot_api",
+                     direction: "inbound",
+                     external_event_id: id,
+                     status: "received"
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
       end
 
       assert Channels.max_inbound_integer_event_id("telegram") == 12
@@ -232,12 +284,15 @@ defmodule AllbertAssist.ChannelsTest do
 
     test "generates outbound event ids" do
       assert {:ok, event} =
-               Channels.create_event(%{
-                 channel: "email",
-                 provider: "email_smtp",
-                 direction: "outbound",
-                 status: "processed"
-               })
+               Channels.create_event(
+                 %{
+                   channel: "email",
+                   provider: "email_smtp",
+                   direction: "outbound",
+                   status: "processed"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert String.starts_with?(event.external_event_id, "out_")
       assert Repo.get!(Event, event.id)

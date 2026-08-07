@@ -95,7 +95,11 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     use_fake_image!()
 
     assert {:ok, _setting} =
-             Settings.put("image.generation.retention_enabled", true, %{audit?: false})
+             Settings.put(
+               "image.generation.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} = GenerateImage.run(%{prompt: "draw retained image"}, context())
 
@@ -317,40 +321,70 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
   end
 
   defp enable_image! do
-    assert {:ok, _resolved} = Settings.put("image.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "image.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp use_fake_image! do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.image_generation", ["image_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.image_generation",
+               ["image_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp use_openai_image! do
-    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _provider} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.image_generation",
                ["image_openai"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
   defp use_openai_then_fake_image! do
-    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _provider} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.image_generation",
                ["image_openai", "image_fake"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -359,7 +393,7 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
              Settings.put(
                "model_preferences.capabilities.image_generation",
                ["image_ollama"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

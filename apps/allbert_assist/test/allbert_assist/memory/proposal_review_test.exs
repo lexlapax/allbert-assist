@@ -37,10 +37,19 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     System.put_env("ALLBERT_HOME", root)
     KeyCustody.invalidate(:all)
 
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _setting} =
-             Settings.put("memory.collection.origin_grants", ["local_operator"])
+             Settings.put(
+               "memory.collection.origin_grants",
+               ["local_operator"],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     on_exit(fn ->
       restore_env(Settings, original_settings)
@@ -265,7 +274,13 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
              )
 
     assert applying.status == "applying"
-    assert {:ok, _setting} = Settings.put("memory.collection.origin_grants", [])
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.collection.origin_grants",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, result} = ProposalReview.resume(proposal.id)
     assert result.status == "stale"

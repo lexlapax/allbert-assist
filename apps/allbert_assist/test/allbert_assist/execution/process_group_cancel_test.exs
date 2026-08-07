@@ -5,7 +5,12 @@ defmodule AllbertAssist.Execution.ProcessGroupCancelTest do
   alias AllbertAssist.Settings
 
   test "normal spawns pin the Settings Central grace while explicit overrides win" do
-    assert {:ok, _} = Settings.put("execution.cancel.grace_ms", 321, %{audit?: false})
+    assert {:ok, _} =
+             Settings.put(
+               "execution.cancel.grace_ms",
+               321,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     inherited = Task.async(fn -> run_sleep("settings-grace", []) end)
     inherited_owner = await_owner("settings-grace")

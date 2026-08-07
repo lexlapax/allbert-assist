@@ -23,12 +23,15 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
 
   test "the objective chip names destination, title, and status", %{conn: conn} do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Ship weekly digest",
-               objective: "Produce and send the weekly digest.",
-               status: "running"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Ship weekly digest",
+                 objective: "Produce and send the weekly digest.",
+                 status: "running"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -53,12 +56,15 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
 
   test "missing and foreign objective ids fall back to the owned objectives index", %{conn: conn} do
     assert {:ok, foreign} =
-             Objectives.create_objective(%{
-               user_id: "other-user",
-               title: "Foreign objective",
-               objective: "Must not render.",
-               status: "running"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "other-user",
+                 title: "Foreign objective",
+                 objective: "Must not render.",
+                 status: "running"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     for objective_id <- ["missing-objective", foreign.id, String.duplicate("x", 161)] do
       {:ok, view, html} =
@@ -78,12 +84,15 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
     long_title = "Analyze the quarterly portfolio rebalancing strategy"
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: long_title,
-               objective: "Long-running analysis objective.",
-               status: "open"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: long_title,
+                 objective: "Long-running analysis objective.",
+                 status: "open"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -98,12 +107,15 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
   } do
     for index <- 1..3 do
       assert {:ok, _objective} =
-               Objectives.create_objective(%{
-                 user_id: "local",
-                 title: "Objective #{index}",
-                 objective: "Objective #{index} body.",
-                 status: "open"
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "local",
+                   title: "Objective #{index}",
+                   objective: "Objective #{index} body.",
+                   status: "open"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
 
     {:ok, view, _html} = live(conn, ~p"/workspace")

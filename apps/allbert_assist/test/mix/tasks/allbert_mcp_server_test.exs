@@ -56,7 +56,11 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
     enable_mcp_stdio!()
 
     assert {:ok, _setting} =
-             Settings.put("mcp_server.tools_enabled", ["direct_answer"], %{audit?: false})
+             Settings.put(
+               "mcp_server.tools_enabled",
+               ["direct_answer"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     output =
       capture_io(fn ->
@@ -71,7 +75,11 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
     enable_mcp_http!()
 
     assert {:ok, _setting} =
-             Settings.put("mcp_server.tools_enabled", ["direct_answer"], %{audit?: false})
+             Settings.put(
+               "mcp_server.tools_enabled",
+               ["direct_answer"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     output =
       capture_io(fn ->
@@ -86,9 +94,13 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
     enable_mcp_stdio!()
 
     assert {:ok, _setting} =
-             Settings.put("mcp_server.memory_namespaces_enabled", ["stocksage.stocksage"], %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp_server.memory_namespaces_enabled",
+               ["stocksage.stocksage"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     output =
       capture_io(fn ->
@@ -161,15 +173,35 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
   end
 
   defp enable_mcp_stdio! do
-    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("mcp_server.stdio.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.stdio.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_mcp_http! do
-    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp_server.streamable_http.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp_server.streamable_http.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp ensure_stocksage_app_registered! do

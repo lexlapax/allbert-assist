@@ -477,10 +477,18 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     FanoutRoles.configure!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.confirm_before_start",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
@@ -507,7 +515,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     # execution. Reinstate the no-start barrier before exercising the ACK so no
     # Coordinator can outlive the test transaction.
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.confirm_before_start",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => "forged"})
     assert Fanout.parent_projection(parent).parent.kickoff_delivery_state == "pending"
@@ -522,10 +534,18 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     FanoutRoles.configure!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.confirm_before_start",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
@@ -597,12 +617,25 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     do: flunk("Workspace fan-out kickoff was not persisted")
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 end

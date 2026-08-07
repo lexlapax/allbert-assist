@@ -222,9 +222,13 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
              |> ChannelThread.record_message_ref()
 
     assert {:ok, _resolved} =
-             Settings.put("conversations.unified_history.include_e2ee_origin", true, %{
-               audit?: false
-             })
+             Settings.put(
+               "conversations.unified_history.include_e2ee_origin",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, history} =
              UnifiedHistory.show_thread("alice", thread.id,

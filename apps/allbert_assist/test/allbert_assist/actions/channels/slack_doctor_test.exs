@@ -28,10 +28,18 @@ defmodule AllbertAssist.Actions.Channels.SlackDoctorTest do
     Fragments.clear_cache()
 
     assert {:ok, _setting} =
-             Settings.put("channels.slack.workspace_team_id", "T0123ABCDE", %{audit?: false})
+             Settings.put(
+               "channels.slack.workspace_team_id",
+               "T0123ABCDE",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.slack.allowed_channel_ids", ["C0123ABCDE"], %{audit?: false})
+             Settings.put(
+               "channels.slack.allowed_channel_ids",
+               ["C0123ABCDE"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)

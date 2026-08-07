@@ -77,7 +77,11 @@ defmodule AllbertAssist.Convergence.IntegrationTest do
 
   test "confirmation expiry and TTL settings still apply to new records" do
     assert {:ok, _ttl} =
-             Settings.put("confirmations.default_ttl_minutes", 1, %{audit?: false})
+             Settings.put(
+               "confirmations.default_ttl_minutes",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, record} =
              Confirmations.create(
@@ -170,13 +174,26 @@ defmodule AllbertAssist.Convergence.IntegrationTest do
   end
 
   defp configure_external_request_settings do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp base_confirmation(id) do

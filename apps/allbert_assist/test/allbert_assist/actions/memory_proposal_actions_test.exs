@@ -28,10 +28,20 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     System.put_env("ALLBERT_HOME", root)
     KeyCustody.invalidate(:all)
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
 
     assert {:ok, _setting} =
-             Settings.put("memory.collection.origin_grants", ["local_operator"])
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.collection.origin_grants",
+               ["local_operator"],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     on_exit(fn ->
       restore_env(Settings, original_settings)
@@ -98,7 +108,13 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
     assert length(batch.result.results) == 2
 
     denied = proposal("water")
-    assert {:ok, _setting} = Settings.put("permissions.memory_write", "denied")
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.memory_write",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              ReviewMemoryProposal.run(
@@ -153,7 +169,13 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
 
   test "proposal listing scrubs revoked sources before returning DTO content", %{context: context} do
     proposal = proposal("tea")
-    assert {:ok, _setting} = Settings.put("memory.collection.origin_grants", [])
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.collection.origin_grants",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, listed} = ListMemoryProposals.run(%{}, context)
     assert listed.status == :completed

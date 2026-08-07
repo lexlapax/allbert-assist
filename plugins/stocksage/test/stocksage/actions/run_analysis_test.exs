@@ -436,7 +436,11 @@ defmodule StockSage.Actions.RunAnalysisTest do
   end
 
   defp put_setting!(key, value) do
-    case Settings.put(key, value, %{actor: "test"}) do
+    case Settings.put(
+           key,
+           value,
+           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+         ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end

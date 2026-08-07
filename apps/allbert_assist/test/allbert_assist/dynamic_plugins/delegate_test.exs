@@ -85,17 +85,34 @@ defmodule AllbertAssist.DynamicPlugins.DelegateTest do
 
   defp allow_facades!(facades) do
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.allowed_facades", facades, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.allowed_facades",
+               facades,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/status"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/status"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp cli_context do

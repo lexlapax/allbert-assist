@@ -61,12 +61,21 @@ defmodule AllbertAssistWeb.LiveSocketTest do
 
   test "readiness-disconnect transport retirement terminates the old LiveView root and upload channel",
        %{conn: conn} do
-    assert {:ok, _resolved} = Settings.put("vision.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "vision.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.vision_input",
+               ["vision_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     {:ok, view, _html} = live(conn, "/workspace")
 

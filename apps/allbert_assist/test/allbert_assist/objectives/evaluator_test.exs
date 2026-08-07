@@ -13,22 +13,28 @@ defmodule AllbertAssist.Objectives.EvaluatorTest do
     assert :needs_more_steps = Evaluator.evaluate(criteria, [])
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               acceptance_criteria: criteria
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 acceptance_criteria: criteria
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "completed",
-               stage: "observe_step",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               action_params: %{"ticker" => "AAPL"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "observe_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 action_params: %{"ticker" => "AAPL"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert :met = Evaluator.evaluate(objective, [step])
   end

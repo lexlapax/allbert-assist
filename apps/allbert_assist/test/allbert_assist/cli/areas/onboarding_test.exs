@@ -211,7 +211,7 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
                Settings.put(
                  "providers.local_ollama.base_url",
                  "http://127.0.0.1:1/v1",
-                 %{audit?: false}
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
                )
 
       {io, out} = scripted_io(["q", "", "", "", :quit])

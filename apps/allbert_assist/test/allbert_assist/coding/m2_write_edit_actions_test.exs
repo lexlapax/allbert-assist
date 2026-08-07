@@ -194,7 +194,11 @@ defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
 
   test "permission denial blocks write before filesystem validation", %{workspace: workspace} do
     assert {:ok, _setting} =
-             Settings.put("permissions.coding_file_write", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.coding_file_write",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run(

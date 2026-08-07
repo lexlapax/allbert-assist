@@ -70,9 +70,13 @@ defmodule Mix.Tasks.Stocksage.ImportSqliteTest do
 
   test "respects stocksage_write denial before opening the source database", %{path: path} do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "permissions" => %{"stocksage_write" => "denied"}
-             })
+             Settings.write_user_settings(
+               %{
+                 "permissions" => %{"stocksage_write" => "denied"}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert_raise Mix.Error, ~r/permission_denied/, fn ->
       capture_io(fn ->

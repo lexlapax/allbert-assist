@@ -218,7 +218,12 @@ defmodule AllbertAssist.Actions.PackageInstallActionsTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp write_fake_npm!(path) do

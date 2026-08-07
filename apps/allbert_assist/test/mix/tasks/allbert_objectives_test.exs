@@ -28,22 +28,28 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
   test "lists and shows objectives through registered actions" do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               active_app: "stocksage"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 active_app: "stocksage"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "proposed",
-               stage: "propose_steps",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               action_params: %{ticker: "AAPL"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "proposed",
+                 stage: "propose_steps",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 action_params: %{ticker: "AAPL"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     list_output =
       capture_io(fn ->
@@ -66,12 +72,15 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
   test "cancel requires reason and cancels through registered action" do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Cancel AAPL",
-               objective: "Stop the analysis.",
-               status: "running"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Cancel AAPL",
+                 objective: "Stop the analysis.",
+                 status: "running"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:halt, 64} =
              catch_throw(
@@ -177,12 +186,15 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
   test "continue terminal advisory is a successful command" do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Already abandoned",
-               objective: "No more work.",
-               status: "abandoned"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Already abandoned",
+                 objective: "No more work.",
+                 status: "abandoned"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     output =
       capture_io(fn ->

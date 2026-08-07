@@ -259,7 +259,11 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
     assert_eval_group!(:openai)
 
     assert {:ok, _setting} =
-             Settings.put("openai_api.models_enabled", ["local"], %{audit?: false})
+             Settings.put(
+               "openai_api.models_enabled",
+               ["local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     base = %{"model" => "local", "messages" => [%{"role" => "user", "content" => "hello"}]}
 
@@ -436,29 +440,69 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   defp assert_eval!(id), do: EvalInventory.row!(id)
 
   defp enable_mcp_stdio! do
-    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("mcp_server.stdio.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.stdio.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_mcp_http! do
-    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp_server.streamable_http.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp_server.streamable_http.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_acp_stdio! do
-    assert {:ok, _setting} = Settings.put("acp_server.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("acp_server.stdio.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "acp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "acp_server.stdio.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp allow_tools!(tools) do
-    assert {:ok, _setting} = Settings.put("mcp_server.tools_enabled", tools, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.tools_enabled",
+               tools,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp allow_namespaces!(namespaces) do
     assert {:ok, _setting} =
-             Settings.put("mcp_server.memory_namespaces_enabled", namespaces, %{audit?: false})
+             Settings.put(
+               "mcp_server.memory_namespaces_enabled",
+               namespaces,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp ensure_stocksage_app_registered! do
@@ -476,7 +520,12 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
     entry = Map.fetch!(clients, client_id)
     updated = Map.put(clients, client_id, Map.put(entry, "rate_limit", rate_limit))
 
-    assert {:ok, _setting} = Settings.put("mcp_server.clients", updated, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.clients",
+               updated,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context, do: %{actor: "test", channel: "test", audit?: false}

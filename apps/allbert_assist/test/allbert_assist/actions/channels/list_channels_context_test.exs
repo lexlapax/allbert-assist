@@ -63,10 +63,14 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsContextTest do
     # shipped baseline (the M3 convergence invariant); the same key is
     # `{:unknown_setting, "stocksage"}` under any narrowed global composition.
     assert {:ok, _resolved} =
-             Settings.put("stocksage.bridge_enabled", false, %{
-               actor: "m3_composition",
-               audit?: false
-             })
+             Settings.put(
+               "stocksage.bridge_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "m3_composition",
+                 audit?: false
+               })
+             )
 
     registry = Fixtures.start_isolated_registries(:list_channels_ctx)
     assert "allbert.tui" = Fixtures.register_plugin!(registry, TUIPlugin)

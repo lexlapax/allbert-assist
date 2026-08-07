@@ -224,26 +224,40 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
   end
 
   defp enable_voice! do
-    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "voice.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp use_fake_tts! do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.text_to_speech",
+               ["voice_tts_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp use_openai_tts! do
-    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _provider} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.text_to_speech",
                ["voice_tts_openai"],
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  audit?: false
-               }
+               })
              )
   end
 

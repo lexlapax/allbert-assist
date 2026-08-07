@@ -136,7 +136,12 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
     File.write!(too_large, "12345")
     File.write!(unsupported, "not audio")
 
-    assert {:ok, _resolved} = Settings.put("voice.audio.max_bytes", 4, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "voice.audio.max_bytes",
+               4,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, too_large_response} = TranscribeVoice.run(%{audio_file: too_large}, context())
     assert too_large_response.status == :denied
@@ -144,7 +149,12 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
     refute Map.has_key?(too_large_response, :transcript)
     refute inspect(too_large_response) =~ too_large
 
-    assert {:ok, _resolved} = Settings.put("voice.audio.max_bytes", 10_485_760, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "voice.audio.max_bytes",
+               10_485_760,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, unsupported_response} =
              TranscribeVoice.run(%{audio_file: unsupported}, context())
@@ -156,26 +166,40 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
   end
 
   defp enable_voice! do
-    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "voice.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp use_fake_stt! do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp use_openai_stt! do
-    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _provider} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_openai"],
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  audit?: false
-               }
+               })
              )
   end
 

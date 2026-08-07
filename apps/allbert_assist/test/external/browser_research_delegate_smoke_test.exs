@@ -55,14 +55,29 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
 
     ensure_browser_supervisor()
     close_all_sessions()
-    assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("browser.driver.host_resolver_rules", "MAP #{@host} 127.0.0.1", %{
-               audit?: false
-             })
+             Settings.put(
+               "browser.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
-    assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.driver.host_resolver_rules",
+               "MAP #{@host} 127.0.0.1",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "research.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       close_all_sessions()

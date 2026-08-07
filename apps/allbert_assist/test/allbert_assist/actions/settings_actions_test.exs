@@ -350,11 +350,15 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "model_preferences.tasks.fanout_manager",
                ["fast", "direct_answer_local"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_synthesis", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.fanout_synthesis",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       assert conn.method == "GET"
@@ -422,15 +426,27 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", true, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_manager", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.fanout_manager",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_synthesis", ["coding_local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.fanout_synthesis",
+               ["coding_local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       assert conn.method == "GET"
@@ -500,10 +516,18 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "model doctor prioritizes callability failures over recommendation strength" do
     assert {:ok, _setting} =
-             Settings.put("intent.router_embedding_profile", "local", %{audit?: false})
+             Settings.put(
+               "intent.router_embedding_profile",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("intent.router_escalation_profile", "fast", %{audit?: false})
+             Settings.put(
+               "intent.router_escalation_profile",
+               "fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       assert conn.request_path == "/api/tags"
@@ -583,9 +607,13 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "set active model preserves the operator-authored DirectAnswer fallback tail" do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast", "local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, response} =
              SetActiveModelProfile.run(%{profile: "local"}, %{
@@ -601,12 +629,20 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "purpose-owned DirectAnswer selection leaves global primary unchanged and reconciles disclosure" do
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["local", "fast"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["local", "fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, response} =
              SetDirectAnswerModelProfile.run(%{profile: "fast"}, %{
@@ -669,14 +705,18 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "set active model preserves the legacy implicit-text profile contract" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "model_profiles" => %{
-                 "legacy_text" => %{
-                   "provider" => "local_ollama",
-                   "model" => "legacy-text:latest"
+             Settings.write_user_settings(
+               %{
+                 "model_profiles" => %{
+                   "legacy_text" => %{
+                     "provider" => "local_ollama",
+                     "model" => "legacy-text:latest"
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              SetActiveModelProfile.run(%{profile: "legacy_text"}, %{
@@ -697,14 +737,18 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "purpose-owned DirectAnswer selection preserves the legacy implicit-text profile contract" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "model_profiles" => %{
-                 "legacy_text" => %{
-                   "provider" => "local_ollama",
-                   "model" => "legacy-text:latest"
+             Settings.write_user_settings(
+               %{
+                 "model_profiles" => %{
+                   "legacy_text" => %{
+                     "provider" => "local_ollama",
+                     "model" => "legacy-text:latest"
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              SetDirectAnswerModelProfile.run(%{profile: "legacy_text"}, %{
@@ -838,9 +882,13 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "credentialed remote doctor resolves catalog aliases against provider model ids" do
     assert {:ok, _setting} =
-             Settings.put("model_profiles.anthropic_fast.model", "claude-haiku-4-5", %{
-               audit?: false
-             })
+             Settings.put(
+               "model_profiles.anthropic_fast.model",
+               "claude-haiku-4-5",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _secret} =
              Settings.Secrets.put_secret(
@@ -927,9 +975,13 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert [%{code: :credential_missing}] = missing.doctor.diagnostics
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.base_url", "http://127.0.0.1:11434/v1", %{
-               audit?: false
-             })
+             Settings.put(
+               "providers.openai.base_url",
+               "http://127.0.0.1:11434/v1",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _secret} =
              Settings.Secrets.put_secret(
@@ -985,9 +1037,13 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     secret = "sk-openai-compatible-doctor-key"
 
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "providers" => %{"openai" => %{"type" => "openai_compatible"}}
-             })
+             Settings.write_user_settings(
+               %{
+                 "providers" => %{"openai" => %{"type" => "openai_compatible"}}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _secret} =
              Settings.Secrets.put_secret(
@@ -1062,10 +1118,18 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "provider credential completion reconciles a newly callable hosted DirectAnswer route" do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     refute Disclosure.hosted_pending?(:cli)
 

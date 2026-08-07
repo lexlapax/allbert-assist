@@ -125,7 +125,11 @@ defmodule AllbertAssist.Workflows.ValidatorTest do
     copy_fixture!("single_step", home)
 
     assert {:ok, _setting} =
-             Settings.put("workflows.max_param_bytes_per_step", 8, %{audit?: false})
+             Settings.put(
+               "workflows.max_param_bytes_per_step",
+               8,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, workflow} = Loader.load("single_step")
 

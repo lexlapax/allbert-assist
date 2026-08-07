@@ -166,12 +166,20 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       )
 
       assert {:ok, _setting} =
-               Settings.put("model_preferences.tasks.direct_answer", ["direct_answer_local"], %{
-                 audit?: false
-               })
+               Settings.put(
+                 "model_preferences.tasks.direct_answer",
+                 ["direct_answer_local"],
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   audit?: false
+                 })
+               )
 
       assert {:ok, _setting} =
-               Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+               Settings.put(
+                 "intent.direct_answer_model_enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert :ok = Disclosure.acknowledge(:web)
 
@@ -492,9 +500,13 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       isolate_empty_ollama_inventory!()
 
       assert {:ok, _setting} =
-               Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:2/v1", %{
-                 audit?: false
-               })
+               Settings.put(
+                 "providers.local_ollama.base_url",
+                 "http://127.0.0.1:2/v1",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   audit?: false
+                 })
+               )
 
       {:ok, models_view, _html} = live(conn, ~p"/workspace?destination=workspace:models")
       assert has_element?(models_view, "#workspace-catalog-pull-ollama-qwen2-5-7b")
@@ -571,7 +583,11 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       FirstRun.reset_onboarding()
 
       assert {:ok, _setting} =
-               Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+               Settings.put(
+                 "intent.direct_answer_model_enabled",
+                 false,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       FirstRun.merge_marker(%{
         "wizard_started" => true,
@@ -1043,9 +1059,13 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
     System.put_env("OLLAMA_HOST", "http://127.0.0.1:1")
 
     assert {:ok, _setting} =
-             Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:1/v1", %{
-               audit?: false
-             })
+             Settings.put(
+               "providers.local_ollama.base_url",
+               "http://127.0.0.1:1/v1",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     Application.put_env(:allbert_assist, :first_model_http, fn url ->
       if String.ends_with?(url, "/api/tags"),

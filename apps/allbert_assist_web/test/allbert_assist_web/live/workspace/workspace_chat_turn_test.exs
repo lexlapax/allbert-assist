@@ -343,7 +343,13 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
   } do
     enable_workspace_voice!()
     enable_workspace_artifacts!()
-    assert {:ok, _setting} = Settings.put("voice.audio.retention_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "voice.audio.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -450,7 +456,11 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
     enable_workspace_artifacts!()
 
     assert {:ok, _setting} =
-             Settings.put("vision.media.retention_enabled", true, %{audit?: false})
+             Settings.put(
+               "vision.media.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -489,26 +499,55 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
   end
 
   defp enable_workspace_voice! do
-    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "voice.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp enable_workspace_vision! do
-    assert {:ok, _resolved} = Settings.put("vision.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "vision.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.vision_input",
+               ["vision_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp enable_workspace_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp fixture_path(name) do

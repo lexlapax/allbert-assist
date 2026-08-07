@@ -13,24 +13,30 @@ defmodule Mix.Tasks.Allbert.PlanTest do
 
   test "lists, shows, and cancels plan runs through registered actions" do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Workflow run",
-               objective: "Run workflow.",
-               status: "running",
-               active_app: "allbert",
-               source_intent: "workflow:multi_step:1"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Workflow run",
+                 objective: "Run workflow.",
+                 status: "running",
+                 active_app: "allbert",
+                 source_intent: "workflow:multi_step:1"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "proposed",
-               stage: "propose_steps",
-               provider: "plan_build",
-               candidate_action: "direct_answer"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "proposed",
+                 stage: "propose_steps",
+                 provider: "plan_build",
+                 candidate_action: "direct_answer"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     list_output =
       capture_io(fn ->

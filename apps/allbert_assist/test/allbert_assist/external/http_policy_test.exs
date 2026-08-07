@@ -76,7 +76,12 @@ defmodule AllbertAssist.External.HttpPolicyTest do
   end
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -88,11 +93,15 @@ defmodule AllbertAssist.External.HttpPolicyTest do
                  "169.254.169.254",
                  "localhost"
                ],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/status"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/status"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

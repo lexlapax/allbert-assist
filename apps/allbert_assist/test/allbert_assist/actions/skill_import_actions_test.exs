@@ -109,7 +109,11 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
 
   test "denied remote URL import never fetches or writes", %{root: root} do
     assert {:ok, _setting} =
-             Settings.put("permissions.online_skill_import", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.online_skill_import",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run(
@@ -253,7 +257,12 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp write_local_skill!(root, name) do

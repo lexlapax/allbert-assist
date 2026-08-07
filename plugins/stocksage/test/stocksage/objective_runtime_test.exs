@@ -348,45 +348,51 @@ defmodule StockSage.ObjectiveRuntimeTest do
     put_setting!("objectives.max_loop_count", 1)
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Needs two steps",
-               objective: "Complete two analyses.",
-               proposer_hint: %{
-                 "app_id" => "stocksage",
-                 "state" => %{"remaining_tickers" => ["MSFT"], "completed_steps" => []}
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Needs two steps",
+                 objective: "Complete two analyses.",
+                 proposer_hint: %{
+                   "app_id" => "stocksage",
+                   "state" => %{"remaining_tickers" => ["MSFT"], "completed_steps" => []}
+                 },
+                 acceptance_criteria: %{
+                   "min_completed_steps" => 2,
+                   "required" => [
+                     %{
+                       "kind" => "step_completed_with_action",
+                       "action" => "StockSage.Actions.RunAnalysis",
+                       "params_match" => %{"ticker" => "AAPL"},
+                       "min_count" => 1
+                     },
+                     %{
+                       "kind" => "step_completed_with_action",
+                       "action" => "StockSage.Actions.RunAnalysis",
+                       "params_match" => %{"ticker" => "MSFT"},
+                       "min_count" => 1
+                     }
+                   ],
+                   "needs_more_when" => [
+                     %{"kind" => "completed_step_count_below", "value" => 2}
+                   ]
+                 }
                },
-               acceptance_criteria: %{
-                 "min_completed_steps" => 2,
-                 "required" => [
-                   %{
-                     "kind" => "step_completed_with_action",
-                     "action" => "StockSage.Actions.RunAnalysis",
-                     "params_match" => %{"ticker" => "AAPL"},
-                     "min_count" => 1
-                   },
-                   %{
-                     "kind" => "step_completed_with_action",
-                     "action" => "StockSage.Actions.RunAnalysis",
-                     "params_match" => %{"ticker" => "MSFT"},
-                     "min_count" => 1
-                   }
-                 ],
-                 "needs_more_when" => [
-                   %{"kind" => "completed_step_count_below", "value" => 2}
-                 ]
-               }
-             })
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "completed",
-               stage: "execute_step",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               action_params: %{ticker: "AAPL"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "execute_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 action_params: %{ticker: "AAPL"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{objective: blocked, verdict: :needs_more_steps}} =
              EngineAgent.observe_step(%{step_id: step.id, trace_id: "trace_impasse_loop"})
@@ -431,7 +437,11 @@ defmodule StockSage.ObjectiveRuntimeTest do
   end
 
   defp put_setting!(key, value) do
-    case Settings.put(key, value, %{actor: "test"}) do
+    case Settings.put(
+           key,
+           value,
+           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+         ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end

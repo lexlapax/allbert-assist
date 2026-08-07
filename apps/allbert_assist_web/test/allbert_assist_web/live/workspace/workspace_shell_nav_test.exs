@@ -93,7 +93,12 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
   end
 
   test "mount applies workspace theme from settings", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.mode",
+               "dark",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -249,7 +254,11 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.layout.override_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -334,7 +343,11 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
 
   test "offline disabled setting shows disabled workspace banner", %{conn: conn} do
     assert {:ok, _setting} =
-             Settings.put("workspace.offline.enabled", false, %{audit?: false})
+             Settings.put(
+               "workspace.offline.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, html} = live(conn, ~p"/workspace")
 
@@ -350,10 +363,19 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
   end
 
   test "mount applies high contrast workspace variant", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.mode",
+               "dark",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.accessibility.high_contrast", true, %{audit?: false})
+             Settings.put(
+               "workspace.accessibility.high_contrast",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, html} = live(conn, ~p"/workspace")
 
@@ -370,7 +392,11 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
 
   test "mount applies reduce-motion workspace variant", %{conn: conn} do
     assert {:ok, _setting} =
-             Settings.put("workspace.accessibility.reduce_motion", true, %{audit?: false})
+             Settings.put(
+               "workspace.accessibility.reduce_motion",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, html} = live(conn, ~p"/workspace")
 
@@ -385,13 +411,16 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
 
   test "renders active objective badge from registered action boundary", %{conn: conn} do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               status: "blocked",
-               active_app: "stocksage"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "blocked",
+                 active_app: "stocksage"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 

@@ -88,7 +88,11 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
   test "refuses a plan whose structural call requirement exceeds its configured limit" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_model_calls_per_plan", 10, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.max_model_calls_per_plan",
+               10,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error,
             {:fanout_budget_exhausted,
@@ -101,9 +105,13 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
   test "refuses a plan whose structural output-token requirement exceeds its configured limit" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_output_tokens_per_plan", 30_719, %{
-               audit?: false
-             })
+             Settings.put(
+               "objectives.fanout.max_output_tokens_per_plan",
+               30_719,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:error,
             {:fanout_budget_exhausted,
@@ -140,7 +148,11 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
     assert limits.max_elapsed_ms == 300_000
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_model_calls_per_plan", 2, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.max_model_calls_per_plan",
+               2,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, %{"configured_model_calls" => 64}} = Budget.resolve(2, 0, limits)
 
@@ -163,15 +175,33 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
       assert Settings.safe_write_key?(key)
       assert {:ok, %{id: "core:objectives"}} = Fragments.fragment_for_key(key)
 
-      assert {:ok, %{value: ^minimum}} = Settings.put(key, minimum, %{audit?: false})
+      assert {:ok, %{value: ^minimum}} =
+               Settings.put(
+                 key,
+                 minimum,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:error, {:invalid_setting, ^key, _reason}} =
-               Settings.put(key, minimum - 1, %{audit?: false})
+               Settings.put(
+                 key,
+                 minimum - 1,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
-      assert {:ok, %{value: ^maximum}} = Settings.put(key, maximum, %{audit?: false})
+      assert {:ok, %{value: ^maximum}} =
+               Settings.put(
+                 key,
+                 maximum,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:error, {:invalid_setting, ^key, _reason}} =
-               Settings.put(key, maximum + 1, %{audit?: false})
+               Settings.put(
+                 key,
+                 maximum + 1,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
     end
   end
 
@@ -308,7 +338,11 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
   test "manager repair is not called when the frozen call limit only covers the initial call" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_model_calls_per_plan", 1, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.max_model_calls_per_plan",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok,
             %{
@@ -328,10 +362,18 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
   test "manager repair is not called when the frozen output limit only covers one response" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_model_calls_per_plan", 2, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.max_model_calls_per_plan",
+               2,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_output_tokens_per_plan", 1_024, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.max_output_tokens_per_plan",
+               1_024,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok,
             %{

@@ -258,7 +258,11 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
 
   test "body cap rejects public protocol content-length before parser/runtime work" do
     assert {:ok, _setting} =
-             Settings.put("public_protocol.max_body_bytes", 1024, %{audit?: false})
+             Settings.put(
+               "public_protocol.max_body_bytes",
+               1024,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     conn =
       Phoenix.ConnTest.build_conn(:post, "/mcp", "{}")
@@ -272,7 +276,11 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
 
   test "body reader enforces Settings Central cap when content-length is unavailable" do
     assert {:ok, _setting} =
-             Settings.put("public_protocol.max_body_bytes", 1024, %{audit?: false})
+             Settings.put(
+               "public_protocol.max_body_bytes",
+               1024,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     conn =
       Phoenix.ConnTest.build_conn(:post, "/mcp", String.duplicate("x", 1025))
@@ -327,19 +335,37 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
   defp post_json(conn, body), do: post(conn, ~p"/mcp", Jason.encode!(body))
 
   defp enable_mcp_http! do
-    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp_server.streamable_http.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp_server.streamable_http.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp allow_tools!(tools) do
-    assert {:ok, _setting} = Settings.put("mcp_server.tools_enabled", tools, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.tools_enabled",
+               tools,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp allow_namespaces!(namespaces) do
     assert {:ok, _setting} =
-             Settings.put("mcp_server.memory_namespaces_enabled", namespaces, %{audit?: false})
+             Settings.put(
+               "mcp_server.memory_namespaces_enabled",
+               namespaces,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp set_rate_limit!(client_id, rate_limit) do
@@ -347,7 +373,12 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
     entry = Map.fetch!(clients, client_id)
     updated = Map.put(clients, client_id, Map.put(entry, "rate_limit", rate_limit))
 
-    assert {:ok, _setting} = Settings.put("mcp_server.clients", updated, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.clients",
+               updated,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context, do: %{actor: "test", channel: "test", audit?: false}

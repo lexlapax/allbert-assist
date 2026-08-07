@@ -31,7 +31,11 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
 
   test "body cap and secure headers come from Settings Central" do
     assert {:ok, _setting} =
-             Settings.put("public_protocol.max_body_bytes", 1024, %{audit?: false})
+             Settings.put(
+               "public_protocol.max_body_bytes",
+               1024,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert HttpIngress.max_body_bytes() == 1024
     assert :ok = HttpIngress.content_length_allowed?("1024", HttpIngress.max_body_bytes())
@@ -90,14 +94,28 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
   end
 
   defp enable_mcp_http! do
-    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp_server.streamable_http.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp_server.streamable_http.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp allow_tools!(tools) do
-    assert {:ok, _setting} = Settings.put("mcp_server.tools_enabled", tools, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.tools_enabled",
+               tools,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp set_rate_limit!(client_id, rate_limit) do
@@ -105,7 +123,12 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
     entry = Map.fetch!(clients, client_id)
     updated = Map.put(clients, client_id, Map.put(entry, "rate_limit", rate_limit))
 
-    assert {:ok, _setting} = Settings.put("mcp_server.clients", updated, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp_server.clients",
+               updated,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context, do: %{actor: "test", channel: "test", audit?: false}

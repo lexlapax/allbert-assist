@@ -415,7 +415,12 @@ defmodule AllbertAssist.External.TelegramEmailInboundSmokeTest do
   end
 
   defp put_setting!(key, value) do
-    assert {:ok, _setting} = Settings.put(key, value, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               key,
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp timeout_ms(["telegram"]) do

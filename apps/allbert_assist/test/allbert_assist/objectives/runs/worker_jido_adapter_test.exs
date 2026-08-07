@@ -134,7 +134,11 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
         do: Application.put_env(:allbert_assist, DirectAnswer, previous),
         else: Application.delete_env(:allbert_assist, DirectAnswer)
 
-      AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+      AllbertAssist.Settings.put(
+        "intent.direct_answer_model_enabled",
+        false,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
     end)
 
     :ok
@@ -182,9 +186,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: GenerationAnswerer)
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.direct_answer_model_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     {grounding, context} = quality_worker_context()
 
@@ -353,9 +361,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
 
   defp enable_model! do
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp quality_worker_context do

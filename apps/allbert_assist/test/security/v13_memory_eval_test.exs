@@ -211,7 +211,13 @@ defmodule AllbertAssist.Security.V13MemoryEvalTest do
     assert path == stream.path
     assert [%{source: :projection}] = projected.actions
 
-    assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.index_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     refute indexed_memory_candidate?(Engine.collect_candidates(request))
 
     assert {:ok, fallback} =

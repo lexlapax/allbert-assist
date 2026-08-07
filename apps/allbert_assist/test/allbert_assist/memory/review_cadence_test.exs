@@ -30,7 +30,14 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
 
   test "daily cadence creates one active memory index rebuild job" do
     assert {:ok, setting} =
-             Settings.put("memory.review_cadence", "daily", %{actor: "local", audit?: false})
+             Settings.put(
+               "memory.review_cadence",
+               "daily",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 audit?: false
+               })
+             )
 
     assert %{source: :memory_review_cadence, action: :created, cadence: "daily"} =
              Enum.find(setting.diagnostics, &(&1.source == :memory_review_cadence))
@@ -46,10 +53,24 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
 
   test "weekly cadence updates the managed job instead of duplicating it" do
     assert {:ok, _setting} =
-             Settings.put("memory.review_cadence", "daily", %{actor: "local", audit?: false})
+             Settings.put(
+               "memory.review_cadence",
+               "daily",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 audit?: false
+               })
+             )
 
     assert {:ok, setting} =
-             Settings.put("memory.review_cadence", "weekly", %{actor: "local", audit?: false})
+             Settings.put(
+               "memory.review_cadence",
+               "weekly",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 audit?: false
+               })
+             )
 
     assert %{source: :memory_review_cadence, action: :updated, cadence: "weekly"} =
              Enum.find(setting.diagnostics, &(&1.source == :memory_review_cadence))
@@ -62,10 +83,24 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
 
   test "manual cadence pauses the managed job" do
     assert {:ok, _setting} =
-             Settings.put("memory.review_cadence", "daily", %{actor: "local", audit?: false})
+             Settings.put(
+               "memory.review_cadence",
+               "daily",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 audit?: false
+               })
+             )
 
     assert {:ok, setting} =
-             Settings.put("memory.review_cadence", "manual", %{actor: "local", audit?: false})
+             Settings.put(
+               "memory.review_cadence",
+               "manual",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 audit?: false
+               })
+             )
 
     assert %{source: :memory_review_cadence, action: :paused, cadence: "manual"} =
              Enum.find(setting.diagnostics, &(&1.source == :memory_review_cadence))

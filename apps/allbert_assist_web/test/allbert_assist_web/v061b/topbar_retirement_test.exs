@@ -49,12 +49,15 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
     # render — without this fixture the old `<- @relocation_map` filter
     # silently skipped the row (the one relocation nothing verified).
     assert {:ok, _objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Relocation row five",
-               objective: "Objective badge fixture for the relocation sweep.",
-               status: "running"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Relocation row five",
+                 objective: "Objective badge fixture for the relocation sweep.",
+                 status: "running"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -102,8 +105,20 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
 
   test "the theme toggle cycles cross-shell from an operator surface", %{conn: conn} do
     # The theme mode persists in Settings across tests — pin the start state.
-    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "system", %{audit?: false})
-    on_exit(fn -> Settings.put("workspace.theme.mode", "system", %{audit?: false}) end)
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.mode",
+               "system",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    on_exit(fn ->
+      Settings.put(
+        "workspace.theme.mode",
+        "system",
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
+    end)
 
     {:ok, view, _html} = live(conn, ~p"/jobs")
 

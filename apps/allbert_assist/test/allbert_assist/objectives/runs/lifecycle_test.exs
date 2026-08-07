@@ -538,7 +538,12 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     {child, step, receipt, _task_digest} = reviewed_completion_fixture(answer)
 
     assert {:ok, completed_step} =
-             Objectives.transition_step(step, "completed", %{result_summary: answer})
+             Objectives.transition_step(
+               step,
+               "completed",
+               %{result_summary: answer},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, completed} =
              Lifecycle.run(child.id,
@@ -564,7 +569,12 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     {child, step, receipt, _task_digest} = reviewed_completion_fixture(answer)
 
     assert {:ok, failed_step} =
-             Objectives.transition_step(step, "failed", %{result_summary: "earlier failure"})
+             Objectives.transition_step(
+               step,
+               "failed",
+               %{result_summary: "earlier failure"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, {:incompatible_terminal_step_status, step_id, "failed", "completed"}} =
              Lifecycle.run(child.id,
@@ -600,14 +610,17 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
       |> Enum.find(&(&1.id != child.id))
 
     assert {:ok, foreign_step} =
-             Objectives.create_step(%{
-               objective_id: sibling.id,
-               kind: "action",
-               status: "selected",
-               stage: "propose_steps",
-               candidate_action: "list_objectives",
-               action_params: %{user_id: "alice"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: sibling.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "propose_steps",
+                 candidate_action: "list_objectives",
+                 action_params: %{user_id: "alice"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error,
             {:terminal_step_objective_mismatch, step_id, step_objective_id, child_objective_id}} =
@@ -816,14 +829,17 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              })
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "list_objectives",
-               action_params: %{user_id: "alice"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "list_objectives",
+                 action_params: %{user_id: "alice"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, completed} = Lifecycle.run(child.id)
     assert completed.status == "completed"
@@ -924,14 +940,17 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              create_grounded_child("conversation_manager", original, generated)
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "append_memory",
-               action_params: %{memory: "Project Juniper launch code is opal."}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "append_memory",
+                 action_params: %{memory: "Project Juniper launch code is opal."}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, {:grounded_step_mismatch, :action}} = Lifecycle.run(child.id)
     assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
@@ -953,15 +972,18 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              create_grounded_child("conversation_manager", original, generated)
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "direct_answer",
-               action_params: %{text: "Answer a different generated task."},
-               resource_access: []
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "direct_answer",
+                 action_params: %{text: "Answer a different generated task."},
+                 resource_access: []
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, {:grounded_step_mismatch, :params}} = Lifecycle.run(child.id)
     assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
@@ -1007,15 +1029,18 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert {:ok, child} = create_grounded_child("counted_protocol", original, child_text)
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "list_objectives",
-               action_params: %{user_id: "alice"},
-               resource_access: []
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "list_objectives",
+                 action_params: %{user_id: "alice"},
+                 resource_access: []
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, {:grounded_step_mismatch, :action}} = Lifecycle.run(child.id)
     assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
@@ -1028,15 +1053,18 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert {:ok, child} = create_grounded_child("counted_protocol", original, child_text)
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "append_memory",
-               action_params: %{memory: "Remember a different generated launch code."},
-               resource_access: []
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "append_memory",
+                 action_params: %{memory: "Remember a different generated launch code."},
+                 resource_access: []
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, {:grounded_step_mismatch, :params}} = Lifecycle.run(child.id)
     assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
@@ -1542,13 +1570,16 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              })
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "list_objectives"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "list_objectives"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:blocked, {:needs_confirmation, "confirm-123"}} =
              Lifecycle.run(child.id, adapter: ConfirmationAdapter)
@@ -1597,14 +1628,17 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "propose_steps",
-               candidate_action: "direct_answer",
-               action_params: %{text: child_objective}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "propose_steps",
+                 candidate_action: "direct_answer",
+                 action_params: %{text: child_objective}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     grounding = Grounding.resolve(child)
     assert {:ok, contract} = QualityPolicy.build(grounding)

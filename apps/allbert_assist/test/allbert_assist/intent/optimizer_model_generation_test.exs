@@ -122,7 +122,11 @@ defmodule AllbertAssist.Intent.Router.OptimizerModelGenerationTest do
 
   test "remote router profile falls back to heuristic without calling the model" do
     assert {:ok, _setting} =
-             Settings.put("intent.router_model_profile", "fast", %{audit?: false})
+             Settings.put(
+               "intent.router_model_profile",
+               "fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     attrs = generate_with(ForbiddenLLM)
 
@@ -134,7 +138,11 @@ defmodule AllbertAssist.Intent.Router.OptimizerModelGenerationTest do
 
   test "disabled local provider falls back to heuristic without calling the model" do
     assert {:ok, _setting} =
-             Settings.put("providers.local_ollama.enabled", false, %{audit?: false})
+             Settings.put(
+               "providers.local_ollama.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     attrs = generate_with(ForbiddenLLM)
 

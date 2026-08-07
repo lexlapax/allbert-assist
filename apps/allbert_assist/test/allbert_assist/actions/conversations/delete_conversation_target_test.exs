@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -58,7 +59,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
     :ok
   end
 
-  test "registered generic-resume action deletes a message, repairs recency, and retains title" do
+  test "registered generic-resume action carries the non-default readiness epoch through approval" do
     assert {:ok, capability} = Registry.capability("delete_conversation_content")
     assert capability.confirmation == :required
     assert capability.resumable?
@@ -68,10 +69,12 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
     assert {:ok, second} = local_message(thread, "delete me")
     add_provider_refs(thread, second)
 
+    effect_context = operator_context()
+
     assert {:ok, pending} =
              DeleteConversationContent.run(
                %{target_kind: :message, target_id: second.id},
-               operator_context()
+               effect_context
              )
 
     assert pending.status == :needs_confirmation
@@ -102,7 +105,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
     assert {:ok, approved} =
              ApproveConfirmation.run(
                %{id: pending.confirmation_id, reason: "remove exact message"},
-               operator_context()
+               effect_context
              )
 
     assert approved.status == :completed
@@ -235,10 +238,19 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
   end
 
   test "canonical deletion scrubs matching proposal and legacy draft payloads idempotently" do
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _setting} =
-             Settings.put("memory.collection.origin_grants", ["local_operator"])
+             Settings.put(
+               "memory.collection.origin_grants",
+               ["local_operator"],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, thread} = Conversations.create_general_thread("local", "Derived content")
     assert {:ok, message} = local_message(thread, "I prefer deletion-safe evidence.")
@@ -377,9 +389,14 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
 
   defp resume_params(pending), do: pending.confirmation["resume_params_ref"]
 
-  defp operator_context do
-    %{user_id: "local", actor: "local", channel: :cli, surface: "test"}
-  end
+  defp operator_context,
+    do:
+      ReadyEffectContext.attach(%{
+        user_id: "local",
+        actor: "local",
+        channel: :cli,
+        surface: "test"
+      })
 
   defp approved_context,
     do: Map.put(operator_context(), :confirmation, %{approved?: true})

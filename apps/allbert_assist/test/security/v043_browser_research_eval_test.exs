@@ -62,7 +62,12 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
     ensure_browser_supervisor()
     close_all_sessions()
 
-    assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       close_all_sessions()
@@ -284,14 +289,33 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
 
     assert denied_download.status == :denied
 
-    assert {:ok, _setting} = Settings.put("browser.form_fill.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("browser.download.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.form_fill.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.browser_form_fill", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "browser.download.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.browser_download", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.browser_form_fill",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.browser_download",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, pending_fill} =
              Runner.run(

@@ -66,7 +66,7 @@ defmodule AllbertAssist.CLI.DispatcherTest do
                  Settings.put(
                    "providers.local_ollama.base_url",
                    "http://127.0.0.1:1/v1",
-                   %{audit?: false}
+                   AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
                  )
 
         {out, 0} = CLI.run([])
@@ -91,10 +91,18 @@ defmodule AllbertAssist.CLI.DispatcherTest do
                )
 
       assert {:ok, _setting} =
-               Settings.put("intent.direct_answer_model_profile", "fast", %{audit?: false})
+               Settings.put(
+                 "intent.direct_answer_model_profile",
+                 "fast",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:ok, _setting} =
-               Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+               Settings.put(
+                 "intent.direct_answer_model_enabled",
+                 false,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       {out, 0} = CLI.run([])
 

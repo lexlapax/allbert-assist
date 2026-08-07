@@ -75,7 +75,11 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     File.mkdir_p!(notes_root)
 
     assert {:ok, _setting} =
-             Settings.put("permissions.notes_file_write", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.notes_file_write",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       if Process.whereis(__MODULE__.State), do: safe_stop_state()
@@ -166,7 +170,11 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     configure_external(["registry.modelcontextprotocol.io"], ["/v0.1/servers"], ["GET"])
 
     assert {:ok, _setting} =
-             Settings.put("permissions.tool_discovery", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.tool_discovery",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     reset_calls()
     stub_official(McpRegistryFixtures.official_response())
@@ -422,7 +430,11 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.shell_no_false_positive.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.servers.shell_no_false_positive.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     configure_external(["server.example"], ["/mcp"], ["POST"])
     set_mcp_shape([], shell_risk_tools(), "")
@@ -679,54 +691,108 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
   end
 
   defp configure_discovery do
-    assert {:ok, _setting} = Settings.put("mcp.discovery.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.discovery.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.discovery.sources.official.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.discovery.sources.official.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp configure_external(hosts, paths, methods) do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", hosts, %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               hosts,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", paths, %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               paths,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_methods", methods, %{audit?: false})
+             Settings.put(
+               "external_services.allowed_methods",
+               methods,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp configure_server(server_id, tool_allowlist, opts \\ []) do
     headers = Keyword.get(opts, :headers, %{})
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.enabled", false, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.transport", "streamable_http", %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.#{server_id}.transport",
+               "streamable_http",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.base_url", "https://server.example/mcp", %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.#{server_id}.base_url",
+               "https://server.example/mcp",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.headers", headers, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.headers",
+               headers,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.tool_allowlist", tool_allowlist, %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.#{server_id}.tool_allowlist",
+               tool_allowlist,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.confirmation", "required", %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.confirmation",
+               "required",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp remember_mcp_resource(server_id, uri) do

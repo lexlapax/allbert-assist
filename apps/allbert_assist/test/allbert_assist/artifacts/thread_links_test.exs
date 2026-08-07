@@ -170,7 +170,12 @@ defmodule AllbertAssist.Artifacts.ThreadLinksTest do
              :count
            ) == 1
 
-    assert {:ok, _setting} = Settings.put("permissions.artifact_read", "denied", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.artifact_read",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, denied} =
              Runner.run("list_artifacts", %{thread_id: thread.id}, context)
@@ -205,14 +210,33 @@ defmodule AllbertAssist.Artifacts.ThreadLinksTest do
   end
 
   defp enable_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "allowed", %{audit?: false})
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.artifact_write",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(env) do

@@ -50,7 +50,12 @@ defmodule AllbertAssist.Theme.TokensTest do
       """
     )
 
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "midnight", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "midnight",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     selected = Tokens.selected()
 
@@ -75,7 +80,12 @@ defmodule AllbertAssist.Theme.TokensTest do
   end
 
   test "invalid or missing token files fall back without CSS declarations", %{home: home} do
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "missing", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "missing",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert %{status: :missing, declarations: declarations, diagnostics: diagnostics} =
              Tokens.selected()
@@ -85,7 +95,13 @@ defmodule AllbertAssist.Theme.TokensTest do
     assert Tokens.user_css() =~ "no active token overrides"
 
     File.write!(Path.join([home, "themes", "broken.yaml"]), "tokens: [")
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "broken", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "broken",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert %{status: :invalid, declarations: declarations, diagnostics: diagnostics} =
              Tokens.selected()
@@ -105,7 +121,12 @@ defmodule AllbertAssist.Theme.TokensTest do
       """
     )
 
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "remote", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "remote",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     selected = Tokens.selected()
 
@@ -117,7 +138,12 @@ defmodule AllbertAssist.Theme.TokensTest do
   end
 
   test "unsafe theme selection never resolves outside Allbert Home" do
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "../secret", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "../secret",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     selected = Tokens.selected()
 

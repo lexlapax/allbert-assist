@@ -144,7 +144,13 @@ defmodule AllbertAssist.Conversations.CorpusTest do
     assert {:ok, _message} = local_message(thread, "eligible")
     assert {:ok, search_snapshot} = Corpus.snapshot("alice", local_search_policy())
 
-    assert {:ok, _setting} = Settings.put("search.origin_grants", [])
+    assert {:ok, _setting} =
+             Settings.put(
+               "search.origin_grants",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert {:error, :origin_grant_required} = Corpus.page(search_snapshot, nil, 10)
 
     assert {:ok, _epoch} =
@@ -157,7 +163,13 @@ defmodule AllbertAssist.Conversations.CorpusTest do
   end
 
   test "Memory context may include assistant turns while source pages remain operator-only" do
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert {:ok, _epoch} = Corpus.set_origin_grant(:memory, :local_operator, true)
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Memory context")
     assert {:ok, first} = local_message(thread, "I prefer verified context.")

@@ -393,7 +393,11 @@ defmodule AllbertAssistWeb.WorkspaceCanvasTilesTest do
              })
 
     assert {:ok, _setting} =
-             Settings.put("permissions.workspace_canvas_write", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.workspace_canvas_write",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
 

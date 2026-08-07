@@ -215,7 +215,11 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
     assert {:ok, _revoked_expired} = Grants.revoke(expired["id"], %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("coding.command_grants.max_entries_per_repo", 1, %{audit?: false})
+             Settings.put(
+               "coding.command_grants.max_entries_per_repo",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _grant} =
              CommandGrants.remember(params,
@@ -252,8 +256,19 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
   end
 
   defp put_pi_mode_settings! do
-    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("coding.trusted_operator_id", "local", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.pi_mode.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.trusted_operator_id",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp put_execution_policy!(workspace) do
@@ -270,7 +285,12 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp temp_path(prefix) do

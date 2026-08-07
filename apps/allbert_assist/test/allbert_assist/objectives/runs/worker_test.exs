@@ -68,11 +68,20 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
       :telemetry.detach(handler_id)
       restore_env(DirectAnswer, original_direct_answer_config)
       Application.delete_env(:allbert_assist, :worker_run_server_test_pid)
-      AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
 
-      AllbertAssist.Settings.put("objectives.fanout.confirm_before_start", false, %{
-        audit?: false
-      })
+      AllbertAssist.Settings.put(
+        "intent.direct_answer_model_enabled",
+        false,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
+
+      AllbertAssist.Settings.put(
+        "objectives.fanout.confirm_before_start",
+        false,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+          audit?: false
+        })
+      )
     end)
 
     :ok
@@ -105,9 +114,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
 
   test "a clean DirectAnswer action uses one temporary Jido worker and the same Runner" do
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.direct_answer_model_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     context = %{
       user_id: "worker-user",
@@ -365,9 +378,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: BlockingAnswerer)
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     test_pid = self()
 
@@ -413,9 +430,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
     Application.put_env(:allbert_assist, :worker_run_server_test_pid, self())
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, %{parent: parent, children: [child, _sibling]}} =
              Fanout.frame(
@@ -431,14 +452,17 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
              )
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "direct_answer",
-               action_params: %{text: child.objective}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "direct_answer",
+                 action_params: %{text: child.objective}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, run_server} =
              DynamicSupervisor.start_child(
@@ -469,14 +493,22 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: SnapshotAnswerer)
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("objectives.fanout.confirm_before_start", false, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "objectives.fanout.confirm_before_start",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     test_pid = self()
 
@@ -501,9 +533,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
     assert_receive {:snapshot_before_write, worker, false}, 2_000
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("objectives.fanout.confirm_before_start", true, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "objectives.fanout.confirm_before_start",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     send(worker, :continue_snapshot_answerer)
     assert_receive {:snapshot_after_write, ^worker, false}, 2_000

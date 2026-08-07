@@ -81,7 +81,11 @@ defmodule AllbertAssist.Security.V050bArtifactsBrowserEvalTest do
     refute inspect(allowed_panel) =~ "browser-action-boundary-secret"
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert [denied_panel] = App.workspace_panel_surfaces(context)
     denied_panel_text = inspect(denied_panel)
@@ -161,17 +165,40 @@ defmodule AllbertAssist.Security.V050bArtifactsBrowserEvalTest do
   end
 
   defp enable_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "allowed", %{audit?: false})
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_delete", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_write",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.artifact_delete",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context do

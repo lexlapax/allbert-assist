@@ -107,9 +107,13 @@ defmodule AllbertAssist.DatabaseBackupTest do
     assert dry.actions |> hd() |> Map.fetch!(:executed) == false
 
     assert {:ok, _} =
-             AllbertAssist.Settings.put("permissions.command_execute", "needs_confirmation", %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "permissions.command_execute",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, gated} =
              Runner.run("restore_database_backup", %{backup: "latest"}, %{

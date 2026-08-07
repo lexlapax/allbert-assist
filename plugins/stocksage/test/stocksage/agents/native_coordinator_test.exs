@@ -119,13 +119,16 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
     put_setting!("stocksage.native_max_risk_rounds", 3)
 
     {:ok, objective} =
-      Objectives.create_objective(%{
-        user_id: "alice",
-        title: "Analyze AAPL",
-        objective: "Run a native StockSage analysis for AAPL.",
-        status: "open",
-        active_app: "stocksage"
-      })
+      Objectives.create_objective(
+        %{
+          user_id: "alice",
+          title: "Analyze AAPL",
+          objective: "Run a native StockSage analysis for AAPL.",
+          status: "open",
+          active_app: "stocksage"
+        },
+        AllbertAssist.TestSupport.ReadyEffectContext.context()
+      )
 
     assert {:ok, report} =
              NativeCoordinator.analyze(Map.put(@request, :objective_id, objective.id))
@@ -166,7 +169,11 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
   end
 
   defp put_setting!(key, value) do
-    case Settings.put(key, value, %{actor: "test"}) do
+    case Settings.put(
+           key,
+           value,
+           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+         ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end

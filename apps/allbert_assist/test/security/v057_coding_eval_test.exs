@@ -411,7 +411,12 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     assert raw_disabled.status == :denied
     assert raw_disabled.error == :raw_shell_disabled
 
-    assert {:ok, _setting} = Settings.put("coding.bash.allow_raw_shell", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.bash.allow_raw_shell",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     channel_context = Map.put(context, :channel_originated?, true)
 
@@ -448,9 +453,21 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
     setting_controlled_context = update_in(context, [:coding], &Map.delete(&1, :pi_mode_enabled))
 
-    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.pi_mode.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     assert PermissionGate.coding_tier(setting_controlled_context) == :none
-    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.pi_mode.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     default_write = PermissionGate.authorize(:coding_file_write, context)
     assert default_write.decision == :needs_confirmation
@@ -683,39 +700,71 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
   defp configure_settings!(workspace) do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "execution" => %{
-                 "local" => %{
-                   "enabled" => true,
-                   "allowed_roots" => [workspace],
-                   "allowed_commands" => ["pwd", "printf"],
-                   "env_allowlist" => [],
-                   "max_timeout_ms" => 1_000,
-                   "max_output_bytes" => 2_000
+             Settings.write_user_settings(
+               %{
+                 "execution" => %{
+                   "local" => %{
+                     "enabled" => true,
+                     "allowed_roots" => [workspace],
+                     "allowed_commands" => ["pwd", "printf"],
+                     "env_allowlist" => [],
+                     "max_timeout_ms" => 1_000,
+                     "max_output_bytes" => 2_000
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.tui.identity_map",
                [%{"external_user_id" => "default", "user_id" => "local", "enabled" => true}],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("coding.trusted_operator_id", "local", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.pi_mode.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("coding.default_approval_mode", "default", %{audit?: false})
+             Settings.put(
+               "coding.trusted_operator_id",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("coding.workspace.cwd_jail", workspace, %{audit?: false})
+             Settings.put(
+               "coding.default_approval_mode",
+               "default",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
+             Settings.put(
+               "coding.workspace.cwd_jail",
+               workspace,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.model_profile",
+               "pi_coding_local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp trusted_context(workspace) do

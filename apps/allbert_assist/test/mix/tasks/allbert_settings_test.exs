@@ -118,7 +118,12 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     assert json_list_output =~ "Updated: mcp.stdio.allowed_launchers=[\"npx\", \"uvx\"]"
     assert {:ok, ["npx", "uvx"]} = Settings.get("mcp.stdio.allowed_launchers")
 
-    assert {:ok, _setting} = Settings.put("mcp.servers.demo.enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.servers.demo.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     json_map_output =
       capture_io(fn ->
@@ -281,36 +286,56 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
 
   test "clears static and wildcard schema-declared nilable scalars with JSON null" do
     assert {:ok, _setting} =
-             Settings.put("model_roles.fast.profile", "local", %{audit?: false})
+             Settings.put(
+               "model_roles.fast.profile",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("browser.driver.binary_path", "/tmp/browser", %{audit?: false})
+             Settings.put(
+               "browser.driver.binary_path",
+               "/tmp/browser",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:11434/v1", %{
-               audit?: false
-             })
+             Settings.put(
+               "providers.local_ollama.base_url",
+               "http://127.0.0.1:11434/v1",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.local_ollama.api_key_ref",
                "secret://providers/local_ollama/api_key",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.audit.enabled", false, %{audit?: false})
+             Settings.put(
+               "mcp.servers.audit.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.audit.base_url", "http://127.0.0.1:9000/mcp", %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.audit.base_url",
+               "http://127.0.0.1:9000/mcp",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.servers.audit.auth_ref",
                "secret://mcp/audit/bearer_token",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     for key <- [
@@ -349,9 +374,13 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
 
   test "model-doctor renders the per-purpose recommendation matrix" do
     assert {:ok, _setting} =
-             Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:1/v1", %{
-               audit?: false
-             })
+             Settings.put(
+               "providers.local_ollama.base_url",
+               "http://127.0.0.1:1/v1",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     output = capture_io(fn -> assert :ok = SettingsTask.run(["model-doctor"]) end)
 

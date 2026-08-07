@@ -167,14 +167,22 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidatorTest do
 
   defp allow_permissions!(permissions) do
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.allowed_action_permissions", permissions, %{
-               audit?: false
-             })
+             Settings.put(
+               "dynamic_codegen.allowed_action_permissions",
+               permissions,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp allow_facades!(facades) do
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.allowed_facades", facades, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.allowed_facades",
+               facades,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp write_action_draft(slug, source_kind, permission) do

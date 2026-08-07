@@ -423,26 +423,49 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
   end
 
   defp enable_template_create! do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_live_template_stack! do
-    assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "dynamic_codegen.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.live_loader_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
-    assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "sandbox.elixir.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_dynamic_codegen!(profile) do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{
-                 "enabled" => true,
-                 "provider_profile" => profile
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{
+                   "enabled" => true,
+                   "provider_profile" => profile
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -454,7 +454,11 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
     assert_eval_group!(:model_recommendations)
 
     assert {:ok, _setting} =
-             Settings.put("intent.router_escalation_profile", "fast", %{audit?: false})
+             Settings.put(
+               "intent.router_escalation_profile",
+               "fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _secret} =
              Settings.Secrets.put_secret(
@@ -464,7 +468,11 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", true, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.stub(__MODULE__, fn conn ->
       assert conn.request_path == "/api/tags"

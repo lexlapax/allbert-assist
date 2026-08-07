@@ -485,12 +485,22 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
   test "transcribes a voice file before submitting runtime input", %{root: root} do
     fixture = Path.expand("../../fixtures/v0.48/audio/hello.wav", __DIR__)
-    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+
+    assert {:ok, _resolved} =
+             Settings.put(
+               "voice.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     output =
       capture_io(fn ->
@@ -522,17 +532,31 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
   test "explicit speak option synthesizes the runtime response after voice input" do
     fixture = Path.expand("../../fixtures/v0.48/audio/hello.wav", __DIR__)
-    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+
+    assert {:ok, _resolved} =
+             Settings.put(
+               "voice.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.text_to_speech",
+               ["voice_tts_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     output =
       capture_io(fn ->
@@ -663,16 +687,34 @@ defmodule Mix.Tasks.Allbert.AskTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 end

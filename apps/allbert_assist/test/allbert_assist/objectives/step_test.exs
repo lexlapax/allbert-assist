@@ -6,11 +6,14 @@ defmodule AllbertAssist.Objectives.StepTest do
 
   setup do
     {:ok, objective} =
-      Objectives.create_objective(%{
-        user_id: "alice",
-        title: "Analyze AAPL",
-        objective: "Complete one analysis for AAPL."
-      })
+      Objectives.create_objective(
+        %{
+          user_id: "alice",
+          title: "Analyze AAPL",
+          objective: "Complete one analysis for AAPL."
+        },
+        AllbertAssist.TestSupport.ReadyEffectContext.context()
+      )
 
     %{objective: objective}
   end
@@ -56,23 +59,41 @@ defmodule AllbertAssist.Objectives.StepTest do
 
   test "step transitions keep the same row id", %{objective: objective} do
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               stage: "propose_steps"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 stage: "propose_steps"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, selected} =
-             Objectives.transition_step(step, :selected, %{stage: :authorize_step})
+             Objectives.transition_step(
+               step,
+               :selected,
+               %{stage: :authorize_step},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, running} =
-             Objectives.transition_step(selected, :running, %{stage: :execute_step})
+             Objectives.transition_step(
+               selected,
+               :running,
+               %{stage: :execute_step},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, completed} =
-             Objectives.transition_step(running, :completed, %{
-               stage: :execute_step,
-               result_summary: "completed"
-             })
+             Objectives.transition_step(
+               running,
+               :completed,
+               %{
+                 stage: :execute_step,
+                 result_summary: "completed"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert completed.id == step.id
     assert completed.status == "completed"
@@ -83,22 +104,33 @@ defmodule AllbertAssist.Objectives.StepTest do
     digest = String.duplicate("a", 64)
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               stage: "authorize_step",
-               confirmation_resume_params_sha256: digest
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 stage: "authorize_step",
+                 confirmation_resume_params_sha256: digest
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, unchanged} =
-             Objectives.update_step(step, %{confirmation_resume_params_sha256: digest})
+             Objectives.update_step(
+               step,
+               %{confirmation_resume_params_sha256: digest},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert unchanged.confirmation_resume_params_sha256 == digest
 
     assert {:error, replacement} =
-             Objectives.update_step(step, %{
-               confirmation_resume_params_sha256: String.duplicate("b", 64)
-             })
+             Objectives.update_step(
+               step,
+               %{
+                 confirmation_resume_params_sha256: String.duplicate("b", 64)
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert %{confirmation_resume_params_sha256: [_]} = errors_on(replacement)
 

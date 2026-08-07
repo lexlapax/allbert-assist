@@ -6,23 +6,29 @@ defmodule AllbertAssist.Objectives.EventTest do
 
   setup do
     {:ok, objective} =
-      Objectives.create_objective(%{
-        user_id: "alice",
-        title: "Analyze AAPL",
-        objective: "Complete one analysis for AAPL."
-      })
+      Objectives.create_objective(
+        %{
+          user_id: "alice",
+          title: "Analyze AAPL",
+          objective: "Complete one analysis for AAPL."
+        },
+        AllbertAssist.TestSupport.ReadyEffectContext.context()
+      )
 
     %{objective: objective}
   end
 
   test "creates objective events with redacted bounded payloads", %{objective: objective} do
     assert {:ok, event} =
-             Objectives.create_event(%{
-               objective_id: objective.id,
-               kind: "created",
-               summary: "Objective created.",
-               payload: %{api_key: "sk-test", title: "Analyze AAPL"}
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: objective.id,
+                 kind: "created",
+                 summary: "Objective created.",
+                 payload: %{api_key: "sk-test", title: "Analyze AAPL"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert event.kind == "created"
     assert event.payload =~ "[REDACTED]"

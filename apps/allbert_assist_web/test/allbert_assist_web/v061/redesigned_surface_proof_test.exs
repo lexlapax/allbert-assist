@@ -64,13 +64,16 @@ defmodule AllbertAssistWeb.V061.RedesignedSurfaceProofTest do
              })
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "v061 surface objective",
-               objective: "Verify the redesigned objective surfaces.",
-               status: "running",
-               active_app: "allbert"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "v061 surface objective",
+                 objective: "Verify the redesigned objective surfaces.",
+                 status: "running",
+                 active_app: "allbert"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, workspace_view, workspace_html} = live(conn, ~p"/workspace")
     {:ok, jobs_view, jobs_html} = live(conn, ~p"/jobs")

@@ -76,7 +76,12 @@ defmodule AllbertAssist.MarketplaceTest do
   end
 
   test "marketplace.enabled=false disables every marketplace action", %{home: home} do
-    assert {:ok, _setting} = Settings.put("marketplace.enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "marketplace.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     actions = [
       {MarketplaceListEntries, %{}},

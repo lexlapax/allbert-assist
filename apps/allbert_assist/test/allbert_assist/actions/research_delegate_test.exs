@@ -38,8 +38,19 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     ensure_research_supervisor()
     close_all_sessions()
 
-    assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "research.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       close_all_sessions()
@@ -188,24 +199,30 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     engine_name = start_test_engine()
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Research reject",
-               objective: "Reject an unsupported research delegate command."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Research reject",
+                 objective: "Reject an unsupported research delegate command."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "delegate_agent",
-               status: "selected",
-               stage: "execute_step",
-               delegate_agent_id: AllbertResearch.Runtime.agent_id(),
-               action_params: %{
-                 command: "not_allowed",
-                 params: %{url: "https://example.com/docs/a"}
-               }
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "delegate_agent",
+                 status: "selected",
+                 stage: "execute_step",
+                 delegate_agent_id: AllbertResearch.Runtime.agent_id(),
+                 action_params: %{
+                   command: "not_allowed",
+                   params: %{url: "https://example.com/docs/a"}
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok,
             %{objective: failed_objective, step: failed_step, result: result, status: :failed}} =

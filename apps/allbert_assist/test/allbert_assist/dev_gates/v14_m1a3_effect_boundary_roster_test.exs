@@ -19,6 +19,8 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   @effect_boundaries %{
     "AllbertAssist.Actions.Runner" => MapSet.new([:run]),
     "AllbertAssist.Channels" => MapSet.new([:create_event, :update_event]),
+    "AllbertAssist.Confirmations" =>
+      MapSet.new([:annotate_resolution, :create, :expire, :resolve]),
     "AllbertAssist.Jobs.Runner" => MapSet.new([:execute_run, :run_now]),
     "AllbertAssist.Objectives" =>
       MapSet.new([
@@ -82,6 +84,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
                Enum.sort(@candidate_fields),
                Enum.sort(@multi_owner_candidate_fields)
              ]
+
       assert is_binary(classification["evidence"]) and classification["evidence"] != ""
       assert is_integer(classification["line"]) and classification["line"] > 0
       assert classification["disposition"] in ["external_e1", "inherited_context", "pure_inert"]
@@ -99,7 +102,8 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
           rosters =
             Enum.map(roster_ids, fn roster_id ->
               case Map.fetch(rows_by_id, roster_id) do
-                {:ok, roster} -> roster
+                {:ok, roster} ->
+                  roster
 
                 :error ->
                   flunk(
@@ -137,13 +141,13 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
            "#{MapSet.size(discovered)} discovered effect candidates, #{MapSet.size(classified)} classified; " <>
              "#{length(missing)} unresolved candidates across #{length(missing_sources)} sources (" <>
              "add external E1, inherited-context, or pure/inert classification):\n" <>
-             inspect(missing_sources, pretty: true, limit: :infinity) <> "\n\n" <>
+             inspect(missing_sources, pretty: true, limit: :infinity) <>
+             "\n\n" <>
              inspect(missing, pretty: true, limit: :infinity)
 
     assert stale == [],
            "stale effect candidate classifications:\n" <>
              inspect(stale, pretty: true, limit: :infinity)
-
   end
 
   test "callsite discovery resolves grouped, qualified, and renamed aliases from the production AST" do
@@ -220,6 +224,30 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     )
   end
 
+  test "the readiness epoch is never smuggled through process-local state" do
+    matches =
+      @source_roots
+      |> Enum.flat_map(fn root ->
+        Path.wildcard(Path.join([project_root(), root, "**", "*.ex"]))
+      end)
+      |> Enum.flat_map(fn path ->
+        path
+        |> File.stream!()
+        |> Stream.with_index(1)
+        |> Enum.flat_map(fn {line, line_number} ->
+          if line =~ ~r/Process\.(?:get|put|delete).*allbert_pack_epoch/ do
+            ["#{Path.relative_to(path, project_root())}:#{line_number}:#{String.trim(line)}"]
+          else
+            []
+          end
+        end)
+      end)
+
+    assert matches == [],
+           "readiness must use an explicit E1 carrier, never process-local state:\n" <>
+             Enum.join(matches, "\n")
+  end
+
   test "compatibility admission is restricted to enumerated frozen facades" do
     fixture = load_fixture!()
 
@@ -281,7 +309,10 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
 
   defp classification_roster_ids(%{"roster_id" => ""}), do: []
   defp classification_roster_ids(%{"roster_id" => roster_id}), do: [roster_id]
-  defp classification_roster_ids(%{"roster_ids" => roster_ids}) when is_list(roster_ids), do: roster_ids
+
+  defp classification_roster_ids(%{"roster_ids" => roster_ids}) when is_list(roster_ids),
+    do: roster_ids
+
   defp classification_roster_ids(_classification), do: []
 
   defp effect_boundaries do
@@ -414,8 +445,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   end
 
   defp alias_targets(
-         {{:., _dot_meta, [{:__aliases__, _prefix_meta, prefix}, :{}]},
-          _group_meta, members}
+         {{:., _dot_meta, [{:__aliases__, _prefix_meta, prefix}, :{}]}, _group_meta, members}
        ) do
     Enum.map(members, fn {:__aliases__, _member_meta, member} ->
       Enum.join(prefix ++ member, ".")

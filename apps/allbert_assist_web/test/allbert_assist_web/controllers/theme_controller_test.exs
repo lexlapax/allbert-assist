@@ -47,7 +47,12 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
       """
     )
 
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "midnight", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "midnight",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     conn = get(conn, ~p"/theme/user.css")
     css = response(conn, 200)
@@ -71,13 +76,24 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
   end
 
   test "GET /theme/user.css falls back for missing or invalid themes", %{conn: conn, home: home} do
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "missing", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "missing",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     conn = get(conn, ~p"/theme/user.css")
     assert response(conn, 200) =~ "no active token overrides"
 
     File.write!(Path.join([home, "themes", "broken.yaml"]), "tokens: [")
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "broken", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "broken",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     conn = conn |> recycle() |> get(~p"/theme/user.css")
     assert response(conn, 200) =~ "no active token overrides"
@@ -96,13 +112,21 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["compact"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     disabled = get(conn, ~p"/theme/snippets.css")
     assert response(disabled, 200) == ""
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     enabled = conn |> recycle() |> get(~p"/theme/snippets.css")
     css = response(enabled, 200)
@@ -124,12 +148,20 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     assert response(get(conn, ~p"/theme/snippets/compact.css"), 404) == ""
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert response(conn |> recycle() |> get(~p"/theme/snippets/compact.css"), 404) == ""
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["compact"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert response(conn |> recycle() |> get(~p"/theme/snippets/compact.css"), 200) =~
              "--allbert-radius"
@@ -137,12 +169,20 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
 
   test "snippet route rejects traversal and non-css names", %{conn: conn} do
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["../secret", "notes.txt"], %{
-               audit?: false
-             })
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["../secret", "notes.txt"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     traversal = get(conn, "/theme/snippets/%2E%2E%2Fsecret.css")
     assert traversal.status == 404
@@ -154,7 +194,13 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     path = Path.join([home, "themes", "midnight.yaml"])
 
     File.write!(path, "tokens:\n  allbert-surface-0: \"#101820\"\n")
-    assert {:ok, _setting} = Settings.put("workspace.theme.active", "midnight", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.active",
+               "midnight",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     first_version = Version.stylesheet_version()
 
@@ -169,10 +215,18 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     File.write!(path, "#workspace-shell { --allbert-radius: 0.5rem; }\n")
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["compact"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     first_version = Version.stylesheet_version()
 

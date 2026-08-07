@@ -120,7 +120,11 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
 
   test "script policy and skill trust deny before confirmation", context do
     assert {:ok, _setting} =
-             Settings.put("execution.skill_scripts.enabled", false, %{audit?: false})
+             Settings.put(
+               "execution.skill_scripts.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error, disabled_policy} =
              SkillScriptSpec.normalize(valid_params(context),
@@ -130,7 +134,13 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     assert disabled_policy.denial_reason == :skill_scripts_disabled
 
     put_script_policy!(context.workspace)
-    assert {:ok, _setting} = Settings.put("skills.disabled", ["demo-script"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "skills.disabled",
+               ["demo-script"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error, disabled_skill} =
              SkillScriptSpec.normalize(valid_params(context),
@@ -371,7 +381,11 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
              Runner.run("run_skill_script", valid_params(context), action_context())
 
     assert {:ok, _setting} =
-             Settings.put("permissions.skill_script_execute", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.skill_script_execute",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, policy_denied} =
              Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
@@ -463,7 +477,12 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp write_script_skill!(home, name, opts) do

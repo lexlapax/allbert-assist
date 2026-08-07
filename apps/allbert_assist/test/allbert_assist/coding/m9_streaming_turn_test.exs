@@ -814,7 +814,12 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
   test "model-proposed raw shell without local-coding tier returns a denied tool result", %{
     root: root
   } do
-    assert {:ok, _setting} = Settings.put("coding.bash.allow_raw_shell", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.bash.allow_raw_shell",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     parent = self()
     turn_id = unique_turn_id("raw-shell")
@@ -992,7 +997,12 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp assert_stream_text_called(task, turn_id, timeout \\ 5_000) do

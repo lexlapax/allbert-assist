@@ -21,10 +21,19 @@ defmodule AllbertAssist.Memory.ProposalsTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     System.put_env("ALLBERT_HOME", root)
 
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _setting} =
-             Settings.put("memory.collection.origin_grants", ["local_operator"])
+             Settings.put(
+               "memory.collection.origin_grants",
+               ["local_operator"],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     on_exit(fn ->
       restore_env(Settings, original_settings)
@@ -105,7 +114,12 @@ defmodule AllbertAssist.Memory.ProposalsTest do
     assert {:error, :digest_mismatch} =
              Proposals.propose(stale, ordinary_attrs(source, "metric"))
 
-    assert {:ok, _setting} = Settings.put("memory.collection.origin_grants", [])
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.collection.origin_grants",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:error, :origin_grant_required} =
              Proposals.propose(source, ordinary_attrs(source, "metric"))

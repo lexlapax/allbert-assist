@@ -149,7 +149,12 @@ defmodule AllbertAssist.Actions.ParamContractTest do
           "permissions.calendar_write",
           "permissions.notes_file_write"
         ] do
-      assert {:ok, _setting} = Settings.put(key, "needs_confirmation", %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 key,
+                 "needs_confirmation",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
     end
 
     :ok

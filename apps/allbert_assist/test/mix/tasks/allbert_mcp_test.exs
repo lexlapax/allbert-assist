@@ -63,7 +63,11 @@ defmodule Mix.Tasks.Allbert.McpTest do
              Jobs.list_jobs("alice")
 
     assert {:ok, _setting} =
-             Settings.put("mcp.discovery.scan.schedule", "daily", %{audit?: false})
+             Settings.put(
+               "mcp.discovery.scan.schedule",
+               "daily",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     resume_output =
       capture_io(fn ->

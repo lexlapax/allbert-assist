@@ -189,7 +189,11 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
     assert is_nil(trust_record.connected_tool_definition_hash)
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.shell_risk.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.servers.shell_risk.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, doctor} =
              Runner.run(
@@ -295,16 +299,33 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
   end
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["server.example"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["server.example"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/mcp"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/mcp"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_methods", ["POST"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_methods",
+               ["POST"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp stub_dynamic_tools(tools_agent) do

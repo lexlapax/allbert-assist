@@ -364,9 +364,13 @@ defmodule AllbertAssist.Channels.NotifyTest do
     end
 
     assert {:error, _reason} =
-             Settings.put("channels.email.autonomous_notify.level", "status_and_completion", %{
-               audit?: false
-             })
+             Settings.put(
+               "channels.email.autonomous_notify.level",
+               "status_and_completion",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   test "signal consumer autonomously delivers completion and consumes its report receipt" do
@@ -953,7 +957,12 @@ defmodule AllbertAssist.Channels.NotifyTest do
     do: %{"external_user_id" => external_user_id, "user_id" => user_id, "enabled" => true}
 
   defp put!(key, value) do
-    assert {:ok, _setting} = Settings.put(key, value, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               key,
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

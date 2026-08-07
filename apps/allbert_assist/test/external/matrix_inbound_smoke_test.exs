@@ -264,7 +264,12 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
   end
 
   defp put_setting!(key, value) do
-    assert {:ok, _setting} = Settings.put(key, value, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               key,
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

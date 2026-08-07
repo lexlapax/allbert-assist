@@ -404,14 +404,22 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
 
   defp allow_permissions!(permissions) do
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.allowed_action_permissions", permissions, %{
-               audit?: false
-             })
+             Settings.put(
+               "dynamic_codegen.allowed_action_permissions",
+               permissions,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp allow_facades!(facades) do
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.allowed_facades", facades, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.allowed_facades",
+               facades,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

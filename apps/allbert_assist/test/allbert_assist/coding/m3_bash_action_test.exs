@@ -156,7 +156,11 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
 
   test "bash output cap and env allowlist flow through local runner", %{workspace: workspace} do
     assert {:ok, _setting} =
-             Settings.put("coding.bash.max_output_bytes", 1_024, %{audit?: false})
+             Settings.put(
+               "coding.bash.max_output_bytes",
+               1_024,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     output = String.duplicate("a", 1_500)
 
@@ -204,7 +208,12 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
     assert disabled.status == :denied
     assert disabled.actions |> hd() |> Map.fetch!(:denial_reason) == :raw_shell_disabled
 
-    assert {:ok, _setting} = Settings.put("coding.bash.allow_raw_shell", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.bash.allow_raw_shell",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     non_tier_context = put_in(context(workspace), [:coding, :trusted_operator_id], "other")
 
@@ -235,7 +244,12 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
   test "bash refuses opaque sub-agent spawn attempts even at the raw-shell tier", %{
     workspace: workspace
   } do
-    assert {:ok, _setting} = Settings.put("coding.bash.allow_raw_shell", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.bash.allow_raw_shell",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run(
@@ -265,7 +279,12 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
   test "bash raw shell enforces env allowlist and requested limits at the tier", %{
     workspace: workspace
   } do
-    assert {:ok, _setting} = Settings.put("coding.bash.allow_raw_shell", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.bash.allow_raw_shell",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, denied_env} =
              Runner.run(
@@ -327,7 +346,12 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp temp_path(prefix) do

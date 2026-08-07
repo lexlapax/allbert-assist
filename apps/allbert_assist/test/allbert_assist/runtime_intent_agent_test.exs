@@ -385,12 +385,21 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
   end
 
   test "default runtime routes typed image generation through generated media outputs" do
-    assert {:ok, _setting} = Settings.put("image.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "image.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.image_generation", ["image_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.image_generation",
+               ["image_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -429,12 +438,21 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
   end
 
   test "default runtime routes typed voice synthesis through generated media outputs" do
-    assert {:ok, _setting} = Settings.put("voice.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "voice.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.text_to_speech",
+               ["voice_tts_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -476,13 +494,26 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp put_execution_policy!(workspace) do
@@ -496,7 +527,12 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp action_log_value(action_log, key) do

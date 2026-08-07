@@ -124,8 +124,19 @@ defmodule AllbertAssist.PublicProtocol.AcpMappingTest do
   test "surface enablement reads Settings Central only" do
     refute Mapping.surface_enabled?()
 
-    assert {:ok, _setting} = Settings.put("acp_server.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("acp_server.stdio.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "acp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "acp_server.stdio.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Mapping.surface_enabled?()
   end

@@ -139,7 +139,11 @@ defmodule AllbertAssist.Intent.Eval.GateTest do
     run_gate = fn tag, home, floor ->
       ConfigContext.with_context([home: home], fn ->
         assert {:ok, _setting} =
-                 Settings.put("intent.eval.min_accuracy", floor, %{audit?: false})
+                 Settings.put(
+                   "intent.eval.min_accuracy",
+                   floor,
+                   AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 )
 
         send(parent, {:ready, self()})
 

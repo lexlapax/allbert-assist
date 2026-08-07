@@ -103,7 +103,11 @@ defmodule AllbertAssist.TraceWorkspaceTest do
 
   test "runtime.trace_recent_entries_limit bounds workspace fragment trace context" do
     assert {:ok, _setting} =
-             Settings.put("runtime.trace_recent_entries_limit", 1, %{audit?: false})
+             Settings.put(
+               "runtime.trace_recent_entries_limit",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     trace =
       "Trace bounded workspace."

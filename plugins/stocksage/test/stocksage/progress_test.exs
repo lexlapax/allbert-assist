@@ -77,7 +77,11 @@ defmodule StockSage.ProgressTest do
     analysis_id = "ana_disabled_#{System.unique_integer([:positive])}"
 
     assert {:ok, _setting} =
-             Settings.put("stocksage.web.progress_stream_enabled", false, %{audit?: false})
+             Settings.put(
+               "stocksage.web.progress_stream_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert :ok = Progress.subscribe("local", analysis_id)
 

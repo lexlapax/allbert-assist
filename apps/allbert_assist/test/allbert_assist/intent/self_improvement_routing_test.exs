@@ -18,7 +18,12 @@ defmodule AllbertAssist.Intent.SelfImprovementRoutingTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    assert {:ok, _resolved} = Settings.put("self_improvement.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "self_improvement.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)

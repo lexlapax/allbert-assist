@@ -704,7 +704,14 @@ defmodule AllbertAssist.RuntimeTest do
 
   test "records traces when runtime.trace_default is enabled in settings", %{root: root} do
     assert {:ok, _resolved} =
-             Settings.put("runtime.trace_default", "enabled", %{actor: "local", channel: :test})
+             Settings.put(
+               "runtime.trace_default",
+               "enabled",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 channel: :test
+               })
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -730,10 +737,14 @@ defmodule AllbertAssist.RuntimeTest do
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
 
     assert {:ok, _resolved} =
-             Settings.put("runtime.trace_default", "denied_only", %{
-               actor: "local",
-               channel: :test
-             })
+             Settings.put(
+               "runtime.trace_default",
+               "denied_only",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 channel: :test
+               })
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{

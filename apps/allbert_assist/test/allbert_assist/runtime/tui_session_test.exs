@@ -168,14 +168,17 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
     test "channel-event redaction preserves only the closed integrity reference" do
       assert {:error, changeset} =
-               Channels.create_event(%{
-                 channel: "tui",
-                 provider: "terminal",
-                 direction: "inbound",
-                 external_event_id: "unsafe-receipt-ref",
-                 status: "received",
-                 receipt_hmac_key_ref: "secret://providers/openai/api_key"
-               })
+               Channels.create_event(
+                 %{
+                   channel: "tui",
+                   provider: "terminal",
+                   direction: "inbound",
+                   external_event_id: "unsafe-receipt-ref",
+                   status: "received",
+                   receipt_hmac_key_ref: "secret://providers/openai/api_key"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert "is invalid" in errors_on(changeset).receipt_hmac_key_ref
       refute Repo.get_by(Event, external_event_id: "unsafe-receipt-ref")
@@ -342,7 +345,12 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                  duplicate_owner: :live
                )
 
-      assert {:ok, durable} = Channels.update_event(event, %{thread_id: "durable-thread"})
+      assert {:ok, durable} =
+               Channels.update_event(
+                 event,
+                 %{thread_id: "durable-thread"},
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:error, :invalid_receipt_transition} =
                InputReceipt.mark_admitted(event, %{thread_id: "different-thread"})
@@ -380,11 +388,15 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
         assert {:ok, admitted} = InputReceipt.mark_admitted(event, %{})
 
         assert {:ok, _durable_terminal} =
-                 Channels.update_event(admitted, %{
-                   status: status,
-                   thread_id: thread_id,
-                   receipt_result_ref: result_ref
-                 })
+                 Channels.update_event(
+                   admitted,
+                   %{
+                     status: status,
+                     thread_id: thread_id,
+                     receipt_result_ref: result_ref
+                   },
+                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 )
 
         assert {:ok, terminal} =
                  InputReceipt.mark_terminal(admitted, requested_outcome, %{
@@ -419,10 +431,14 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       assert {:ok, admitted} = InputReceipt.mark_admitted(event, %{})
 
       assert {:ok, durable_terminal} =
-               Channels.update_event(admitted, %{
-                 status: "processed",
-                 thread_id: "durable-thread"
-               })
+               Channels.update_event(
+                 admitted,
+                 %{
+                   status: "processed",
+                   thread_id: "durable-thread"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:error, :invalid_receipt_transition} =
                InputReceipt.mark_terminal(admitted, :failed, %{
@@ -452,7 +468,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       assert {:ok, admitted} = InputReceipt.mark_admitted(event, %{})
 
       assert {:ok, inconsistent} =
-               Channels.update_event(admitted, %{receipt_outcome: "rejected"})
+               Channels.update_event(
+                 admitted,
+                 %{receipt_outcome: "rejected"},
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:error, :invalid_receipt_transition} =
                InputReceipt.mark_terminal(admitted, :completed, %{})
@@ -556,11 +576,15 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
           assert {:ok, admitted} = InputReceipt.mark_admitted(event, %{})
 
           assert {:ok, durable_terminal} =
-                   Channels.update_event(admitted, %{
-                     status: status,
-                     receipt_message_id: message_id,
-                     receipt_result_ref: result_ref
-                   })
+                   Channels.update_event(
+                     admitted,
+                     %{
+                       status: status,
+                       receipt_message_id: message_id,
+                       receipt_result_ref: result_ref
+                     },
+                     AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   )
 
           assert {:ok,
                   %{
@@ -594,11 +618,15 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       assert {:ok, %{event: event}} = InputReceipt.gate(attrs, duplicate_owner: :live)
 
       assert {:ok, inconsistent} =
-               Channels.update_event(event, %{
-                 status: "rejected",
-                 receipt_state: "completed",
-                 receipt_outcome: "completed"
-               })
+               Channels.update_event(
+                 event,
+                 %{
+                   status: "rejected",
+                   receipt_state: "completed",
+                   receipt_outcome: "completed"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:error, :receipt_conflict} =
                InputReceipt.gate(attrs, duplicate_owner: :orphaned)
@@ -757,7 +785,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
     test "default client selector resolves the daemon-owned Settings profile" do
       assert {:ok, _setting} =
-               Settings.put("channels.tui.profile", "work", %{audit?: false})
+               Settings.put(
+                 "channels.tui.profile",
+                 "work",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:ok, _setting} =
                Settings.put(
@@ -769,7 +801,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                      "enabled" => true
                    }
                  ],
-                 %{audit?: false}
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
                )
 
       server = start_supervised!(AttachServer)
@@ -975,7 +1007,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
     test "explicit channel disable denies open before adapter startup" do
       assert {:ok, _settings} =
-               Settings.put("channels.tui.enabled", false, %{audit?: false})
+               Settings.put(
+                 "channels.tui.enabled",
+                 false,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       server = start_supervised!(AttachServer)
       socket = connect_socket()
@@ -1064,7 +1100,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
     test "Settings max text bytes bounds rendered daemon output" do
       assert {:ok, _settings} =
-               Settings.put("channels.tui.max_text_bytes", 7, %{audit?: false})
+               Settings.put(
+                 "channels.tui.max_text_bytes",
+                 7,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       server = start_controllable_server()
       {socket, _snapshot, client_flow} = open_session()
@@ -1104,7 +1144,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
     test "ordinary daemon output retains the configured 32,000-byte maximum" do
       assert {:ok, _settings} =
-               Settings.put("channels.tui.max_text_bytes", 32_000, %{audit?: false})
+               Settings.put(
+                 "channels.tui.max_text_bytes",
+                 32_000,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       server = start_controllable_server()
       {socket, _snapshot, client_flow} = open_session()
@@ -1126,7 +1170,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
     test "Settings input limit rejects semantically without closing the wire session" do
       assert {:ok, _settings} =
-               Settings.put("channels.tui.max_text_bytes", 7, %{audit?: false})
+               Settings.put(
+                 "channels.tui.max_text_bytes",
+                 7,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       server = start_controllable_server()
       {socket, _snapshot, client_flow} = open_session()
@@ -1409,7 +1457,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       {error_receipt, error_event} = admitted_receipt("queued outcome error")
 
       assert {:ok, _inconsistent} =
-               Channels.update_event(error_event, %{receipt_outcome: "rejected"})
+               Channels.update_event(
+                 error_event,
+                 %{receipt_outcome: "rejected"},
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       Enum.each(1..31, fn index ->
         assert :ok = TUISession.output(session_pid, "window-#{index}")

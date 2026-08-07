@@ -120,7 +120,11 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
     fixture = EvalInventory.row!("channel-spoof-001")
 
     assert {:ok, _setting} =
-             Settings.put("permissions.external_network", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.external_network",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     context = %{
       actor: "remote-operator",

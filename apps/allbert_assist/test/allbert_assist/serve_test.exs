@@ -173,9 +173,13 @@ defmodule AllbertAssist.ServeTest do
       # command_execute defaults to :denied; grant it so the needs_confirmation
       # floor applies.
       assert {:ok, _} =
-               AllbertAssist.Settings.put("permissions.command_execute", "needs_confirmation", %{
-                 audit?: false
-               })
+               AllbertAssist.Settings.put(
+                 "permissions.command_execute",
+                 "needs_confirmation",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   audit?: false
+                 })
+               )
 
       assert {:ok, gated} =
                Runner.run("service_control", %{operation: "install"}, %{
@@ -240,9 +244,13 @@ defmodule AllbertAssist.ServeTest do
       end)
 
       assert {:ok, _} =
-               AllbertAssist.Settings.put("permissions.command_execute", "needs_confirmation", %{
-                 audit?: false
-               })
+               AllbertAssist.Settings.put(
+                 "permissions.command_execute",
+                 "needs_confirmation",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   audit?: false
+                 })
+               )
 
       assert {:ok, request} =
                Runner.run("service_control", %{operation: "install", binary: binary}, %{

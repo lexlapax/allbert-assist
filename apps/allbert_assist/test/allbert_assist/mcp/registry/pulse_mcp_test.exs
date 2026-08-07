@@ -66,18 +66,22 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcpTest do
              Settings.put(
                "mcp.discovery.sources.pulsemcp.api_key_ref",
                "secret://mcp/pulsemcp/api_key",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.discovery.sources.pulsemcp.tenant_ref",
                "secret://mcp/pulsemcp/tenant",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.discovery.sources.pulsemcp.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.discovery.sources.pulsemcp.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:missing_secret, "secret://mcp/pulsemcp/api_key"} = PulseMcp.configured_status()
 
@@ -89,16 +93,33 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcpTest do
   end
 
   defp configure_external(host, path) do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", [host], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               [host],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", [path], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               [path],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_methods", ["GET"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_methods",
+               ["GET"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

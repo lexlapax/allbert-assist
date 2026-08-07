@@ -203,26 +203,30 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     end
 
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "operator" => %{
-                 "display_name" => "Audit #{google_api_key_fixture()} #{generic_hex_fixture()}"
-               },
-               "channels" => %{
-                 "email" => %{"from_name" => "Audit #{aws_access_key_fixture()}"}
-               },
-               "voice" => %{
-                 "local_runtime" => %{
-                   "stt_model_alias" => "Audit local"
+             Settings.write_user_settings(
+               %{
+                 "operator" => %{
+                   "display_name" => "Audit #{google_api_key_fixture()} #{generic_hex_fixture()}"
+                 },
+                 "channels" => %{
+                   "email" => %{"from_name" => "Audit #{aws_access_key_fixture()}"}
+                 },
+                 "voice" => %{
+                   "local_runtime" => %{
+                     "stt_model_alias" => "Audit local"
+                   }
+                 },
+                 "providers" => %{
+                   "openai" => %{
+                     "enabled" => true,
+                     "base_url" => "http://127.0.0.1:9999/v1",
+                     "api_key_ref" => "secret://providers/openai/api_key"
+                   }
                  }
                },
-               "providers" => %{
-                 "openai" => %{
-                   "enabled" => true,
-                   "base_url" => "http://127.0.0.1:9999/v1",
-                   "api_key_ref" => "secret://providers/openai/api_key"
-                 }
-               }
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{status: :configured}} =
              Secrets.put_secret(

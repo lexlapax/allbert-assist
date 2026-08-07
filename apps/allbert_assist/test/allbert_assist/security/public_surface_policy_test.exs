@@ -37,10 +37,18 @@ defmodule AllbertAssist.Security.PublicSurfacePolicyTest do
 
   test "settings cannot lower public surface permission below confirmation floor" do
     assert {:error, {:invalid_setting, "permissions.public_surface_call_inbound", _reason}} =
-             Settings.put("permissions.public_surface_call_inbound", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.public_surface_call_inbound",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, resolved} =
-             Settings.put("permissions.public_surface_call_inbound", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.public_surface_call_inbound",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert resolved.value == "denied"
     assert Policy.resolve(:public_surface_call_inbound).effective == :denied

@@ -68,7 +68,13 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
     assert {:error, :consumer_disabled} =
              Corpus.snapshot("alice", %{policy | consumer: :memory})
 
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert {:ok, _epoch} = Corpus.set_origin_grant(:memory, :mapped_operator_dm, true)
     assert {:ok, memory_snapshot} = Corpus.snapshot("alice", %{policy | consumer: :memory})
     assert {:ok, %{items: memory_items}} = Corpus.page(memory_snapshot, nil, 20)

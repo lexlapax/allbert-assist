@@ -158,7 +158,13 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
 
     refute_received {:runtime_request, _request}
 
-    assert {:ok, _setting} = Settings.put("channels.tui.identity_map", [], %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.identity_map",
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     assert {:ok, unmapped} = start_tui_adapter()
 
     assert {:ok, :rejected} =
@@ -171,15 +177,19 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
     assert rejected.reason == ":not_mapped"
 
     assert {:ok, redacted} =
-             Channels.create_event(%{
-               channel: "tui",
-               provider: "terminal",
-               external_event_id: "evt-v055-redact",
-               external_user_id: "+15551234567",
-               external_chat_id: "terminal +15557654321",
-               external_message_id: "msg:+442071838750",
-               payload_summary: "operator typed api_key=sk-test-1234567890 and phone +15551234567"
-             })
+             Channels.create_event(
+               %{
+                 channel: "tui",
+                 provider: "terminal",
+                 external_event_id: "evt-v055-redact",
+                 external_user_id: "+15551234567",
+                 external_chat_id: "terminal +15557654321",
+                 external_message_id: "msg:+442071838750",
+                 payload_summary:
+                   "operator typed api_key=sk-test-1234567890 and phone +15551234567"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     stored =
       inspect(
@@ -409,7 +419,12 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
   end
 
   defp configure_tui! do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -421,7 +436,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
                    "enabled" => true
                  }
                ],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

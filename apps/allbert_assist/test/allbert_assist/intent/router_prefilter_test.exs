@@ -173,10 +173,18 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
                Prefilter.rank([1.0, 0.0], entries, 2, query)
 
       {:ok, _} =
-        Settings.put("intent.router_scoring.prefilter.descriptor_text_match_boost", 0.0)
+        Settings.put(
+          "intent.router_scoring.prefilter.descriptor_text_match_boost",
+          0.0,
+          AllbertAssist.TestSupport.ReadyEffectContext.context()
+        )
 
       {:ok, _} =
-        Settings.put("intent.router_scoring.prefilter.descriptor_text_match_unit_boost", 0.0)
+        Settings.put(
+          "intent.router_scoring.prefilter.descriptor_text_match_unit_boost",
+          0.0,
+          AllbertAssist.TestSupport.ReadyEffectContext.context()
+        )
 
       assert %{shortlist: [%{action_name: "search_notes"} | _]} =
                Prefilter.rank([1.0, 0.0], entries, 2, query)

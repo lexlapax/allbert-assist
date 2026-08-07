@@ -33,16 +33,24 @@ defmodule StockSage.Agents.ModelProfileTest do
 
   test "returns per-agent override when present" do
     assert {:ok, _setting} =
-             Settings.put("stocksage.native_model_profile_market_context", "deep-fast", %{
-               audit?: false
-             })
+             Settings.put(
+               "stocksage.native_model_profile_market_context",
+               "deep-fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert ModelProfile.resolve(:market_context) == "deep-fast"
   end
 
   test "falls back to role default before global default" do
     assert {:ok, _setting} =
-             Settings.put("stocksage.native_model_profile", "global-fast", %{audit?: false})
+             Settings.put(
+               "stocksage.native_model_profile",
+               "global-fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert ModelProfile.resolve(:risk_aggressive) == "slow"
     assert ModelProfile.resolve(:research_manager) == "slow"

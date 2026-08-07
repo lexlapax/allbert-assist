@@ -137,9 +137,13 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
 
   defp enable_dynamic_codegen!(profile) do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
-             })
+             Settings.write_user_settings(
+               %{
+                 "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -142,7 +142,12 @@ defmodule AllbertAssist.Coding.M5AsyncTurnTest do
     parent = self()
     turn_id = unique_turn_id("timeout")
 
-    assert {:ok, _setting} = Settings.put("coding.turn.max_ms", 100, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.turn.max_ms",
+               100,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, _request ->
@@ -176,7 +181,12 @@ defmodule AllbertAssist.Coding.M5AsyncTurnTest do
     parent = self()
     turn_id = unique_turn_id("sync")
 
-    assert {:ok, _setting} = Settings.put("coding.turn.supervised", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.turn.supervised",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->

@@ -110,7 +110,7 @@ defmodule AllbertAssist.Models.CatalogTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:11435/v1",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, catalog} = Catalog.list(pulled_models: ["qwen2.5:7b"])

@@ -187,7 +187,11 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     FanoutRoles.configure!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {session_id, state} = started_session()
     selector = Task.async(&FanoutReportFixture.select_next_report/0)
@@ -237,7 +241,11 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     enable_acp_stdio!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     runtime_config = Application.get_env(:allbert_assist, Runtime, [])
 
@@ -291,7 +299,11 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     enable_acp_stdio!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     runtime_config = Application.get_env(:allbert_assist, Runtime, [])
 
@@ -419,12 +431,15 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     for index <- 1..65 do
       assert {:ok, _ordinary} =
-               Objectives.create_objective(%{
-                 user_id: "public-protocol:zed-fixture",
-                 title: "Newer ordinary #{index}",
-                 objective: "Newer ordinary #{index}",
-                 session_id: session_id
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "public-protocol:zed-fixture",
+                   title: "Newer ordinary #{index}",
+                   objective: "Newer ordinary #{index}",
+                   session_id: session_id
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
 
     selector = Task.async(&FanoutReportFixture.select_next_report/0)
@@ -672,8 +687,19 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   end
 
   defp enable_acp_stdio! do
-    assert {:ok, _setting} = Settings.put("acp_server.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("acp_server.stdio.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "acp_server.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "acp_server.stdio.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp joined_acp_fanout!(session_id, title) do

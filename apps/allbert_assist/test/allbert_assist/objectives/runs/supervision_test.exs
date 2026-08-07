@@ -276,14 +276,24 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     legacy_confirmation = rewrite_as_provenance_free_unversioned!(confirmation)
 
     assert {:ok, _first_step} =
-             Objectives.transition_step(first_step, "blocked", %{
-               confirmation_id: legacy_confirmation["id"]
-             })
+             Objectives.transition_step(
+               first_step,
+               "blocked",
+               %{
+                 confirmation_id: legacy_confirmation["id"]
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _second_step} =
-             Objectives.transition_step(second_step, "blocked", %{
-               confirmation_id: legacy_confirmation["id"]
-             })
+             Objectives.transition_step(
+               second_step,
+               "blocked",
+               %{
+                 confirmation_id: legacy_confirmation["id"]
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              Runner.run("approve_confirmation", %{id: legacy_confirmation["id"]}, %{
@@ -303,11 +313,19 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert {:ok, original_policy} = Settings.get("permissions.external_network")
 
     on_exit(fn ->
-      Settings.put("permissions.external_network", original_policy, %{audit?: false})
+      Settings.put(
+        "permissions.external_network",
+        original_policy,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
     end)
 
     assert {:ok, _setting} =
-             Settings.put("permissions.external_network", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.external_network",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two()
     step = add_action_step(parked, "external_network_request")
@@ -341,7 +359,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     end)
 
     assert {:ok, _setting} =
-             Settings.put("permissions.external_network", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.external_network",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run("approve_confirmation", %{id: confirmation["id"]}, %{
@@ -374,11 +396,19 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert {:ok, original_policy} = Settings.get("permissions.external_network")
 
     on_exit(fn ->
-      Settings.put("permissions.external_network", original_policy, %{audit?: false})
+      Settings.put(
+        "permissions.external_network",
+        original_policy,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
     end)
 
     assert {:ok, _setting} =
-             Settings.put("permissions.external_network", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.external_network",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two()
     step = add_action_step(parked, "external_network_request")
@@ -415,7 +445,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     write_confirmation!(tampered)
 
     assert {:ok, _setting} =
-             Settings.put("permissions.external_network", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.external_network",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run("approve_confirmation", %{id: confirmation["id"]}, %{
@@ -552,24 +586,40 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     on_exit(fn -> File.rm_rf!(workspace) end)
 
     assert {:ok, _setting} =
-             Settings.put("permissions.command_execute", "allowed", %{audit?: false})
-
-    assert {:ok, _setting} = Settings.put("execution.local.enabled", true, %{audit?: false})
+             Settings.put(
+               "permissions.command_execute",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("execution.local.allowed_roots", [workspace], %{audit?: false})
+             Settings.put(
+               "execution.local.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "execution.local.allowed_roots",
+               [workspace],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     %{parent: parent, children: [confirmed, sibling], receipt: receipt} = frame_two()
 
     assert {:ok, shell_step} =
-             Objectives.create_step(%{
-               objective_id: confirmed.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: "run_shell_command",
-               action_params: %{executable: "pwd", args: [], cwd: workspace}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: confirmed.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: "run_shell_command",
+                 action_params: %{executable: "pwd", args: [], cwd: workspace}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     add_safe_step(sibling)
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
@@ -782,11 +832,14 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     force_legacy_terminal_children!([sibling], "already completed sibling")
 
     assert {:ok, _event} =
-             Objectives.create_event(%{
-               objective_id: direct.id,
-               kind: "run_started",
-               payload: %{attempt: 1}
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: direct.id,
+                 kind: "run_started",
+                 payload: %{attempt: 1}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
     test_pid = self()
@@ -856,9 +909,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "safe recovery consumes the compiled plan's frozen worker-attempt limit" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_worker_attempts_per_child", 3, %{
-               audit?: false
-             })
+             Settings.put(
+               "objectives.fanout.max_worker_attempts_per_child",
+               3,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     %{parent: parent, children: [restarting, sibling], receipt: receipt} =
       frame_two_with_budget()
@@ -1357,7 +1414,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "supervised cancellation is terminal before recovery and join" do
     assert {:ok, _setting} =
-             Settings.put("execution.cancel.grace_ms", 500, %{audit?: false})
+             Settings.put(
+               "execution.cancel.grace_ms",
+               500,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     %{parent: parent, children: [cancelled, sibling], receipt: receipt} = frame_two()
     cancelled_id = cancelled.id
@@ -1416,7 +1477,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "parent cancellation succeeds when completed and active children coexist" do
     assert {:ok, _setting} =
-             Settings.put("execution.cancel.grace_ms", 100, %{audit?: false})
+             Settings.put(
+               "execution.cancel.grace_ms",
+               100,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     %{parent: parent, children: [completed, active], receipt: receipt} = frame_two()
     add_safe_step(completed)
@@ -1962,7 +2027,15 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       frame_two_with_budget(budget: :legacy)
 
     blocked_step = add_action_step(blocked, "direct_answer")
-    assert {:ok, _blocked_step} = Objectives.transition_step(blocked_step, "blocked")
+
+    assert {:ok, _blocked_step} =
+             Objectives.transition_step(
+               blocked_step,
+               "blocked",
+               %{},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     force_historical_active_state(blocked, "blocked", 1)
 
     first_directive = "Replace the historical child task before recovery"
@@ -2236,11 +2309,14 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                )
 
       assert {:ok, _event} =
-               Objectives.create_event(%{
-                 objective_id: child.id,
-                 kind: "run_completed",
-                 payload: %{summary: String.slice(summary, 0, 500)}
-               })
+               Objectives.create_event(
+                 %{
+                   objective_id: child.id,
+                   kind: "run_completed",
+                   payload: %{summary: String.slice(summary, 0, 500)}
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end)
   end
 
@@ -2260,14 +2336,17 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   defp add_action_step(child, action) do
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: child.id,
-               kind: "action",
-               status: "selected",
-               stage: "authorize_step",
-               candidate_action: action,
-               action_params: %{user_id: child.user_id}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "selected",
+                 stage: "authorize_step",
+                 candidate_action: action,
+                 action_params: %{user_id: child.user_id}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     step
   end

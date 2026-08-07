@@ -41,7 +41,11 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
     assert {:ok, true} = Settings.get("mcp.discovery.enabled")
 
     assert {:ok, _setting} =
-             Settings.put("mcp.discovery.scan.schedule", "daily", %{audit?: false})
+             Settings.put(
+               "mcp.discovery.scan.schedule",
+               "daily",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, resumed} = Scan.resume()
     assert resumed.status == "active"
@@ -74,20 +78,33 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
   end
 
   defp configure_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["registry.modelcontextprotocol.io"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/v0.1/servers"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/v0.1/servers"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_methods", ["GET"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_methods",
+               ["GET"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp discovery_jobs do

@@ -49,7 +49,13 @@ defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
   end
 
   test "start action fails closed when the local runtime is disabled in Settings Central" do
-    assert {:ok, _setting} = Settings.put("voice.local_runtime.enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "voice.local_runtime.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     assert {:ok, response} = Runner.run("voice_local_runtime_start", %{}, context())
 
     assert response.status == :failed
@@ -59,7 +65,11 @@ defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
 
   test "start action honors Security Central denial" do
     assert {:ok, _setting} =
-             Settings.put("permissions.voice_local_runtime_manage", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.voice_local_runtime_manage",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} = Runner.run("voice_local_runtime_start", %{}, context())
 
@@ -69,8 +79,17 @@ defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
   end
 
   defp reset_settings do
-    Settings.put("voice.local_runtime.enabled", false, %{audit?: false})
-    Settings.put("permissions.voice_local_runtime_manage", "allowed", %{audit?: false})
+    Settings.put(
+      "voice.local_runtime.enabled",
+      false,
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+    )
+
+    Settings.put(
+      "permissions.voice_local_runtime_manage",
+      "allowed",
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+    )
   end
 
   defp context, do: %{actor: "local", channel: :test}

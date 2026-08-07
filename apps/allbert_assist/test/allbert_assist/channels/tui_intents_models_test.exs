@@ -156,7 +156,12 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
   end
 
   defp configure_tui! do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -168,13 +173,17 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
                    "enabled" => true
                  }
                ],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:1/v1", %{
-               audit?: false
-             })
+             Settings.put(
+               "providers.local_ollama.base_url",
+               "http://127.0.0.1:1/v1",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

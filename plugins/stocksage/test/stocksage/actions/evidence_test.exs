@@ -121,7 +121,11 @@ defmodule StockSage.Actions.EvidenceTest do
 
   test "global evidence mode and per-call override are respected" do
     assert {:ok, _setting} =
-             Settings.put("stocksage.native_evidence_mode", "fixture", %{audit?: false})
+             Settings.put(
+               "stocksage.native_evidence_mode",
+               "fixture",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Evidence.mode(%{}) == "fixture"
     assert Evidence.mode(%{evidence_mode: "live"}) == "live"

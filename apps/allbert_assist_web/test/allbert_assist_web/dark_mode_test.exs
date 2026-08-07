@@ -52,7 +52,12 @@ defmodule AllbertAssistWeb.DarkModeResolutionTest do
 
   test "system theme mode emits an explicit data-theme=system (not a light fallback)",
        %{conn: conn} do
-    assert {:ok, _} = Settings.put("workspace.theme.mode", "system", %{audit?: false})
+    assert {:ok, _} =
+             Settings.put(
+               "workspace.theme.mode",
+               "system",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     html = conn |> get(~p"/") |> html_response(200)
 
@@ -61,7 +66,12 @@ defmodule AllbertAssistWeb.DarkModeResolutionTest do
   end
 
   test "explicit dark still wins over the system marker", %{conn: conn} do
-    assert {:ok, _} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
+    assert {:ok, _} =
+             Settings.put(
+               "workspace.theme.mode",
+               "dark",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     html = conn |> get(~p"/") |> html_response(200)
 

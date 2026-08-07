@@ -13,7 +13,11 @@ defmodule AllbertAssist.PublicProtocol.OpenAIMappingTest do
     Application.put_env(:allbert_assist, Settings, root: root)
 
     assert {:ok, _setting} =
-             Settings.put("openai_api.models_enabled", ["local"], %{audit?: false})
+             Settings.put(
+               "openai_api.models_enabled",
+               ["local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       restore_env(Settings, original_settings_config)

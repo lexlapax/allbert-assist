@@ -229,19 +229,35 @@ defmodule AllbertAssist.Workspace.CanvasTest do
 
   defp set_canvas_cap(value) do
     assert {:ok, _setting} =
-             Settings.put("workspace.canvas.max_tiles_per_thread", value, %{audit?: false})
+             Settings.put(
+               "workspace.canvas.max_tiles_per_thread",
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
-      Settings.put("workspace.canvas.max_tiles_per_thread", 64, %{audit?: false})
+      Settings.put(
+        "workspace.canvas.max_tiles_per_thread",
+        64,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
     end)
   end
 
   defp set_tile_body_limit(value) do
     assert {:ok, _setting} =
-             Settings.put("workspace.canvas.tile_body_max_bytes", value, %{audit?: false})
+             Settings.put(
+               "workspace.canvas.tile_body_max_bytes",
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
-      Settings.put("workspace.canvas.tile_body_max_bytes", 65_536, %{audit?: false})
+      Settings.put(
+        "workspace.canvas.tile_body_max_bytes",
+        65_536,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
     end)
   end
 

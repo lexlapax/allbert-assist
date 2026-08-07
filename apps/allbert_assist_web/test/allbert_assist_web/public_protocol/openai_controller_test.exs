@@ -208,14 +208,17 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     user_id = "public-protocol:openai-client"
 
     assert {:ok, parent} =
-             Objectives.create_objective(%{
-               user_id: user_id,
-               title: "OpenAI readiness loss",
-               objective: "Remain pending after the SSE epoch is lost",
-               fanout_role: "parent",
-               source_channel: "openai_api",
-               source_surface: "api"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: user_id,
+                 title: "OpenAI readiness loss",
+                 objective: "Remain pending after the SSE epoch is lost",
+                 fanout_role: "parent",
+                 source_channel: "openai_api",
+                 source_surface: "api"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     test_pid = self()
     Application.put_env(:allbert_assist_web, :openai_fanout_wait_observer, test_pid)
@@ -548,15 +551,28 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   defp post_json(conn, body), do: post(conn, ~p"/v1/chat/completions", Jason.encode!(body))
 
   defp enable_openai_api! do
-    assert {:ok, _setting} = Settings.put("openai_api.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "openai_api.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("openai_api.models_enabled", ["local"], %{audit?: false})
+             Settings.put(
+               "openai_api.models_enabled",
+               ["local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_automatic_fanout! do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp set_rate_limit!(client_id, rate_limit) do
@@ -564,7 +580,12 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     entry = Map.fetch!(clients, client_id)
     updated = Map.put(clients, client_id, Map.put(entry, "rate_limit", rate_limit))
 
-    assert {:ok, _setting} = Settings.put("openai_api.clients", updated, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "openai_api.clients",
+               updated,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp selected_public_report!(selection_source) do

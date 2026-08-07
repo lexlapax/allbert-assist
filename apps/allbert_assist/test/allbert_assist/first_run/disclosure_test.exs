@@ -341,18 +341,26 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "Settings Central full and dotted writes reconcile route changes" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "model_preferences" => %{"tasks" => %{"direct_answer" => ["fast"]}},
-               "providers" => %{"openai" => %{"enabled" => true}}
-             })
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "model_preferences" => %{"tasks" => %{"direct_answer" => ["fast"]}},
+                 "providers" => %{"openai" => %{"enabled" => true}}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert Disclosure.hosted_pending?(:cli)
     assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
     refute Disclosure.pending?(:cli)
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["local"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Disclosure.pending?(:cli)
     refute Disclosure.hosted_pending?(:cli)
@@ -361,16 +369,20 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "a separately configured synthesis route joins the exact bounded disclosure set" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "model_preferences" => %{
-                 "tasks" => %{
-                   "direct_answer" => ["direct_answer_local"],
-                   "fanout_synthesis" => ["fast"]
-                 }
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "model_preferences" => %{
+                   "tasks" => %{
+                     "direct_answer" => ["direct_answer_local"],
+                     "fanout_synthesis" => ["fast"]
+                   }
+                 },
+                 "providers" => %{"openai" => %{"enabled" => true}}
                },
-               "providers" => %{"openai" => %{"enabled" => true}}
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, routes} = Disclosure.current_model_routes()
 
@@ -398,9 +410,13 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              Disclosure.authorize_transport(hosted_synthesis, %{request: %{channel: :cli}})
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.fanout_synthesis",
+               ["direct_answer_local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, [deduped]} = Disclosure.current_model_routes()
     assert deduped.profile == "direct_answer_local"
@@ -410,17 +426,21 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "one shared hosted route retains every configured model-role usage" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "model_preferences" => %{
-                 "tasks" => %{
-                   "direct_answer" => ["fast"],
-                   "fanout_manager" => ["fast"],
-                   "fanout_synthesis" => ["fast"]
-                 }
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "model_preferences" => %{
+                   "tasks" => %{
+                     "direct_answer" => ["fast"],
+                     "fanout_manager" => ["fast"],
+                     "fanout_synthesis" => ["fast"]
+                   }
+                 },
+                 "providers" => %{"openai" => %{"enabled" => true}}
                },
-               "providers" => %{"openai" => %{"enabled" => true}}
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, [route]} = Disclosure.current_model_routes()
     assert route.profile == "fast"
@@ -449,28 +469,32 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "the bounded disclosure set admits four distinct callable routes" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "models" => %{
-                 "fallback" => %{
-                   "enabled" => true,
-                   "allow_local_to_hosted" => true
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "models" => %{
+                   "fallback" => %{
+                     "enabled" => true,
+                     "allow_local_to_hosted" => true
+                   }
+                 },
+                 "model_preferences" => %{
+                   "tasks" => %{
+                     "direct_answer" => ["direct_answer_local", "fast"],
+                     "fanout_manager" => ["anthropic_fast"],
+                     "fanout_synthesis" => ["coding"]
+                   }
+                 },
+                 "providers" => %{
+                   "openai" => %{"enabled" => true},
+                   "anthropic" => %{"enabled" => true},
+                   "openrouter" => %{"enabled" => true},
+                   "gemini" => %{"enabled" => true}
                  }
                },
-               "model_preferences" => %{
-                 "tasks" => %{
-                   "direct_answer" => ["direct_answer_local", "fast"],
-                   "fanout_manager" => ["anthropic_fast"],
-                   "fanout_synthesis" => ["coding"]
-                 }
-               },
-               "providers" => %{
-                 "openai" => %{"enabled" => true},
-                 "anthropic" => %{"enabled" => true},
-                 "openrouter" => %{"enabled" => true},
-                 "gemini" => %{"enabled" => true}
-               }
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, routes} = Disclosure.current_model_routes()
 
@@ -484,20 +508,24 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "manager and synthesis disclosure copy names role-specific hosted egress" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "model_preferences" => %{
-                 "tasks" => %{
-                   "direct_answer" => ["direct_answer_local"],
-                   "fanout_manager" => ["fast"],
-                   "fanout_synthesis" => ["anthropic_fast"]
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "model_preferences" => %{
+                   "tasks" => %{
+                     "direct_answer" => ["direct_answer_local"],
+                     "fanout_manager" => ["fast"],
+                     "fanout_synthesis" => ["anthropic_fast"]
+                   }
+                 },
+                 "providers" => %{
+                   "openai" => %{"enabled" => true},
+                   "anthropic" => %{"enabled" => true}
                  }
                },
-               "providers" => %{
-                 "openai" => %{"enabled" => true},
-                 "anthropic" => %{"enabled" => true}
-               }
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     text = Disclosure.text(:cli)
 
@@ -511,32 +539,44 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "manager and synthesis task-chain writes re-pend the exact route set" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "model_preferences" => %{
-                 "tasks" => %{
-                   "direct_answer" => ["direct_answer_local"],
-                   "fanout_manager" => ["fast"],
-                   "fanout_synthesis" => ["direct_answer_local"]
-                 }
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "model_preferences" => %{
+                   "tasks" => %{
+                     "direct_answer" => ["direct_answer_local"],
+                     "fanout_manager" => ["fast"],
+                     "fanout_synthesis" => ["direct_answer_local"]
+                   }
+                 },
+                 "providers" => %{"openai" => %{"enabled" => true}}
                },
-               "providers" => %{"openai" => %{"enabled" => true}}
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
     refute Disclosure.pending?(:cli)
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_manager", ["direct_answer_local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.fanout_manager",
+               ["direct_answer_local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert Disclosure.pending?(:cli)
     refute Disclosure.hosted_pending?(:cli)
     assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_synthesis", ["fast"], %{audit?: false})
+             Settings.put(
+               "model_preferences.tasks.fanout_synthesis",
+               ["fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Disclosure.pending?(:cli)
     assert Disclosure.hosted_pending?(:cli)
@@ -544,20 +584,24 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "hosted manager and synthesis routes require current exact-set admission" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "model_preferences" => %{
-                 "tasks" => %{
-                   "direct_answer" => ["direct_answer_local"],
-                   "fanout_manager" => ["fast"],
-                   "fanout_synthesis" => ["anthropic_fast"]
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "model_preferences" => %{
+                   "tasks" => %{
+                     "direct_answer" => ["direct_answer_local"],
+                     "fanout_manager" => ["fast"],
+                     "fanout_synthesis" => ["anthropic_fast"]
+                   }
+                 },
+                 "providers" => %{
+                   "openai" => %{"enabled" => true},
+                   "anthropic" => %{"enabled" => true}
                  }
                },
-               "providers" => %{
-                 "openai" => %{"enabled" => true},
-                 "anthropic" => %{"enabled" => true}
-               }
-             })
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     manager = %{
       name: "fast",
@@ -580,9 +624,13 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     assert :ok = Disclosure.authorize_transport(synthesizer, %{request: %{channel: :cli}})
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.fanout_synthesis",
+               ["direct_answer_local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:error,
             {:hosted_route_not_current,

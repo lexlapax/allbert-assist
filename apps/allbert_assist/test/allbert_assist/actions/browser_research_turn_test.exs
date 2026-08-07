@@ -66,8 +66,20 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
 
   describe "up-front consent gate (M4.2.3, preconditions pass, Stub driver)" do
     setup do
-      assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
-      assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 "browser.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
+      assert {:ok, _setting} =
+               Settings.put(
+                 "research.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
       # The async approval resume runs as a supervised Task that shares this
       # test's sandbox connection; drain it before the sandbox owner stops so
       # a leftover task cannot poison the next test.
@@ -302,8 +314,20 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
 
   describe "objective origin attribution (M4.2.3 piece 4)" do
     setup do
-      assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
-      assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 "browser.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
+      assert {:ok, _setting} =
+               Settings.put(
+                 "research.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
       :ok
     end
 
@@ -341,23 +365,29 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
 
     test "confirmations raised by objective-driven work carry the objective's origin channel/surface" do
       assert {:ok, objective} =
-               Objectives.create_objective(%{
-                 user_id: "alice",
-                 title: "origin attribution",
-                 objective: "Start a browser session from an objective step.",
-                 status: "open",
-                 source_channel: "live_view",
-                 source_surface: "/workspace"
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "alice",
+                   title: "origin attribution",
+                   objective: "Start a browser session from an objective step.",
+                   status: "open",
+                   source_channel: "live_view",
+                   source_surface: "/workspace"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, step} =
-               Objectives.create_step(%{
-                 objective_id: objective.id,
-                 kind: "action",
-                 status: "selected",
-                 stage: "execute_step",
-                 candidate_action: "browser_start_session"
-               })
+               Objectives.create_step(
+                 %{
+                   objective_id: objective.id,
+                   kind: "action",
+                   status: "selected",
+                   stage: "execute_step",
+                   candidate_action: "browser_start_session"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       _ = EngineAgent.execute_step(%{step_id: step.id, trace_id: "origin_attribution_test"})
 
@@ -373,8 +403,20 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
 
   describe "result delivery to the originating thread (M4.2.4)" do
     setup do
-      assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
-      assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 "browser.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
+      assert {:ok, _setting} =
+               Settings.put(
+                 "research.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
       # See the consent-gate describe: drain async resume tasks before the
       # sandbox owner stops.
       on_exit(fn -> drain_resume_tasks() end)
@@ -557,7 +599,12 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
     end
 
     test "research.enabled off blocks with the exact setting named" do
-      assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 "browser.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:ok, response} =
                Runner.run(
@@ -573,8 +620,20 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
     end
 
     test "unregistered research delegate blocks honestly" do
-      assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
-      assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 "browser.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
+      assert {:ok, _setting} =
+               Settings.put(
+                 "research.enabled",
+                 true,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
       AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())
 
       assert {:ok, response} =

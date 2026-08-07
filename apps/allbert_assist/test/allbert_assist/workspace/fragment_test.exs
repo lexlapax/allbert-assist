@@ -190,7 +190,11 @@ defmodule AllbertAssist.Workspace.FragmentTest do
 
   test "enforces the configured per-emitter user rate limit" do
     assert {:ok, _setting} =
-             Settings.put("workspace.fragment.rate_limit_per_second", 1, %{audit?: false})
+             Settings.put(
+               "workspace.fragment.rate_limit_per_second",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     envelope = signed_envelope()
 
@@ -200,9 +204,13 @@ defmodule AllbertAssist.Workspace.FragmentTest do
 
   test "enforces the configured receiver rate limit independently" do
     assert {:ok, _setting} =
-             Settings.put("workspace.fragment.receiver_rate_limit_per_second", 1, %{
-               audit?: false
-             })
+             Settings.put(
+               "workspace.fragment.receiver_rate_limit_per_second",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     envelope = signed_envelope()
     assert {:ok, signal} = fragment_signal(envelope)
@@ -224,7 +232,11 @@ defmodule AllbertAssist.Workspace.FragmentTest do
 
   test "enforces the configured payload size cap" do
     assert {:ok, _setting} =
-             Settings.put("workspace.fragment.payload_max_bytes", 1024, %{audit?: false})
+             Settings.put(
+               "workspace.fragment.payload_max_bytes",
+               1024,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     envelope =
       signed_envelope(%{

@@ -97,22 +97,40 @@ defmodule AllbertAssist.JobsTest do
 
   describe "settings" do
     test "job settings are writable and validated" do
-      assert {:ok, timezone} = Settings.put("jobs.timezone", "UTC", %{audit?: false})
+      assert {:ok, timezone} =
+               Settings.put(
+                 "jobs.timezone",
+                 "UTC",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
       assert timezone.value == "UTC"
       assert timezone.writable?
 
       assert {:ok, default_state} =
-               Settings.put("jobs.default_state", "active", %{audit?: false})
+               Settings.put(
+                 "jobs.default_state",
+                 "active",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert default_state.value == "active"
 
       assert {:ok, schedule_policy} =
-               Settings.put("jobs.schedule_policy", "paused", %{audit?: false})
+               Settings.put(
+                 "jobs.schedule_policy",
+                 "paused",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert schedule_policy.value == "paused"
 
       assert {:error, {:invalid_setting, "jobs.default_state", _reason}} =
-               Settings.put("jobs.default_state", "archived", %{})
+               Settings.put(
+                 "jobs.default_state",
+                 "archived",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               )
     end
   end
 
@@ -139,8 +157,19 @@ defmodule AllbertAssist.JobsTest do
     end
 
     test "uses Settings Central defaults for timezone and status" do
-      assert {:ok, _timezone} = Settings.put("jobs.timezone", "UTC", %{audit?: false})
-      assert {:ok, _status} = Settings.put("jobs.default_state", "active", %{audit?: false})
+      assert {:ok, _timezone} =
+               Settings.put(
+                 "jobs.timezone",
+                 "UTC",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
+      assert {:ok, _status} =
+               Settings.put(
+                 "jobs.default_state",
+                 "active",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       assert {:ok, job} =
                Jobs.create_job(%{
@@ -799,7 +828,12 @@ defmodule AllbertAssist.JobsTest do
     end
 
     test "paused schedule policy prevents due job claims" do
-      assert {:ok, _policy} = Settings.put("jobs.schedule_policy", "paused", %{audit?: false})
+      assert {:ok, _policy} =
+               Settings.put(
+                 "jobs.schedule_policy",
+                 "paused",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
 
       now = ~U[2026-05-14 08:00:00Z]
 
@@ -953,13 +987,26 @@ defmodule AllbertAssist.JobsTest do
   end
 
   defp configure_external_request_settings do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", ["example.com"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["example.com"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp create_pending_confirmation(id) do

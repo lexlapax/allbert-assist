@@ -279,12 +279,15 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
     test "renders objective snapshot and stale warning for approval handoffs" do
       assert {:ok, objective} =
-               Objectives.create_objective(%{
-                 user_id: "alice",
-                 title: "Analyze AAPL",
-                 objective: "Complete one analysis for AAPL.",
-                 status: "running"
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "alice",
+                   title: "Analyze AAPL",
+                   objective: "Complete one analysis for AAPL.",
+                   status: "running"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       handoff = %{
         confirmation_id: "conf_obj",
@@ -301,10 +304,14 @@ defmodule AllbertAssist.Channels.TelegramTest do
       }
 
       assert {:ok, _cancelled} =
-               Objectives.update_objective(objective, %{
-                 status: "cancelled",
-                 progress_summary: "Cancelled in renderer test."
-               })
+               Objectives.update_objective(
+                 objective,
+                 %{
+                   status: "cancelled",
+                   progress_summary: "Cancelled in renderer test."
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, [text], _keyboard} = Renderer.render_response(%{approval_handoff: handoff})
 
@@ -372,16 +379,19 @@ defmodule AllbertAssist.Channels.TelegramTest do
       configure_runtime!()
 
       assert {:ok, _event} =
-               Channels.create_event(%{
-                 channel: "telegram",
-                 provider: "telegram_bot_api",
-                 direction: "inbound",
-                 external_event_id: "211",
-                 external_user_id: "123",
-                 external_chat_id: "456",
-                 external_message_id: "10",
-                 status: "received"
-               })
+               Channels.create_event(
+                 %{
+                   channel: "telegram",
+                   provider: "telegram_bot_api",
+                   direction: "inbound",
+                   external_event_id: "211",
+                   external_user_id: "123",
+                   external_chat_id: "456",
+                   external_message_id: "10",
+                   status: "received"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       Req.Test.stub(__MODULE__, fn
         %{request_path: "/bottoken/getUpdates"} = conn ->
@@ -701,13 +711,16 @@ defmodule AllbertAssist.Channels.TelegramTest do
       configure_telegram!()
 
       assert {:ok, _event} =
-               Channels.create_event(%{
-                 channel: "telegram",
-                 provider: "telegram_bot_api",
-                 direction: "inbound",
-                 external_event_id: "300",
-                 status: "received"
-               })
+               Channels.create_event(
+                 %{
+                   channel: "telegram",
+                   provider: "telegram_bot_api",
+                   direction: "inbound",
+                   external_event_id: "300",
+                   status: "received"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       Req.Test.expect(__MODULE__, fn conn ->
         query = Query.decode(conn.query_string)

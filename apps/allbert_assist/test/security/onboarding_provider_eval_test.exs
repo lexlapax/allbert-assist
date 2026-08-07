@@ -248,9 +248,13 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
         fixture("provider-doctor-endpoint-kind-derivation-001", %{
           run: fn fixture ->
             {:ok, _setting} =
-              Settings.put("providers.local_ollama.endpoint_kind", "credentialed_remote", %{
-                audit?: false
-              })
+              Settings.put(
+                "providers.local_ollama.endpoint_kind",
+                "credentialed_remote",
+                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                  audit?: false
+                })
+              )
 
             Req.Test.expect(__MODULE__, fn conn ->
               assert conn.request_path == "/v1/models"
@@ -292,15 +296,19 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
         fixture("provider-doctor-redacted-host-only-001", %{
           run: fn fixture ->
             {:ok, _setting} =
-              Settings.put("providers.local_ollama.endpoint_kind", "local_endpoint", %{
-                audit?: false
-              })
+              Settings.put(
+                "providers.local_ollama.endpoint_kind",
+                "local_endpoint",
+                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                  audit?: false
+                })
+              )
 
             {:ok, _setting} =
               Settings.put(
                 "providers.local_ollama.base_url",
                 "http://localhost:11434/v1",
-                %{audit?: false}
+                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
               )
 
             expect_local_tags(%{
@@ -338,7 +346,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
       Settings.put(
         "providers.local_ollama.base_url",
         "http://localhost:11434/v1?token=#{@secret}",
-        %{audit?: false}
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
       )
 
     {:ok, rejected_url} =

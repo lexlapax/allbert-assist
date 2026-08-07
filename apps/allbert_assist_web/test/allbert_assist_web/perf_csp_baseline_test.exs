@@ -106,15 +106,19 @@ defmodule AllbertAssistWeb.PerfCspBaselineTest do
     File.write!(Path.join(home, "settings/.settings_key"), "raw-secret\n")
 
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "providers" => %{
-                 "openai" => %{
-                   "enabled" => true,
-                   "base_url" => "http://127.0.0.1:9999/v1",
-                   "api_key_ref" => "secret://providers/openai/api_key"
+             Settings.write_user_settings(
+               %{
+                 "providers" => %{
+                   "openai" => %{
+                     "enabled" => true,
+                     "base_url" => "http://127.0.0.1:9999/v1",
+                     "api_key_ref" => "secret://providers/openai/api_key"
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp export_envelope!(home) do

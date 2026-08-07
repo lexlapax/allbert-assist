@@ -100,7 +100,13 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Restart")
     assert {:ok, _message} = local_message(thread, "prepurge searchable fixture")
     assert {:ok, _build} = Projection.rebuild("alice")
-    assert {:ok, _setting} = Settings.put("search.enabled", false)
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "search.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, preview} = Purge.preview(%{target_kind: :all}, "alice")
 
@@ -117,7 +123,13 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
 
     assert {:ok, scope} = Projection.purge_scope(%{"target_kind" => "all"})
     assert {:ok, %{"phase" => "pending"}} = Control.begin(root, params, scope, "conf_restart")
-    assert {:ok, _setting} = Settings.put("search.enabled", true)
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "search.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     stop_supervised!(Projection)
     start_supervised!({Projection, root: root, name: Projection})
@@ -144,7 +156,12 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
     assert managed.status == :error
     assert managed.error == :search_purge_in_progress
 
-    assert {:ok, _setting} = Settings.put("search.enabled", false)
+    assert {:ok, _setting} =
+             Settings.put(
+               "search.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{phase: :complete, ready?: false}} =
              Projection.purge(params, "alice", "conf_restart")
@@ -158,7 +175,13 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
     projection_root: root
   } do
     stop_supervised!(Projection)
-    assert {:ok, _setting} = Settings.put("search.enabled", false)
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "search.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     for {phase, index} <- Enum.with_index(~w[connections_closed files_replaced verified], 1) do
       phase_root = Path.join(root, phase)

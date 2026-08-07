@@ -196,7 +196,11 @@ defmodule AllbertAssist.Security.V045MarketplaceEvalTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(denied_home, "settings"))
 
     assert {:ok, _setting} =
-             Settings.put("permissions.marketplace_install", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.marketplace_install",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, denied} =
              Runner.run(

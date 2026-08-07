@@ -50,9 +50,13 @@ defmodule Mix.Tasks.Allbert.ModelTest do
 
   test "uses a DirectAnswer profile without changing global primary and preserves fallback tail" do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["local", "fast"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["local", "fast"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     output =
       capture_io(fn ->

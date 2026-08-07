@@ -75,13 +75,26 @@ defmodule AllbertAssistWeb.PageControllerTest do
   end
 
   test "root layout applies global design state on non-workspace pages", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.mode",
+               "dark",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.accessibility.high_contrast", true, %{audit?: false})
+             Settings.put(
+               "workspace.accessibility.high_contrast",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.accessibility.reduce_motion", true, %{audit?: false})
+             Settings.put(
+               "workspace.accessibility.reduce_motion",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     conn = get(conn, ~p"/")
     html = html_response(conn, 200)

@@ -10,21 +10,27 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
 
   test "renders a populated objectives index through the catalog renderer", %{conn: conn} do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               status: "running",
-               active_app: "stocksage",
-               source_thread_id: "thread_objectives_index"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "running",
+                 active_app: "stocksage",
+                 source_thread_id: "thread_objectives_index"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _other_user} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Alice only",
-               objective: "Should not leak."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Alice only",
+                 objective: "Should not leak."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, html} = live(conn, ~p"/objectives")
 
@@ -52,19 +58,25 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
     conn: conn
   } do
     assert {:ok, _local} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Local objective",
-               objective: "Local operator work.",
-               status: "running"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Local objective",
+                 objective: "Local operator work.",
+                 status: "running"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _alice} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Alice private objective",
-               objective: "Must never leak via a URL param."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Alice private objective",
+                 objective: "Must never leak via a URL param."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     # Attempt the pre-M10.2 IDOR: request another user's objectives via the URL param.
     {:ok, _view, html} = live(conn, ~p"/objectives?#{[user: "alice"]}")

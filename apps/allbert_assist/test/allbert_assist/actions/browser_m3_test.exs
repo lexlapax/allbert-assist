@@ -105,7 +105,12 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
   end
 
   test "cache enforces max byte retention oldest first" do
-    assert {:ok, _setting} = Settings.put("browser.cache.max_bytes", 10, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.cache.max_bytes",
+               10,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, oldest} =
              Cache.put("session-size", "extraction", "11111",

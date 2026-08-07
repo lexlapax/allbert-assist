@@ -11,32 +11,41 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
   test "renders objective details and cancels through registered action", %{conn: conn} do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Analyze AAPL",
-               objective: "Complete one analysis for AAPL.",
-               status: "blocked",
-               active_app: "stocksage",
-               acceptance_criteria: %{"min_completed_steps" => 1}
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Analyze AAPL",
+                 objective: "Complete one analysis for AAPL.",
+                 status: "blocked",
+                 active_app: "stocksage",
+                 acceptance_criteria: %{"min_completed_steps" => 1}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "blocked",
-               stage: "authorize_step",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               confirmation_id: "conf_live_objective"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "blocked",
+                 stage: "authorize_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 confirmation_id: "conf_live_objective"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _event} =
-             Objectives.create_event(%{
-               objective_id: objective.id,
-               step_id: step.id,
-               kind: "blocked",
-               summary: "Waiting for confirmation."
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: objective.id,
+                 step_id: step.id,
+                 kind: "blocked",
+                 summary: "Waiting for confirmation."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
 
@@ -76,12 +85,15 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
   test "renders missing, terminal, and refreshed objective states", %{conn: conn} do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Terminal objective",
-               objective: "Already abandoned.",
-               status: "abandoned"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Terminal objective",
+                 objective: "Already abandoned.",
+                 status: "abandoned"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
     assert has_element?(view, "#operator-shell[data-active-page='objectives']")
@@ -91,7 +103,13 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     assert html =~ "abandoned"
     refute has_element?(view, "#objective-cancel-button")
 
-    assert {:ok, _objective} = Objectives.update_objective(objective, %{status: "cancelled"})
+    assert {:ok, _objective} =
+             Objectives.update_objective(
+               objective,
+               %{status: "cancelled"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     send(view.pid, {:objective_event, %{type: "allbert.objective.cancelled"}})
     assert render(view) =~ "cancelled"
 
@@ -101,11 +119,14 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     assert_catalog_components_known!(missing_html)
 
     assert {:ok, other_user} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Alice only",
-               objective: "Should not leak."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Alice only",
+                 objective: "Should not leak."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, _cross_view, cross_html} = live(conn, ~p"/objectives/#{other_user.id}")
     assert cross_html =~ "Objective not found."
@@ -114,41 +135,53 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
   test "embeds Plan/Build run progress for workflow objectives", %{conn: conn} do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Run workflow",
-               objective: "Execute the multi_step workflow.",
-               status: "running",
-               active_app: "allbert",
-               source_intent: "workflow:multi_step:1"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Run workflow",
+                 objective: "Execute the multi_step workflow.",
+                 status: "running",
+                 active_app: "allbert",
+                 source_intent: "workflow:multi_step:1"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "delegate_agent",
-               status: "running",
-               stage: "execute_step",
-               provider: "plan_build",
-               candidate_action: "delegate_agent",
-               delegate_agent_id: "plan-build-stub"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "delegate_agent",
+                 status: "running",
+                 stage: "execute_step",
+                 provider: "plan_build",
+                 candidate_action: "delegate_agent",
+                 delegate_agent_id: "plan-build-stub"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _event} =
-             Objectives.create_event(%{
-               objective_id: objective.id,
-               step_id: step.id,
-               kind: "observed",
-               summary: "Parent step started."
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: objective.id,
+                 step_id: step.id,
+                 kind: "observed",
+                 summary: "Parent step started."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _child_event} =
-             Objectives.create_event(%{
-               objective_id: objective.id,
-               kind: "observed",
-               summary: "Child agent reported progress.",
-               payload: %{parent_step_id: step.id}
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: objective.id,
+                 kind: "observed",
+                 summary: "Child agent reported progress.",
+                 payload: %{parent_step_id: step.id}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
 
@@ -174,14 +207,17 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     conn: conn
   } do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Shared topic objective",
-               objective: "Stay alive through fragment traffic.",
-               status: "running",
-               active_app: "allbert",
-               acceptance_criteria: %{"min_completed_steps" => 1}
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Shared topic objective",
+                 objective: "Stay alive through fragment traffic.",
+                 status: "running",
+                 active_app: "allbert",
+                 acceptance_criteria: %{"min_completed_steps" => 1}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, view, _html} = live(conn, ~p"/objectives/#{objective.id}")
 

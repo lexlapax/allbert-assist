@@ -39,12 +39,20 @@ defmodule AllbertAssist.Theme.SnippetsTest do
     File.write!(Path.join([home, "themes", "snippets", "compact.css"]), safe_css())
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["compact"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert %{enabled?: false, css: "", items: [], status: :disabled} = Snippets.selected()
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     selected = Snippets.selected()
 
@@ -87,10 +95,18 @@ defmodule AllbertAssist.Theme.SnippetsTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["unsafe"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["unsafe"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     selected = Snippets.selected()
 
@@ -102,12 +118,20 @@ defmodule AllbertAssist.Theme.SnippetsTest do
 
   test "path traversal and non-css selections are rejected" do
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["../secret", "notes.txt"], %{
-               audit?: false
-             })
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["../secret", "notes.txt"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     selected = Snippets.selected()
 
@@ -123,12 +147,20 @@ defmodule AllbertAssist.Theme.SnippetsTest do
     assert Snippets.single_css("compact").status == :disabled
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+             Settings.put(
+               "workspace.theme.snippets_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Snippets.single_css("compact").status == :not_enabled
 
     assert {:ok, _setting} =
-             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+             Settings.put(
+               "workspace.theme.enabled_snippets",
+               ["compact"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Snippets.single_css("compact").status == :present
   end

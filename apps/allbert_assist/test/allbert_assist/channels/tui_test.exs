@@ -903,25 +903,31 @@ defmodule AllbertAssist.Channels.TUITest do
       observation = "orphaned result #{child.queue_position}"
 
       assert {:ok, step} =
-               Objectives.create_step(%{
-                 objective_id: child.id,
-                 kind: "action",
-                 status: "completed",
-                 stage: "observe_step",
-                 candidate_action: "append_memory",
-                 result_summary: observation
-               })
+               Objectives.create_step(
+                 %{
+                   objective_id: child.id,
+                   kind: "action",
+                   status: "completed",
+                   stage: "observe_step",
+                   candidate_action: "append_memory",
+                   result_summary: observation
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, _event} =
-               Objectives.create_event(%{
-                 objective_id: child.id,
-                 kind: "run_completed",
-                 payload: %{
-                   summary: observation,
-                   step_id: step.id,
-                   step_status: "completed"
-                 }
-               })
+               Objectives.create_event(
+                 %{
+                   objective_id: child.id,
+                   kind: "run_completed",
+                   payload: %{
+                     summary: observation,
+                     step_id: step.id,
+                     step_status: "completed"
+                   }
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {1, _rows} =
                Objective
@@ -1039,17 +1045,20 @@ defmodule AllbertAssist.Channels.TUITest do
     )
 
     assert {:ok, event} =
-             Channels.create_event(%{
-               channel: "tui",
-               provider: "terminal",
-               direction: "inbound",
-               external_event_id: "tui:r1:daemon-admitted",
-               external_user_id: "default",
-               external_chat_id: "tui:default",
-               external_message_id: receipt_id,
-               status: "received",
-               payload_summary: "tui receipt #{receipt_id}"
-             })
+             Channels.create_event(
+               %{
+                 channel: "tui",
+                 provider: "terminal",
+                 direction: "inbound",
+                 external_event_id: "tui:r1:daemon-admitted",
+                 external_user_id: "default",
+                 external_chat_id: "tui:default",
+                 external_message_id: receipt_id,
+                 status: "received",
+                 payload_summary: "tui receipt #{receipt_id}"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, server} =
              Adapter.start_link(
@@ -3129,17 +3138,20 @@ defmodule AllbertAssist.Channels.TUITest do
 
   defp create_admitted_tui_event!(receipt_id, suffix) do
     assert {:ok, event} =
-             Channels.create_event(%{
-               channel: "tui",
-               provider: "terminal",
-               direction: "inbound",
-               external_event_id: "tui:r1:#{suffix}",
-               external_user_id: "default",
-               external_chat_id: "tui:default",
-               external_message_id: receipt_id,
-               status: "received",
-               payload_summary: "tui receipt #{receipt_id}"
-             })
+             Channels.create_event(
+               %{
+                 channel: "tui",
+                 provider: "terminal",
+                 direction: "inbound",
+                 external_event_id: "tui:r1:#{suffix}",
+                 external_user_id: "default",
+                 external_chat_id: "tui:default",
+                 external_message_id: receipt_id,
+                 status: "received",
+                 payload_summary: "tui receipt #{receipt_id}"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     event
   end

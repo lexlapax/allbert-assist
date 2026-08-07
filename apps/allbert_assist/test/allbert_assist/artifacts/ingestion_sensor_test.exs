@@ -111,7 +111,12 @@ defmodule AllbertAssist.Artifacts.IngestionSensorTest do
   end
 
   test "disabling artifacts.enabled disables ingestion" do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     bytes = "disabled-retained-payload"
 
@@ -128,7 +133,11 @@ defmodule AllbertAssist.Artifacts.IngestionSensorTest do
 
   test "sensor dispatch does not grant artifact_write authority" do
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_write",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     bytes = "permission-denied-retained-payload"
 
@@ -149,7 +158,11 @@ defmodule AllbertAssist.Artifacts.IngestionSensorTest do
 
   test "ingestion consumer call timeout comes from Settings Central" do
     assert {:ok, _setting} =
-             Settings.put("artifacts.ingestion_timeout_ms", 1_000, %{audit?: false})
+             Settings.put(
+               "artifacts.ingestion_timeout_ms",
+               1_000,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, server} =
              SlowIngestionServer.start_link(
@@ -180,17 +193,40 @@ defmodule AllbertAssist.Artifacts.IngestionSensorTest do
   end
 
   defp enable_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "allowed", %{audit?: false})
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_delete", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_write",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.artifact_delete",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context do

@@ -302,7 +302,11 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
 
   test "online import disabled denies without creating confirmation" do
     assert {:ok, _setting} =
-             Settings.put("skills.online_import.enabled", false, %{audit?: false})
+             Settings.put(
+               "skills.online_import.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runner.run("import_online_skill", %{source: "skills_sh", id: source_id()}, context())
@@ -336,7 +340,12 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp source_id, do: "vercel-labs/skills/find-skills"

@@ -117,11 +117,15 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert remote.decision == :needs_confirmation
 
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "model_preferences" => %{
-                 "tasks" => %{"direct_answer" => ["voice_stt_fake", "local"]}
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "model_preferences" => %{
+                   "tasks" => %{"direct_answer" => ["voice_stt_fake", "local"]}
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, resolution} = Models.for(:direct_answer)
     assert resolution.profile.name == "local"
@@ -177,7 +181,13 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
 
     too_large = Path.join(home, "large.wav")
     File.write!(too_large, "12345")
-    assert {:ok, _setting} = Settings.put("voice.audio.max_bytes", 4, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "voice.audio.max_bytes",
+               4,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, denied} = Runner.run("transcribe_voice", %{audio_file: too_large}, context)
     assert denied.status == :denied
@@ -525,13 +535,17 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake_retryable", "voice_stt_fake"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["voice_text_local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["voice_text_local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     use_fake_tts!()
 
@@ -558,7 +572,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake_nonretryable", "voice_stt_fake"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, stopped} =
@@ -573,7 +587,12 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     install_fake_retryable_stt!()
     enable_voice!()
 
-    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _provider} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _openai_secret} =
              Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
@@ -584,7 +603,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake_retryable", "voice_stt_openai"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     voice_context =
@@ -647,85 +666,115 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   defp assert_eval!(id), do: EvalInventory.row!(id)
 
   defp enable_voice! do
-    assert {:ok, _setting} = Settings.put("voice.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "voice.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp use_fake_stt! do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp use_fake_tts! do
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.capabilities.text_to_speech",
+               ["voice_tts_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
   end
 
   defp install_fake_retryable_stt! do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "model_profiles" => %{
-                 "voice_stt_fake_retryable" => %{
-                   "provider" => "fake_voice",
-                   "model" => "fake-stt-retryable-error",
-                   "capabilities" => ["speech_to_text"],
-                   "media" => %{
-                     "input_modalities" => ["audio"],
-                     "output_modalities" => ["text"],
-                     "transport_modes" => ["request_file"],
-                     "deployment_mode" => "fake",
-                     "audio_formats_supported" => ["wav"],
-                     "audio_sample_rates_supported" => [16_000],
-                     "max_audio_bytes" => 10_485_760,
-                     "max_audio_duration_ms" => 300_000
-                   },
-                   "temperature" => 0.0,
-                   "max_tokens" => 1024,
-                   "timeout_ms" => 30_000
+             Settings.write_user_settings(
+               %{
+                 "model_profiles" => %{
+                   "voice_stt_fake_retryable" => %{
+                     "provider" => "fake_voice",
+                     "model" => "fake-stt-retryable-error",
+                     "capabilities" => ["speech_to_text"],
+                     "media" => %{
+                       "input_modalities" => ["audio"],
+                       "output_modalities" => ["text"],
+                       "transport_modes" => ["request_file"],
+                       "deployment_mode" => "fake",
+                       "audio_formats_supported" => ["wav"],
+                       "audio_sample_rates_supported" => [16_000],
+                       "max_audio_bytes" => 10_485_760,
+                       "max_audio_duration_ms" => 300_000
+                     },
+                     "temperature" => 0.0,
+                     "max_tokens" => 1024,
+                     "timeout_ms" => 30_000
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp install_fake_nonretryable_stt! do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "model_profiles" => %{
-                 "voice_stt_fake_nonretryable" => %{
-                   "provider" => "fake_voice",
-                   "model" => "fake-stt-nonretryable-error",
-                   "capabilities" => ["speech_to_text"],
-                   "media" => %{
-                     "input_modalities" => ["audio"],
-                     "output_modalities" => ["text"],
-                     "transport_modes" => ["request_file"],
-                     "deployment_mode" => "fake",
-                     "audio_formats_supported" => ["wav"],
-                     "audio_sample_rates_supported" => [16_000],
-                     "max_audio_bytes" => 10_485_760,
-                     "max_audio_duration_ms" => 300_000
-                   },
-                   "temperature" => 0.0,
-                   "max_tokens" => 1024,
-                   "timeout_ms" => 30_000
+             Settings.write_user_settings(
+               %{
+                 "model_profiles" => %{
+                   "voice_stt_fake_nonretryable" => %{
+                     "provider" => "fake_voice",
+                     "model" => "fake-stt-nonretryable-error",
+                     "capabilities" => ["speech_to_text"],
+                     "media" => %{
+                       "input_modalities" => ["audio"],
+                       "output_modalities" => ["text"],
+                       "transport_modes" => ["request_file"],
+                       "deployment_mode" => "fake",
+                       "audio_formats_supported" => ["wav"],
+                       "audio_sample_rates_supported" => [16_000],
+                       "max_audio_bytes" => 10_485_760,
+                       "max_audio_duration_ms" => 300_000
+                     },
+                     "temperature" => 0.0,
+                     "max_tokens" => 1024,
+                     "timeout_ms" => 30_000
+                   }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp configure_telegram!(opts) do
     assert {:ok, _secret} =
              Secrets.put_secret("secret://channels/telegram/bot_token", "token", %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("channels.telegram.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.telegram.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     identity_map = Keyword.get(opts, :identity_map, [])
 
     assert {:ok, _setting} =
-             Settings.put("channels.telegram.identity_map", identity_map, %{audit?: false})
+             Settings.put(
+               "channels.telegram.identity_map",
+               identity_map,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp configure_runtime! do

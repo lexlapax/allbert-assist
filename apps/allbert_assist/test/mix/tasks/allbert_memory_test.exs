@@ -263,7 +263,12 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
                user_id: "local"
              )
 
-    assert {:ok, _setting} = Settings.put("memory.delete_requires_confirmation", false)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.delete_requires_confirmation",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     archive_output =
       capture_io(fn ->

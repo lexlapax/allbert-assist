@@ -248,16 +248,24 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: QualifiedRevisionAnswerer)
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     on_exit(fn ->
       if previous,
         do: Application.put_env(:allbert_assist, DirectAnswer, previous),
         else: Application.delete_env(:allbert_assist, DirectAnswer)
 
-      AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+      AllbertAssist.Settings.put(
+        "intent.direct_answer_model_enabled",
+        false,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
     end)
 
     :ok

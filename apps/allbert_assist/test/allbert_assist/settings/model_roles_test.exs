@@ -66,15 +66,27 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
     assert {:error,
             {:invalid_setting, "model_roles.fast.profile",
              {:role_reference_not_allowed, "role:capable"}}} =
-             Settings.put("model_roles.fast.profile", "role:capable", %{audit?: false})
+             Settings.put(
+               "model_roles.fast.profile",
+               "role:capable",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error,
             {:invalid_setting, "model_roles.fast.profile",
              {:unknown_model_profile, "missing-profile"}}} =
-             Settings.put("model_roles.fast.profile", "missing-profile", %{audit?: false})
+             Settings.put(
+               "model_roles.fast.profile",
+               "missing-profile",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_roles.fast.profile", "local", %{audit?: false})
+             Settings.put(
+               "model_roles.fast.profile",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, "local"} = Settings.get("model_roles.fast.profile")
   end
@@ -84,7 +96,7 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["role:fast", "local"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error,
@@ -93,17 +105,25 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
              Settings.put(
                "model_preferences.capabilities.text_generation",
                ["role:fast"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error,
             {:invalid_setting, "model_preferences.primary", {:unknown_model_profile, "role:fast"}}} =
-             Settings.put("model_preferences.primary", "role:fast", %{audit?: false})
+             Settings.put(
+               "model_preferences.primary",
+               "role:fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error,
             {:invalid_setting, "intent.direct_answer_model_profile",
              {:unknown_model_profile, "role:fast"}}} =
-             Settings.put("intent.direct_answer_model_profile", "role:fast", %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_profile",
+               "role:fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error,
             {:invalid_setting, "model_preferences.tasks.direct_answer",
@@ -111,7 +131,7 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["role:other"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -120,7 +140,7 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["role:fast", "local"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, fallback} = Models.for(:direct_answer)
@@ -137,7 +157,11 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
            ] = fallback.diagnostics
 
     assert {:ok, _setting} =
-             Settings.put("model_roles.fast.profile", "local", %{audit?: false})
+             Settings.put(
+               "model_roles.fast.profile",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, resolution} = Models.for(:direct_answer)
     assert resolution.profile_name == "local"
@@ -153,13 +177,17 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
 
   test "role targets retain capability and provider checks with redacted provenance" do
     assert {:ok, _setting} =
-             Settings.put("model_roles.thinking.profile", "voice_stt_fake", %{audit?: false})
+             Settings.put(
+               "model_roles.thinking.profile",
+               "voice_stt_fake",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["role:thinking", "local"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, incapable_fallback} = Models.for(:direct_answer)
@@ -174,13 +202,17 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
            end)
 
     assert {:ok, _setting} =
-             Settings.put("model_roles.capable.profile", "fast", %{audit?: false})
+             Settings.put(
+               "model_roles.capable.profile",
+               "fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["role:capable", "local"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, disabled_fallback} = Models.for(:direct_answer)
@@ -206,7 +238,11 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
            |> Base.encode16(case: :lower) == @v131_concrete_resolution_sha256
 
     assert {:ok, _setting} =
-             Settings.put("model_roles.fast.profile", "local", %{audit?: false})
+             Settings.put(
+               "model_roles.fast.profile",
+               "local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, after_mapping_only} = Models.for(:direct_answer)
     assert {:ok, candidates_after_mapping_only} = Models.candidates_for(:direct_answer)
@@ -220,7 +256,7 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["fast", "role:fast"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, collision_resolution} = Models.for(:direct_answer)
@@ -247,22 +283,34 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
     System.put_env("OPENAI_API_KEY", "role-disclosure-test-key")
 
     assert {:ok, _setting} =
-             Settings.put("providers.openai.enabled", true, %{audit?: false})
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["role:fast"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     refute Disclosure.hosted_pending?(:cli)
 
     assert {:ok, _setting} =
-             Settings.put("model_roles.fast.profile", "fast", %{audit?: false})
+             Settings.put(
+               "model_roles.fast.profile",
+               "fast",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert Disclosure.hosted_pending?(:cli)
   end

@@ -129,7 +129,11 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     enable_dynamic_codegen!("coding")
 
     assert {:ok, _setting} =
-             Settings.put("providers.gemini.enabled", true, %{audit?: false})
+             Settings.put(
+               "providers.gemini.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     System.delete_env("GOOGLE_API_KEY")
     System.put_env("GEMINI_API_KEY", "test-gemini-key")
@@ -148,7 +152,11 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     enable_dynamic_codegen!("local")
 
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.max_provider_calls_per_gap", 1, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.max_provider_calls_per_gap",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error,
             {:dynamic_codegen_budget_exhausted,
@@ -208,7 +216,11 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     enable_dynamic_codegen!("local")
 
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.max_provider_calls_per_gap", 3, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.max_provider_calls_per_gap",
+               3,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:error,
             {:dynamic_codegen_budget_exhausted,
@@ -229,11 +241,14 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     enable_dynamic_codegen!("local")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "operator",
-               title: "Request diagnostic draft",
-               objective: "Create a read-only diagnostic draft"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "operator",
+                 title: "Request diagnostic draft",
+                 objective: "Create a read-only diagnostic draft"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, result} =
              DynamicPlugins.request_draft(
@@ -309,11 +324,15 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                ["read_only", "memory_write"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.allowed_facades", ["append_memory"], %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.allowed_facades",
+               ["append_memory"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, result} =
              DynamicPlugins.request_draft(
@@ -476,7 +495,12 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
       |> maybe_enable_sandbox(opts)
       |> maybe_enable_live_loader(opts)
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp maybe_put_profile(settings, nil), do: settings

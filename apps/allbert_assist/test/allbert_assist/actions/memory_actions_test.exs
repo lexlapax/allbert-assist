@@ -235,7 +235,11 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
 
   test "prune_memory_entries can require confirmation independently from delete" do
     assert {:ok, _setting} =
-             Settings.put("memory.prune_requires_confirmation", false, %{audit?: false})
+             Settings.put(
+               "memory.prune_requires_confirmation",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, entry} = append("alice", "Prune immediately after review.")
 

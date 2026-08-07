@@ -241,20 +241,39 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
   end
 
   defp enable_template_create! do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_dynamic_codegen! do
-    assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "dynamic_codegen.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_dynamic_live_loader! do
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.live_loader_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_sandbox_elixir! do
-    assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "sandbox.elixir.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp enable_live_template_stack! do

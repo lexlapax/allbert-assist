@@ -52,8 +52,19 @@ defmodule AllbertAssist.Security.V13CrossConsumerEvalTest do
       File.rm_rf!(home)
     end)
 
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
-    assert {:ok, _setting} = Settings.put("memory.collection.origin_grants", ["local_operator"])
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.collection.origin_grants",
+               ["local_operator"],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     {:ok, memory_projection: memory_projection}
   end

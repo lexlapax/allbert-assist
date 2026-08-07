@@ -97,23 +97,49 @@ defmodule AllbertAssist.Actions.McpDiscoveryActionsTest do
   end
 
   defp configure_discovery do
-    assert {:ok, _setting} = Settings.put("mcp.discovery.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.discovery.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.discovery.sources.official.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.discovery.sources.official.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp configure_external(host, path) do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_hosts", [host], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_hosts",
+               [host],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", [path], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               [path],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_methods", ["GET"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_methods",
+               ["GET"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

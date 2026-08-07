@@ -198,36 +198,48 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     now = DateTime.utc_now()
 
     assert {:ok, open} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               status: "open",
-               title: "Open",
-               objective: "Open objective"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 status: "open",
+                 title: "Open",
+                 objective: "Open objective"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, running} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               status: "running",
-               title: "Running",
-               objective: "Running objective"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 status: "running",
+                 title: "Running",
+                 objective: "Running objective"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, completed} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               status: "completed",
-               title: "Completed",
-               objective: "Completed objective"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 status: "completed",
+                 title: "Completed",
+                 objective: "Completed objective"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, stale} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               status: "blocked",
-               title: "Stale",
-               objective: "Stale objective"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 status: "blocked",
+                 title: "Stale",
+                 objective: "Stale objective"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     stale_at = DateTime.add(now, -2, :hour)
 
@@ -252,12 +264,15 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     now = DateTime.utc_now()
 
     assert {:ok, stale} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               status: "blocked",
-               title: "Read-only stale",
-               objective: "Must not be abandoned without an effect receipt."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 status: "blocked",
+                 title: "Read-only stale",
+                 objective: "Must not be abandoned without an effect receipt."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     stale_at = DateTime.add(now, -2, :hour)
 
@@ -292,14 +307,17 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     name = :"objectives_engine_restart_#{System.unique_integer([:positive])}"
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               status: "open",
-               active_app: "allbert",
-               title: "Restart with hint",
-               objective: "Keep proposer hint durable.",
-               proposer_hint: %{"app_id" => "allbert", "state" => %{"cursor" => 1}}
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 status: "open",
+                 active_app: "allbert",
+                 title: "Restart with hint",
+                 objective: "Keep proposer hint durable.",
+                 proposer_hint: %{"app_id" => "allbert", "state" => %{"cursor" => 1}}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     start_supervised!(
       {AllbertAssist.Objectives.Engine.Agent,
@@ -324,20 +342,26 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     name = start_test_engine()
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Evaluate",
-               objective: "Evaluate one completed step."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Evaluate",
+                 objective: "Evaluate one completed step."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "completed",
-               stage: "observe_step",
-               candidate_action: "StockSage.Actions.RunAnalysis"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "observe_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{verdict: :met, evaluated_steps: 1}} =
              EngineAgent.evaluate_steps(name, %{objective_id: objective.id})
@@ -369,21 +393,27 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     name = start_test_engine()
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Transaction boundary",
-               objective: "Run outside the database transaction."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Transaction boundary",
+                 objective: "Run outside the database transaction."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "proposed",
-               stage: "propose_steps",
-               candidate_action: TransactionProbeAction.name(),
-               action_params: %{}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "proposed",
+                 stage: "propose_steps",
+                 candidate_action: TransactionProbeAction.name(),
+                 action_params: %{}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{step: %{status: "completed"}}} =
              EngineAgent.authorize_step(name, %{step_id: step.id})
@@ -396,12 +426,15 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     name = start_test_engine()
 
     assert {:ok, stale} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               status: "blocked",
-               title: "Stale",
-               objective: "Stale objective"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 status: "blocked",
+                 title: "Stale",
+                 objective: "Stale objective"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     stale_at = DateTime.add(now, -2, :hour)
 
@@ -428,21 +461,27 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     on_exit(fn -> AgentRegistry.unregister("delegate-test") end)
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Delegate",
-               objective: "Delegate one step."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Delegate",
+                 objective: "Delegate one step."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "delegate_agent",
-               status: "selected",
-               stage: "execute_step",
-               delegate_agent_id: "delegate-test",
-               action_params: %{payload: "hello"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "delegate_agent",
+                 status: "selected",
+                 stage: "execute_step",
+                 delegate_agent_id: "delegate-test",
+                 action_params: %{payload: "hello"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{step: completed, objective: completed_objective, verdict: :met}} =
              EngineAgent.advance_objective(engine_name, %{
@@ -468,21 +507,27 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     on_exit(fn -> AgentRegistry.unregister("delegate-research") end)
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Delegate research",
-               objective: "Delegate one research step."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Delegate research",
+                 objective: "Delegate one research step."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "delegate_agent",
-               status: "selected",
-               stage: "execute_step",
-               delegate_agent_id: "delegate-research",
-               action_params: %{command: "research", params: %{payload: "topic"}}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "delegate_agent",
+                 status: "selected",
+                 stage: "execute_step",
+                 delegate_agent_id: "delegate-research",
+                 action_params: %{command: "research", params: %{payload: "topic"}}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{step: completed, objective: completed_objective, verdict: :met}} =
              EngineAgent.advance_objective(engine_name, %{
@@ -518,24 +563,30 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     on_exit(fn -> AgentRegistry.unregister("delegate-pending") end)
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Delegate pending",
-               objective: "Pause on a delegate confirmation."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Delegate pending",
+                 objective: "Pause on a delegate confirmation."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "delegate_agent",
-               status: "selected",
-               stage: "execute_step",
-               delegate_agent_id: "delegate-pending",
-               action_params: %{
-                 command: "pending",
-                 params: %{confirmation_id: "conf_delegate_pending"}
-               }
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "delegate_agent",
+                 status: "selected",
+                 stage: "execute_step",
+                 delegate_agent_id: "delegate-pending",
+                 action_params: %{
+                   command: "pending",
+                   params: %{confirmation_id: "conf_delegate_pending"}
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok,
             %{

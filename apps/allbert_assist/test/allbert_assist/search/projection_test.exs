@@ -88,7 +88,13 @@ defmodule AllbertAssist.Search.ProjectionTest do
     assert {:ok, message} = local_message(thread, "stable searchable source")
     assert {:ok, build} = Projection.rebuild("alice")
 
-    assert {:ok, _setting} = Settings.put("search.enabled", false)
+    assert {:ok, _setting} =
+             Settings.put(
+               "search.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert {:error, :consumer_disabled} = Projection.rebuild("alice")
 
     assert %{ready?: true, state: "degraded"} = Projection.status()

@@ -286,17 +286,20 @@ defmodule AllbertAssist.Channels.MatrixTest do
              Channels.channel_settings("matrix")
 
     assert {:ok, _event} =
-             Channels.create_event(%{
-               channel: "matrix",
-               provider: "matrix_client_server",
-               direction: "inbound",
-               external_event_id: "$old-sync",
-               external_user_id: "@alice:example.com",
-               external_chat_id: "!room:example.com",
-               external_message_id: "$old-sync",
-               status: "processed",
-               payload_summary: "matrix text message $old-sync"
-             })
+             Channels.create_event(
+               %{
+                 channel: "matrix",
+                 provider: "matrix_client_server",
+                 direction: "inbound",
+                 external_event_id: "$old-sync",
+                 external_user_id: "@alice:example.com",
+                 external_chat_id: "!room:example.com",
+                 external_message_id: "$old-sync",
+                 status: "processed",
+                 payload_summary: "matrix text message $old-sync"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"

@@ -132,19 +132,25 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
              )
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               active_app: "workspace",
-               title: "Review diagnostic release plan",
-               objective: "Review diagnostic release plan evidence."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 active_app: "workspace",
+                 title: "Review diagnostic release plan",
+                 objective: "Review diagnostic release plan evidence."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _event} =
-             Objectives.create_event(%{
-               objective_id: objective.id,
-               kind: "observed",
-               summary: "Observed a repeatable release-review shape."
-             })
+             Objectives.create_event(
+               %{
+                 objective_id: objective.id,
+                 kind: "observed",
+                 summary: "Observed a repeatable release-review shape."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     context = %{actor: "alice", user_id: "alice", channel: :test, active_app: "workspace"}
 
@@ -198,10 +204,19 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
   end
 
   defp enable_self_improvement do
-    assert {:ok, _resolved} = Settings.put("self_improvement.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "self_improvement.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _resolved} =
-             Settings.put("self_improvement.trace_index.enabled", true, %{audit?: false})
+             Settings.put(
+               "self_improvement.trace_index.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp write_trace(root, name, attrs) do

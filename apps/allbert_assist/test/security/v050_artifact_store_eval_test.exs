@@ -165,7 +165,11 @@ defmodule AllbertAssist.Security.V050ArtifactStoreEvalTest do
     assert [%{thread_id: "thread-v050-artifact-eval"}] = reverse.links
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, denied_get} =
              Runner.run("get_artifact", %{artifact_uri: put.artifact.artifact_uri}, context)
@@ -184,10 +188,19 @@ defmodule AllbertAssist.Security.V050ArtifactStoreEvalTest do
     assert_eval!("artifact-delete-confirmation-001")
     assert_eval!("artifact-retention-default-off-001")
 
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_write",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     default_off_bytes = "retention-default-off"
 
@@ -233,7 +246,12 @@ defmodule AllbertAssist.Security.V050ArtifactStoreEvalTest do
 
     enable_artifacts!()
 
-    assert {:ok, _setting} = Settings.put("artifacts.max_bytes", 4, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.max_bytes",
+               4,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, oversized} =
              Runner.run(
@@ -246,10 +264,19 @@ defmodule AllbertAssist.Security.V050ArtifactStoreEvalTest do
     assert oversized.error == {:artifact_too_large, 5, 4}
     refute Store.exists?(Store.sha256("12345"))
 
-    assert {:ok, _setting} = Settings.put("artifacts.max_bytes", 128, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.max_bytes",
+               128,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("artifacts.allowed_mime", ["image/png"], %{audit?: false})
+             Settings.put(
+               "artifacts.allowed_mime",
+               ["image/png"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, disallowed} =
              Runner.run(
@@ -262,10 +289,19 @@ defmodule AllbertAssist.Security.V050ArtifactStoreEvalTest do
     assert disallowed.error == {:artifact_mime_not_allowed, "text/plain", ["image/png"]}
     refute Store.exists?(Store.sha256("text fixture"))
 
-    assert {:ok, _setting} = Settings.put("artifacts.allowed_mime", ["*/*"], %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.allowed_mime",
+               ["*/*"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_write",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     sensor_bytes = "sensor-permission-denied"
 
@@ -283,17 +319,40 @@ defmodule AllbertAssist.Security.V050ArtifactStoreEvalTest do
   defp assert_eval!(id), do: EvalInventory.row!(id)
 
   defp enable_artifacts! do
-    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "artifacts.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_read", "allowed", %{audit?: false})
+             Settings.put(
+               "artifacts.retention_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_write", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_read",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.artifact_delete", "needs_confirmation", %{audit?: false})
+             Settings.put(
+               "permissions.artifact_write",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "permissions.artifact_delete",
+               "needs_confirmation",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp context do

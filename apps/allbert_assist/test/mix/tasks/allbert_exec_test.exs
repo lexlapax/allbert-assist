@@ -110,7 +110,12 @@ defmodule Mix.Tasks.Allbert.ExecTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

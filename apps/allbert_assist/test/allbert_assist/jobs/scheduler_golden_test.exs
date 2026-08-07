@@ -48,7 +48,13 @@ defmodule AllbertAssist.Jobs.SchedulerGoldenTest do
   end
 
   test "paused schedule policy summary matches the v0.23 fixture" do
-    assert {:ok, _setting} = Settings.put("jobs.schedule_policy", "paused", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "jobs.schedule_policy",
+               "paused",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     scheduler = start_test_scheduler()
 
     assert {:ok, summary} = Scheduler.run_once(scheduler, now())

@@ -67,10 +67,18 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
 
   test "workspace create gallery only exposes Settings Central allowed patterns", %{conn: conn} do
     assert {:ok, _setting} =
-             Settings.put("templates.create.enabled", true, %{audit?: false})
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("templates.allowed_patterns", ["llm_tool"], %{audit?: false})
+             Settings.put(
+               "templates.allowed_patterns",
+               ["llm_tool"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?#{[destination: "workspace:create"]}")
 
@@ -125,7 +133,12 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
   end
 
   test "workspace create renders gallery, params, preview, and validation", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
 
@@ -163,7 +176,13 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
   end
 
   test "workspace create renders installed marketplace template metadata", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     assert {:ok, _install} = Marketplace.install_bundle("allbert/workspace-brief")
 
     {:ok, view, html} = live(conn, ~p"/workspace?destination=workspace:create")
@@ -184,7 +203,12 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
   test "workspace create disables unsupported live mode", %{
     conn: conn
   } do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
 
@@ -198,7 +222,12 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
   test "workspace create live submit fails closed when dynamic codegen is disabled", %{
     conn: conn
   } do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     slug = "new_llm_tool"
     scaffold_target = Path.join(File.cwd!(), "plugins/#{slug}")
@@ -236,8 +265,19 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
   test "workspace create live submit fails closed when live loader is disabled", %{
     conn: conn
   } do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "dynamic_codegen.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     slug = "new_llm_tool"
     draft_target = Path.join([Paths.home(), "dynamic_plugins", "drafts", slug])
@@ -268,13 +308,33 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
   test "workspace create live submit writes only a templated dynamic draft", %{
     conn: conn
   } do
-    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "templates.create.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
+             Settings.put(
+               "dynamic_codegen.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
-    assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "dynamic_codegen.live_loader_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "sandbox.elixir.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     slug = "new_llm_tool"
     scaffold_target = Path.join(File.cwd!(), "plugins/#{slug}")

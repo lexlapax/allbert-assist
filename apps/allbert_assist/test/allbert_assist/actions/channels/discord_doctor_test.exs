@@ -31,10 +31,18 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
     Fragments.clear_cache()
 
     assert {:ok, _setting} =
-             Settings.put("channels.discord.application_id", "123456", %{audit?: false})
+             Settings.put(
+               "channels.discord.application_id",
+               "123456",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.discord.allowed_guild_ids", ["987654321"], %{audit?: false})
+             Settings.put(
+               "channels.discord.allowed_guild_ids",
+               ["987654321"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
@@ -53,7 +61,7 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
              Settings.put(
                "channels.discord.gateway_intents",
                ["guild_messages", "direct_messages", "message_content"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = DiscordDoctor.run(%{}, context())
@@ -80,7 +88,7 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
              Settings.put(
                "channels.discord.gateway_intents",
                ["guild_messages", "direct_messages"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = DiscordDoctor.run(%{}, context())

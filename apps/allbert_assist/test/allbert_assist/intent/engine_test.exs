@@ -335,9 +335,20 @@ defmodule AllbertAssist.Intent.EngineTest do
   end
 
   test "descriptor handoff can be disabled through Settings Central", %{registry: registry} do
-    on_exit(fn -> Settings.put("intent.descriptors_enabled", true, %{audit?: false}) end)
+    on_exit(fn ->
+      Settings.put(
+        "intent.descriptors_enabled",
+        true,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
+    end)
 
-    assert {:ok, _setting} = Settings.put("intent.descriptors_enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "intent.descriptors_enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, decision} =
              Engine.decide(
@@ -411,12 +422,15 @@ defmodule AllbertAssist.Intent.EngineTest do
     registry: registry
   } do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Analyze AAPL",
-               objective: "Complete one StockSage analysis for AAPL.",
-               active_app: "stocksage"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Analyze AAPL",
+                 objective: "Complete one StockSage analysis for AAPL.",
+                 active_app: "stocksage"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     request = EvalFixtures.request(text: "continue the AAPL objective", user_id: "alice")
 
@@ -434,11 +448,14 @@ defmodule AllbertAssist.Intent.EngineTest do
     registry: registry
   } do
     assert {:ok, ordinary} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Ordinary active objective",
-               objective: "Keep this candidate"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Ordinary active objective",
+                 objective: "Keep this candidate"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
@@ -470,11 +487,14 @@ defmodule AllbertAssist.Intent.EngineTest do
     registry: registry
   } do
     assert {:ok, ordinary} =
-             Objectives.create_objective(%{
-               user_id: "scan-owner",
-               title: "Old but actionable objective",
-               objective: "Keep this candidate"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "scan-owner",
+                 title: "Old but actionable objective",
+                 objective: "Keep this candidate"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     for index <- 1..24 do
       assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
@@ -619,7 +639,13 @@ defmodule AllbertAssist.Intent.EngineTest do
       assert {:ok, _result} = Projection.rebuild(projection)
       assert indexed_memory_candidate?(Engine.collect_candidates(request, registry))
 
-      assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
+      assert {:ok, _setting} =
+               Settings.put(
+                 "memory.index_enabled",
+                 false,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
       refute indexed_memory_candidate?(Engine.collect_candidates(request, registry))
     end)
   end
@@ -670,9 +696,13 @@ defmodule AllbertAssist.Intent.EngineTest do
     end)
 
     assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.trace_rejected_candidates", false, %{
-               audit?: false
-             })
+             AllbertAssist.Settings.put(
+               "intent.trace_rejected_candidates",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, decision} =
              Decision.new(%{

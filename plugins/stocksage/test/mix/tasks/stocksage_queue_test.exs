@@ -69,9 +69,13 @@ defmodule Mix.Tasks.Stocksage.QueueTest do
 
   test "create respects stocksage_write denial through the action runner" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "permissions" => %{"stocksage_write" => "denied"}
-             })
+             Settings.write_user_settings(
+               %{
+                 "permissions" => %{"stocksage_write" => "denied"}
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert_raise Mix.Error, ~r/permission_denied/, fn ->
       capture_io(fn ->

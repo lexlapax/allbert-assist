@@ -51,12 +51,15 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
     fixture = EvalInventory.row!("objective-authority-001")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Alice private analysis",
-               objective: "Analyze private portfolio note.",
-               progress_summary: "alice-private-objective-marker"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Alice private analysis",
+                 objective: "Analyze private portfolio note.",
+                 progress_summary: "alice-private-objective-marker"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     eval =
       run_eval(
@@ -95,13 +98,16 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
     fixture = EvalInventory.row!("objective-cross-resume-001")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Blocked Alice objective",
-               objective: "Wait for Alice approval.",
-               status: "blocked",
-               progress_summary: "alice-resume-secret"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Blocked Alice objective",
+                 objective: "Wait for Alice approval.",
+                 status: "blocked",
+                 progress_summary: "alice-resume-secret"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     eval =
       run_eval(
@@ -140,41 +146,47 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
     put_setting!("objectives.max_loop_count", 1)
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Needs two completed steps",
-               objective: "Complete two bounded steps.",
-               acceptance_criteria: %{
-                 "min_completed_steps" => 2,
-                 "required" => [
-                   %{
-                     "kind" => "step_completed_with_action",
-                     "action" => "StockSage.Actions.RunAnalysis",
-                     "params_match" => %{"ticker" => "AAPL"},
-                     "min_count" => 1
-                   },
-                   %{
-                     "kind" => "step_completed_with_action",
-                     "action" => "StockSage.Actions.RunAnalysis",
-                     "params_match" => %{"ticker" => "MSFT"},
-                     "min_count" => 1
-                   }
-                 ],
-                 "needs_more_when" => [
-                   %{"kind" => "completed_step_count_below", "value" => 2}
-                 ]
-               }
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Needs two completed steps",
+                 objective: "Complete two bounded steps.",
+                 acceptance_criteria: %{
+                   "min_completed_steps" => 2,
+                   "required" => [
+                     %{
+                       "kind" => "step_completed_with_action",
+                       "action" => "StockSage.Actions.RunAnalysis",
+                       "params_match" => %{"ticker" => "AAPL"},
+                       "min_count" => 1
+                     },
+                     %{
+                       "kind" => "step_completed_with_action",
+                       "action" => "StockSage.Actions.RunAnalysis",
+                       "params_match" => %{"ticker" => "MSFT"},
+                       "min_count" => 1
+                     }
+                   ],
+                   "needs_more_when" => [
+                     %{"kind" => "completed_step_count_below", "value" => 2}
+                   ]
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "completed",
-               stage: "execute_step",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               action_params: %{ticker: "AAPL"}
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "execute_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 action_params: %{ticker: "AAPL"}
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     eval =
       run_eval(
@@ -260,22 +272,28 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
     fixture = EvalInventory.row!("cancel-race-001")
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Cancel pending objective",
-               objective: "Cancel while work is blocked.",
-               status: "blocked"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Cancel pending objective",
+                 objective: "Cancel while work is blocked.",
+                 status: "blocked"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "action",
-               status: "blocked",
-               stage: "authorize_step",
-               candidate_action: "StockSage.Actions.RunAnalysis",
-               confirmation_id: "conf-pending-cancel"
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "action",
+                 status: "blocked",
+                 stage: "authorize_step",
+                 candidate_action: "StockSage.Actions.RunAnalysis",
+                 confirmation_id: "conf-pending-cancel"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     eval =
       run_eval(
@@ -394,7 +412,14 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
   end
 
   defp put_setting!(key, value) do
-    case Settings.put(key, value, %{actor: "security_eval", audit?: false}) do
+    case Settings.put(
+           key,
+           value,
+           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+             actor: "security_eval",
+             audit?: false
+           })
+         ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end

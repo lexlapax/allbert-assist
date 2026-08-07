@@ -179,10 +179,19 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
   end
 
   test "v1.3 M4: exact proposal bindings drive web Keep without bypassing claims", %{conn: conn} do
-    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _setting} =
+             Settings.put(
+               "memory.consolidation.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, _setting} =
-             Settings.put("memory.collection.origin_grants", ["local_operator"])
+             Settings.put(
+               "memory.collection.origin_grants",
+               ["local_operator"],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     proposal = seed_memory_proposal("tea")
     thread = create_workspace_thread("Proposal review")
@@ -761,28 +770,52 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
 
   defp configure_mcp_server(server_id, tool_allowlist) do
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.enabled", false, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.transport", "streamable_http", %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.#{server_id}.transport",
+               "streamable_http",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.base_url", "https://example.com/mcp", %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.#{server_id}.base_url",
+               "https://example.com/mcp",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.tool_allowlist", tool_allowlist, %{
-               audit?: false
-             })
+             Settings.put(
+               "mcp.servers.#{server_id}.tool_allowlist",
+               tool_allowlist,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.confirmation", "required", %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.confirmation",
+               "required",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.servers.#{server_id}.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.servers.#{server_id}.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   # v0.65 M4: seed an unreviewed memory candidate owned by the default workspace

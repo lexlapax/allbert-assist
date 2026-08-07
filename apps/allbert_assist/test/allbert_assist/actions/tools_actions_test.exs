@@ -131,32 +131,58 @@ defmodule AllbertAssist.Actions.ToolsActionsTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp configure_discovery do
-    assert {:ok, _setting} = Settings.put("mcp.discovery.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.discovery.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("mcp.discovery.sources.official.enabled", true, %{audit?: false})
+             Settings.put(
+               "mcp.discovery.sources.official.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp configure_registry_external do
-    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["registry.modelcontextprotocol.io"],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_paths", ["/v0.1/servers"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_paths",
+               ["/v0.1/servers"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("external_services.allowed_methods", ["GET"], %{audit?: false})
+             Settings.put(
+               "external_services.allowed_methods",
+               ["GET"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp deny_tool_discovery do
     assert {:ok, _setting} =
-             Settings.put("permissions.tool_discovery", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.tool_discovery",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp stub_registry(call_log) do

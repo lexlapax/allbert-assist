@@ -542,7 +542,13 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
   @tag :preflight_fixture_historical_contracts
   test "intent classifier does not receive active memory chunks", %{projection: projection} do
     enable_model_answer!()
-    assert {:ok, _setting} = Settings.put("intent.model_assist_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "intent.model_assist_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Application.put_env(:allbert_assist, Classifier, classifier: CaptureClassifier)
     Application.put_env(:allbert_assist, DirectAnswer, answerer: StaticAnswerer)
@@ -602,9 +608,18 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
 
   defp enable_model_answer! do
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
-    assert {:ok, _setting} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp system_identity(body) do

@@ -77,25 +77,38 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
              Settings.put(
                "channels.whatsapp.access_token_ref",
                "secret://channels/whatsapp/access_token",
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  audit?: false
-               }
+               })
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.whatsapp.phone_number_id", "15551234567", %{audit?: false})
+             Settings.put(
+               "channels.whatsapp.phone_number_id",
+               "15551234567",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.identity_map",
                [%{external_user_id: "+15550001111", user_id: "alice"}],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
-             Settings.put("channels.whatsapp.webhook_enabled", true, %{audit?: false})
+             Settings.put(
+               "channels.whatsapp.webhook_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
-    assert {:ok, _setting} = Settings.put("channels.whatsapp.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.whatsapp.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

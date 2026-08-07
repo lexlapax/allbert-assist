@@ -59,8 +59,19 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
     ensure_research_supervisor()
     close_all_sessions()
 
-    assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "browser.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "research.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       close_all_sessions()
@@ -146,7 +157,14 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
     assert_eval!("research-session-always-closed-001")
 
     remember_navigation_grant!("https://example.com/docs/")
-    assert {:ok, _setting} = Settings.put("research.max_sources", 2, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "research.max_sources",
+               2,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
     before_memory = memory_files(root)
     session_id = start_browser_session!()
 
@@ -188,24 +206,30 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
     engine_name = start_test_engine()
 
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Reject delegate command",
-               objective: "Reject unsupported research command."
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Reject delegate command",
+                 objective: "Reject unsupported research command."
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, step} =
-             Objectives.create_step(%{
-               objective_id: objective.id,
-               kind: "delegate_agent",
-               status: "selected",
-               stage: "execute_step",
-               delegate_agent_id: AllbertResearch.Runtime.agent_id(),
-               action_params: %{
-                 command: "not_allowed",
-                 params: %{url: "https://example.com/docs/a"}
-               }
-             })
+             Objectives.create_step(
+               %{
+                 objective_id: objective.id,
+                 kind: "delegate_agent",
+                 status: "selected",
+                 stage: "execute_step",
+                 delegate_agent_id: AllbertResearch.Runtime.agent_id(),
+                 action_params: %{
+                   command: "not_allowed",
+                   params: %{url: "https://example.com/docs/a"}
+                 }
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok,
             %{objective: failed_objective, step: failed_step, result: result, status: :failed}} =

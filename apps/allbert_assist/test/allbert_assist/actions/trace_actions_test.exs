@@ -271,10 +271,14 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
     refute File.read!(response.trace_id) =~ "## Jido Debug"
 
     assert {:ok, _setting} =
-             Settings.put("allbert.jido.debug_trace", true, %{
-               actor: "local",
-               channel: :test
-             })
+             Settings.put(
+               "allbert.jido.debug_trace",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 channel: :test
+               })
+             )
 
     assert {:ok, response} = RecordTrace.run(%{turn: turn("Trace with Jido debug.")}, context())
     trace = File.read!(response.trace_id)

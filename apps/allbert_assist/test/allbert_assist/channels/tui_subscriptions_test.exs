@@ -9,20 +9,26 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
 
   test "renders only signals owned by the attached identity map" do
     assert {:ok, alice} =
-             Objectives.create_objective(%{
-               user_id: "alice",
-               title: "Owned fan-out",
-               objective: "owned",
-               fanout_role: "parent"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "alice",
+                 title: "Owned fan-out",
+                 objective: "owned",
+                 fanout_role: "parent"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, mallory} =
-             Objectives.create_objective(%{
-               user_id: "mallory",
-               title: "Foreign fan-out",
-               objective: "foreign",
-               fanout_role: "parent"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "mallory",
+                 title: "Foreign fan-out",
+                 objective: "foreign",
+                 fanout_role: "parent"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     identity_map = [%{"external_user_id" => "local", "user_id" => "alice", "enabled" => true}]
 

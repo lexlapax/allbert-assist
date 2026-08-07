@@ -197,12 +197,15 @@ defmodule AllbertAssist.Channels.EmailTest do
 
     test "renders objective snapshot and stale warning for approval handoffs" do
       assert {:ok, objective} =
-               Objectives.create_objective(%{
-                 user_id: "alice",
-                 title: "Analyze AAPL",
-                 objective: "Complete one analysis for AAPL.",
-                 status: "running"
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "alice",
+                   title: "Analyze AAPL",
+                   objective: "Complete one analysis for AAPL.",
+                   status: "running"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       handoff = %{
         confirmation_id: "conf_obj",
@@ -219,10 +222,14 @@ defmodule AllbertAssist.Channels.EmailTest do
       }
 
       assert {:ok, _cancelled} =
-               Objectives.update_objective(objective, %{
-                 status: "cancelled",
-                 progress_summary: "Cancelled in renderer test."
-               })
+               Objectives.update_objective(
+                 objective,
+                 %{
+                   status: "cancelled",
+                   progress_summary: "Cancelled in renderer test."
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       assert {:ok, _subject, body, nil} =
                Renderer.render_response(%{approval_handoff: handoff}, subject: "Approval")
@@ -332,15 +339,18 @@ defmodule AllbertAssist.Channels.EmailTest do
       fake = start_fake_imap!(%{"1" => plain_email("msg-resume@example.com")})
 
       assert {:ok, _event} =
-               Channels.create_event(%{
-                 channel: "email",
-                 provider: "email_imap",
-                 direction: "inbound",
-                 external_event_id: "msg-resume@example.com",
-                 external_user_id: "alice@example.com",
-                 external_message_id: "1",
-                 status: "received"
-               })
+               Channels.create_event(
+                 %{
+                   channel: "email",
+                   provider: "email_imap",
+                   direction: "inbound",
+                   external_event_id: "msg-resume@example.com",
+                   external_user_id: "alice@example.com",
+                   external_message_id: "1",
+                   status: "received"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
 
       server = :"email-resume-received-#{System.unique_integer([:positive])}"
       start_email_server!(server, fake)

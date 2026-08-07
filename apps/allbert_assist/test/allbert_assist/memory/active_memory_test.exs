@@ -185,8 +185,19 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     {:ok, entry} = append("alice", body)
     {:ok, _entry} = keep(entry)
 
-    assert {:ok, _setting} = Settings.put("active_memory.top_k", 1, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("active_memory.chunk_max_bytes", 128, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "active_memory.top_k",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "active_memory.chunk_max_bytes",
+               128,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, result} =
              retrieve("concise",
@@ -198,7 +209,12 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert length(result.chunks) == 1
     assert byte_size(List.first(result.chunks).body) <= 128
 
-    assert {:ok, _setting} = Settings.put("active_memory.enabled", false, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "active_memory.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, disabled} =
              retrieve("concise",
@@ -217,13 +233,26 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
       {:ok, _entry} = keep(entry)
     end
 
-    assert {:ok, _setting} = Settings.put("active_memory.top_k", 1, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "active_memory.top_k",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("active_memory.internal_candidate_limit", 2, %{audit?: false})
+             Settings.put(
+               "active_memory.internal_candidate_limit",
+               2,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("active_memory.excluded_sample_limit", 1, %{audit?: false})
+             Settings.put(
+               "active_memory.excluded_sample_limit",
+               1,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, result} =
              retrieve("candidate concise reports",
@@ -250,8 +279,20 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
              })
 
     assert {:ok, _entry} = keep(entry)
-    assert {:ok, _setting} = Settings.put("active_memory.top_k", 3, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("active_memory.chunk_max_bytes", 128, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "active_memory.top_k",
+               3,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "active_memory.chunk_max_bytes",
+               128,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, first} =
              retrieve("anchor release reports",

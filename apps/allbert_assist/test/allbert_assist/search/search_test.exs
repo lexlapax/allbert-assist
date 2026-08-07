@@ -29,7 +29,13 @@ defmodule AllbertAssist.SearchTest do
   end
 
   test "local query reauthorizes stale leading hits, refills, and returns bounded DTOs" do
-    assert {:ok, _setting} = Settings.put("search.snippet.max_bytes", 64)
+    assert {:ok, _setting} =
+             Settings.put(
+               "search.snippet.max_bytes",
+               64,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Refill")
 
     messages =

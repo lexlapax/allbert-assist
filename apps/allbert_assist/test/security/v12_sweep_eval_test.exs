@@ -405,7 +405,16 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
     put!("model_preferences.tasks.direct_answer", profiles)
   end
 
-  defp put!(key, value), do: assert({:ok, _} = Settings.put(key, value, %{audit?: false}))
+  defp put!(key, value),
+    do:
+      assert(
+        {:ok, _} =
+          Settings.put(
+            key,
+            value,
+            AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+          )
+      )
 
   defp bind(id, assertions), do: AssertBinding.check!(id, assertions)
 

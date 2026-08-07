@@ -141,15 +141,28 @@ defmodule AllbertAssist.SelfImprovement.TraceIndexTest do
   end
 
   defp enable_index do
-    assert {:ok, _resolved} = Settings.put("self_improvement.enabled", true, %{audit?: false})
+    assert {:ok, _resolved} =
+             Settings.put(
+               "self_improvement.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _resolved} =
-             Settings.put("self_improvement.trace_index.enabled", true, %{audit?: false})
+             Settings.put(
+               "self_improvement.trace_index.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp set_min_repetitions(value) do
     assert {:ok, _resolved} =
-             Settings.put("self_improvement.trace_index.min_repetitions", value, %{audit?: false})
+             Settings.put(
+               "self_improvement.trace_index.min_repetitions",
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp write_trace(home, name, attrs) do

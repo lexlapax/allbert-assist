@@ -141,10 +141,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     reset_fanout_roles!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.confirm_before_start",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.telegram.autonomous_notify.enabled", false, %{audit?: false})
+             Settings.put(
+               "channels.telegram.autonomous_notify.enabled",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     on_exit(fn ->
       if Process.whereis(Scheduler) do
@@ -187,7 +195,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "supplied multi-shape data stays on the single-turn seam without objectives" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     cases = [
       {"supplied-semicolon-runtime",
@@ -219,7 +231,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     reset_fanout_roles!()
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     operator_text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
     transcript = "developer: Stay concise.\nassistant: Ready.\nuser: #{operator_text}"
@@ -251,7 +267,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     on_exit(&reset_fanout_roles!/0)
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     for role <- ~w[direct_answer fanout_synthesis] do
       put_setting!("model_preferences.tasks.#{role}", ["fast"])
@@ -390,7 +410,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     on_exit(&reset_fanout_roles!/0)
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     put_setting!("model_preferences.tasks.fanout_synthesis", ["fast"])
     text = "Research Project Juniper and Cedar independently."
@@ -476,7 +500,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     on_exit(&reset_fanout_roles!/0)
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     put_setting!("providers.openai.enabled", true)
     put_setting!("model_preferences.tasks.fanout_synthesis", ["fast"])
@@ -501,7 +529,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     on_exit(&reset_fanout_roles!/0)
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     put_setting!("model_preferences.tasks.fanout_manager", ["fast"])
     text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
@@ -523,7 +555,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     on_exit(&reset_fanout_roles!/0)
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     counter = :counters.new(1, [])
     Process.put(@settings_resolution_hook_key, fn -> :counters.add(counter, 1, 1) end)
@@ -558,7 +594,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "an explicitly absent surface operator turn cannot fan out conversation history" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     transcript =
       "developer: Context only.\nassistant: Do these 2 tasks in parallel: inspect alpha; inspect beta"
@@ -580,7 +620,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "automatic conversational manager plans through the central runtime and freezes provenance" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     test_pid = self()
     text = "Research Project Juniper and Project Cedar independently, then compare them."
@@ -676,7 +720,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "invalid exact-counted protocol cannot fall through to automatic manager planning" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     test_pid = self()
     text = "Do these three tasks in parallel: inspect alpha; inspect beta"
@@ -717,7 +765,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "compiler-invalid counted overflow neither consults the manager nor writes objectives" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     test_pid = self()
 
@@ -784,10 +836,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     Application.put_env(:allbert_assist, FanoutManager, [])
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Application.put_env(:allbert_assist, Runtime, decomposer: fn _text, _context -> :single end)
 
@@ -833,7 +893,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "manager framing keeps one canonical request across old projection and objective boundaries" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->
@@ -885,7 +949,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "validated manager plan framing failure preserves the same-call answer and writes nothing" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     text = "Research Project Juniper and Cedar independently."
 
@@ -928,7 +996,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "manager overflow uses the central complete-list clarification and frames nothing" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     tasks = ["Research one", "Research two", "Research three"]
 
@@ -962,7 +1034,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "shadow manager plans are advisory and cannot create durable work" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "shadow", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "shadow",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     test_pid = self()
     text = "Research two independent options and compare them."
@@ -1002,7 +1078,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "shadow rollout keeps the exact-counted offline protocol out of the manager" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "shadow", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "shadow",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     test_pid = self()
 
@@ -1029,7 +1109,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "Runtime rejects a manager plan bound to a different operator request" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     test_pid = self()
 
@@ -1068,7 +1152,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "an active parent refuses nested fanout before the manager can run" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     test_pid = self()
 
@@ -1121,7 +1209,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "visible kickoff is a hard start barrier and acknowledgement is idempotent" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -1156,7 +1248,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "exact kickoff receipt lookup is not starved by newer objective rows" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -1168,11 +1264,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     for index <- 1..75 do
       assert {:ok, _objective} =
-               Objectives.create_objective(%{
-                 user_id: "receipt-owner",
-                 title: "newer objective #{index}",
-                 objective: "newer objective #{index}"
-               })
+               Objectives.create_objective(
+                 %{
+                   user_id: "receipt-owner",
+                   title: "newer objective #{index}",
+                   objective: "newer objective #{index}"
+                 },
+                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+               )
     end
 
     identity = %{user_id: "receipt-owner", channel: "test", thread_id: response.thread_id}
@@ -1225,7 +1324,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "kickoff copy tells attached surfaces that the final report will arrive in place" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     for channel <- [:tui, :live_view] do
       assert {:ok, response} =
@@ -1244,7 +1347,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "kickoff copy keeps next-turn and opt-in guidance for detached channels" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -1260,10 +1367,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "kickoff copy promises push delivery when a remote channel is already authorized" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("channels.telegram.autonomous_notify.enabled", true, %{audit?: false})
+             Settings.put(
+               "channels.telegram.autonomous_notify.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -1279,10 +1394,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "one-shot CLI kickoff does not promise an unattended in-place report" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.confirm_before_start",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -1304,7 +1427,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "an undelivered kickoff stays pending and retry reuses its receipt" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     request = %{
       text: "Do these two tasks in parallel: first task; second task",
@@ -1922,10 +2049,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "confirm-before-start persists approval and resumes only through the registered action" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+             Settings.put(
+               "objectives.fanout.confirm_before_start",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -1964,7 +2099,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "missing or malformed delivery acknowledgement capability fails closed to one turn" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+             Settings.put(
+               "objectives.fanout.rollout_mode",
+               "automatic",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     for capability <- [nil, false, true, "fanout_delivery_ack_v2", :fanout_delivery_ack_v1] do
       request = %{
@@ -1994,7 +2133,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   end
 
   defp put_setting!(key, value) do
-    {:ok, _setting} = Settings.put(key, value, %{audit?: false})
+    {:ok, _setting} =
+      Settings.put(
+        key,
+        value,
+        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      )
+
     :ok
   end
 

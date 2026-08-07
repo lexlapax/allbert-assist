@@ -100,7 +100,11 @@ defmodule AllbertAssist.JidoBackedTest do
     refute JidoBacked.debug_trace_enabled?()
 
     assert {:ok, resolved} =
-             Settings.put("allbert.jido.debug_trace", true, %{audit?: false})
+             Settings.put(
+               "allbert.jido.debug_trace",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert resolved.value == true
     assert JidoBacked.debug_trace_enabled?()

@@ -135,9 +135,13 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
 
   test "voice doctor reports denied local endpoint hosts through the ADR 0047 catalog" do
     assert {:ok, _setting} =
-             Settings.put("providers.local_voice.base_url", "http://192.168.1.10:5050/v1", %{
-               audit?: false
-             })
+             Settings.put(
+               "providers.local_voice.base_url",
+               "http://192.168.1.10:5050/v1",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, response} =
              DoctorVoiceProvider.run(%{profile: "voice_stt_local"}, doctor_context())
@@ -180,27 +184,31 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
              })
 
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "providers" => %{
-                 "anthropic" => %{"enabled" => true}
-               },
-               "model_profiles" => %{
-                 "voice_stt_anthropic" => %{
-                   "provider" => "anthropic",
-                   "model" => "claude-sonnet-4-20250514",
-                   "capabilities" => ["speech_to_text"],
-                   "media" => %{
-                     "input_modalities" => ["audio"],
-                     "output_modalities" => ["text"],
-                     "transport_modes" => ["request_file"],
-                     "deployment_mode" => "remote_credentialed",
-                     "audio_formats_supported" => ["wav"],
-                     "max_audio_bytes" => 10_485_760,
-                     "max_audio_duration_ms" => 300_000
+             Settings.write_user_settings(
+               %{
+                 "providers" => %{
+                   "anthropic" => %{"enabled" => true}
+                 },
+                 "model_profiles" => %{
+                   "voice_stt_anthropic" => %{
+                     "provider" => "anthropic",
+                     "model" => "claude-sonnet-4-20250514",
+                     "capabilities" => ["speech_to_text"],
+                     "media" => %{
+                       "input_modalities" => ["audio"],
+                       "output_modalities" => ["text"],
+                       "transport_modes" => ["request_file"],
+                       "deployment_mode" => "remote_credentialed",
+                       "audio_formats_supported" => ["wav"],
+                       "max_audio_bytes" => 10_485_760,
+                       "max_audio_duration_ms" => 300_000
+                     }
                    }
                  }
-               }
-             })
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp json(conn, body, status \\ 200) do

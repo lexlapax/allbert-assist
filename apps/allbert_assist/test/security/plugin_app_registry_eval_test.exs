@@ -248,9 +248,13 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
     fixture = EvalInventory.row!("app-handoff-bypass-001")
 
     assert {:ok, _setting} =
-             Settings.put("workspace.signal_bridge.log_dropped_fragments", false, %{
-               audit?: false
-             })
+             Settings.put(
+               "workspace.signal_bridge.log_dropped_fragments",
+               false,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     eval =
       run_eval(
@@ -498,7 +502,14 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
   end
 
   defp put_setting!(key, value) do
-    case Settings.put(key, value, %{actor: "security_eval", audit?: false}) do
+    case Settings.put(
+           key,
+           value,
+           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+             actor: "security_eval",
+             audit?: false
+           })
+         ) do
       {:ok, _setting} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")
     end

@@ -54,7 +54,12 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
   end
 
   test "inspects the resolved workspace surface tree" do
-    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "workspace.theme.mode",
+               "dark",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     output =
       capture_io(fn ->

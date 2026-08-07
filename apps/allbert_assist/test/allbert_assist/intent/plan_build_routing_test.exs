@@ -6,14 +6,17 @@ defmodule AllbertAssist.Intent.PlanBuildRoutingTest do
 
   test "routes objective-backed Plan/Build corpus phrases through IntentAgent" do
     assert {:ok, objective} =
-             Objectives.create_objective(%{
-               user_id: "local",
-               title: "Workflow run",
-               objective: "Run workflow.",
-               status: "running",
-               active_app: "allbert",
-               source_intent: "workflow:multi_step:1"
-             })
+             Objectives.create_objective(
+               %{
+                 user_id: "local",
+                 title: "Workflow run",
+                 objective: "Run workflow.",
+                 status: "running",
+                 active_app: "allbert",
+                 source_intent: "workflow:multi_step:1"
+               },
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, list_response} =
              IntentAgent.respond(%{

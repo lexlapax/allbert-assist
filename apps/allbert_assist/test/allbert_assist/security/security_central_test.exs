@@ -125,19 +125,23 @@ defmodule AllbertAssist.SecurityCentralTest do
 
   test "settings can tighten policy but cannot bypass safety floors" do
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "permissions" => %{
-                 "memory_propose" => "denied",
-                 "memory_write" => "denied",
-                 "command_execute" => "allowed",
-                 "skill_script_execute" => "allowed",
-                 "dynamic_integration" => "denied",
-                 "package_install" => "allowed",
-                 "online_skill_import" => "allowed",
-                 "tool_discovery" => "denied",
-                 "mcp_server_connect" => "needs_confirmation"
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "permissions" => %{
+                   "memory_propose" => "denied",
+                   "memory_write" => "denied",
+                   "command_execute" => "allowed",
+                   "skill_script_execute" => "allowed",
+                   "dynamic_integration" => "denied",
+                   "package_install" => "allowed",
+                   "online_skill_import" => "allowed",
+                   "tool_discovery" => "denied",
+                   "mcp_server_connect" => "needs_confirmation"
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     proposal_policy = Policy.resolve(:memory_propose)
     assert proposal_policy.configured == "denied"

@@ -138,7 +138,11 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
     refute_received {:runtime_request, _request}
 
     assert {:ok, _setting} =
-             Settings.put("coding.workspace.cwd_jail", other_repo, %{audit?: false})
+             Settings.put(
+               "coding.workspace.cwd_jail",
+               other_repo,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, {:slash, [diff]}} =
              Adapter.submit(server, "/diff sample.txt", external_event_id: "evt-m8-diff")
@@ -256,25 +260,54 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
   end
 
   defp configure_tui!(repo) do
-    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.tui.identity_map",
                [%{"external_user_id" => "default", "user_id" => "alice", "enabled" => true}],
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
-    assert {:ok, _setting} = Settings.put("coding.trusted_operator_id", "alice", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.pi_mode.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("coding.default_approval_mode", "default", %{audit?: false})
-
-    assert {:ok, _setting} = Settings.put("coding.workspace.cwd_jail", repo, %{audit?: false})
+             Settings.put(
+               "coding.trusted_operator_id",
+               "alice",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
+             Settings.put(
+               "coding.default_approval_mode",
+               "default",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.workspace.cwd_jail",
+               repo,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "coding.model_profile",
+               "pi_coding_local",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp start_tui(parent) do

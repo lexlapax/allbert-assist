@@ -204,7 +204,16 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     put!("channels.telegram.autonomous_notify.enabled", true)
   end
 
-  defp put!(key, value), do: assert({:ok, _setting} = Settings.put(key, value, %{audit?: false}))
+  defp put!(key, value),
+    do:
+      assert(
+        {:ok, _setting} =
+          Settings.put(
+            key,
+            value,
+            AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+          )
+      )
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

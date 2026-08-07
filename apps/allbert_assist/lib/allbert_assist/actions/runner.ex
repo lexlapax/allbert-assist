@@ -52,7 +52,7 @@ defmodule AllbertAssist.Actions.Runner do
     do: {:error, :product_not_ready}
 
   defp admit_ready_context(%{allbert_pack_epoch: epoch} = context) do
-    case EffectGuard.validate(epoch) do
+    case EffectGuard.validate(epoch, effect_guard_opts(context)) do
       :ok -> {:ok, context}
       {:error, reason} -> {:error, reason}
     end
@@ -135,7 +135,7 @@ defmodule AllbertAssist.Actions.Runner do
     do: {:error, :product_not_ready}
 
   defp completion_admission(_response, context),
-    do: EffectGuard.validate(Map.fetch!(context, :allbert_pack_epoch))
+    do: EffectGuard.validate(Map.fetch!(context, :allbert_pack_epoch), effect_guard_opts(context))
 
   defp safe_run(action_module, params, context) do
     try do
@@ -161,7 +161,10 @@ defmodule AllbertAssist.Actions.Runner do
   # invoking the action. Never admit again here: an E1 -> E2 replacement must
   # remain unavailable to this invocation rather than silently using E2.
   defp run_validated_action(action_module, validated_params, context) do
-    case EffectGuard.validate(Map.fetch!(context, :allbert_pack_epoch)) do
+    case EffectGuard.validate(
+           Map.fetch!(context, :allbert_pack_epoch),
+           effect_guard_opts(context)
+         ) do
       :ok -> action_module.run(validated_params, context)
       {:error, _reason} -> product_not_ready_response()
     end
@@ -231,6 +234,9 @@ defmodule AllbertAssist.Actions.Runner do
       runner_requested_signal_id: signal_id(requested_signal)
     })
   end
+
+  defp effect_guard_opts(context),
+    do: Map.get(context, :allbert_pack_effect_guard_opts, [])
 
   defp unknown_action_response(unknown, params, context) do
     action_name = unknown_action_name(unknown)

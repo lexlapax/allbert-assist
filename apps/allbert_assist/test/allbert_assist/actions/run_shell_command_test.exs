@@ -132,7 +132,11 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("permissions.command_execute", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.command_execute",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, approve_response} =
              Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
@@ -171,7 +175,12 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp execution_audit do

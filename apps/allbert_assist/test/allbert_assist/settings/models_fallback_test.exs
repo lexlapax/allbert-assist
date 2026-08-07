@@ -38,21 +38,38 @@ defmodule AllbertAssist.Settings.ModelsFallbackTest do
     assert {:ok, 1} = Settings.get("models.catalog.version")
 
     assert {:error, _reason} =
-             Settings.put("models.fallback.max_failovers_per_turn", 0, %{audit?: false})
+             Settings.put(
+               "models.fallback.max_failovers_per_turn",
+               0,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, setting} =
-             Settings.put("models.fallback.max_failovers_per_turn", 2, %{audit?: false})
+             Settings.put(
+               "models.fallback.max_failovers_per_turn",
+               2,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert setting.value == 2
   end
 
   test "DirectAnswer candidates preserve the operator-authored task order" do
-    assert {:ok, _setting} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast", "local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, resolutions} = Models.candidates_for(:direct_answer)
     assert Enum.map(resolutions, & &1.profile.name) == ["fast", "local"]

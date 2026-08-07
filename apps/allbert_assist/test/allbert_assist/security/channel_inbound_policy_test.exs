@@ -37,10 +37,18 @@ defmodule AllbertAssist.Security.ChannelInboundPolicyTest do
 
   test "settings cannot lower channel inbound permission below confirmation floor" do
     assert {:error, {:invalid_setting, "permissions.channel_message_inbound", _reason}} =
-             Settings.put("permissions.channel_message_inbound", "allowed", %{audit?: false})
+             Settings.put(
+               "permissions.channel_message_inbound",
+               "allowed",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, resolved} =
-             Settings.put("permissions.channel_message_inbound", "denied", %{audit?: false})
+             Settings.put(
+               "permissions.channel_message_inbound",
+               "denied",
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert resolved.value == "denied"
     assert Policy.resolve(:channel_message_inbound).effective == :denied

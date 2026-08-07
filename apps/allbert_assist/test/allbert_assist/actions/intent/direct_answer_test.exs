@@ -153,7 +153,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: FakeAnswerer)
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              DirectAnswer.run(%{text: "What is Allbert?"}, %{actor: "alice"})
@@ -177,7 +181,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Process.put({ScriptedAnswerer, "direct_answer_local"}, {:ok, "Grounded child draft."})
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              DirectAnswer.run(%{text: "Complete the grounded child task."}, %{
@@ -276,7 +284,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     flattened_text = "developer: Stay concise.\nuser: Explain the supplied item."
     operator_text = "Explain the supplied item."
@@ -370,7 +382,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              DirectAnswer.run(%{text: "Research these independent items."}, %{
@@ -442,7 +458,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              DirectAnswer.run(%{text: text}, %{
@@ -483,7 +503,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Process.put({ScriptedFanoutManager, :response}, {:error, :offline})
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     flattened_text = "developer: Be precise.\nuser: What is Allbert?"
 
@@ -625,7 +649,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     )
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              DirectAnswer.run(%{text: "What is Allbert?"}, %{
@@ -649,12 +677,20 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: FakeAnswerer)
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
-               audit?: false
-             })
+             Settings.put(
+               "model_preferences.tasks.direct_answer",
+               ["fast", "local"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, response} =
              DirectAnswer.run(%{text: "What is Allbert?"}, %{actor: "alice"})
@@ -675,7 +711,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: MemoryAwareAnswerer)
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, entry} =
              Memory.upsert_system_entry(%{
@@ -726,7 +766,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: BudgetAnswerer)
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     for index <- 1..5 do
       body = "budget #{index} " <> String.duplicate("x", 1_991)
@@ -754,14 +798,27 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   test "enabled vision path resolves vision_input and redacts image metadata" do
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
-
-    assert {:ok, _setting} = Settings.put("vision.enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
-               audit?: false
-             })
+             Settings.put(
+               "vision.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.vision_input",
+               ["vision_fake"],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     image_path = write_png!("direct-answer-vision.png")
 
@@ -795,7 +852,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   test "vision path falls back when vision is disabled" do
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     image_path = write_png!("direct-answer-vision-disabled.png")
 
@@ -821,9 +882,18 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: FailingAnswerer)
 
     assert {:ok, _setting} =
-             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
-    assert {:ok, _setting} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               "providers.openai.enabled",
+               true,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, response} =
              DirectAnswer.run(%{text: "Should this call a provider?"}, %{actor: "alice"})
@@ -995,13 +1065,17 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
 
     assert {:ok, _settings} =
-             Settings.write_user_settings(%{
-               "intent" => %{"direct_answer_model_enabled" => true},
-               "providers" => %{"openai" => %{"enabled" => true}},
-               "model_preferences" => %{
-                 "tasks" => %{"direct_answer" => ["voice_stt_fake", "fast"]}
-               }
-             })
+             Settings.write_user_settings(
+               %{
+                 "intent" => %{"direct_answer_model_enabled" => true},
+                 "providers" => %{"openai" => %{"enabled" => true}},
+                 "model_preferences" => %{
+                   "tasks" => %{"direct_answer" => ["voice_stt_fake", "fast"]}
+                 }
+               },
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     Process.put({ScriptedAnswerer, "fast"}, {:ok, "must wait"})
 
@@ -1171,7 +1245,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   end
 
   defp put_setting!(key, value) do
-    assert {:ok, _setting} = Settings.put(key, value, %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put(
+               key,
+               value,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp restore_home(nil), do: System.delete_env("ALLBERT_HOME")

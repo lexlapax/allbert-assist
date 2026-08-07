@@ -40,7 +40,11 @@ defmodule AllbertAssist.Execution.CommandSpecTest do
 
   test "settings validates execution policy and command profiles", %{workspace: workspace} do
     assert {:ok, _setting} =
-             Settings.put("execution.local.allowed_roots", [workspace], %{audit?: false})
+             Settings.put(
+               "execution.local.allowed_roots",
+               [workspace],
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -54,21 +58,21 @@ defmodule AllbertAssist.Execution.CommandSpecTest do
                    "max_output_bytes" => 65_536
                  }
                },
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "execution.local.command_profiles", _reason}} =
              Settings.put(
                "execution.local.command_profiles",
                %{"bad profile!" => %{"command" => "mix"}},
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "execution.local.command_profiles", _reason}} =
              Settings.put(
                "execution.local.command_profiles",
                %{"mix_test" => %{"command" => "mix", "command_class" => "network"}},
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -245,7 +249,12 @@ defmodule AllbertAssist.Execution.CommandSpecTest do
       }
     }
 
-    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               settings,
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
