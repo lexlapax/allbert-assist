@@ -204,17 +204,20 @@ defmodule AllbertAssist.Channels.Notify do
   end
 
   @doc "Reserve the one-time in-band consent offer; true means it should render."
-  def prepare_consent_offer(%Objective{} = fanout) do
+  def prepare_consent_offer(%Objective{} = fanout, effect_context) do
     if consent_offer_blocked?(fanout) do
       false
     else
       fanout
       |> reserve(:consent_offer,
-        delivery_key: "notify_offer_#{fanout.source_channel}_#{fanout.user_id}"
+        delivery_key: "notify_offer_#{fanout.source_channel}_#{fanout.user_id}",
+        allbert_pack_epoch: Map.get(effect_context, :allbert_pack_epoch)
       )
       |> consent_offer_pending?()
     end
   end
+
+  def prepare_consent_offer(%Objective{} = _fanout), do: false
 
   defp consent_offer_blocked?(fanout) do
     autonomous_delivery_suppressed?(fanout) or autonomous_enabled?(fanout)
@@ -268,7 +271,7 @@ defmodule AllbertAssist.Channels.Notify do
          :ok <- throttle(fanout, channel, kind, settings, delivery),
          {:ok, decision} <- security(fanout, channel, kind),
          {:ok, target, thread} <- exact_target(fanout, settings),
-         {:ok, sending} <- claim_delivery(delivery),
+         {:ok, sending} <- claim_delivery(delivery, opts),
          result <-
            safe_dispatch(
              opts,
@@ -312,9 +315,11 @@ defmodule AllbertAssist.Channels.Notify do
       offer_state: if(kind == :consent_offer, do: "pending", else: "not_applicable")
     }
 
-    case %NotifyDelivery{} |> NotifyDelivery.changeset(attrs) |> Repo.insert() do
-      {:ok, delivery} -> {:ok, delivery}
-      {:error, changeset} -> existing_delivery(delivery_key, changeset)
+    with :ok <- validate_effect_opts(opts) do
+      case %NotifyDelivery{} |> NotifyDelivery.changeset(attrs) |> Repo.insert() do
+        {:ok, delivery} -> {:ok, delivery}
+        {:error, changeset} -> existing_delivery(delivery_key, changeset)
+      end
     end
   end
 
@@ -508,9 +513,13 @@ defmodule AllbertAssist.Channels.Notify do
   defp outbound(opts, channel, target, body, thread) do
     configured = Application.get_env(:allbert_assist, __MODULE__, [])
 
-    case Keyword.get(opts, :outbound_fun) || Keyword.get(configured, :outbound_fun) do
-      fun when is_function(fun, 4) -> fun.(channel, target, body, thread: thread)
-      _other -> Outbound.send(channel, target, body, thread: thread)
+    with :ok <- validate_effect_opts(opts) do
+      transport_opts = transport_opts(opts, thread)
+
+      case Keyword.get(opts, :outbound_fun) || Keyword.get(configured, :outbound_fun) do
+        fun when is_function(fun, 4) -> fun.(channel, target, body, transport_opts)
+        _other -> Outbound.send(channel, target, body, transport_opts)
+      end
     end
   end
 
@@ -564,13 +573,24 @@ defmodule AllbertAssist.Channels.Notify do
   defp edit_outbound(opts, channel, target, provider_message_id, body, thread) do
     configured = Application.get_env(:allbert_assist, __MODULE__, [])
 
-    case Keyword.get(opts, :edit_fun) || Keyword.get(configured, :edit_fun) do
-      fun when is_function(fun, 5) ->
-        fun.(channel, target, provider_message_id, body, thread: thread)
+    with :ok <- validate_effect_opts(opts) do
+      transport_opts = transport_opts(opts, thread)
 
-      _other ->
-        Outbound.edit(channel, target, provider_message_id, body, thread: thread)
+      case Keyword.get(opts, :edit_fun) || Keyword.get(configured, :edit_fun) do
+        fun when is_function(fun, 5) ->
+          fun.(channel, target, provider_message_id, body, transport_opts)
+
+        _other ->
+          Outbound.edit(channel, target, provider_message_id, body, transport_opts)
+      end
     end
+  end
+
+  defp transport_opts(opts, thread) do
+    opts
+    |> Keyword.take([:req_options, :receive_timeout])
+    |> Keyword.put(:thread, thread)
+    |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
   end
 
   defp edit_in_place?(channel) do
@@ -668,14 +688,16 @@ defmodule AllbertAssist.Channels.Notify do
   end
 
   defp complete(delivery, event, attrs, decision, opts) do
-    case transition(delivery, attrs) do
+    case transition(delivery, attrs, opts) do
       {:ok, updated} ->
         metadata = audit_metadata(updated, event)
-        audit_result = append_audit(opts, event, metadata, decision)
-        Signals.emit_channel_notify(event, metadata)
 
-        case audit_result do
-          {:ok, _path} -> {:ok, updated}
+        with :ok <- validate_effect_opts(opts),
+             {:ok, _path} <- append_audit(opts, event, metadata, decision),
+             :ok <- validate_effect_opts(opts),
+             :ok <- Signals.emit_channel_notify(event, metadata) do
+          {:ok, updated}
+        else
           {:error, reason} -> {:error, {:audit_failed, reason, updated}}
         end
 
@@ -694,7 +716,7 @@ defmodule AllbertAssist.Channels.Notify do
     end
   end
 
-  defp claim_delivery(%NotifyDelivery{state: state, attempt_count: attempts} = delivery)
+  defp claim_delivery(%NotifyDelivery{state: state, attempt_count: attempts} = delivery, opts)
        when state == "reserved" or (state == "failed" and attempts < 2) do
     now = DateTime.utc_now()
 
@@ -706,39 +728,47 @@ defmodule AllbertAssist.Channels.Notify do
       updated_at: now
     }
 
-    case compare_and_set(delivery, attrs) do
+    case compare_and_set(delivery, attrs, opts) do
       {:ok, claimed} -> {:ok, claimed}
       {:terminal, current} -> {:terminal, current}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp claim_delivery(%NotifyDelivery{} = delivery), do: {:terminal, delivery}
+  defp claim_delivery(%NotifyDelivery{} = delivery, _opts), do: {:terminal, delivery}
 
-  defp transition(%NotifyDelivery{} = delivery, attrs) when is_map(attrs) do
+  defp transition(%NotifyDelivery{} = delivery, attrs, opts) when is_map(attrs) do
     changeset = NotifyDelivery.changeset(delivery, attrs)
 
     if changeset.valid? do
       changes = Map.put(changeset.changes, :updated_at, DateTime.utc_now())
-      compare_and_set(delivery, changes)
+      compare_and_set(delivery, changes, opts)
     else
       {:error, changeset}
     end
   end
 
-  defp compare_and_set(delivery, changes) do
+  defp compare_and_set(delivery, changes, opts) do
     query =
       from current in NotifyDelivery,
         where:
           current.id == ^delivery.id and current.state == ^delivery.state and
             current.attempt_count == ^delivery.attempt_count
 
-    case Repo.update_all(query, set: Map.to_list(changes)) do
-      {1, _rows} -> {:ok, Repo.get!(NotifyDelivery, delivery.id)}
-      {0, _rows} -> {:terminal, Repo.get!(NotifyDelivery, delivery.id)}
+    with :ok <- validate_effect_opts(opts) do
+      case Repo.update_all(query, set: Map.to_list(changes)) do
+        {1, _rows} -> {:ok, Repo.get!(NotifyDelivery, delivery.id)}
+        {0, _rows} -> {:terminal, Repo.get!(NotifyDelivery, delivery.id)}
+      end
     end
   rescue
     exception -> {:error, {exception.__struct__, Exception.message(exception)}}
+  end
+
+  defp validate_effect_opts(opts) when is_list(opts) do
+    opts
+    |> Keyword.get(:allbert_pack_epoch)
+    |> EffectGuard.validate()
   end
 
   defp audit_metadata(delivery, event) do

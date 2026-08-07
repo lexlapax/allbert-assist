@@ -4,7 +4,8 @@ if Mix.env() == :test do
 
     use GenServer
 
-    @spec register(AllbertAssist.Pack.EffectGuard.epoch(), GenServer.server(), pid()) :: :ok
+    @spec register(AllbertAssist.Pack.EffectGuard.epoch(), GenServer.server(), pid()) ::
+            :ok | {:error, :epoch_already_bound}
     def register(epoch, server, owner \\ self())
         when is_map(epoch) and is_pid(server) and is_pid(owner) do
       GenServer.call(ensure_started(), {:register, epoch, server, owner})
@@ -37,13 +38,17 @@ if Mix.env() == :test do
     @impl true
     def handle_call({:register, epoch, server, owner}, _from, state) do
       case Map.get(state, epoch) do
-        {_old_server, old_owner_ref} -> Process.demonitor(old_owner_ref, [:flush])
-        nil -> :ok
-      end
+        {^server, _owner_ref} ->
+          {:reply, :ok, state, state_timeout(state)}
 
-      owner_ref = Process.monitor(owner)
-      state = Map.put(state, epoch, {server, owner_ref})
-      {:reply, :ok, state, state_timeout(state)}
+        {_other_server, _owner_ref} ->
+          {:reply, {:error, :epoch_already_bound}, state, state_timeout(state)}
+
+        nil ->
+          owner_ref = Process.monitor(owner)
+          state = Map.put(state, epoch, {server, owner_ref})
+          {:reply, :ok, state, state_timeout(state)}
+      end
     end
 
     def handle_call({:server, epoch}, _from, state) do

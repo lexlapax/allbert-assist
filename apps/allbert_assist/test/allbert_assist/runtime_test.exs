@@ -14,6 +14,47 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
 
+  defmodule ReplacingThreadBarrier do
+    use GenServer
+
+    def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
+
+    @impl true
+    def init(opts) do
+      {:ok,
+       %{
+         calls: 0,
+         replace_on: Keyword.fetch!(opts, :replace_on),
+         active: spawn(fn -> Process.sleep(:infinity) end),
+         replacement: spawn(fn -> Process.sleep(:infinity) end)
+       }}
+    end
+
+    @impl true
+    def handle_call(:status, _from, state) do
+      calls = state.calls + 1
+      barrier_pid = if calls >= state.replace_on, do: state.replacement, else: state.active
+
+      {:reply,
+       {:ok,
+        %{
+          phase: :ready,
+          barrier_pid: barrier_pid,
+          snapshot_digest: String.duplicate("t", 64),
+          expected_ids: [],
+          subscribed_ids: [],
+          acked_ids: [],
+          diagnostics: []
+        }}, %{state | calls: calls}}
+    end
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.active, :kill)
+      Process.exit(state.replacement, :kill)
+    end
+  end
+
   setup do
     original_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
@@ -161,6 +202,22 @@ defmodule AllbertAssist.RuntimeTest do
 
     assert {:ok, _response} = Runtime.submit_user_input(attrs, allbert_pack_epoch: epoch)
     assert_received {:agent_request, %{allbert_pack_epoch: ^epoch}}
+  end
+
+  test "same-digest replacement after thread insert rolls back the new thread and all later effects" do
+    user_id = "runtime-thread-race"
+    barrier = start_supervised!({ReplacingThreadBarrier, replace_on: 4})
+    assert {:ok, epoch} = EffectGuard.admit_ready(server: barrier)
+    assert Conversations.list_threads(user_id) == []
+
+    assert {:error, :stale_epoch} =
+             Runtime.submit_user_input(
+               %{text: "must roll back", channel: :test, user_id: user_id, new_thread: true},
+               allbert_pack_epoch: epoch
+             )
+
+    assert Conversations.list_threads(user_id) == []
+    refute_received {:agent_runner_called, _, _, _}
   end
 
   test "persists model payload while returning surface payload for renderers" do

@@ -5,11 +5,12 @@ defmodule AllbertAssist.Pack.ActivationGuardTest do
 
   alias AllbertAssist.Pack.{ActivationGuard, EffectGuard}
   alias AllbertAssist.Pack.ActivationContext
+  alias AllbertAssist.Pack.EffectGuard.TestRegistry
 
   defmodule ReadyBarrier do
     use GenServer
 
-    def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok)
+    def start_link(opts), do: GenServer.start_link(__MODULE__, :ok, Keyword.take(opts, [:name]))
 
     @impl true
     def init(:ok), do: {:ok, :ok}
@@ -93,6 +94,20 @@ defmodule AllbertAssist.Pack.ActivationGuardTest do
              ActivationGuard.validate([allbert_pack_activation: context],
                server: :m1a3_wrong_activation_barrier
              )
+  end
+
+  test "a test epoch binding cannot be overwritten by another readiness server" do
+    first =
+      start_supervised!({ReadyBarrier, name: :effect_guard_first}, id: :effect_guard_first)
+
+    second =
+      start_supervised!({ReadyBarrier, name: :effect_guard_second}, id: :effect_guard_second)
+
+    assert {:ok, epoch} = EffectGuard.admit_ready(server: :effect_guard_first)
+    assert :ok = EffectGuard.validate(epoch)
+    assert {:error, :epoch_already_bound} = TestRegistry.register(epoch, second)
+    assert {:ok, ^first} = TestRegistry.server(epoch)
+    assert :ok = EffectGuard.validate(epoch)
   end
 
   test "all guards fail closed when readiness dies during their calls" do

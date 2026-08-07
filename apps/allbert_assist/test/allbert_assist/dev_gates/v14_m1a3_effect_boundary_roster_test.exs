@@ -19,6 +19,14 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   @effect_boundaries %{
     "AllbertAssist.Actions.Runner" => MapSet.new([:run]),
     "AllbertAssist.Channels" => MapSet.new([:create_event, :update_event]),
+    "AllbertAssist.Channels.Notify" =>
+      MapSet.new([
+        :accept_consent,
+        :deliver,
+        :mark_consent_offer_delivered,
+        :prepare_consent_offer
+      ]),
+    "AllbertAssist.Channels.Outbound" => MapSet.new([:edit, :send]),
     "AllbertAssist.Confirmations" =>
       MapSet.new([:annotate_resolution, :create, :expire, :resolve]),
     "AllbertAssist.Jobs.Runner" => MapSet.new([:execute_run, :run_now]),

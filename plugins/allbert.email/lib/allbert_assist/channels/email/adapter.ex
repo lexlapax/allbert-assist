@@ -116,11 +116,15 @@ defmodule AllbertAssist.Channels.Email.Adapter do
     end
   end
 
-  defp effect_guard_opts(opts) do
-    case Keyword.fetch(opts, :readiness_server) do
-      {:ok, server} -> [server: server]
-      :error -> []
+  if Mix.env() == :test do
+    defp effect_guard_opts(opts) do
+      case Keyword.fetch(opts, :readiness_server) do
+        {:ok, server} -> [server: server]
+        :error -> []
+      end
     end
+  else
+    defp effect_guard_opts(_opts), do: []
   end
 
   defp poll_imap(state) do

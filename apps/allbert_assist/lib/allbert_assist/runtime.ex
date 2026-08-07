@@ -159,6 +159,7 @@ defmodule AllbertAssist.Runtime do
 
   defp do_submit_user_input(attrs, effect_context) do
     with {:ok, request} <- normalize_request(attrs, effect_context),
+         :ok <- validate_request_epoch(request),
          {:ok, input_signal} <- new_input_signal(request),
          :ok <- log_signal(input_signal),
          :ok <- log_runtime_turn_started(input_signal, request),
@@ -464,7 +465,8 @@ defmodule AllbertAssist.Runtime do
          {:ok, identity} <- identity(attrs),
          {:ok, session_id} <- normalize_session_id(attrs),
          {:ok, channel_thread_ref} <- normalize_channel_thread_ref(channel, attrs),
-         {:ok, thread} <- resolve_thread(attrs, identity.user_id, text, channel_thread_ref) do
+         {:ok, thread} <-
+           resolve_thread(attrs, identity.user_id, text, channel_thread_ref, effect_context) do
       session_context = session_context(identity.user_id, session_id)
       app_context = resolve_active_app(attrs, session_context)
 
@@ -503,7 +505,7 @@ defmodule AllbertAssist.Runtime do
   defp session_context(_user_id, nil), do: %{active_app: nil, diagnostics: []}
 
   defp session_context(user_id, session_id) do
-    opts = Keyword.put(session_opts(), :touch?, true)
+    opts = Keyword.put(session_opts(), :touch?, false)
 
     case Session.get(user_id, session_id, opts) do
       {:ok, entry} ->
@@ -616,13 +618,16 @@ defmodule AllbertAssist.Runtime do
     end
   end
 
-  defp resolve_thread(attrs, user_id, text, channel_thread_ref) do
-    Conversations.resolve_thread(%{
-      user_id: user_id,
-      text: text,
-      thread_id: fetch_value(attrs, :thread_id) || mapped_thread_id(channel_thread_ref),
-      new_thread: fetch_value(attrs, :new_thread)
-    })
+  defp resolve_thread(attrs, user_id, text, channel_thread_ref, effect_context) do
+    Conversations.resolve_thread(
+      %{
+        user_id: user_id,
+        text: text,
+        thread_id: fetch_value(attrs, :thread_id) || mapped_thread_id(channel_thread_ref),
+        new_thread: fetch_value(attrs, :new_thread)
+      },
+      effect_context
+    )
   end
 
   defp mapped_thread_id(nil), do: nil
@@ -1130,7 +1135,8 @@ defmodule AllbertAssist.Runtime do
       active_app: optional_to_string(request.active_app),
       origin_receiver_account_ref: origin_field(request, :receiver_account_ref),
       origin_thread_ref_id: origin_field(request, :id),
-      origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref)
+      origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref),
+      allbert_pack_epoch: request.allbert_pack_epoch
     }
 
     fanout_framer().(attrs, FanoutPlan.child_attrs(plan))
@@ -1330,7 +1336,10 @@ defmodule AllbertAssist.Runtime do
        ) do
     labels = Enum.map_join(children, "\n", &"#{&1.queue_position + 1}. #{&1.title}")
 
-    offer? = Notify.prepare_consent_offer(parent)
+    offer? =
+      Notify.prepare_consent_offer(parent, %{
+        allbert_pack_epoch: request.allbert_pack_epoch
+      })
 
     offer_text =
       if offer?,
@@ -1797,23 +1806,23 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp log_runtime_turn_started(input_signal, request) do
-    %{
-      input_signal_id: input_signal.id,
-      user_id: request.user_id,
-      operator_id: request.operator_id,
-      thread_id: request.thread_id,
-      session_id: request.session_id,
-      request_started_at: request.request_started_at,
-      channel: request.channel
-    }
-    |> maybe_put(:active_app, request.active_app)
-    |> Signals.runtime_turn_started()
-    |> case do
-      {:ok, signal} -> Signals.log(signal)
-      {:error, reason} -> Logger.debug("allbert turn-start signal skipped: #{inspect(reason)}")
+    with :ok <- validate_request_epoch(request) do
+      %{
+        input_signal_id: input_signal.id,
+        user_id: request.user_id,
+        operator_id: request.operator_id,
+        thread_id: request.thread_id,
+        session_id: request.session_id,
+        request_started_at: request.request_started_at,
+        channel: request.channel
+      }
+      |> maybe_put(:active_app, request.active_app)
+      |> Signals.runtime_turn_started()
+      |> case do
+        {:ok, signal} -> Signals.log(signal)
+        {:error, reason} -> Logger.debug("allbert turn-start signal skipped: #{inspect(reason)}")
+      end
     end
-
-    :ok
   end
 
   defp maybe_log_runtime_turn_completed(response, request) do

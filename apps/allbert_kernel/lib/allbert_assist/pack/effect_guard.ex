@@ -11,8 +11,11 @@ defmodule AllbertAssist.Pack.EffectGuard do
       {:ok, %{phase: :ready, barrier_pid: pid, snapshot_digest: digest}}
       when is_pid(pid) and is_binary(digest) ->
         epoch = %{barrier_pid: pid, snapshot_digest: digest}
-        maybe_register_test_epoch(epoch, opts)
-        {:ok, epoch}
+
+        case maybe_register_test_epoch(epoch, opts) do
+          :ok -> {:ok, epoch}
+          {:error, _reason} -> {:error, :product_not_ready}
+        end
 
       _ ->
         {:error, :product_not_ready}
@@ -38,10 +41,16 @@ defmodule AllbertAssist.Pack.EffectGuard do
   if Mix.env() == :test do
     defp maybe_register_test_epoch(epoch, opts) do
       case Keyword.fetch(opts, :server) do
-        {:ok, server} when is_pid(server) ->
-          AllbertAssist.Pack.EffectGuard.TestRegistry.register(epoch, server)
+        {:ok, server} ->
+          case GenServer.whereis(server) do
+            pid when is_pid(pid) ->
+              AllbertAssist.Pack.EffectGuard.TestRegistry.register(epoch, pid)
 
-        _default_or_named_server ->
+            nil ->
+              :ok
+          end
+
+        :error ->
           :ok
       end
     end

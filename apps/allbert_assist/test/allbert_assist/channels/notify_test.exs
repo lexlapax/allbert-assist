@@ -18,12 +18,15 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Signals
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
   alias Jido.Signal.Bus
+
+  setup {Req.Test, :verify_on_exit!}
 
   defmodule EpochGuard do
     def admit_ready(agent) do
@@ -52,6 +55,47 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     def admit_ready(server), do: EffectGuard.admit_ready(server: server)
     def validate(_server, epoch), do: EffectGuard.validate(epoch)
+  end
+
+  defmodule ReplacingBarrier do
+    use GenServer
+
+    def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
+
+    @impl true
+    def init(opts) do
+      {:ok,
+       %{
+         calls: 0,
+         replace_on: Keyword.fetch!(opts, :replace_on),
+         active: spawn(fn -> Process.sleep(:infinity) end),
+         replacement: spawn(fn -> Process.sleep(:infinity) end)
+       }}
+    end
+
+    @impl true
+    def handle_call(:status, _from, state) do
+      calls = state.calls + 1
+      barrier_pid = if calls >= state.replace_on, do: state.replacement, else: state.active
+
+      {:reply,
+       {:ok,
+        %{
+          phase: :ready,
+          barrier_pid: barrier_pid,
+          snapshot_digest: String.duplicate("r", 64),
+          expected_ids: [],
+          subscribed_ids: [],
+          acked_ids: [],
+          diagnostics: []
+        }}, %{state | calls: calls}}
+    end
+
+    @impl true
+    def terminate(_reason, state) do
+      Process.exit(state.active, :kill)
+      Process.exit(state.replacement, :kill)
+    end
   end
 
   setup do
@@ -84,7 +128,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     parent = fanout!("alice", "1001")
 
     assert {:ok, delivery} =
-             Notify.deliver(parent, :completion, "secret sk-test-1234567890123456",
+             deliver_ready(parent, :completion, "secret sk-test-1234567890123456",
                outbound_fun: fn _, _, _, _ -> flunk("transport must not run") end
              )
 
@@ -96,13 +140,67 @@ defmodule AllbertAssist.Channels.NotifyTest do
     refute audit =~ "sk-test"
   end
 
+  test "autonomous delivery refuses to reserve without a carried epoch" do
+    parent = fanout!("alice", "1001-no-epoch")
+
+    assert {:error, :product_not_ready} =
+             Notify.deliver(parent, :completion, "must not reserve",
+               outbound_fun: fn _, _, _, _ -> flunk("transport must not run") end
+             )
+
+    refute Repo.get_by(NotifyDelivery, fanout_id: parent.id)
+  end
+
+  test "same-digest replacement immediately before provider dispatch stops transport" do
+    parent = fanout!("alice", "1001-provider-race")
+    enable_notify!("alice-ext")
+    barrier = start_supervised!({ReplacingBarrier, replace_on: 4})
+    assert {:ok, epoch} = AllbertAssist.Pack.EffectGuard.admit_ready(server: barrier)
+
+    assert {:error, :stale_epoch} =
+             Notify.deliver(parent, :completion, "must not send",
+               allbert_pack_epoch: epoch,
+               delivery_key: "provider-race",
+               outbound_fun: fn _, _, _, _ -> flunk("stale E1 must not reach transport") end
+             )
+
+    assert %NotifyDelivery{state: "sending"} =
+             Repo.get_by(NotifyDelivery, delivery_key: "provider-race")
+  end
+
+  test "same-digest replacement after provider dispatch prevents E1 settlement" do
+    parent = fanout!("alice", "1001-settlement-race")
+    enable_notify!("alice-ext")
+    effect_context = ReadyEffectContext.context()
+    server = ReadyEffectContext.server(effect_context)
+    test_pid = self()
+
+    assert {:error, :stale_epoch} =
+             Notify.deliver(parent, :completion, "provider already accepted",
+               allbert_pack_epoch: effect_context.allbert_pack_epoch,
+               delivery_key: "settlement-race",
+               outbound_fun: fn _, _, _, opts ->
+                 send(test_pid, {:provider_called, opts})
+                 :ok = ReadyEffectContext.replace(server)
+                 {:ok, %{message_id: "provider-race-1"}}
+               end,
+               audit_fun: fn _, _, _, _ -> flunk("stale E1 must not append audit") end
+             )
+
+    assert_receive {:provider_called, opts}
+    assert opts[:allbert_pack_epoch] == effect_context.allbert_pack_epoch
+
+    assert %NotifyDelivery{state: "sending", provider_message_id: nil} =
+             Repo.get_by(NotifyDelivery, delivery_key: "settlement-race")
+  end
+
   test "opt-in delivers redacted completion to the exact current origin" do
     parent = fanout!("alice", "1002")
     enable_notify!("alice-ext")
     test_pid = self()
 
     assert {:ok, delivery} =
-             Notify.deliver(parent, :completion, "done api_key=sk-test-1234567890123456",
+             deliver_ready(parent, :completion, "done api_key=sk-test-1234567890123456",
                outbound_fun: fn channel, target, body, opts ->
                  send(test_pid, {:sent, channel, target, body, opts})
                  {:ok, %{message_id: "provider-1"}}
@@ -111,9 +209,45 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     assert delivery.state == "delivered"
     assert delivery.provider_message_id == "provider-1"
-    assert_receive {:sent, "telegram", "1002", body, [thread: thread]}
+    assert_receive {:sent, "telegram", "1002", body, opts}
+    thread = Keyword.fetch!(opts, :thread)
+    epoch = Keyword.fetch!(opts, :allbert_pack_epoch)
+    assert is_pid(epoch.barrier_pid)
     refute body =~ "sk-test"
     assert thread["chat_id"] == "1002"
+  end
+
+  test "default Outbound dispatch carries the exact epoch into the real adapter" do
+    parent = fanout!("alice", "1002-real-adapter")
+    enable_notify!("alice-ext")
+
+    assert {:ok, _secret} =
+             Secrets.put_secret(
+               "secret://channels/telegram/bot_token",
+               "token",
+               ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "POST"
+      assert conn.request_path == "/bottoken/sendMessage"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(
+        200,
+        Jason.encode!(%{"ok" => true, "result" => %{"message_id" => 202}})
+      )
+    end)
+
+    assert {:ok, delivery} =
+             deliver_ready(parent, :completion, "real adapter",
+               req_options: [plug: {Req.Test, __MODULE__}],
+               delivery_key: "default-outbound-real-adapter"
+             )
+
+    assert delivery.state == "delivered"
+    assert delivery.provider_message_id == "202"
   end
 
   test "mutable provider metadata preserves the stable origin while key remapping suppresses" do
@@ -139,7 +273,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert ChannelThread.canonical_ref_digest(updated_ref) == parent.origin_thread_ref_digest
 
     assert {:ok, delivered} =
-             Notify.deliver(parent, :completion, "stable delivery",
+             deliver_ready(parent, :completion, "stable delivery",
                delivery_key: "stable-origin-delivery",
                outbound_fun: fn _channel, _target, _body, opts ->
                  assert opts[:thread]["message_id"] == "later-provider-message"
@@ -155,7 +289,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
              |> Repo.update_all(set: [provider_thread_key: "remapped-provider-key"])
 
     assert {:ok, suppressed} =
-             Notify.deliver(parent, :completion, "must not deliver",
+             deliver_ready(parent, :completion, "must not deliver",
                delivery_key: "remapped-origin-delivery",
                outbound_fun: fn _, _, _, _ ->
                  flunk("remapped origin must not reach transport")
@@ -171,7 +305,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     enable_notify!("alice-ext")
 
     assert {:ok, level_denied} =
-             Notify.deliver(parent, :status, "working", delivery_key: "status-level")
+             deliver_ready(parent, :status, "working", delivery_key: "status-level")
 
     assert level_denied.error_class =~ "status_level_disabled"
 
@@ -179,7 +313,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     outbound = fn _, _, _, _ -> {:ok, %{message_id: Ecto.UUID.generate()}} end
 
     assert {:ok, first} =
-             Notify.deliver(parent, :status, "working",
+             deliver_ready(parent, :status, "working",
                delivery_key: "status-first",
                outbound_fun: outbound
              )
@@ -187,7 +321,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert first.state == "delivered"
 
     assert {:ok, throttled} =
-             Notify.deliver(parent, :status, "still working",
+             deliver_ready(parent, :status, "still working",
                delivery_key: "status-second",
                outbound_fun: outbound
              )
@@ -206,7 +340,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     end
 
     assert {:ok, first} =
-             Notify.deliver(parent, :confirmation_request, "Reply ALLBERT:APPROVE:confirm-1",
+             deliver_ready(parent, :confirmation_request, "Reply ALLBERT:APPROVE:confirm-1",
                delivery_key: "confirmation-request-1",
                outbound_fun: outbound
              )
@@ -215,7 +349,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert_receive {:confirmation_body, "Reply ALLBERT:APPROVE:confirm-1"}
 
     assert {:ok, duplicate} =
-             Notify.deliver(parent, :confirmation_request, "duplicate",
+             deliver_ready(parent, :confirmation_request, "duplicate",
                delivery_key: "confirmation-request-1",
                outbound_fun: fn _, _, _, _ -> flunk("terminal notification must deduplicate") end
              )
@@ -229,21 +363,21 @@ defmodule AllbertAssist.Channels.NotifyTest do
     put!("channels.telegram.identity_map", [])
 
     assert {:ok, denied} =
-             Notify.deliver(parent, :completion, "done", delivery_key: "identity-denied")
+             deliver_ready(parent, :completion, "done", delivery_key: "identity-denied")
 
     assert denied.error_class =~ "identity_not_mapped"
 
     put!("channels.telegram.identity_map", [identity("remapped-ext", "alice")])
 
     assert {:ok, remapped} =
-             Notify.deliver(parent, :completion, "done", delivery_key: "identity-remapped")
+             deliver_ready(parent, :completion, "done", delivery_key: "identity-remapped")
 
     assert remapped.error_class =~ "origin_identity_remapped"
 
     put!("channels.telegram.identity_map", [identity("alice-ext", "alice")])
 
     assert {:ok, uncertain} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                delivery_key: "uncertain-send",
                outbound_fun: fn _, _, _, _ -> {:error, {:uncertain, :timeout_after_write}} end
              )
@@ -251,7 +385,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert uncertain.state == "uncertain"
 
     assert {:ok, same} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                delivery_key: "uncertain-send",
                outbound_fun: fn _, _, _, _ -> flunk("uncertain send must not retry") end
              )
@@ -268,13 +402,13 @@ defmodule AllbertAssist.Channels.NotifyTest do
           {"exiting-send", fn _, _, _, _ -> exit(:transport_exited) end}
         ] do
       assert {:ok, %{state: "uncertain", attempt_count: 1} = uncertain} =
-               Notify.deliver(parent, :completion, "done",
+               deliver_ready(parent, :completion, "done",
                  delivery_key: key,
                  outbound_fun: outbound_fun
                )
 
       assert {:ok, same} =
-               Notify.deliver(parent, :completion, "done",
+               deliver_ready(parent, :completion, "done",
                  delivery_key: key,
                  outbound_fun: fn _, _, _, _ -> flunk("uncertain transport must not retry") end
                )
@@ -295,7 +429,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     end
 
     assert {:ok, first} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                delivery_key: "definitive-retry",
                outbound_fun: failing
              )
@@ -304,7 +438,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert first.attempt_count == 1
 
     assert {:ok, second} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                delivery_key: "definitive-retry",
                outbound_fun: failing
              )
@@ -314,7 +448,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert second.attempt_count == 2
 
     assert {:ok, terminal} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                delivery_key: "definitive-retry",
                outbound_fun: fn _, _, _, _ -> flunk("third transport attempt is forbidden") end
              )
@@ -331,7 +465,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     put!("channels.telegram.identity_map", [identity("alice-ext", "alice")])
     effect_context = ReadyEffectContext.context()
 
-    assert Notify.prepare_consent_offer(parent)
+    assert prepare_consent_offer_ready(parent)
 
     assert :ok =
              Notify.mark_consent_offer_delivered(
@@ -339,7 +473,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
                effect_context
              )
 
-    refute Notify.prepare_consent_offer(parent)
+    refute prepare_consent_offer_ready(parent)
 
     refute NotifyConsentCallback.typed_command?("please enable ALLBERT:NOTIFY:ON")
     refute NotifyConsentCallback.typed_command?("allbert:notify:on")
@@ -355,7 +489,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     assert {:ok, %{status: :completed}} = NotifyConsentCallback.run(request)
     assert {:ok, true} = Settings.get("channels.telegram.autonomous_notify.enabled")
-    refute Notify.prepare_consent_offer(parent)
+    refute prepare_consent_offer_ready(parent)
 
     assert {:ok, %{status: :completed}} =
              NotifyConsentCallback.run(%{
@@ -367,6 +501,37 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     assert {:error, :wrong_user} =
              NotifyConsentCallback.run(%{request | user_id: "mallory", operator_id: "mallory"})
+  end
+
+  test "non-completed consent action leaves the durable offer pending" do
+    parent = fanout!("alice", "1005-stale-consent")
+    put!("channels.telegram.identity_map", [identity("alice-ext", "alice")])
+    effect_context = ReadyEffectContext.context()
+
+    assert Notify.prepare_consent_offer(parent, effect_context)
+
+    assert :ok =
+             Notify.mark_consent_offer_delivered(
+               %{channel: "telegram", user_id: "alice"},
+               effect_context
+             )
+
+    server = ReadyEffectContext.server(effect_context)
+    assert :ok = ReadyEffectContext.replace(server)
+
+    assert {:error, {:setting_not_completed, :unavailable}} =
+             NotifyConsentCallback.run(%{
+               channel: "telegram",
+               user_id: "alice",
+               allbert_pack_epoch: effect_context.allbert_pack_epoch,
+               metadata: %{external_user_id: "alice-ext"}
+             })
+
+    assert %NotifyDelivery{offer_state: "delivered"} =
+             Repo.get_by(NotifyDelivery,
+               fanout_id: parent.id,
+               kind: "consent_offer"
+             )
   end
 
   test "email settings clamp status delivery and every channel defaults off" do
@@ -434,7 +599,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     for index <- 1..100 do
       assert {:ok, :attached_surface} =
-               Notify.deliver(parent, :status, "progress #{index}", event_key: "sig-#{index}")
+               deliver_ready(parent, :status, "progress #{index}", event_key: "sig-#{index}")
     end
 
     refute Repo.exists?(from delivery in NotifyDelivery, where: delivery.fanout_id == ^parent.id)
@@ -457,7 +622,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
                )
 
       assert {:ok, :attached_surface} =
-               Notify.deliver(parent, :completion, "completion",
+               deliver_ready(parent, :completion, "completion",
                  outbound_fun: fn _, _, _, _ ->
                    flunk("#{channel} must not use autonomous transport")
                  end
@@ -474,7 +639,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     for index <- 1..100 do
       assert {:ok, %{state: "suppressed"}} =
-               Notify.deliver(disabled, :status, "progress #{index}", event_key: "off-#{index}")
+               deliver_ready(disabled, :status, "progress #{index}", event_key: "off-#{index}")
     end
 
     assert Repo.aggregate(
@@ -489,7 +654,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     for index <- 1..100 do
       assert {:ok, %{state: "suppressed"}} =
-               Notify.deliver(completion_only, :status, "progress #{index}",
+               deliver_ready(completion_only, :status, "progress #{index}",
                  event_key: "completion-only-#{index}"
                )
     end
@@ -513,7 +678,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     insert_completion_delivery!(reserved, "reserved", 0)
 
     assert {:ok, %{state: "delivered", attempt_count: 1}} =
-             Notify.recover_completion(reserved,
+             recover_completion_ready(reserved,
                outbound_fun: fn _, _, _, _ ->
                  send(test_pid, {:recovery_transport, reserved.id})
                  {:ok, %{message_id: "reserved-provider"}}
@@ -527,7 +692,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     insert_completion_delivery!(sending, "sending", 1)
 
     assert {:ok, %{state: "uncertain"}} =
-             Notify.recover_completion(sending,
+             recover_completion_ready(sending,
                outbound_fun: fn _, _, _, _ -> flunk("interrupted send must not retry") end
              )
 
@@ -535,7 +700,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     insert_completion_delivery!(delivered, "delivered", 1, "provider-done")
 
     assert {:ok, %{state: "delivered", provider_message_id: "provider-done"}} =
-             Notify.recover_completion(delivered,
+             recover_completion_ready(delivered,
                outbound_fun: fn _, _, _, _ -> flunk("delivered work must not resend") end
              )
   end
@@ -548,7 +713,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
       selected = selected_notify_report!(source, "1010-selected-body-#{source}")
 
       assert {:ok, %{state: "delivered"}} =
-               Notify.recover_completion(selected.parent,
+               recover_completion_ready(selected.parent,
                  outbound_fun: fn _, _, body, _ ->
                    send(test_pid, {:completion_body, source, body})
                    {:ok, %{message_id: "selected-body-provider-#{source}"}}
@@ -774,7 +939,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     first =
       Task.async(fn ->
-        Notify.deliver(parent, :completion, "done",
+        deliver_ready(parent, :completion, "done",
           delivery_key: delivery_key,
           outbound_fun: fn _, _, _, _ ->
             send(test_pid, {:claim_transport_started, self()})
@@ -791,7 +956,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     second =
       Task.async(fn ->
-        Notify.deliver(parent, :completion, "duplicate",
+        deliver_ready(parent, :completion, "duplicate",
           delivery_key: delivery_key,
           outbound_fun: fn _, _, _, _ -> flunk("second claimant must not reach transport") end
         )
@@ -879,7 +1044,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
            )
 
     assert {:ok, :not_joined} =
-             Notify.recover_completion(parent,
+             recover_completion_ready(parent,
                outbound_fun: fn _, _, _, _ -> flunk("corrupted report must not send") end
              )
   end
@@ -894,6 +1059,30 @@ defmodule AllbertAssist.Channels.NotifyTest do
       |> Fanout.frame(["One", "Two"])
 
     parent
+  end
+
+  defp deliver_ready(parent, kind, body, opts) do
+    Notify.deliver(
+      parent,
+      kind,
+      body,
+      Keyword.put_new(opts, :allbert_pack_epoch, ready_epoch())
+    )
+  end
+
+  defp recover_completion_ready(parent, opts) do
+    Notify.recover_completion(
+      parent,
+      Keyword.put_new(opts, :allbert_pack_epoch, ready_epoch())
+    )
+  end
+
+  defp prepare_consent_offer_ready(parent) do
+    Notify.prepare_consent_offer(parent, %{allbert_pack_epoch: ready_epoch()})
+  end
+
+  defp ready_epoch do
+    ReadyEffectContext.context().allbert_pack_epoch
   end
 
   defp start_ready_consumer(opts) do

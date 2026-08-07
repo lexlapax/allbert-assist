@@ -6,6 +6,7 @@
     {"id":"runner-run-2","owner":"AllbertAssist.Actions.Runner","entrypoint":"run/2","source_path":"apps/allbert_assist/lib/allbert_assist/actions/runner.ex","phase":"ready","admission_mode":"ready_compat_admit","carrier_policy":"delegates_to_run_3_only","missing_or_stale_result":"Response.unavailable(:product_not_ready) before registry lookup","compatibility_provenance":"derived default-argument export of run/3","focused_test":"AllbertAssist.Actions.RunnerTest"},
     {"id":"runtime-submit-1","owner":"AllbertAssist.Runtime","entrypoint":"submit_user_input/1","source_path":"apps/allbert_assist/lib/allbert_assist/runtime.ex","phase":"ready","admission_mode":"ready_compat_admit","carrier_policy":"allbert_pack_epoch_or_admit_once","missing_or_stale_result":"{:error, :product_not_ready} before signals or storage","compatibility_provenance":"v1.0 frozen Tier-1 facade","focused_test":"AllbertAssist.RuntimeTest"},
     {"id":"runtime-submit-2","owner":"AllbertAssist.Runtime","entrypoint":"submit_user_input/2","source_path":"apps/allbert_assist/lib/allbert_assist/runtime.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"allbert_pack_epoch_required","missing_or_stale_result":"{:error, :invalid_options} or {:error, :product_not_ready} before effect","compatibility_provenance":null,"focused_test":"AllbertAssist.RuntimeTest"},
+    {"id":"conversations-thread-resolution","owner":"AllbertAssist.Conversations","entrypoint":"resolve_thread/2","source_path":"apps/allbert_assist/lib/allbert_assist/conversations.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"requires exact E1 and rolls back a new thread when E1 is replaced before commit","missing_or_stale_result":"{:error, :product_not_ready} or {:error, :stale_epoch} with no durable thread","compatibility_provenance":null,"focused_test":"AllbertAssist.RuntimeTest"},
     {"id":"cli-run-1","owner":"AllbertAssist.CLI","entrypoint":"run/1","source_path":"apps/allbert_assist/lib/allbert_assist/cli.ex","phase":"ready","admission_mode":"ready_compat_admit","carrier_policy":"allbert_pack_epoch_or_admit_once","missing_or_stale_result":"{\"Allbert product is not ready; retry the command.\", 3}","compatibility_provenance":"v1.0 frozen facade","focused_test":"AllbertAssist.CLITest"},
     {"id":"cli-run-attached-1","owner":"AllbertAssist.CLI","entrypoint":"run_attached/1","source_path":"apps/allbert_assist/lib/allbert_assist/cli.ex","phase":"ready","admission_mode":"ready_compat_admit","carrier_policy":"allbert_pack_epoch_or_admit_once","missing_or_stale_result":"{:error, {:command_rejected, :product_not_ready}}","compatibility_provenance":"v1.0 frozen facade","focused_test":"AllbertAssist.CLITest"},
     {"id":"cli-run-attached-2","owner":"AllbertAssist.CLI","entrypoint":"run_attached/2","source_path":"apps/allbert_assist/lib/allbert_assist/cli.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"allbert_pack_epoch_required","missing_or_stale_result":"{:error, {:command_rejected, :product_not_ready}}","compatibility_provenance":null,"focused_test":"AllbertAssist.CLITest"},
@@ -43,7 +44,9 @@
     {"id":"jobs-scheduler-executor","owner":"AllbertAssist.Jobs.Scheduler.Executor","entrypoint":"poll_once/3, cleanup_stale_runs_for_state/3, and execute_claimed_job/3","source_path":"apps/allbert_assist/lib/allbert_assist/jobs/scheduler/executor.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"requires exact scheduler E1 at claim and execution handoff","missing_or_stale_result":"{:error, :product_not_ready} before claim or job execution","compatibility_provenance":null,"focused_test":"AllbertAssist.Jobs.SchedulerTest"},
     {"id":"fanout-report-composer","owner":"AllbertAssist.Objectives.Fanout.ReportComposer","entrypoint":"recovery, drain, and select-retry work","source_path":"apps/allbert_assist/lib/allbert_assist/objectives/fanout/report_composer.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"admits_E1_at message entry and revalidates before recovery provider and persistence effects","missing_or_stale_result":"skip before recovery/provider/persistence effect","compatibility_provenance":null,"focused_test":"AllbertAssist.Objectives.FanoutReportComposerTest"},
     {"id":"notify-consumer","owner":"AllbertAssist.Channels.NotifyConsumer","entrypoint":"bus connect, signal handling, replay, and completion retry","source_path":"apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"admits_E1_at work entry and revalidates before subscription delivery and acknowledgement","missing_or_stale_result":"retry or skip before notification effect","compatibility_provenance":null,"focused_test":"AllbertAssist.Channels.NotifyTest"},
-    {"id":"notify-consent-writes","owner":"AllbertAssist.Channels.Notify","entrypoint":"mark_consent_offer_delivered/2 and accept_consent/2","source_path":"apps/allbert_assist/lib/allbert_assist/channels/notify.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"requires and revalidates exact E1 immediately before durable consent updates","missing_or_stale_result":"{:error, :product_not_ready} or {:error, :stale_epoch} before Repo mutation","compatibility_provenance":null,"focused_test":"AllbertAssist.Channels.NotifyTest"},
+    {"id":"notify-consent-writes","owner":"AllbertAssist.Channels.Notify","entrypoint":"mark_consent_offer_delivered/2 and accept_consent/3","source_path":"apps/allbert_assist/lib/allbert_assist/channels/notify.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"requires and revalidates exact E1 immediately before durable consent updates","missing_or_stale_result":"{:error, :product_not_ready} or {:error, :stale_epoch} before Repo mutation","compatibility_provenance":null,"focused_test":"AllbertAssist.Channels.NotifyTest"},
+    {"id":"notify-delivery-effects","owner":"AllbertAssist.Channels.Notify","entrypoint":"deliver/4, recover_completion/2, and prepare_consent_offer/2","source_path":"apps/allbert_assist/lib/allbert_assist/channels/notify.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"requires one exact E1 across reserve claim provider settlement audit and signal effects","missing_or_stale_result":"{:error, :product_not_ready} or {:error, :stale_epoch} before the next notification effect","compatibility_provenance":null,"focused_test":"AllbertAssist.Channels.NotifyTest"},
+    {"id":"outbound-transport","owner":"AllbertAssist.Channels.Outbound","entrypoint":"send/4 and edit/5","source_path":"apps/allbert_assist/lib/allbert_assist/channels/outbound.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"receives exact allbert_pack_epoch E1 in adapter options for provider-bound validation","missing_or_stale_result":"adapter returns product_not_ready or stale_epoch before provider transport","compatibility_provenance":null,"focused_test":"AllbertAssist.Channels.NotifyTest"},
     {"id":"dynamic-plugin-reconciler","owner":"AllbertAssist.DynamicPlugins.Reconciler","entrypoint":"boot reconciliation","source_path":"apps/allbert_assist/lib/allbert_assist/dynamic_plugins/reconciler.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"admits_E1_and_revalidates before Loader.reconcile/0","missing_or_stale_result":"{:error, :product_not_ready} before loader effect","compatibility_provenance":null,"focused_test":"AllbertAssist.DynamicPlugins.ReconcilerTest"},
     {"id":"discord-adapter","owner":"AllbertAssist.Channels.Discord.Adapter","entrypoint":"gateway inbound and public outbound/edit dispatch","source_path":"plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"carries_E1_from ingress through Runtime.submit_user_input_2 and requires E1 for provider calls","missing_or_stale_result":"{:error, :product_not_ready} before runtime or provider effect","compatibility_provenance":null,"focused_test":"AllbertAssist.Channels.DiscordTest"},
     {"id":"email-adapter","owner":"AllbertAssist.Channels.Email.Adapter","entrypoint":"poll/1 and public outbound dispatch","source_path":"plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"carries_E1_from poll through Runtime.submit_user_input_2 and requires E1 for provider calls","missing_or_stale_result":"{:error, :product_not_ready} before runtime or provider effect","compatibility_provenance":null,"focused_test":"AllbertAssist.Channels.EmailTest"},
@@ -163,6 +166,70 @@
     {"id":"guarded-source-plugins-stocksage-lib-stocksage-evidence-ex","owner":"StockSage.Evidence","entrypoint":"guarded effect boundary","source_path":"plugins/stocksage/lib/stocksage/evidence.ex","phase":"ready","admission_mode":"ready_carried","carrier_policy":"allbert_pack_epoch E1 is validated before the guarded effect","missing_or_stale_result":"{:error, :product_not_ready} or {:error, :stale_epoch} before effect","compatibility_provenance":null,"focused_test":"AllbertAssist.Pack.EffectGuardSettingsChannelsTest"}
   ],
   "candidate_classifications": [
+  {
+    "boundary": "AllbertAssist.Channels.Notify.accept_consent",
+    "disposition": "inherited_context",
+    "evidence": "Notify owner receives the Runner-carried E1 context at consent settlement.",
+    "line": 44,
+    "roster_id": "notify-consent-writes",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consent_callback.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.Notify.deliver",
+    "disposition": "external_e1",
+    "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+    "line": 230,
+    "roster_id": "notify-consumer",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.Notify.deliver",
+    "disposition": "external_e1",
+    "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+    "line": 369,
+    "roster_id": "notify-consumer",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.Notify.mark_consent_offer_delivered",
+    "disposition": "external_e1",
+    "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+    "line": 303,
+    "roster_id": "runtime-submit-1",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.Notify.prepare_consent_offer",
+    "disposition": "external_e1",
+    "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+    "line": 1340,
+    "roster_id": "runtime-submit-1",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.Outbound.edit",
+    "disposition": "inherited_context",
+    "evidence": "Notify owner forwards its exact E1 to the registered adapter boundary.",
+    "line": 584,
+    "roster_id": "outbound-transport",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.Outbound.send",
+    "disposition": "inherited_context",
+    "evidence": "Notify owner forwards its exact E1 to the registered adapter boundary.",
+    "line": 521,
+    "roster_id": "outbound-transport",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.Outbound.send",
+    "disposition": "inherited_context",
+    "evidence": "Runner owner carries the exact E1 through the action into the adapter boundary.",
+    "line": 79,
+    "roster_id": "outbound-transport",
+    "source_path": "apps/allbert_assist/lib/allbert_assist/actions/channels/send_channel_message.ex"
+  },
   {
     "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
     "disposition": "external_e1",
@@ -1143,7 +1210,7 @@
     "boundary": "AllbertAssist.Actions.Runner.run",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 1539,
+    "line": 1548,
     "roster_id": "runtime-submit-1",
     "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
   },
@@ -1151,7 +1218,7 @@
     "boundary": "AllbertAssist.Actions.Runner.run",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 1707,
+    "line": 1716,
     "roster_id": "runtime-submit-1",
     "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
   },
@@ -1407,7 +1474,7 @@
     "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 216,
+    "line": 220,
     "roster_id": "email-adapter",
     "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
   },
@@ -1415,7 +1482,7 @@
     "boundary": "AllbertAssist.Channels.create_event",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 244,
+    "line": 248,
     "roster_id": "email-adapter",
     "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
   },
@@ -1423,7 +1490,7 @@
     "boundary": "AllbertAssist.Actions.Runner.run",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 413,
+    "line": 417,
     "roster_id": "email-adapter",
     "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
   },
@@ -1431,7 +1498,7 @@
     "boundary": "AllbertAssist.Runtime.submit_user_input",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 482,
+    "line": 486,
     "roster_id": "email-adapter",
     "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
   },
@@ -1439,15 +1506,7 @@
     "boundary": "AllbertAssist.Channels.update_event",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 562,
-    "roster_id": "email-adapter",
-    "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
-  },
-  {
-    "boundary": "AllbertAssist.Channels.update_event",
-    "disposition": "external_e1",
-    "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 577,
+    "line": 566,
     "roster_id": "email-adapter",
     "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
   },
@@ -1471,7 +1530,15 @@
     "boundary": "AllbertAssist.Channels.update_event",
     "disposition": "external_e1",
     "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-    "line": 591,
+    "line": 589,
+    "roster_id": "email-adapter",
+    "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
+  },
+  {
+    "boundary": "AllbertAssist.Channels.update_event",
+    "disposition": "external_e1",
+    "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+    "line": 595,
     "roster_id": "email-adapter",
     "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
   },
@@ -3851,7 +3918,7 @@
     "boundary": "AllbertAssist.Confirmations.create",
     "disposition": "inherited_context",
     "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-    "line": 1392,
+    "line": 1401,
     "roster_id": "runner-run-3",
     "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
   },
@@ -4071,6 +4138,7 @@
     "apps/allbert_assist/lib/allbert_assist/cli/ask.ex",
     "apps/allbert_assist/lib/allbert_assist/confirmations/store/agent.ex",
     "apps/allbert_assist/lib/allbert_assist/confirmations/store/persistence.ex",
+    "apps/allbert_assist/lib/allbert_assist/conversations.ex",
     "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex",
     "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_zero_shot_eval.ex",
     "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/reconciler.ex",
@@ -4194,6 +4262,7 @@
     "apps/allbert_assist/lib/allbert_assist/cli/ask.ex",
     "apps/allbert_assist/lib/allbert_assist/confirmations/store/agent.ex",
     "apps/allbert_assist/lib/allbert_assist/confirmations/store/persistence.ex",
+    "apps/allbert_assist/lib/allbert_assist/conversations.ex",
     "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex",
     "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_zero_shot_eval.ex",
     "apps/allbert_assist/lib/allbert_assist/execution/local_runner.ex",

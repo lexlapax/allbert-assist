@@ -21,6 +21,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   @ids ~w[
@@ -98,13 +99,18 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     put!("objectives.fanout.rollout_mode", "automatic")
     put!("objectives.fanout.confirm_before_start", true)
 
+    effect_context = ReadyEffectContext.context()
+
     assert {:ok, response} =
-             Runtime.submit_user_input(%{
-               text: "Do two things: research alpha and draft beta. Work on them in parallel.",
-               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
-               channel: :test,
-               user_id: "alice"
-             })
+             Runtime.submit_user_input(
+               %{
+                 text: "Do two things: research alpha and draft beta. Work on them in parallel.",
+                 delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+                 channel: :test,
+                 user_id: "alice"
+               },
+               allbert_pack_epoch: effect_context.allbert_pack_epoch
+             )
 
     assert response.status == :needs_confirmation
     assert is_binary(response.approval_handoff.confirmation_id)
@@ -121,7 +127,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     parent = notify_parent!("alice", "1001")
 
     assert {:ok, delivery} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                outbound_fun: fn _, _, _, _ -> flunk("transport must remain closed") end
              )
 
@@ -140,7 +146,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     enable_notify!("mallory-ext", "mallory")
 
     assert {:ok, delivery} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                outbound_fun: fn _, _, _, _ -> flunk("wrong identity must not reach transport") end
              )
 
@@ -160,7 +166,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     test_pid = self()
 
     assert {:ok, delivery} =
-             Notify.deliver(parent, :completion, "api_key=sk-test-1234567890123456",
+             deliver_ready(parent, :completion, "api_key=sk-test-1234567890123456",
                outbound_fun: fn _, _, body, _ ->
                  send(test_pid, {:body, body})
                  {:ok, %{message_id: "provider-1"}}
@@ -192,10 +198,17 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
 
   test "fanout-steer-cross-user-001" do
     {:ok, %{children: [child | _]}} =
-      Fanout.frame(%{user_id: "alice", title: "Work", objective: "Work"}, ["One", "Two"])
+      Fanout.frame(
+        %{user_id: "alice", title: "Work", objective: "Work"}
+        |> Map.merge(ReadyEffectContext.context()),
+        ["One", "Two"]
+      )
 
     original = child.objective
-    assert {:error, :not_found} = Steering.steer("mallory", child.id, "Replace it")
+
+    assert {:error, :not_found} =
+             Steering.steer("mallory", child.id, "Replace it", ReadyEffectContext.context())
+
     assert {:ok, unchanged} = Objectives.get_objective(child.id)
     assert unchanged.objective == original
 
@@ -261,7 +274,8 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
 
     FanoutReportFixture.select_pending!(parent.id, :fallback)
 
-    assert {:ok, %{report_delivery_receipt: receipt}} = Fanout.finalize_join(parent)
+    assert {:ok, %{report_delivery_receipt: receipt}} =
+             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
 
     assert {:error, :receipt_identity_mismatch} =
              Fanout.acknowledge_report(receipt, bound_context("mallory"))
@@ -319,7 +333,8 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
         source_thread_id: "thread-1",
         origin_thread_ref_digest: "digest-1",
         origin_receiver_account_ref: "account-1"
-      },
+      }
+      |> Map.merge(ReadyEffectContext.context()),
       ["One", "Two"]
     )
   end
@@ -331,7 +346,8 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
       env: [],
       timeout_ms: 30_000,
       kill_grace_ms: 100,
-      max_output_bytes: 1_024
+      max_output_bytes: 1_024,
+      allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
     )
   end
 
@@ -366,13 +382,17 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   end
 
   defp bound_context(user_id),
-    do: %{
-      user_id: user_id,
-      channel: "telegram",
-      thread_id: "thread-1",
-      origin_thread_ref_digest: "digest-1",
-      origin_receiver_account_ref: "account-1"
-    }
+    do:
+      Map.merge(
+        %{
+          user_id: user_id,
+          channel: "telegram",
+          thread_id: "thread-1",
+          origin_thread_ref_digest: "digest-1",
+          origin_receiver_account_ref: "account-1"
+        },
+        ReadyEffectContext.context()
+      )
 
   defp notify_parent!(user_id, chat_id) do
     {:ok, thread} = Conversations.create_general_thread(user_id, "notify")
@@ -403,7 +423,8 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
           origin_thread_ref_id: to_string(ref.id),
           origin_thread_ref_digest: digest,
           origin_receiver_account_ref: ref.receiver_account_ref
-        },
+        }
+        |> Map.merge(ReadyEffectContext.context()),
         ["One", "Two"]
       )
 
@@ -416,6 +437,15 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     ])
 
     put!("channels.telegram.autonomous_notify.enabled", true)
+  end
+
+  defp deliver_ready(parent, kind, body, opts) do
+    Notify.deliver(
+      parent,
+      kind,
+      body,
+      Keyword.put_new(opts, :allbert_pack_epoch, ReadyEffectContext.context().allbert_pack_epoch)
+    )
   end
 
   defp put!(key, value),

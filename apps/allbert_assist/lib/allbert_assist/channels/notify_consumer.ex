@@ -229,7 +229,8 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
             _ =
               Notify.deliver(parent, :confirmation_request, body,
                 child_objective_id: child.id,
-                event_key: "confirmation:#{confirmation_id}"
+                event_key: "confirmation:#{confirmation_id}",
+                allbert_pack_epoch: epoch
               )
           end
 
@@ -276,7 +277,10 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   end
 
   defp reconcile_parent_when_ready(parent, state, epoch) do
-    case Notify.recover_completion(parent, state.notify_opts) do
+    case Notify.recover_completion(
+           parent,
+           Keyword.put(state.notify_opts, :allbert_pack_epoch, epoch)
+         ) do
       {:ok, %NotifyDelivery{state: "delivered"}} ->
         if :ok == validate_epoch(epoch, state) do
           _ = acknowledge_report(parent, epoch)
@@ -364,7 +368,8 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
       _ =
         Notify.deliver(parent, :status, "#{parent.title}: #{child.title} — #{status}",
           child_objective_id: child.id,
-          event_key: signal_id || "#{child.id}:#{status}"
+          event_key: signal_id || "#{child.id}:#{status}",
+          allbert_pack_epoch: epoch
         )
     end
 

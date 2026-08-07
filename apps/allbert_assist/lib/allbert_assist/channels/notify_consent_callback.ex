@@ -39,6 +39,7 @@ defmodule AllbertAssist.Channels.NotifyConsentCallback do
                allbert_pack_epoch: field(request, :allbert_pack_epoch)
              }
            ),
+         :ok <- completed_result(result),
          :ok <-
            Notify.accept_consent(channel, user_id, %{
              allbert_pack_epoch: field(request, :allbert_pack_epoch)
@@ -57,6 +58,10 @@ defmodule AllbertAssist.Channels.NotifyConsentCallback do
 
   def response({:error, reason}),
     do: Response.error("I could not enable channel notifications.", reason)
+
+  defp completed_result(%{status: :completed}), do: :ok
+  defp completed_result(%{status: status}), do: {:error, {:setting_not_completed, status}}
+  defp completed_result(_result), do: {:error, :setting_not_completed}
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

@@ -122,6 +122,7 @@ defmodule AllbertAssistWeb.PackReadinessTest do
       assert {:ok, ^first_epoch} = GenServer.call(observer, :admit)
     end)
 
+    assert_eventually(fn -> assert [_first_bridge] = BridgeSupervisorStub.pids() end)
     [first_bridge] = BridgeSupervisorStub.pids()
     :erlang.suspend_process(first_bridge)
 
@@ -267,6 +268,58 @@ defmodule AllbertAssistWeb.PackReadinessTest do
     end)
   end
 
+  test "replacement stays closed while the E1 bridge opener is still in flight" do
+    e1_barrier = spawn(fn -> Process.sleep(:infinity) end)
+    e2_barrier = spawn(fn -> Process.sleep(:infinity) end)
+    e1 = %{barrier_pid: e1_barrier, snapshot_digest: String.duplicate("3", 64)}
+    e2 = %{barrier_pid: e2_barrier, snapshot_digest: String.duplicate("3", 64)}
+    test_pid = self()
+
+    ReadinessStub.put({:ok, ready_status(e1.barrier_pid, e1.snapshot_digest)})
+
+    bridge_open_fun = fn epoch, _supervisor ->
+      send(test_pid, {:bridge_opener_paused, epoch, self()})
+
+      receive do
+        :finish_bridge_open ->
+          {:ok,
+           spawn(fn ->
+             receive do
+               {:"$gen_cast", :close} -> :ok
+             end
+           end)}
+      end
+    end
+
+    on_exit(fn ->
+      ReadinessStub.clear()
+      Process.exit(e1_barrier, :kill)
+      Process.exit(e2_barrier, :kill)
+    end)
+
+    observer =
+      start_supervised!({
+        PackReadiness,
+        name: nil, readiness: ReadinessStub, bridge_open_fun: bridge_open_fun
+      })
+
+    assert_eventually(fn -> assert {:ok, ^e1} = GenServer.call(observer, :admit) end)
+    assert_receive {:bridge_opener_paused, ^e1, opener_pid}
+
+    ReadinessStub.put({:ok, ready_status(e2.barrier_pid, e2.snapshot_digest)})
+    assert {:error, :product_not_ready} = GenServer.call(observer, {:validate, e1})
+    assert {:error, :product_not_ready} = GenServer.call(observer, :admit)
+
+    assert %{admission: :closed, bridge: {:retiring_open, ^opener_pid, _, ^e1}} =
+             :sys.get_state(observer)
+
+    send(opener_pid, :finish_bridge_open)
+
+    assert_eventually(fn ->
+      assert {:ok, ^e2} = GenServer.call(observer, :admit)
+    end)
+  end
+
   defp ready_status(barrier_pid, digest) do
     %{
       phase: :ready,
@@ -279,7 +332,9 @@ defmodule AllbertAssistWeb.PackReadinessTest do
     }
   end
 
-  defp assert_eventually(fun, attempts \\ 20)
+  defp assert_eventually(fun, attempts \\ 500)
+
+  defp assert_eventually(_fun, 0), do: flunk("condition did not become true")
 
   defp assert_eventually(fun, attempts) when attempts > 0 do
     fun.()

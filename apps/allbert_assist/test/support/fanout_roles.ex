@@ -18,6 +18,7 @@ defmodule AllbertAssist.TestSupport.FanoutRoles do
 
   alias AllbertAssist.Settings
   alias AllbertAssist.Test.ModelReadinessFake
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @roles ~w[direct_answer fanout_manager fanout_synthesis]
 
@@ -38,15 +39,26 @@ defmodule AllbertAssist.TestSupport.FanoutRoles do
         else: Application.delete_env(:allbert_assist, :runtime_model_readiness)
     end)
 
-    assert {:ok, _} = Settings.put("providers.openai.enabled", false, %{audit?: false})
-    assert {:ok, _} = Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+    assert {:ok, _} =
+             Settings.put(
+               "providers.openai.enabled",
+               false,
+               ReadyEffectContext.attach(%{audit?: false})
+             )
+
+    assert {:ok, _} =
+             Settings.put(
+               "intent.direct_answer_model_enabled",
+               true,
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Enum.each(@roles, fn role ->
       assert {:ok, _} =
                Settings.put(
                  "model_preferences.tasks.#{role}",
                  ["direct_answer_local"],
-                 %{audit?: false}
+                 ReadyEffectContext.attach(%{audit?: false})
                )
     end)
 

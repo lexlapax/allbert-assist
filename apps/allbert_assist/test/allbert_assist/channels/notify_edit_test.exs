@@ -11,6 +11,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
@@ -41,7 +42,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     test_pid = self()
 
     assert {:ok, first} =
-             Notify.deliver(parent, :status, "started",
+             deliver_ready(parent, :status, "started",
                delivery_key: "edit-first",
                outbound_fun: fn _, _, _, _ -> {:ok, %{message_id: "status-1"}} end
              )
@@ -49,7 +50,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     backdate!(first)
 
     assert {:ok, edited} =
-             Notify.deliver(parent, :status, "working",
+             deliver_ready(parent, :status, "working",
                delivery_key: "edit-second",
                edit_fun: fn channel, target, message_id, body, _opts ->
                  send(test_pid, {:edited, channel, target, message_id, body})
@@ -63,7 +64,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     backdate!(edited)
 
     assert {:ok, fallback} =
-             Notify.deliver(parent, :status, "still working",
+             deliver_ready(parent, :status, "still working",
                delivery_key: "edit-third",
                edit_fun: fn _, _, "status-1", _, _ -> {:error, :message_gone} end,
                outbound_fun: fn _, _, _, _ -> {:ok, %{message_id: "status-2"}} end
@@ -75,7 +76,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     backdate!(fallback)
 
     assert {:ok, resumed} =
-             Notify.deliver(parent, :status, "resumed after restart",
+             deliver_ready(parent, :status, "resumed after restart",
                delivery_key: "edit-fourth",
                edit_fun: fn _, _, message_id, _, _ ->
                  send(test_pid, {:resumed_edit_id, message_id})
@@ -97,7 +98,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     put!("channels.telegram.autonomous_notify.min_interval_seconds", 5)
 
     assert {:ok, first} =
-             Notify.deliver(parent, :status, "started",
+             deliver_ready(parent, :status, "started",
                delivery_key: "uncertain-first",
                outbound_fun: fn _, _, _, _ -> {:ok, %{message_id: "status-uncertain"}} end
              )
@@ -105,7 +106,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     backdate!(first)
 
     assert {:ok, uncertain} =
-             Notify.deliver(parent, :status, "working",
+             deliver_ready(parent, :status, "working",
                delivery_key: "uncertain-edit",
                edit_fun: fn _, _, _, _, _ -> {:error, {:uncertain, :timeout_after_write}} end,
                outbound_fun: fn _, _, _, _ -> flunk("uncertain edit must not append") end
@@ -114,7 +115,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     assert uncertain.state == "uncertain"
 
     assert {:ok, completion} =
-             Notify.deliver(parent, :completion, "done",
+             deliver_ready(parent, :completion, "done",
                delivery_key: "completion-is-new",
                edit_fun: fn _, _, _, _, _ -> flunk("completion must never edit") end,
                outbound_fun: fn _, _, _, _ -> {:ok, %{message_id: "completion-new"}} end
@@ -123,7 +124,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     assert completion.provider_message_id == "completion-new"
 
     assert {:ok, confirmation} =
-             Notify.deliver(parent, :confirmation_request, "approve confirm-1",
+             deliver_ready(parent, :confirmation_request, "approve confirm-1",
                delivery_key: "confirmation-is-new",
                edit_fun: fn _, _, _, _, _ -> flunk("confirmation must never edit") end,
                outbound_fun: fn _, _, _, _ -> {:ok, %{message_id: "confirmation-new"}} end
@@ -145,7 +146,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
 
     for {receipt, expected} <- receipts do
       assert {:ok, delivery} =
-               Notify.deliver(parent, :completion, "done",
+               deliver_ready(parent, :completion, "done",
                  delivery_key: "receipt-#{expected}",
                  outbound_fun: fn _, _, _, _ -> {:ok, receipt} end
                )
@@ -158,6 +159,15 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
     delivery
     |> NotifyDelivery.changeset(%{throttle_at: DateTime.add(DateTime.utc_now(), -10, :second)})
     |> Repo.update!()
+  end
+
+  defp deliver_ready(parent, kind, body, opts) do
+    Notify.deliver(
+      parent,
+      kind,
+      body,
+      Keyword.put_new(opts, :allbert_pack_epoch, ReadyEffectContext.context().allbert_pack_epoch)
+    )
   end
 
   defp fanout! do
@@ -189,7 +199,8 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
           origin_thread_ref_id: to_string(ref.id),
           origin_thread_ref_digest: digest,
           origin_receiver_account_ref: ref.receiver_account_ref
-        },
+        }
+        |> Map.merge(ReadyEffectContext.context()),
         ["One", "Two"]
       )
 
