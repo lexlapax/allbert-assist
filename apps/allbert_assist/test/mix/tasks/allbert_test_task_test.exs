@@ -102,6 +102,12 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
              "dialyzer"
            ]
 
+    assert {"channel_plugin_tests", _cwd, plugin_test_args} =
+             Enum.find(phases, fn {id, _cwd, _args} -> id == "channel_plugin_tests" end)
+
+    assert "../../plugins/allbert.notes_files/test" in plugin_test_args
+    assert "../../plugins/allbert.artifacts/test" in plugin_test_args
+
     refute Enum.any?(phases, fn {_id, _cwd, args} -> args == ["precommit"] end)
     assert output =~ "release static_compile started"
     assert output =~ "release dialyzer finished"
@@ -847,6 +853,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
   test "docs gate validates local Markdown links inside both archive trees" do
     root = temp_path("archive-links")
+    File.rm_rf!(root)
+    on_exit(fn -> File.rm_rf!(root) end)
+
     plans_archive = Path.join(root, "docs/plans/archives")
     general_archive = Path.join(root, "docs/archives")
     File.mkdir_p!(plans_archive)

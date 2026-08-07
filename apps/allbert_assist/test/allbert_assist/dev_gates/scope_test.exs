@@ -29,6 +29,17 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
     assert unknown["matched_rules"] == []
     assert unknown["required_gates"] == ["preflight", "release.v132"]
     assert unknown["diagnostics"] == ["unknown paths fail closed: unexpected/new-root.txt"]
+
+    artifacts =
+      ScopeSelector.classify_paths([
+        "plugins/allbert.artifacts/test/allbert_artifacts/plugin_test.exs"
+      ])
+
+    refute artifacts["aggregate_required"]
+    assert artifacts["matched_rules"] == ["artifacts_plugin"]
+    assert artifacts["owners"] == ["artifacts"]
+    assert artifacts["lanes"] == ["db_serial", "global_process_serial"]
+    assert artifacts["diagnostics"] == []
   end
 
   test "selector includes committed, staged, unstaged, rename, deletion, and untracked paths" do

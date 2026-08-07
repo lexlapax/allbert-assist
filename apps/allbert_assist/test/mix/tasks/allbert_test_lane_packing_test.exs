@@ -111,6 +111,39 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
     end
   end
 
+  test "inventory includes every first-party plugin test owner exactly once" do
+    records = AllbertTestTask.inventory_records()
+    by_path = Map.new(records, &{&1.path, &1})
+
+    assert %{
+             owner: :artifacts,
+             primary_lane: :db_serial
+           } =
+             by_path[
+               "plugins/allbert.artifacts/test/allbert_artifacts/app_panels_test.exs"
+             ]
+
+    assert %{
+             owner: :artifacts,
+             primary_lane: :db_serial
+           } =
+             by_path[
+               "plugins/allbert.artifacts/test/mix/tasks/allbert_artifacts_test.exs"
+             ]
+
+    assert %{
+             owner: :notes_files,
+             primary_lane: :pure_async
+           } =
+             by_path[
+               "plugins/allbert.notes_files/test/allbert_notes_files/intent_descriptors_test.exs"
+             ]
+
+    assert Enum.count(records, &(&1.owner == :artifacts)) == 3
+    assert Enum.count(records, &(&1.owner == :notes_files)) == 3
+    assert AllbertTestTask.lane_reconciliation_issues(records) == []
+  end
+
   test "resource classification distinguishes Report from Repo and retains audited owners" do
     records = Map.new(AllbertTestTask.inventory_records(), &{&1.path, &1.primary_lane})
 

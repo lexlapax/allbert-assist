@@ -102,6 +102,15 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       aggregate_required: false
     },
     %{
+      id: "artifacts_plugin",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["plugins/allbert.artifacts/"],
+      owners: ["artifacts"],
+      lanes: ["db_serial", "global_process_serial"],
+      aggregate_required: false
+    },
+    %{
       id: "channel_plugins",
       class: "product_subsystem",
       exact: [],

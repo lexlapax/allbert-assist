@@ -1,7 +1,5 @@
 defmodule Mix.Tasks.Allbert.ArtifactsTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :home_fs_serial
-  @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
 

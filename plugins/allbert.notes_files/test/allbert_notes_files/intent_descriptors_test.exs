@@ -1,5 +1,6 @@
 defmodule AllbertNotesFiles.IntentDescriptorsTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Intent.Descriptor
 

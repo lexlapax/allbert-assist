@@ -121,7 +121,9 @@ defmodule Mix.Tasks.Allbert.Test do
     "plugins/allbert.slack/test",
     "plugins/allbert.matrix/test",
     "plugins/allbert.whatsapp/test",
-    "plugins/allbert.signal/test"
+    "plugins/allbert.signal/test",
+    "plugins/allbert.notes_files/test",
+    "plugins/allbert.artifacts/test"
   ]
 
   @template_defaults %{
@@ -142,7 +144,8 @@ defmodule Mix.Tasks.Allbert.Test do
     {"plugins/allbert.matrix/", :matrix},
     {"plugins/allbert.whatsapp/", :whatsapp},
     {"plugins/allbert.signal/", :signal},
-    {"plugins/allbert.notes_files/", :notes_files}
+    {"plugins/allbert.notes_files/", :notes_files},
+    {"plugins/allbert.artifacts/", :artifacts}
   ]
 
   @lanes ~w[
@@ -1547,7 +1550,8 @@ defmodule Mix.Tasks.Allbert.Test do
           "../../plugins/allbert.matrix/test",
           "../../plugins/allbert.whatsapp/test",
           "../../plugins/allbert.signal/test",
-          "../../plugins/allbert.notes_files/test"
+          "../../plugins/allbert.notes_files/test",
+          "../../plugins/allbert.artifacts/test"
         ],
         env
       ),
@@ -10836,6 +10840,11 @@ defmodule Mix.Tasks.Allbert.Test do
     # bounded to the owned root) and its registries are start_supervised!
     # privates with unique names/ETS tables — no shared home state is mutated.
     "apps/allbert_assist/test/allbert_assist/registry_context_test.exs" => :pure_async,
+    # The notes-files contract suite mutates the live App/Plugin registries and
+    # restores their ordered contents. Its repository/skill reads are bounded
+    # fixtures; the singleton registry lifecycle is the binding resource.
+    "plugins/allbert.notes_files/test/allbert_notes_files/plugin_test.exs" =>
+      :global_process_serial,
     # v1.0.2 M4 split remainder: every test drops the fixture agent_runner and
     # drives the LIVE default Runtime singleton (real agent runtime + the
     # provider/tool supervision it owns) — a shared runtime resource the
@@ -10925,7 +10934,8 @@ defmodule Mix.Tasks.Allbert.Test do
               :matrix,
               :whatsapp,
               :signal,
-              :notes_files
+              :notes_files,
+              :artifacts
             ] do
     Path.join(root(), "apps/allbert_assist")
   end
