@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Security.ChannelInboundPolicyTest do
   use ExUnit.Case, async: false
-  @moduletag :app_env_serial
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Kernel.Contract.TestProviders
   alias AllbertAssist.Security.Policy
