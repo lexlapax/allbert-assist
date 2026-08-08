@@ -31,6 +31,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         # endpoint probe, and the ratified vault-tier override (S5).
         "RELEASE_NAME",
         "RELEASE_ROOT",
+        "RELEASE_VSN",
         "ALLBERT_PLUGINS_ROOT",
         "ALLBERT_HOLD_WRITER_LOCK",
         "ALLBERT_VAULT_BACKEND",

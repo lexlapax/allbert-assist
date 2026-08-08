@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
   use AllbertAssistWeb, :controller
 
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.PublicProtocol.OpenAI.FanoutWait
   alias AllbertAssist.PublicProtocol.OpenAI.Mapping
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surface.EventRecorder
@@ -292,27 +293,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
     end
   end
 
-  if Mix.env() == :test do
-    defp await_fanout(parent_id, user_id, timeout_ms) do
-      case Application.get_env(:allbert_assist_web, :openai_fanout_awaiter) do
-        awaiter when is_function(awaiter, 3) -> awaiter.(parent_id, user_id, timeout_ms)
-        _default -> Runtime.await_fanout(parent_id, user_id, timeout_ms)
-      end
-    end
+  defp await_fanout(parent_id, user_id, timeout_ms),
+    do: FanoutWait.await(parent_id, user_id, timeout_ms)
 
-    defp notify_fanout_wait(epoch, barrier_ref) do
-      case Application.get_env(:allbert_assist_web, :openai_fanout_wait_observer) do
-        observer when is_pid(observer) ->
-          send(observer, {:openai_fanout_waiting, self(), epoch, barrier_ref})
-
-        _none ->
-          :ok
-      end
-    end
-  else
-    defp await_fanout(parent_id, user_id, timeout_ms),
-      do: Runtime.await_fanout(parent_id, user_id, timeout_ms)
-
-    defp notify_fanout_wait(_epoch, _barrier_ref), do: :ok
-  end
+  defp notify_fanout_wait(epoch, barrier_ref), do: FanoutWait.notify(epoch, barrier_ref)
 end
