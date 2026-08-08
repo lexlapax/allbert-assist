@@ -5,8 +5,8 @@ defmodule AllbertAssist.Security.Decision do
 
   alias AllbertAssist.Kernel.Contract.Grants, as: CommandGrants
   alias AllbertAssist.Security.Audit
-  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Security.Policy
+  alias AllbertAssist.Security.Redactor
 
   @doc "Build a canonical decision map with compatibility fields."
   @spec build(map()) :: map()

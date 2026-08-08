@@ -25,11 +25,14 @@ defmodule AllbertAssist.Kernel.Contract.HomeRoots do
 
   @root_ids [:settings, :memory, :artifacts, :confirmations, :execution_audit]
 
+  @typedoc "A canonical Home root an owner may override."
+  @type root_id :: :settings | :memory | :artifacts | :confirmations | :execution_audit
+
   @callback override(atom()) :: Path.t() | nil
 
   @doc "The canonical root ids `Paths` may ask an owner about."
-  @spec root_ids() :: [atom()]
-  def root_ids, do: @root_ids
+  @spec root_ids() :: [root_id()]
+  def root_ids, do: Enum.sort(@root_ids)
 
   @doc """
   The owner-contributed override for one canonical root, or nil.

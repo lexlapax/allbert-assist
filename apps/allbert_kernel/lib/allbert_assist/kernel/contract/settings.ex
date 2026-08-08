@@ -21,7 +21,7 @@ defmodule AllbertAssist.Kernel.Contract.Settings do
   @callback defaults() :: map()
   @callback resolved_settings() :: {:ok, map(), map()} | {:error, term()}
   @callback get_dotted(map(), String.t()) :: term()
-  @callback secret_status(term()) :: map()
+  @callback secret_status(term()) :: atom()
   @callback version_contract_status() :: map()
 
   @doc "Read one effective settings value."
@@ -40,9 +40,15 @@ defmodule AllbertAssist.Kernel.Contract.Settings do
   @spec get_dotted(map(), String.t()) :: term()
   def get_dotted(settings, key), do: call(:get_dotted, [settings, key], nil)
 
-  @doc "Operator-facing status for one secret reference."
-  @spec secret_status(term()) :: map()
-  def secret_status(ref), do: call(:secret_status, [ref], %{error: :product_not_ready})
+  @doc """
+  Operator-facing status for one secret reference.
+
+  Settings Central answers with an atom from a closed vocabulary, so the
+  unbound value is `:missing` — the conservative member. A secret whose custody
+  cannot be reached is not one an operator should be told is configured.
+  """
+  @spec secret_status(term()) :: atom()
+  def secret_status(ref), do: call(:secret_status, [ref], :missing)
 
   @doc "Settings version-contract status for operator security status."
   @spec version_contract_status() :: map()

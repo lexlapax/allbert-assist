@@ -3,8 +3,8 @@ defmodule AllbertAssist.Security.Policy do
   Settings-backed policy lookup with v0.05 built-in safety floors.
   """
 
-  alias AllbertAssist.Maps
   alias AllbertAssist.Kernel.Contract.Settings
+  alias AllbertAssist.Maps
 
   @permission_settings %{
     memory_propose: "permissions.memory_propose",

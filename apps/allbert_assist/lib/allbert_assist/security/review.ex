@@ -4,9 +4,9 @@ defmodule AllbertAssist.Security.Review do
   """
 
   alias AllbertAssist.Kernel.Contract.Confirmations
+  alias AllbertAssist.Kernel.Contract.Settings
   alias AllbertAssist.Maps
   alias AllbertAssist.Security.Redactor
-  alias AllbertAssist.Kernel.Contract.Settings
   alias AllbertAssist.Validation
 
   @default_limit 10

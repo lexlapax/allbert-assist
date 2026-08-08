@@ -3,9 +3,9 @@ defmodule AllbertAssist.Security.Status do
   Read-only Security Central status summaries for operator surfaces.
   """
 
-  alias AllbertAssist.Security.Redactor
-  alias AllbertAssist.Security.Policy
   alias AllbertAssist.Kernel.Contract.Settings
+  alias AllbertAssist.Security.Policy
+  alias AllbertAssist.Security.Redactor
 
   @future_boundaries [
     %{name: :confirmation_queue, milestone: "v0.07", status: :implemented},

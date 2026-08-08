@@ -4,8 +4,10 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
   @moduletag :global_process_serial
 
   alias AllbertAssist.App.Registry.MetadataSnapshot, as: AppSnapshot
+  alias AllbertAssist.Kernel.Contract
   alias AllbertAssist.Pack.CompositionCoordinator
   alias AllbertAssist.Pack.Projection.Closed
+  alias AllbertAssist.Pack.Residual
   alias AllbertAssist.Plugin.Registry.MetadataSnapshot, as: PluginSnapshot
 
   defmodule BootstrapStub do
@@ -311,15 +313,15 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
     # The binder rejects an incomplete set, so a contract added to the kernel
     # without an owner supplying it would fail composition at boot. Assert the
     # pairing here rather than discovering it as a startup failure.
-    declared = AllbertAssist.Pack.Residual.kernel_contracts()
+    declared = Residual.kernel_contracts()
 
     assert Enum.map(declared, &elem(&1, 0)) |> Enum.sort() ==
-             AllbertAssist.Kernel.Contract.ids()
+             Contract.ids()
 
     for {contract, implementation} <- declared do
       assert Code.ensure_loaded?(implementation)
 
-      for {fun, arity} <- AllbertAssist.Kernel.Contract.required_callbacks(contract) do
+      for {fun, arity} <- Contract.required_callbacks(contract) do
         assert function_exported?(implementation, fun, arity),
                "#{inspect(implementation)} does not export #{fun}/#{arity} for #{contract}"
       end

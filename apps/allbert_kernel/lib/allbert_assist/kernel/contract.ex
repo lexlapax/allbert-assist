@@ -94,11 +94,22 @@ defmodule AllbertAssist.Kernel.Contract do
   @contract_ids @contracts |> Map.keys() |> Enum.sort()
 
   @typedoc "A member of the closed contract set."
-  @type id :: atom()
+  @type id ::
+          :actions_overlay
+          | :confirmations
+          | :grants
+          | :home_roots
+          | :membership
+          | :release_availability
+          | :resource_refs
+          | :response_values
+          | :settings
+          | :signals
+          | :skills
 
   @doc "Every contract id in the closed set, sorted."
   @spec ids() :: [id()]
-  def ids, do: @contract_ids
+  def ids, do: @contracts |> Map.keys() |> Enum.sort()
 
   @doc "The callbacks a provider for `id` must export."
   @spec required_callbacks(id()) :: keyword(arity()) | nil
@@ -238,11 +249,10 @@ defmodule AllbertAssist.Kernel.Contract do
   end
 
   defp validate_coverage(indexed) do
-    declared = indexed |> Map.keys() |> MapSet.new()
-    required = MapSet.new(@contract_ids)
+    declared = Map.keys(indexed)
 
-    missing = required |> MapSet.difference(declared) |> Enum.sort()
-    unknown = declared |> MapSet.difference(required) |> Enum.sort()
+    missing = Enum.sort(@contract_ids -- declared)
+    unknown = Enum.sort(declared -- @contract_ids)
 
     cond do
       unknown != [] -> {:error, {:unknown_contracts, unknown}}

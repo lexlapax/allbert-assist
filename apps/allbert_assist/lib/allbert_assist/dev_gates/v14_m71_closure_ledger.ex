@@ -132,12 +132,19 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   @spec roster() :: [{String.t(), atom()}]
   def roster, do: @roster |> Enum.sort_by(&elem(&1, 0))
 
+  @typedoc "A library module a relocation target is admitted to reference."
+  @type admitted_library ::
+          Exqlite.Sqlite3 | Jason | Jido.Action | Jido.Action.Schema | Jido.Signal
+
+  @typedoc "An OTP application the relocated kernel will declare."
+  @type admitted_application :: :exqlite | :jason | :jido_action | :jido_signal
+
   @doc "The external libraries the relocated kernel is admitted to depend on."
-  @spec admitted_libraries() :: %{module() => atom()}
-  def admitted_libraries, do: @admitted_libraries
+  @spec admitted_libraries() :: %{admitted_library() => admitted_application()}
+  def admitted_libraries, do: Map.new(@admitted_libraries)
 
   @doc "The OTP applications `apps/allbert_kernel/mix.exs` must declare at M8."
-  @spec admitted_applications() :: [atom()]
+  @spec admitted_applications() :: [admitted_application()]
   def admitted_applications,
     do: @admitted_libraries |> Map.values() |> Enum.uniq() |> Enum.sort()
 
@@ -147,50 +154,50 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   An empty list is the M7.1 acceptance condition: the future kernel closes over
   its own roster, `allbert_kernel`, admitted libraries, and Elixir/OTP.
   """
-  @spec findings() :: {:ok, [finding()]} | {:error, term()}
+  @spec findings() :: {:ok, [finding()]}
   def findings do
-    with {:ok, kernel_modules} <- kernel_modules(),
-         {:ok, roster_modules} <- roster_modules() do
-      allowed = MapSet.union(kernel_modules, roster_modules)
+    allowed = MapSet.union(kernel_modules(), roster_modules())
 
-      findings =
-        Enum.flat_map(roster(), fn {path, concern} ->
-          path
-          |> references()
-          |> Enum.reject(&(MapSet.member?(allowed, &1) or admitted?(&1)))
-          |> Enum.map(&%{path: path, concern: concern, module: &1, reason: classify_finding(&1)})
-        end)
+    findings =
+      Enum.flat_map(roster(), fn {path, concern} ->
+        path
+        |> references()
+        |> Enum.reject(&(MapSet.member?(allowed, &1) or admitted?(&1)))
+        |> Enum.map(&%{path: path, concern: concern, module: &1, reason: classify_finding(&1)})
+      end)
 
-      {:ok, Enum.sort_by(findings, &{&1.path, Atom.to_string(&1.module)})}
-    end
+    {:ok, Enum.sort_by(findings, &{&1.path, Atom.to_string(&1.module)})}
   end
 
   @doc "A stable ledger record for evidence, independent of source line numbers."
-  @spec ledger() :: {:ok, map()} | {:error, term()}
+  @spec ledger() :: {:ok, map()}
   def ledger do
-    with {:ok, findings} <- findings() do
-      {:ok,
-       %{
-         "schema_version" => @schema_version,
-         "roster_size" => map_size(@roster),
-         "concerns" =>
-           @roster
-           |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
-           |> Map.new(fn {concern, paths} ->
-             {Atom.to_string(concern), Enum.sort(paths)}
-           end),
-         "admitted_applications" => Enum.map(admitted_applications(), &Atom.to_string/1),
-         "findings" =>
-           Enum.map(findings, fn finding ->
-             %{
-               "path" => finding.path,
-               "concern" => Atom.to_string(finding.concern),
-               "module" => inspect(finding.module),
-               "reason" => Atom.to_string(finding.reason)
-             }
-           end)
-       }}
-    end
+    {:ok, findings} = findings()
+
+    record = [
+      {"schema_version", @schema_version},
+      {"roster_size", map_size(@roster)},
+      {"concerns", concern_index()},
+      {"admitted_applications", Enum.map(admitted_applications(), &Atom.to_string/1)},
+      {"findings", Enum.map(findings, &finding_row/1)}
+    ]
+
+    {:ok, Map.new(record)}
+  end
+
+  defp concern_index do
+    @roster
+    |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
+    |> Map.new(fn {concern, paths} -> {Atom.to_string(concern), Enum.sort(paths)} end)
+  end
+
+  defp finding_row(finding) do
+    Map.new([
+      {"path", finding.path},
+      {"concern", Atom.to_string(finding.concern)},
+      {"module", inspect(finding.module)},
+      {"reason", Atom.to_string(finding.reason)}
+    ])
   end
 
   @doc "Every module a relocation target references, with aliases resolved."
@@ -220,7 +227,6 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     |> Path.wildcard()
     |> Enum.flat_map(&(&1 |> quoted_absolute!() |> defined_modules()))
     |> MapSet.new()
-    |> then(&{:ok, &1})
   end
 
   defp roster_modules do
@@ -228,7 +234,6 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     |> Map.keys()
     |> Enum.flat_map(&(&1 |> quoted!() |> defined_modules()))
     |> MapSet.new()
-    |> then(&{:ok, &1})
   end
 
   defp quoted!(relative_path), do: quoted_absolute!(Path.join(@repo_root, relative_path))
@@ -313,20 +318,12 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   defp put_aliases(table, _args), do: table
 
   defp alias_binding(parts, rest) do
-    case Enum.find_value(rest, fn
-           opts when is_list(opts) ->
-             case Keyword.get(opts, :as) do
-               {:__aliases__, _meta, [binding]} when is_atom(binding) -> binding
-               _other -> nil
-             end
-
-           _other ->
-             nil
-         end) do
-      nil -> List.last(parts)
-      binding -> binding
-    end
+    Enum.find_value(rest, List.last(parts), &as_binding/1)
   end
+
+  defp as_binding(opts) when is_list(opts), do: as_binding(Keyword.get(opts, :as))
+  defp as_binding({:__aliases__, _meta, [binding]}) when is_atom(binding), do: binding
+  defp as_binding(_other), do: nil
 
   defp resolve([head | tail], table) do
     case Map.fetch(table, head) do
