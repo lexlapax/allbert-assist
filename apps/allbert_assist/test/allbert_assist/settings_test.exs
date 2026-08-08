@@ -2,17 +2,15 @@ defmodule AllbertAssist.SettingsTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Marketplace.SettingsFragment, as: MarketplaceSettingsFragment
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures
   alias AllbertResearch.Settings.Fragment, as: ResearchSettingsFragment
 
   @env_vars [
@@ -67,7 +65,6 @@ defmodule AllbertAssist.SettingsTest do
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->
-      ShippedRegistries.restore!()
       File.rm_rf!(home)
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
@@ -2017,10 +2014,10 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "plugin-contributed settings schema participates in Settings Central" do
-    PluginRegistry.clear()
+    registry_context = RegistryIsolationFixtures.start_isolated_registries(:plugin_settings)
 
-    assert {:ok, "example.settings"} =
-             PluginRegistry.register_entry(%PluginEntry{
+    assert "example.settings" ==
+             RegistryIsolationFixtures.register_plugin!(registry_context, %PluginEntry{
                plugin_id: "example.settings",
                display_name: "Example Settings",
                version: "0.1.0",
@@ -2046,6 +2043,8 @@ defmodule AllbertAssist.SettingsTest do
                  }
                ]
              })
+
+    use_registry_context!(registry_context)
 
     assert {:ok, false} = Settings.get("plugins.example.settings.enabled")
     assert {:ok, "safe"} = Settings.get("plugins.example.settings.mode")
@@ -2077,10 +2076,15 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "trusted source-tree channel plugins may own their channel settings subtree" do
-    PluginRegistry.clear()
+    registry_context = RegistryIsolationFixtures.start_isolated_registries(:channel_settings)
 
-    assert {:ok, "allbert.discord"} =
-             PluginRegistry.register_entry(channel_settings_plugin("allbert.discord", "discord"))
+    assert "allbert.discord" ==
+             RegistryIsolationFixtures.register_plugin!(
+               registry_context,
+               channel_settings_plugin("allbert.discord", "discord")
+             )
+
+    use_registry_context!(registry_context)
 
     assert {:ok, false} = Settings.get("channels.discord.enabled")
     assert {:ok, "[REDACTED]"} = Settings.get("channels.discord.bot_token_ref")
@@ -2111,10 +2115,12 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "channel plugin settings reject cross-provider and home namespace claims" do
-    PluginRegistry.clear()
+    cross_provider_context =
+      RegistryIsolationFixtures.start_isolated_registries(:cross_provider_settings)
 
-    assert {:ok, "allbert.slack"} =
-             PluginRegistry.register_entry(
+    assert "allbert.slack" ==
+             RegistryIsolationFixtures.register_plugin!(
+               cross_provider_context,
                channel_settings_plugin("allbert.slack", "slack",
                  settings_schema: [
                    %{
@@ -2128,6 +2134,8 @@ defmodule AllbertAssist.SettingsTest do
                )
              )
 
+    use_registry_context!(cross_provider_context)
+
     refute Settings.safe_write_key?("channels.discord.enabled")
 
     assert {:error, {:unknown_setting, "channels.discord.enabled"}} =
@@ -2137,15 +2145,18 @@ defmodule AllbertAssist.SettingsTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    PluginRegistry.clear()
+    home_context = RegistryIsolationFixtures.start_isolated_registries(:home_channel_settings)
 
-    assert {:ok, "home.discord"} =
-             PluginRegistry.register_entry(
+    assert "home.discord" ==
+             RegistryIsolationFixtures.register_plugin!(
+               home_context,
                channel_settings_plugin("home.discord", "discord",
                  source: :home,
                  trust_status: :pending
                )
              )
+
+    use_registry_context!(home_context)
 
     refute Settings.safe_write_key?("channels.discord.enabled")
 
@@ -2158,9 +2169,6 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "browser plugin settings schema resolves defaults and invariants" do
-    PluginRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-
     assert {:ok, false} = Settings.get("browser.enabled")
     assert {:ok, "playwright_chromium"} = Settings.get("browser.driver.kind")
     assert {:ok, nil} = Settings.get("browser.driver.host_resolver_rules")
@@ -2232,9 +2240,6 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "research plugin settings schema resolves defaults and invariants" do
-    PluginRegistry.clear()
-    assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
-
     assert AllbertResearch.Plugin.settings_schema() == ResearchSettingsFragment.schema()
 
     assert {:ok, false} = Settings.get("research.enabled")
@@ -2301,7 +2306,12 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "app-contributed settings schema participates in Settings Central" do
-    assert {:ok, :settings_fixture_app} = AppRegistry.register(AppSettingsFixture)
+    registry_context = RegistryIsolationFixtures.start_isolated_registries(:app_settings)
+
+    assert :settings_fixture_app ==
+             RegistryIsolationFixtures.register_app!(registry_context, AppSettingsFixture)
+
+    use_registry_context!(registry_context)
 
     assert {:ok, false} = Settings.get("apps.settings_fixture_app.enabled")
     assert "apps.settings_fixture_app.enabled" in Settings.safe_write_keys()
@@ -3141,6 +3151,18 @@ defmodule AllbertAssist.SettingsTest do
     System.put_env("ALLBERT_SETTINGS_ROOT", settings_root)
 
     assert Settings.root() == settings_root
+  end
+
+  defp use_registry_context!(registry_context) do
+    composition = %{
+      fragments: Fragments.registered_fragments(registry_context),
+      schema: Fragments.schema(registry_context),
+      defaults: Fragments.defaults(registry_context),
+      safe_write_keys: Fragments.safe_write_keys(registry_context)
+    }
+
+    Process.put({Fragments, :pinned_composition}, composition)
+    :ok
   end
 
   defp temp_path(name) do

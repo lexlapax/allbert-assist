@@ -38,12 +38,15 @@ defmodule AllbertAssist.Actions.Resources.RevokeResourceGrant do
   end
 
   defp revoke(id, params, context, permission_decision) do
-    attrs = %{
-      reason: Map.get(params, :reason),
-      actor: actor(context),
-      channel: channel(context),
-      surface: surface(context)
-    }
+    attrs =
+      context
+      |> Map.take([:allbert_pack_epoch])
+      |> Map.merge(%{
+        reason: Map.get(params, :reason),
+        actor: actor(context),
+        channel: channel(context),
+        surface: surface(context)
+      })
 
     case Grants.revoke(id, attrs) do
       {:ok, grant} ->

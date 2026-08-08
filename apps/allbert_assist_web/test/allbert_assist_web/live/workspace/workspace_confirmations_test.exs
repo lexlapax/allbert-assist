@@ -6,22 +6,32 @@ defmodule AllbertAssistWeb.WorkspaceConfirmationsTest do
 
   alias AllbertAssist.{Confirmations, Runtime}
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @runtime_async_timeout 60_000
 
   test "workspace Settings Central approves, denies, and revokes through registered actions",
        %{conn: conn} do
     assert {:ok, approve_candidate} =
-             Confirmations.create(confirmation_attrs("conf_workspace_settings_approve"))
+             Confirmations.create(
+               confirmation_attrs("conf_workspace_settings_approve"),
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, deny_candidate} =
-             Confirmations.create(confirmation_attrs("conf_workspace_settings_deny"))
+             Confirmations.create(
+               confirmation_attrs("conf_workspace_settings_deny"),
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, grant} =
-             Grants.remember(external_ref("https://example.com/settings-central"),
-               id: "grant_workspace_settings",
-               reason: "workspace settings test",
-               audit?: false
+             Grants.remember(
+               external_ref("https://example.com/settings-central"),
+               ReadyEffectContext.attach(%{
+                 id: "grant_workspace_settings",
+                 reason: "workspace settings test",
+                 audit?: false
+               })
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -76,7 +86,11 @@ defmodule AllbertAssistWeb.WorkspaceConfirmationsTest do
   # router as free text.
   test "typed confirmation callbacks resolve in the composer without an intent turn",
        %{conn: conn} do
-    assert {:ok, candidate} = Confirmations.create(confirmation_attrs("conf_typed_web_approve"))
+    assert {:ok, candidate} =
+             Confirmations.create(
+               confirmation_attrs("conf_typed_web_approve"),
+               ReadyEffectContext.context()
+             )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -106,7 +120,7 @@ defmodule AllbertAssistWeb.WorkspaceConfirmationsTest do
        %{conn: conn} do
     attrs = confirmation_attrs("conf_typed_wrong_channel")
     attrs = %{attrs | origin: %{actor: "local", channel: :tui, surface: "tui_prompt"}}
-    assert {:ok, candidate} = Confirmations.create(attrs)
+    assert {:ok, candidate} = Confirmations.create(attrs, ReadyEffectContext.context())
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -138,12 +152,18 @@ defmodule AllbertAssistWeb.WorkspaceConfirmationsTest do
       | origin: Map.merge(attrs.origin, %{user_id: "local", thread_id: thread_id})
     }
 
-    assert {:ok, candidate} = Confirmations.create(attrs)
+    assert {:ok, candidate} = Confirmations.create(attrs, ReadyEffectContext.context())
 
     html = render_until(view, "confirmation-pending-#{candidate["id"]}")
     assert html =~ candidate["id"]
 
-    assert {:ok, _resolved} = Confirmations.resolve(candidate["id"], :denied)
+    assert {:ok, _resolved} =
+             Confirmations.resolve(
+               candidate["id"],
+               :denied,
+               %{},
+               ReadyEffectContext.context()
+             )
 
     render_until_missing(view, "#confirmation-pending-#{candidate["id"]}")
     assert has_element?(view, "#no-pending-confirmations")

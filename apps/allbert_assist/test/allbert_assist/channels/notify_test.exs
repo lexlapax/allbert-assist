@@ -22,7 +22,6 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias AllbertAssist.Signals
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
   alias Jido.Signal.Bus
 
@@ -108,7 +107,6 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    ShippedRegistries.restore!()
     Fragments.clear_cache()
     assert Settings.root() == Path.join(root, "settings")
 
@@ -116,7 +114,6 @@ defmodule AllbertAssist.Channels.NotifyTest do
       restore_env(Paths, original_paths)
       restore_env(Notify, original_notify)
       restore_env(Settings, original_settings)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

@@ -4,18 +4,15 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Agents.IntentAgent
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Intent.Router.FakeRouter
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
@@ -23,26 +20,6 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
-
-    # v1.0.2 M1 residue (c): the action-surface pin below reads the GLOBAL
-    # plugin registry (`Registry.agent_modules/0` folds in plugin actions), so
-    # solo-vs-batch registry contents flipped the assertion. Seed a
-    # deterministic baseline matching the core+browser+notes+stocksage combo
-    # (mirrors intent/engine_test.exs); converge to the shipped baseline after.
-    original_diagnostics = PluginRegistry.diagnostics()
-
-    PluginRegistry.clear()
-    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
-    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-
-    on_exit(fn ->
-      ShippedRegistries.restore!()
-
-      Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
-        PluginRegistry.put_diagnostics(plugin_id, diagnostics)
-      end)
-    end)
 
     root =
       Path.join(
@@ -1082,27 +1059,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
-  defp with_stocksage_registered(fun) do
-    original_plugins = PluginRegistry.registered_plugins()
-    original_diagnostics = PluginRegistry.diagnostics()
-    app_registered? = AppRegistry.known_app_id?(:stocksage)
-
-    PluginRegistry.clear()
-    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
-    unless app_registered?, do: assert({:ok, :stocksage} = AppRegistry.register(StockSage.App))
-
-    try do
-      fun.()
-    after
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-      unless app_registered?, do: AppRegistry.unregister(:stocksage)
-
-      Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
-        PluginRegistry.put_diagnostics(plugin_id, diagnostics)
-      end)
-    end
-  end
+  defp with_stocksage_registered(fun), do: fun.()
 
   defp copy_workflow_fixture!(id, root) do
     workflows = Path.join(root, "workflows")

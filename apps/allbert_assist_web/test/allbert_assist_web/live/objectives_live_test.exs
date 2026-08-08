@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Surface.Catalog
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "renders a populated objectives index through the catalog renderer", %{conn: conn} do
     assert {:ok, objective} =
@@ -108,7 +109,11 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
   test "refreshes a joined fan-out from objective signals without a page reload", %{conn: conn} do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{user_id: "local", title: "Live index fan-out", objective: "Refresh the index"},
+               ReadyEffectContext.attach(%{
+                 user_id: "local",
+                 title: "Live index fan-out",
+                 objective: "Refresh the index"
+               }),
                ["one", "two"]
              )
 

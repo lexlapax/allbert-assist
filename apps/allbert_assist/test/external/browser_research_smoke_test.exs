@@ -9,9 +9,7 @@ defmodule AllbertAssist.External.BrowserResearchSmokeTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @host "allbert-browser-smoke.test"
 
@@ -33,9 +31,6 @@ defmodule AllbertAssist.External.BrowserResearchSmokeTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Playwright)
-
-    PluginRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
 
     ensure_browser_supervisor()
     close_all_sessions()
@@ -59,7 +54,6 @@ defmodule AllbertAssist.External.BrowserResearchSmokeTest do
     on_exit(fn ->
       close_all_sessions()
       stop_fixture_server(server)
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)

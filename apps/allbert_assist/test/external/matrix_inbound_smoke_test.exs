@@ -10,14 +10,11 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
 
   alias AllbertAssist.Channels.Matrix.Adapter, as: MatrixAdapter
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.Matrix, as: MatrixPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Ecto.Adapters.SQL.Sandbox
 
@@ -48,8 +45,6 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
-    PluginRegistry.clear()
-    assert {:ok, _} = PluginRegistry.register_module(MatrixPlugin)
     Fragments.clear_cache()
 
     Mix.Task.reenable("ecto.migrate.allbert")
@@ -65,7 +60,6 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
     end)
 

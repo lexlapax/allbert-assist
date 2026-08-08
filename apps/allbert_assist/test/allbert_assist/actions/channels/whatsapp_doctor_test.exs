@@ -4,12 +4,9 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.WhatsApp.Doctor
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.WhatsApp, as: WhatsAppPlugin
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -31,8 +28,6 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
       plug: {Req.Test, __MODULE__}
     )
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.whatsapp"} = PluginRegistry.register_module(WhatsAppPlugin)
     Fragments.clear_cache()
     configure_whatsapp!()
 
@@ -40,7 +35,6 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:whatsapp_doctor_client_opts, original_doctor_opts)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

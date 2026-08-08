@@ -13,14 +13,12 @@ defmodule AllbertAssist.Channels.DiscordTest do
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertDiscord.Settings.Fragment, as: DiscordSettingsFragment
 
@@ -107,10 +105,6 @@ defmodule AllbertAssist.Channels.DiscordTest do
     readiness_context = ReadyEffectContext.context()
     Process.put(:discord_readiness_server, ReadyEffectContext.server(readiness_context))
 
-    PluginRegistry.clear()
-
-    assert {:ok, "allbert.discord"} = PluginRegistry.register_module(DiscordPlugin)
-
     Fragments.clear_cache()
 
     parent = self()
@@ -131,7 +125,6 @@ defmodule AllbertAssist.Channels.DiscordTest do
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       restore_app_env(:discord_client_stub_result, original_stub_result)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       Process.delete(:discord_readiness_server)
       File.rm_rf!(root)

@@ -12,7 +12,6 @@ defmodule AllbertAssist.Channels.SlackTest do
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
@@ -20,7 +19,6 @@ defmodule AllbertAssist.Channels.SlackTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertSlack.Settings.Fragment, as: SlackSettingsFragment
 
@@ -57,8 +55,6 @@ defmodule AllbertAssist.Channels.SlackTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.slack"} = PluginRegistry.register_module(SlackPlugin)
     Fragments.clear_cache()
 
     parent = self()
@@ -79,7 +75,6 @@ defmodule AllbertAssist.Channels.SlackTest do
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       restore_app_env(:slack_client_stub_result, original_stub_result)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

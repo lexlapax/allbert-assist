@@ -6,12 +6,9 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
   alias AllbertAssist.Actions.Channels.MatrixDoctor
   alias AllbertAssist.Channels.Matrix.Doctor
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.Matrix, as: MatrixPlugin
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -30,8 +27,6 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, :matrix_doctor_client_opts, plug: {Req.Test, __MODULE__})
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.matrix"} = PluginRegistry.register_module(MatrixPlugin)
     Fragments.clear_cache()
 
     configure_matrix!()
@@ -40,7 +35,6 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:matrix_doctor_client_opts, original_matrix_doctor_opts)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

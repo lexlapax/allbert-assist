@@ -8,13 +8,10 @@ defmodule AllbertAssist.External.WhatsAppSmokeTest do
 
   alias AllbertAssist.Channels.WhatsApp.Client
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.WhatsApp, as: WhatsAppPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
 
   @required [
@@ -40,8 +37,6 @@ defmodule AllbertAssist.External.WhatsAppSmokeTest do
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
-    PluginRegistry.clear()
-    assert {:ok, _} = PluginRegistry.register_module(WhatsAppPlugin)
     Fragments.clear_cache()
 
     Mix.Task.reenable("ecto.migrate.allbert")
@@ -55,7 +50,6 @@ defmodule AllbertAssist.External.WhatsAppSmokeTest do
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
     end)
 

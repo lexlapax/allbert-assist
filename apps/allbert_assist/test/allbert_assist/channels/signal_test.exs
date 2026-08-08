@@ -13,14 +13,12 @@ defmodule AllbertAssist.Channels.SignalTest do
   alias AllbertAssist.Channels.Signal.Supervisor, as: SignalSupervisor
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.Signal, as: SignalPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertSignal.Settings.Fragment, as: SignalSettingsFragment
 
@@ -45,8 +43,6 @@ defmodule AllbertAssist.Channels.SignalTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.signal"} = PluginRegistry.register_module(SignalPlugin)
     Fragments.clear_cache()
 
     parent = self()
@@ -72,7 +68,6 @@ defmodule AllbertAssist.Channels.SignalTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

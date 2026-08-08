@@ -12,11 +12,9 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Plug.Conn.Query
 
@@ -45,14 +43,9 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
     File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
-    PluginRegistry.clear()
-
-    assert {:ok, "allbert.telegram"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
 
     on_exit(fn ->
       File.rm_rf!(home)
-      ShippedRegistries.restore!()
       restore_env(original_env)
       restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)

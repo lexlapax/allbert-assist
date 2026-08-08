@@ -446,16 +446,20 @@ defmodule AllbertAssist.InstallPathTest do
     assert version_output =~ "argv=version"
   end
 
-  test "the smoke harness executes the shipped allbert and boots apps for the plugin probe" do
+  test "the smoke harness executes the shipped allbert and opens readiness for the plugin probe" do
     smoke = File.read!(@smoke)
     # v0.62 M8.12: the smoke exercises the operator-style symlink
     # (<work>/bin/allbert -> <release>/bin/allbert), not the release bin directly,
     # so a symlink-resolution regression is caught in CI.
     assert smoke =~ ~s(ln -sf "$REL_ROOT/bin/allbert" "$WORK/bin/allbert")
     assert smoke =~ ~s(BIN="$WORK/bin/allbert")
-    # The plugin-count eval starts the OTP apps (bare `eval` only loads them, so
-    # the App.Registry GenServer would be down and the count would be 0).
-    assert smoke =~ "Application.ensure_all_started(:allbert_assist)"
+    # Runtime-bearing eval rows enter through the composition-owned bootstrap;
+    # starting the residual app directly would bypass the M1.a3 readiness DAG.
+    assert smoke =~
+             "{:ok, _epoch} = AllbertAssist.Pack.ProductBootstrap.ensure_ready([]); " <>
+               "IO.puts(length(AllbertAssist.App.Registry.registered_apps()))"
+
+    refute smoke =~ "Application.ensure_all_started(:allbert_assist)"
     # Proves attach and health against the live daemon, not just boot.
     assert smoke =~ "/health" and smoke =~ "attach"
 

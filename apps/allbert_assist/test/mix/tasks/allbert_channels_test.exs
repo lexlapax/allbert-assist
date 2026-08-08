@@ -10,20 +10,10 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Pack.EffectGuard
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
-  alias AllbertAssist.Plugins.Email, as: EmailPlugin
-  alias AllbertAssist.Plugins.Matrix, as: MatrixPlugin
-  alias AllbertAssist.Plugins.Signal, as: SignalPlugin
-  alias AllbertAssist.Plugins.Slack, as: SlackPlugin
-  alias AllbertAssist.Plugins.Telegram, as: TelegramPlugin
-  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
-  alias AllbertAssist.Plugins.WhatsApp, as: WhatsAppPlugin
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
 
@@ -110,7 +100,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Application.put_env(:allbert_assist, :whatsapp_doctor_client_opts, mode: :stub)
     Application.put_env(:allbert_assist, :signal_doctor_client_opts, mode: :stub)
     Application.delete_env(:allbert_assist, Trace)
-    register_channel_plugins()
+    Fragments.clear_cache()
 
     parent = self()
 
@@ -124,7 +114,6 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     on_exit(fn ->
       restore_env(Memory, original_memory_config)
       restore_env(Paths, original_paths_config)
-      ShippedRegistries.restore!()
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
@@ -139,19 +128,6 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     end)
 
     :ok
-  end
-
-  defp register_channel_plugins do
-    PluginRegistry.clear()
-    PluginRegistry.register_module(TelegramPlugin)
-    PluginRegistry.register_module(EmailPlugin)
-    PluginRegistry.register_module(DiscordPlugin)
-    PluginRegistry.register_module(SlackPlugin)
-    PluginRegistry.register_module(MatrixPlugin)
-    PluginRegistry.register_module(WhatsAppPlugin)
-    PluginRegistry.register_module(SignalPlugin)
-    PluginRegistry.register_module(TUIPlugin)
-    Fragments.clear_cache()
   end
 
   test "lists and shows channel summaries through registered actions" do

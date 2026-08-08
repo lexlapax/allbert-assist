@@ -12,6 +12,7 @@ defmodule AllbertAssistWeb.JobsLiveTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface.Catalog
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   setup do
@@ -205,20 +206,23 @@ defmodule AllbertAssistWeb.JobsLiveTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp create_pending_confirmation(id) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{
-        actor: "local",
-        channel: :job,
-        surface: "/jobs"
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{
+          actor: "local",
+          channel: :job,
+          surface: "/jobs"
+        },
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"},
+        resume_params_ref: %{url: "https://example.com"}
       },
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"},
-      resume_params_ref: %{url: "https://example.com"}
-    })
+      ReadyEffectContext.context()
+    )
   end
 
   defp assert_catalog_components_known!(html) do

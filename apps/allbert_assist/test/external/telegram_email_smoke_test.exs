@@ -12,12 +12,10 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
 
   @telegram_required ["ALLBERT_TELEGRAM_BOT_TOKEN", "ALLBERT_TELEGRAM_CHAT_ID"]
@@ -55,14 +53,6 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
-    PluginRegistry.clear()
-
-    if "telegram" in providers,
-      do: {:ok, _} = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-
-    if "email" in providers,
-      do: {:ok, _} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-
     Fragments.clear_cache()
 
     Mix.Task.reenable("ecto.migrate.allbert")
@@ -85,7 +75,6 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
     end)
 

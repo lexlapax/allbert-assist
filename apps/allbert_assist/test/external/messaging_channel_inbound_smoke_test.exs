@@ -16,15 +16,11 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   alias AllbertAssist.Channels.Slack.Adapter, as: SlackAdapter
   alias AllbertAssist.Channels.Slack.Client, as: SlackClient
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
-  alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Ecto.Adapters.SQL.Sandbox
 
@@ -74,9 +70,6 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
-    PluginRegistry.clear()
-    if "discord" in providers, do: {:ok, _} = PluginRegistry.register_module(DiscordPlugin)
-    if "slack" in providers, do: {:ok, _} = PluginRegistry.register_module(SlackPlugin)
     Fragments.clear_cache()
 
     # NOTE: the agent_runner that notifies the waiter is installed in `setup`
@@ -111,7 +104,6 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
     end)
 

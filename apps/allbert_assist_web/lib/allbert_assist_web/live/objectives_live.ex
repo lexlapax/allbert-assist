@@ -35,11 +35,11 @@ defmodule AllbertAssistWeb.ObjectivesLive do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(@user_id))
     end
 
+    socket = assign(socket, :user_id, @user_id)
     objectives = list_objectives(socket)
 
     {:ok,
      assign(socket,
-       user_id: @user_id,
        page_title: "Objectives",
        objectives: objectives,
        objectives_surface: objectives_surface(objectives)

@@ -6,7 +6,6 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.DirectImport
   alias AllbertAssist.Skills.Online.RegistryClient
@@ -48,8 +47,6 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     Application.put_env(:allbert_assist, DirectImport,
       req_options: [plug: {Req.Test, __MODULE__}]
     )
-
-    PluginRegistry.register_module(StockSage.Plugin)
 
     on_exit(fn ->
       restore_env(RegistryClient, original_client_config)

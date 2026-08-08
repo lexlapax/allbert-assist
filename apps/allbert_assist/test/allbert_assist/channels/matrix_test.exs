@@ -15,14 +15,12 @@ defmodule AllbertAssist.Channels.MatrixTest do
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.Matrix, as: MatrixPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertMatrix.Settings.Fragment, as: MatrixSettingsFragment
 
@@ -45,8 +43,6 @@ defmodule AllbertAssist.Channels.MatrixTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.matrix"} = PluginRegistry.register_module(MatrixPlugin)
     Fragments.clear_cache()
 
     parent = self()
@@ -66,7 +62,6 @@ defmodule AllbertAssist.Channels.MatrixTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

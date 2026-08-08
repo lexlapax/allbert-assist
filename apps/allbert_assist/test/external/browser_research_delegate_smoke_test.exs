@@ -10,14 +10,11 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Repo
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
   alias Mix.Tasks.Allbert.Research, as: ResearchTask
 
@@ -44,14 +41,6 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Playwright)
-
-    PluginRegistry.clear()
-    AppRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
-    assert {:ok, :allbert} = AppRegistry.register(AllbertAssist.App.CoreApp)
-    assert {:ok, :allbert_browser} = AppRegistry.register(AllbertBrowser.App)
-    assert {:ok, :allbert_research} = AppRegistry.register(AllbertResearch.App)
 
     ensure_browser_supervisor()
     close_all_sessions()
@@ -83,7 +72,6 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
       close_all_sessions()
       stop_fixture_server(server)
       Mix.Task.reenable("allbert.research")
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
