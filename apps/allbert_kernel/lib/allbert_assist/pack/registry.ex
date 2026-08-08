@@ -33,8 +33,8 @@ defmodule AllbertAssist.Pack.Registry do
   def start_link(opts \\ []) do
     with :ok <- validate_start_options(opts) do
       case Keyword.get(opts, :publication, :shadow) do
-        :shadow ->
-          start_shadow_registry(opts)
+        publication when publication in [:shadow, :authoritative] ->
+          start_registry(opts)
 
         publication ->
           {:error, {:unsupported_publication, publication}}
@@ -42,7 +42,7 @@ defmodule AllbertAssist.Pack.Registry do
     end
   end
 
-  defp start_shadow_registry(opts) do
+  defp start_registry(opts) do
     case Keyword.get(opts, :name, __MODULE__) do
       nil -> GenServer.start_link(__MODULE__, opts)
       name -> GenServer.start_link(__MODULE__, opts, name: name)

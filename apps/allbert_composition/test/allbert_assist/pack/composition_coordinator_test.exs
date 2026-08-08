@@ -132,15 +132,13 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
 
     def put(candidate), do: :persistent_term.put(@key, candidate)
     def clear, do: :persistent_term.erase(@key)
-    def build(_closed, _apps, _plugins), do: {:ok, :persistent_term.get(@key)}
-  end
 
-  defmodule LegacyAdapterStub do
-    @key {__MODULE__, :candidate}
-
-    def put(candidate), do: :persistent_term.put(@key, candidate)
-    def clear, do: :persistent_term.erase(@key)
-    def capture(pack_projection: %Closed{}), do: {:ok, :persistent_term.get(@key)}
+    def build(_closed, _apps, _plugins) do
+      case :persistent_term.get(@key) do
+        {:error, _reason} = error -> error
+        candidate -> {:ok, candidate}
+      end
+    end
   end
 
   defmodule PackRegistryStub do
@@ -184,7 +182,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
     plugin_ref = make_ref()
 
     CandidateBuilderStub.put(:candidate)
-    LegacyAdapterStub.put(:candidate)
     PackRegistryStub.put_parent(self())
     ReadinessStub.put(%{parent: self(), barrier: barrier})
 
@@ -213,7 +210,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
 
     on_exit(fn ->
       CandidateBuilderStub.clear()
-      LegacyAdapterStub.clear()
       PackRegistryStub.clear()
       ReadinessStub.clear()
       if Process.alive?(barrier), do: Process.exit(barrier, :kill)
@@ -234,7 +230,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
     }
   end
 
-  test "opens one generation-bound candidate after independent parity", context do
+  test "M1.b opens the generation-bound builder candidate", context do
     %{app_ref: app_ref, barrier: barrier, plugin_ref: plugin_ref} = context
     coordinator = start_coordinator()
 
@@ -265,12 +261,12 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
     assert projection_sha == String.duplicate("a", 64)
   end
 
-  test "candidate mismatch fails closed before finalization or epoch open" do
-    LegacyAdapterStub.put(:different_candidate)
+  test "builder rejection fails closed before finalization or epoch open" do
+    CandidateBuilderStub.put({:error, :candidate_rejected})
     {coordinator, ref} = monitored_coordinator()
 
     assert_receive {:DOWN, ^ref, :process, ^coordinator,
-                    {:composition_failed, :candidate_parity_mismatch}}
+                    {:composition_failed, :candidate_rejected}}
 
     refute_receive {:finalize, _, _}
     refute_receive {:open, _, _, _}
@@ -292,6 +288,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
 
     assert_receive {:app_bind, ^app_ref, 11, ^barrier}
     assert_receive {:DOWN, ^ref, :process, ^coordinator, {:composition_failed, :stale_epoch}}
+    refute_receive {:finalize, _, _}
     refute_receive {:open, _, _, _}
   end
 
@@ -359,7 +356,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
         app_registry: AppRegistryStub,
         plugin_registry: PluginRegistryStub,
         candidate_builder: CandidateBuilderStub,
-        legacy_adapter: LegacyAdapterStub,
         pack_registry: PackRegistryStub,
         readiness: ReadinessStub
       )

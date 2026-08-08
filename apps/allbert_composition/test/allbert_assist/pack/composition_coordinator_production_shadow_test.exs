@@ -124,7 +124,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
     end
   end
 
-  test "production coordinator finalizes the independently adapted post-token shadow" do
+  test "M1.b production coordinator publishes the builder candidate authoritatively at post-token parity" do
     registry_context = Fixtures.start_shipped_registries(:m2_production_shadow)
 
     assert {:ok, app_snapshot, _app_ref} =
@@ -175,7 +175,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
          app_registry: AppRegistrySource,
          plugin_registry: PluginRegistrySource,
          candidate_builder: CandidateBuilder,
-         legacy_adapter: LegacyAdapter,
          pack_registry: ShadowPackRegistry,
          readiness: ShadowReadiness}
       )
@@ -183,6 +182,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
     assert Process.alive?(coordinator)
     assert %{phase: :ready, behavior_digest: behavior_digest} = await_ready(coordinator_name)
     assert {:ok, coordinator_snapshot} = ShadowPackRegistry.snapshot()
+    assert coordinator_snapshot.publication == :authoritative
     assert {:ok, coordinator_bytes} = Canonical.snapshot_bytes(coordinator_snapshot)
 
     assert {:ok, legacy_candidate} = LegacyAdapter.capture(pack_projection: closed)

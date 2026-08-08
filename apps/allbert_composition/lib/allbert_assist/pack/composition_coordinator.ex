@@ -11,7 +11,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.MetadataSupervisor, as: AppMetadataSupervisor
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Pack.{CandidateBuilder, LegacyAdapter, ProjectionProvider, Readiness}
+  alias AllbertAssist.Pack.{CandidateBuilder, ProjectionProvider, Readiness}
   alias AllbertAssist.Pack.Registry, as: PackRegistry
   alias AllbertAssist.Pack.Supervisor, as: PackSupervisor
   alias AllbertAssist.Plugin.Bootstrap, as: PluginBootstrap
@@ -118,7 +118,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
     app_registry = Keyword.get(opts, :app_registry, AppRegistry)
     plugin_registry = Keyword.get(opts, :plugin_registry, PluginRegistry)
     candidate_builder = Keyword.get(opts, :candidate_builder, CandidateBuilder)
-    legacy_adapter = Keyword.get(opts, :legacy_adapter, LegacyAdapter)
     pack_registry = Keyword.get(opts, :pack_registry, PackRegistry)
     pack_supervisor = Keyword.get(opts, :pack_supervisor, PackSupervisor)
     readiness = Keyword.get(opts, :readiness, Readiness)
@@ -146,18 +145,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
            plugin_registry.snapshot_and_subscribe(self(),
              server: monitored_pid(monitored, plugin_registry)
            ),
-         {:ok, built_candidate, legacy_candidate} <-
-           build_candidate_pair(
-             candidate_builder,
-             legacy_adapter,
-             closed,
-             app_snapshot,
-             plugin_snapshot
-           ),
-         :ok <- require_independent_parity(built_candidate, legacy_candidate),
-         effectful_ids <- effectful_ids(closed),
-         {:ok, snapshot} <-
-           pack_registry.finalize(legacy_candidate, effectful_ids: effectful_ids),
+         {:ok, built_candidate} <- candidate_builder.build(closed, app_snapshot, plugin_snapshot),
          :ok <-
            app_registry.bind_epoch(app_ref, app_snapshot.generation, barrier_pid,
              server: monitored_pid(monitored, app_registry)
@@ -166,6 +154,9 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
            plugin_registry.bind_epoch(plugin_ref, plugin_snapshot.generation, barrier_pid,
              server: monitored_pid(monitored, plugin_registry)
            ),
+         effectful_ids <- effectful_ids(closed),
+         {:ok, snapshot} <-
+           pack_registry.finalize(built_candidate, effectful_ids: effectful_ids),
          metadata_sources <- [
            {monitored_pid(monitored, app_registry), app_snapshot.generation, app_ref},
            {monitored_pid(monitored, plugin_registry), plugin_snapshot.generation, plugin_ref}
@@ -218,42 +209,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
        do: :ok
 
   defp valid_bootstrap_completion(_completion), do: {:error, :metadata_bootstrap_unavailable}
-
-  defp require_independent_parity(candidate, candidate), do: :ok
-  defp require_independent_parity(_built, _legacy), do: {:error, :candidate_parity_mismatch}
-
-  defp build_candidate_pair(
-         candidate_builder,
-         legacy_adapter,
-         closed,
-         app_snapshot,
-         plugin_snapshot
-       ) do
-    [
-      fn -> candidate_builder.build(closed, app_snapshot, plugin_snapshot) end,
-      fn -> legacy_adapter.capture(pack_projection: closed) end
-    ]
-    |> Task.async_stream(& &1.(),
-      ordered: true,
-      max_concurrency: 2,
-      timeout: 60_000,
-      on_timeout: :kill_task
-    )
-    |> Enum.to_list()
-    |> case do
-      [{:ok, {:ok, built}}, {:ok, {:ok, legacy}}] ->
-        {:ok, built, legacy}
-
-      [{:ok, {:error, reason}}, _legacy] ->
-        {:error, reason}
-
-      [_built, {:ok, {:error, reason}}] ->
-        {:error, reason}
-
-      _other ->
-        {:error, :candidate_capture_failed}
-    end
-  end
 
   defp effectful_ids(closed) do
     closed.rows

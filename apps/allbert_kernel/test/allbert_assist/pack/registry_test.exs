@@ -81,15 +81,20 @@ defmodule AllbertAssist.Pack.RegistryTest do
     assert {:ok, []} = Registry.diagnostics(server: registry)
   end
 
-  test "M1.a2 rejects authoritative publication before starting a process" do
-    assert {:error, {:unsupported_publication, :authoritative}} =
+  test "M1.b starts an explicitly authoritative collecting registry" do
+    name = :m1b_authoritative_registry
+
+    assert {:ok, pid} =
              Registry.start_link(
-               name: :m1a2_authoritative_registry_must_not_start,
+               name: name,
                publication: :authoritative,
                coordinator: self()
              )
 
-    refute Process.whereis(:m1a2_authoritative_registry_must_not_start)
+    assert Process.whereis(name) == pid
+
+    assert {:ok, %{phase: :collecting, publication: :authoritative, behavior_digest: nil}} =
+             Registry.status(server: name)
   end
 
   test "identical canonical finalization is idempotent" do
