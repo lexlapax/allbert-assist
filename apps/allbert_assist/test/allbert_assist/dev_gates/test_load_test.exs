@@ -7,6 +7,7 @@ defmodule AllbertAssist.DevGates.TestLoadTest do
   test "owner command loads files while excluding every test" do
     assert TestLoad.command(["test/a_test.exs", "test/b_test.exs"]) == [
              "test",
+             "--no-compile",
              "--exclude",
              "test",
              "test/a_test.exs",
