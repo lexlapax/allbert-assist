@@ -9,10 +9,10 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.DevGates.V14ActionDeltaLedger
   alias AllbertAssist.DevGates.V14M0RegistryLedger
+  alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Intent.Router.FakeRouter
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures
@@ -118,22 +118,29 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
     Guard.reset_for_test()
-    registry = RegistryIsolationFixtures.start_shipped_registries(:param_contract)
+    overlay = :"param_contract_actions_overlay_#{System.unique_integer([:positive])}"
+
+    start_supervised!(Supervisor.child_spec({ActionsOverlay, name: overlay}, id: overlay))
+
+    registry =
+      :param_contract
+      |> RegistryIsolationFixtures.start_shipped_registries()
+      |> Keyword.put(:actions_overlay, overlay)
+
     Process.put(:param_contract_registry, registry)
 
-    assert "example.param_contract" ==
-             RegistryIsolationFixtures.register_plugin!(
-               registry,
-               %PluginEntry{
-                 plugin_id: "example.param_contract",
-                 display_name: "Example Param Contract Actions",
-                 version: "0.1.0",
-                 kind: "actions",
-                 source: :project,
-                 status: :enabled,
-                 trust_status: :trusted,
-                 actions: [StrictEcho, NoParams, OpenMap]
-               }
+    assert :ok =
+             ActionsOverlay.register_many(
+               Enum.map([StrictEcho, NoParams, OpenMap], fn module ->
+                 %{
+                   module: module,
+                   slug: "param-contract-fixtures",
+                   revision: "test",
+                   exposure: :agent
+                 }
+               end),
+               server: overlay,
+               existing_names: ActionsRegistry.names(registry)
              )
 
     on_exit(fn ->

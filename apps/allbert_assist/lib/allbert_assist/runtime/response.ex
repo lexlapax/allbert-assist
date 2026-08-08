@@ -14,6 +14,7 @@ defmodule AllbertAssist.Runtime.Response do
 
   @action_statuses [
     :completed,
+    :answer,
     :needs_confirmation,
     :denied,
     :advisory,
@@ -41,6 +42,7 @@ defmodule AllbertAssist.Runtime.Response do
   @known_string_statuses Map.new(@action_statuses, &{Atom.to_string(&1), &1})
   @action_status_outcomes %{
     completed: :success,
+    answer: :success,
     needs_confirmation: :needs_confirmation,
     denied: :denied,
     advisory: :success,
@@ -72,6 +74,7 @@ defmodule AllbertAssist.Runtime.Response do
 
   @type status ::
           :completed
+          | :answer
           | :needs_confirmation
           | :denied
           | :advisory

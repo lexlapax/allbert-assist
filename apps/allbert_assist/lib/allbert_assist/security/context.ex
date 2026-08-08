@@ -6,6 +6,7 @@ defmodule AllbertAssist.Security.Context do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Maps
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Skills
@@ -142,7 +143,7 @@ defmodule AllbertAssist.Security.Context do
     %{
       name: name,
       module: module,
-      registered?: registered_action?(name, module),
+      registered?: registered_action?(name, module, registry_opts(context)),
       internal?: internal_action?(name),
       capability: action_capability(context)
     }
@@ -324,20 +325,29 @@ defmodule AllbertAssist.Security.Context do
     map_value(metadata, :name) || map_value(metadata, :action_name)
   end
 
-  defp registered_action?(nil, nil), do: false
-  defp registered_action?(name, nil) when is_binary(name), do: registered_action?(name, "")
+  defp registered_action?(nil, nil, _opts), do: false
 
-  defp registered_action?(_name, module) when is_atom(module),
-    do: Registry.registered_module?(module)
+  defp registered_action?(name, nil, opts) when is_binary(name),
+    do: registered_action?(name, "", opts)
 
-  defp registered_action?(name, _module) when is_binary(name) do
-    case Registry.resolve(name) do
+  defp registered_action?(_name, module, opts) when is_atom(module),
+    do: Registry.registered_module?(module, opts)
+
+  defp registered_action?(name, _module, opts) when is_binary(name) do
+    case Registry.resolve(name, opts) do
       {:ok, _module} -> true
       {:error, _reason} -> false
     end
   end
 
-  defp registered_action?(_name, _module), do: false
+  defp registered_action?(_name, _module, _opts), do: false
+
+  defp registry_opts(context) do
+    case map_value(context, :registry) do
+      opts when is_list(opts) -> RegistryContext.take(opts)
+      _other -> []
+    end
+  end
 
   defp internal_action?("record_trace"), do: true
   defp internal_action?(_name), do: false

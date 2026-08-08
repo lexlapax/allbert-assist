@@ -129,6 +129,7 @@ defmodule AllbertAssist.Runtime.ResponseTest do
 
   test "canonical action admission preserves the inventoried specialized statuses" do
     specialized = [
+      :answer,
       :already_finished,
       :clarification,
       :degraded,
