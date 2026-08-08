@@ -51,11 +51,11 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl AllbertAssist.App
   def surfaces do
-    [workspace_surface() | core_panel_surfaces()]
+    [workspace_surface() | core_panel_surfaces(%{}, static_metadata?: true)]
   end
 
   def workspace_panel_surfaces(context) when is_map(context) do
-    core_panel_surfaces(context)
+    core_panel_surfaces(context, static_metadata?: false)
   end
 
   def surface_catalog do
@@ -825,7 +825,7 @@ defmodule AllbertAssist.App.CoreApp do
     }
   end
 
-  defp core_panel_surfaces(context \\ %{}) do
+  defp core_panel_surfaces(context, opts) do
     [
       panel_surface(:core_onboarding_panel, "Onboarding", :canvas_panels, 0, [
         panel_node("core-onboarding", "Onboarding", "First-run setup objective.", [
@@ -972,11 +972,17 @@ defmodule AllbertAssist.App.CoreApp do
       ]),
       PlanBuildSurfaceProvider.preview_surface(),
       PlanBuildSurfaceProvider.run_progress_surface(),
-      MarketplaceSurfaceProvider.catalog_surface(context),
+      marketplace_surface(context, opts),
       DiscoverySuggestions.surface(context)
     ] ++
       McpIntegrationPanels.surfaces(context)
   end
+
+  defp marketplace_surface(_context, static_metadata?: true),
+    do: MarketplaceSurfaceProvider.static_catalog_surface()
+
+  defp marketplace_surface(context, _opts),
+    do: MarketplaceSurfaceProvider.catalog_surface(context)
 
   defp panel_surface(id, label, zone, order, nodes) do
     %Surface{

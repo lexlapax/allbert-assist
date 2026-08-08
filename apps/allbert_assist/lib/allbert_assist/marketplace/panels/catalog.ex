@@ -8,6 +8,7 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
 
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Marketplace
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Surface.ActionBinding
   alias AllbertAssist.Surface.Node
@@ -35,6 +36,17 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
       else
         {:error, reason} -> error_node(reason)
       end
+    end
+  end
+
+  @doc "Build the deterministic pre-readiness App metadata node without action dispatch."
+  @spec static_node() :: Node.t()
+  def static_node do
+    with {:ok, entries} <- Marketplace.list_entries(),
+         {:ok, installed} <- Marketplace.list_installed() do
+      catalog_node(entries, installed)
+    else
+      {:error, reason} -> error_node(reason)
     end
   end
 

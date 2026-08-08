@@ -9,7 +9,11 @@ defmodule AllbertAssist.Marketplace.SurfaceProvider do
   alias AllbertAssist.Surface
 
   @spec surfaces() :: [Surface.t()]
-  def surfaces, do: [catalog_surface(%{})]
+  def surfaces, do: [static_catalog_surface()]
+
+  @doc false
+  @spec static_catalog_surface() :: Surface.t()
+  def static_catalog_surface, do: build_catalog_surface(Catalog.static_node())
 
   @spec workspace_panel_surfaces(map()) :: [Surface.t()]
   def workspace_panel_surfaces(context) when is_map(context), do: [catalog_surface(context)]
@@ -18,6 +22,10 @@ defmodule AllbertAssist.Marketplace.SurfaceProvider do
 
   @spec catalog_surface(map()) :: Surface.t()
   def catalog_surface(context \\ %{}) when is_map(context) do
+    build_catalog_surface(Catalog.node(context))
+  end
+
+  defp build_catalog_surface(catalog_node) do
     %Surface{
       id: :marketplace_catalog_panel,
       app_id: :allbert,
@@ -26,7 +34,7 @@ defmodule AllbertAssist.Marketplace.SurfaceProvider do
       kind: :panel,
       zone: :canvas_panels,
       status: :available,
-      nodes: [Catalog.node(context)],
+      nodes: [catalog_node],
       fallback_text: "Marketplace catalog is available in the workspace.",
       metadata: %{visible_when: :operator_opened, order: 12}
     }
