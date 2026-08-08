@@ -3,38 +3,27 @@ defmodule AllbertAssist.External.RequestSpecTest do
   @moduletag :app_env_serial
 
   alias AllbertAssist.External.RequestSpec
-  alias AllbertAssist.Paths
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Kernel.Contract.TestProviders
 
-  setup do
-    original_paths_config = Application.get_env(:allbert_assist, Paths)
-    original_settings_config = Application.get_env(:allbert_assist, Settings)
-
-    root =
-      Path.join(
-        System.tmp_dir!(),
-        "allbert-external-request-spec-#{System.unique_integer([:positive])}"
-      )
-
-    Application.put_env(:allbert_assist, Paths, home: root)
-    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-
-    on_exit(fn ->
-      restore_env(Paths, original_paths_config)
-      restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
-    end)
-
-    {:ok, root: root}
-  end
+  # RequestSpec reads external-service policy through the kernel settings
+  # contract, so each row states the policy it needs rather than writing it
+  # into a temporary Allbert Home through Settings Central.
+  @external %{
+    "external_services.enabled" => true,
+    "external_services.allowed_hosts" => ["example.com"],
+    "external_services.allowed_paths" => ["/status"],
+    "external_services.max_response_bytes" => 4096
+  }
 
   test "disabled external services deny before confirmation" do
+    stub!(%{})
+
     assert {:error, spec} = RequestSpec.normalize(%{url: "https://example.com/status"})
     assert spec.denial_reason == :external_services_disabled
   end
 
   test "normalizes allowed requests with redacted summaries" do
-    configure_external()
+    stub!(@external)
 
     assert {:ok, spec} =
              RequestSpec.normalize(%{
@@ -56,22 +45,17 @@ defmodule AllbertAssist.External.RequestSpecTest do
   end
 
   test "supports named external service profiles" do
-    configure_external()
-
-    assert {:ok, _profiles} =
-             Settings.put(
-               "external_services.profiles",
-               %{
-                 "test_echo" => %{
-                   "enabled" => true,
-                   "base_url" => "https://example.com",
-                   "allowed_hosts" => ["example.com"],
-                   "allowed_paths" => ["/status"],
-                   "allowed_methods" => ["GET"]
-                 }
-               },
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
+    stub!(
+      Map.put(@external, "external_services.profiles", %{
+        "test_echo" => %{
+          "enabled" => true,
+          "base_url" => "https://example.com",
+          "allowed_hosts" => ["example.com"],
+          "allowed_paths" => ["/status"],
+          "allowed_methods" => ["GET"]
+        }
+      })
+    )
 
     assert {:ok, spec} = RequestSpec.normalize(%{profile: "test_echo", path: "/status"})
     assert spec.profile == "test_echo"
@@ -79,7 +63,7 @@ defmodule AllbertAssist.External.RequestSpecTest do
   end
 
   test "denies unsafe request shapes" do
-    configure_external()
+    stub!(@external)
 
     assert {:error, %{denial_reason: {:host_not_allowlisted, "not-example.com"}}} =
              RequestSpec.normalize(%{url: "https://not-example.com/status"})
@@ -103,36 +87,9 @@ defmodule AllbertAssist.External.RequestSpecTest do
              })
   end
 
-  defp configure_external do
-    assert {:ok, _setting} =
-             Settings.put(
-               "external_services.enabled",
-               true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-
-    assert {:ok, _setting} =
-             Settings.put(
-               "external_services.allowed_hosts",
-               ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-
-    assert {:ok, _setting} =
-             Settings.put(
-               "external_services.allowed_paths",
-               ["/status"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-
-    assert {:ok, _setting} =
-             Settings.put(
-               "external_services.max_response_bytes",
-               4096,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
+  defp stub!(values) do
+    restore = TestProviders.stub_settings!(values)
+    on_exit(restore)
+    :ok
   end
-
-  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
-  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

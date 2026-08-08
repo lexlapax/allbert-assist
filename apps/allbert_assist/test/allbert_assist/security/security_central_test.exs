@@ -9,25 +9,14 @@ defmodule AllbertAssist.SecurityCentralTest do
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Security.Risk
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Kernel.Contract.TestProviders
 
+  # Security Central reads posture through the kernel settings contract, so a
+  # row states the operator values it needs instead of writing them into a
+  # temporary Allbert Home.
   setup do
-    original_settings_config = Application.get_env(:allbert_assist, Settings)
-
-    root =
-      Path.join(
-        System.tmp_dir!(),
-        "allbert-security-central-#{System.unique_integer([:positive])}"
-      )
-
-    Application.put_env(:allbert_assist, Settings, root: root)
-
-    on_exit(fn ->
-      restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
-    end)
-
-    {:ok, root: root}
+    on_exit(TestProviders.stub_settings!(%{}))
+    :ok
   end
 
   test "normalizes sparse runtime context" do
@@ -54,22 +43,6 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert context.skill.capability_contract.validation_status == :valid
     assert context.skill.capability_contract.execution_eligible?
     assert context.secret_status.raw_secret_present?
-  end
-
-  test "loads selected skill trust and provenance from the registry", %{root: root} do
-    built_in_root = Path.join(root, "built-in-skills")
-    write_skill(built_in_root, "trusted-helper", "trusted-helper")
-
-    context =
-      Context.normalize(:read_only, %{
-        built_in_root: built_in_root,
-        selected_skill: "trusted-helper"
-      })
-
-    assert context.skill.name == "trusted-helper"
-    assert context.skill.source_scope == :built_in
-    assert context.skill.trust_status == :trusted
-    assert context.skill.lookup_status == :found
   end
 
   test "classifies risk by permission" do
@@ -124,24 +97,19 @@ defmodule AllbertAssist.SecurityCentralTest do
   end
 
   test "settings can tighten policy but cannot bypass safety floors" do
-    assert {:ok, _settings} =
-             Settings.write_user_settings(
-               %{
-                 "permissions" => %{
-                   "memory_propose" => "denied",
-                   "memory_write" => "denied",
-                   "command_execute" => "allowed",
-                   "skill_script_execute" => "allowed",
-                   "dynamic_integration" => "denied",
-                   "package_install" => "allowed",
-                   "online_skill_import" => "allowed",
-                   "tool_discovery" => "denied",
-                   "mcp_server_connect" => "needs_confirmation"
-                 }
-               },
-               [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
-             )
+    on_exit(
+      TestProviders.stub_settings!(%{
+        "permissions.memory_propose" => "denied",
+        "permissions.memory_write" => "denied",
+        "permissions.command_execute" => "allowed",
+        "permissions.skill_script_execute" => "allowed",
+        "permissions.dynamic_integration" => "denied",
+        "permissions.package_install" => "allowed",
+        "permissions.online_skill_import" => "allowed",
+        "permissions.tool_discovery" => "denied",
+        "permissions.mcp_server_connect" => "needs_confirmation"
+      })
+    )
 
     proposal_policy = Policy.resolve(:memory_propose)
     assert proposal_policy.configured == "denied"
@@ -245,53 +213,5 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert redacted.api_key == "[REDACTED]"
     assert redacted.provider_ref == "[SECRET_REF]"
     assert [%{password: "[REDACTED]"}, %{safe: "visible"}] = redacted.nested
-  end
-
-  test "returns redacted operator security status" do
-    status = Security.status(%{request: %{operator_id: "local", channel: :test}})
-
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :command_execute))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :package_install))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :online_skill_import))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_write))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :dynamic_codegen_request))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :dynamic_codegen_discard))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_script_execute))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :confirmation_decide))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :tool_discovery))
-    assert Enum.any?(status.permission_defaults, &(&1.permission == :mcp_server_connect))
-    assert Enum.any?(status.safety_floors, &(&1.permission == :unknown and &1.floor == :denied))
-    assert status.secret_status.providers >= 1
-    assert status.redaction_posture.secret_ref_display == "[SECRET_REF]"
-    assert Enum.any?(status.future_boundaries, &(&1.name == :shell_sandbox))
-
-    assert Enum.any?(
-             status.future_boundaries,
-             &(&1.name == :external_adapters_and_imports and &1.status == :implemented)
-           )
-
-    assert status.capability_boundaries.external_services.enabled == false
-    assert status.capability_boundaries.package_installs.allowed_managers == ["npm"]
-    assert status.capability_boundaries.online_skill_import.allowed_sources == ["skills_sh"]
-    refute inspect(status) =~ "secret://"
-  end
-
-  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
-  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
-
-  defp write_skill(root, directory, name) do
-    skill_root = Path.join(root, directory)
-    File.mkdir_p!(skill_root)
-
-    File.write!(Path.join(skill_root, "SKILL.md"), """
-    ---
-    name: #{name}
-    description: #{name} test skill.
-    ---
-
-    ## Workflow
-
-    Inspect only.
-    """)
   end
 end

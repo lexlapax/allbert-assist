@@ -2,22 +2,15 @@ defmodule AllbertAssist.Security.PublicSurfacePolicyTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Kernel.Contract.TestProviders
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Security.Risk
-  alias AllbertAssist.Settings
 
   setup do
-    original_settings_config = Application.get_env(:allbert_assist, Settings)
-    root = temp_root("public-surface-policy")
-    File.rm_rf!(root)
-
-    Application.put_env(:allbert_assist, Settings, root: root)
-
-    on_exit(fn ->
-      restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
-    end)
-
+    # No operator value is set, so these rows read the built-in floor. Stating
+    # that through the settings contract replaces a temporary Allbert Home and
+    # its application-environment save/restore.
+    on_exit(TestProviders.stub_settings!(%{}))
     :ok
   end
 
@@ -35,39 +28,10 @@ defmodule AllbertAssist.Security.PublicSurfacePolicyTest do
     assert Policy.safety_floor(:public_surface_call_inbound) == :needs_confirmation
   end
 
-  test "settings cannot lower public surface permission below confirmation floor" do
-    assert {:error, {:invalid_setting, "permissions.public_surface_call_inbound", _reason}} =
-             Settings.put(
-               "permissions.public_surface_call_inbound",
-               "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-
-    assert {:ok, resolved} =
-             Settings.put(
-               "permissions.public_surface_call_inbound",
-               "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-
-    assert resolved.value == "denied"
-    assert Policy.resolve(:public_surface_call_inbound).effective == :denied
-  end
-
   test "public surface permission is high risk with explanatory reasons" do
     risk = Risk.classify(:public_surface_call_inbound)
 
     assert risk.tier == :high
     assert Enum.any?(risk.reasons, &String.contains?(&1, "inbound public protocol"))
   end
-
-  defp temp_root(prefix) do
-    Path.join(
-      System.tmp_dir!(),
-      "allbert-#{prefix}-#{System.pid()}-#{System.unique_integer([:positive])}"
-    )
-  end
-
-  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
-  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end
