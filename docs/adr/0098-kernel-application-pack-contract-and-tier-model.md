@@ -33,7 +33,8 @@ Amends **ADR 0017** (plugin contract), **ADR 0031** (settings schema fragments
 and authority), and the entry-owner clauses of **ADR 0076** (packaging and
 unified CLI); all remain in force outside the stated amendments. Adds application
 ownership and pack-contract evidence to the public-contract inventory while
-keeping every v1.0 obligation binding (see §7).
+making the v1.4 inventory the successor test authority at release closeout (see
+the 2026-08-07 operator amendment in §7).
 
 Related: ADR 0065 (central action param-contract enforcement), ADR 0046
 (settings schema migration policy), ADR 0081 (Tier-2 to Tier-1 promotion).
@@ -200,8 +201,8 @@ compile-time atom whose `.app` entry named the module; `application_version`
 must equal `.app` `:vsn`; `provenance.component` must equal the artifact-sealed
 component-manifest row id; and `registry_order` is a globally unique, owner-carried
 stable token. Unknown descriptor keys or schema versions fail closed. The
-Descriptor struct and `descriptor/0` shape enter Tier 2 in the v1.4 topology
-supplement.
+Descriptor struct and `descriptor/0` shape enter the v1.4 component contract
+baseline.
 
 Packaged completeness reuses the existing final-artifact component pipeline
 rather than adding a second release manifest. First-party `beam_app` rows in
@@ -552,24 +553,32 @@ with kernel), `:extension` (vacuous), `:layer1` (opaque).
 `<ALLBERT_HOME>/packs` is canonical for the `:declared` tier, with `plugins`
 retained as a non-destructive compatibility scan path under §9.
 
-### 7. The public contract freeze remains additive and always green
+### 7. v1.4 succeeds the v1.0 test authority
 
-The v1.0 freeze remains binding through this application-boundary change. `mix
-allbert.test release.v1` remains green at every milestone and at release
-closeout. Tier-2 contracts evolve additively only. A Tier-1 symbol, behavior,
-authority floor, response shape, Plugin/App contract, or other frozen obligation
-cannot be removed, renamed, weakened, or treated as advisory in v1.4. If the
-boundary cannot be implemented without such a break, that part moves to a major
-release under an ADR.
+Operator amendment (2026-08-07): the v1.0 freeze is a migration guard while the
+application boundary is built, not the permanent post-v1.4 test architecture.
+`mix allbert.test release.v1` remains green through M14 so the re-baseline cannot
+hide a regression. M14 then freezes the component/Pack-owned contract inventory,
+owner tests, dependency graph, and affected-component selector in
+`release.v14`. M16 proves that successor baseline from source and package and,
+at accepted release closeout, retires `release.v1` from the default every-change
+and release-qualification sequence.
 
-v1.4 commits a new **topology supplement** before R4 artifact generation: it
-adds the owning OTP application, pack id, contribution kind, and compatibility
-adapter for every frozen symbol while carrying the complete v1.0 inventory
-forward. It contains source ownership/hashes but no self-referential artifact
+The authority transition is about ownership and test scope. It does not grant a
+minor release permission to break observable Tier-1 APIs. Boundary serializers
+and compatibility adapters preserve frozen external 1.x names and shapes; an
+intentional incompatible public change still requires a major version and ADR.
+Internal Tier-2 ownership/topology is re-baselined to the v1.4 component model
+rather than carried forever as a monolithic v1.0 test denominator.
+
+v1.4 commits a new **component contract baseline** before R4 artifact generation:
+it records the owning OTP application, pack id, contribution kind, compatibility
+adapter, owner gate, and affected-component edges for the supported contract
+set. It contains source ownership/hashes but no self-referential artifact
 digests; external release-validation evidence binds its exact source SHA to the
 artifact digests/signatures. Relocating a module changes its source/application
-owner but not its BEAM module name or public behavior. The supplement adds
-evidence and leaves compatibility obligations unchanged.
+owner but not its BEAM module name or public behavior. The baseline supersedes
+v1.0 as test authority only after M16 acceptance.
 
 The compiled `AllbertAssist.Pack` descriptor contract enters the public
 inventory as Tier 2 at v1.4 and evolves additively. Declared packs reuse the

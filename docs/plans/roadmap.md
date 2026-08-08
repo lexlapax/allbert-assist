@@ -413,12 +413,14 @@ rather than assigning the same foundation to a later release.
    ledger owner advances the current inventory to 653/4,633.
    Relocation is deliberately **not** deferred: the next two releases build new
    subsystems, and without the kernel boundary they would land in the monolith
-   and need moving later. **This release also records a generated
-   topology/ownership supplement to the public-contract freeze.** The v1.0
-   Tier-1/Tier-2 obligations and `release.v1` remain binding throughout 1.x;
-   moving an implementation between OTP applications does not waive a frozen
-   name or shape. ADR 0098 covers the pack contract, kernel application
-   boundary, capability-tier model, and the additive topology supplement.
+   and need moving later. **This release also establishes the successor
+   component contract and test baseline.** `release.v1` remains the migration
+   guard while v1.4 is built; M14 freezes `release.v14` around component/Pack
+   owners and affected-component selection, and M16 makes it authoritative
+   after source/package acceptance. Moving implementation between OTP
+   applications does not waive an external 1.x name or shape. ADR 0098 covers
+   the pack contract, kernel application boundary, capability-tier model, and
+   contract-authority transition.
    **Sequencing rationale (one coordinated sweep):** the generated action roster
    is re-measured at M0; registry ownership, response-envelope consolidation,
    param-contract verification, and facade retirement overlap many of the same
@@ -570,8 +572,9 @@ rather than assigning the same foundation to a later release.
    autonomous self-modification: the Won't-now self-recompilation boundary
    stays; this is Allbert as agent-harness/IDE for its own codebase. Builds on
    pi-mode (ADR 0068 coding trust tier), plan/build, delegate agents, and the
-   v0.47 supervised-draft machinery. Freeze note: release.v1 must stay green
-   under any self-hosted change flow — the gates become part of the loop.
+   v0.47 supervised-draft machinery. Contract note: the current component
+   baseline and affected-owner gates must stay green under any self-hosted
+   change flow — the gates become part of the loop.
 
    Sub-capability (separately shippable, earlier train): OAuth-Authenticated
    Hosted LLM Providers (Models & Memory).
@@ -580,13 +583,12 @@ rather than assigning the same foundation to a later release.
 
 ## Working Rules
 
-- **v1.4 adds a topology supplement; it does not re-baseline away the v1.0
-  contract freeze.** `mix allbert.test release.v1` remains a stop condition on
-  every 1.x change, including every v1.4 milestone. The closeout inventory
-  records new OTP-application ownership, pack provenance, and additive
-  contracts while carrying every v1.0 Tier-1/Tier-2 obligation forward. Tier-2
-  changes stay additive; Tier-1 changes need a major. ADR 0081's promotion
-  process is unchanged.
+- **v1.4 re-baselines contract and test authority around components.** During
+  the build, `mix allbert.test release.v1` is the compatibility/migration stop.
+  M14 freezes the component-owned `release.v14` baseline and M16 retires
+  `release.v1` from future default qualification after packaged acceptance.
+  External Tier-1 1.x compatibility remains boundary-enforced; the re-baseline
+  changes internal ownership and test selection, not semantic-version policy.
 - Operator intake items enter future-features.md with class + effort + provenance,
   then slot into the ladder here.
 - Upstream dependency refresh (confirmed 2026-07-15): every binary release plan

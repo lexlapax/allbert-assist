@@ -1,15 +1,14 @@
 # Allbert 1.0 Public Contract Freeze Notes
 
-> **v1.4 structural supplement (operator review 2026-08-06).** v1.4 lands the
-> kernel/pack application boundary, but application ownership is not permission
-> and a BEAM module's application may change without changing its public name or
-> shape. This v1.0 inventory therefore remains authoritative throughout 1.x:
-> `mix allbert.test release.v1` is a stop condition on every change, not an
-> advisory signal. At v1.4 closeout the release records an additional generated
-> ownership/application inventory for the new topology. That supplement may add
-> contracts and provenance; it does not waive, replace, rename, or remove any
-> Tier-1 or Tier-2 obligation below. A Tier-1 change still requires a major
-> version and an ADR. ADR 0081's promotion process remains unchanged.
+> **v1.4 authority transition (operator amendment 2026-08-07).** This v1.0
+> inventory is the migration comparison while v1.4 builds the kernel/Pack
+> boundary. `mix allbert.test release.v1` remains green through M14 and runs one
+> final time beside `release.v14` at M16. Packaged M16 acceptance promotes the
+> generated v1.4 component-owner/edge/selector baseline as the current test
+> authority and retires `release.v1` from future default qualification. The
+> transition does not authorize a breaking external Tier-1 change in 1.x:
+> serializers and adapters preserve observable names/shapes unless a major
+> version and ADR replace them.
 
 This is the authoritative inventory of the public contracts frozen at v1.0
 (`docs/plans/archives/v1.0-plan.md`, roadmap item 67). It is what plugin, app, channel, and
@@ -114,7 +113,8 @@ defaults to Tier 2).
 - Plan: [`docs/plans/archives/v1.0-plan.md`](../plans/archives/v1.0-plan.md) (Tiered Public Contract Freeze,
   Freeze Enforcement).
 - Reserved-vocabulary-not-frozen decision: ADR 0021 A20.
-- Enforcement: `mix allbert.test release.v1` (`:v1` sweep).
-- v1.4 topology/application-ownership supplement: ADR 0098 and the active
-  v1.4 plan; it is additive to this inventory.
+- Migration enforcement through v1.4 M16: `mix allbert.test release.v1` (`:v1`
+  sweep).
+- Successor component/test authority: ADR 0098 and active v1.4 M14/M16;
+  `release.v14` plus affected-component owner selection.
 - DIT freeze prerequisites: [`docs/validation/v1.0/`](../validation/v1.0/README.md).

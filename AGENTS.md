@@ -188,9 +188,15 @@ business-logic debugging, code review, or repository-specific architecture revie
 
 ## Post-1.0 Release Model (always applies)
 
-- v1.0 froze the public contracts: `mix allbert.test release.v1` must stay green on
-  every change; Tier-2 contracts evolve additively only; Tier-1 changes need a major
-  version and an ADR.
+- v1.0 is the compatibility baseline through the v1.4 migration:
+  `mix allbert.test release.v1` stays green while the component/Pack boundary is
+  built. v1.4 M14
+  freezes the component-owned contract and affected-component test model as
+  `release.v14`; after M16 accepts and publishes that baseline, future changes use
+  the current component contract rather than replaying `release.v1` on every
+  change. This test-authority transition does not authorize a breaking external
+  Tier-1 API change in a 1.x release; boundary serializers/adapters preserve those
+  observable shapes unless a major version and ADR explicitly replace them.
 - Every release is a binary release: tag → CI build → cosign → GitHub Release →
   Homebrew tap fill (tap push is manual). No source-only releases; `[skip-artifacts]`
   tags are for docs/source point tags only.
