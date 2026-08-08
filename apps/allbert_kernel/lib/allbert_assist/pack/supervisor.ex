@@ -3,6 +3,7 @@ defmodule AllbertAssist.Pack.Supervisor do
 
   use Supervisor
 
+  alias AllbertAssist.Kernel.Contract.Owner, as: ContractOwner
   alias AllbertAssist.Pack.{Readiness, Registry}
 
   @spec start_link(keyword()) :: Supervisor.on_start()
@@ -18,9 +19,14 @@ defmodule AllbertAssist.Pack.Supervisor do
     readiness = Keyword.get(opts, :readiness, Readiness)
     publication = Keyword.get(opts, :publication, :authoritative)
 
+    contract_owner = Keyword.get(opts, :contract_owner, ContractOwner)
+
     children = [
       {Registry, [name: registry, publication: publication, coordinator: coordinator]},
-      {Readiness, [name: readiness, registry: registry, coordinator: coordinator]}
+      {Readiness, [name: readiness, registry: registry, coordinator: coordinator]},
+      # Shares the Pack restart epoch: a registry or barrier restart must take
+      # the sealed contract binding down with the snapshot that produced it.
+      {ContractOwner, [name: contract_owner]}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)

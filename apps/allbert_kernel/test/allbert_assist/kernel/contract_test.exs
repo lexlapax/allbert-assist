@@ -55,7 +55,11 @@ defmodule AllbertAssist.Kernel.ContractTest do
 
     test "a duplicate provider for one contract fails rather than picking a winner", ctx do
       assert {:error, {:duplicate_providers, [:confirmations]}} =
-               Contract.bind(TestProviders.duplicating(:confirmations), ctx.generation, ctx.barrier)
+               Contract.bind(
+                 TestProviders.duplicating(:confirmations),
+                 ctx.generation,
+                 ctx.barrier
+               )
 
       assert {:error, :unbound} = Contract.current()
     end
@@ -70,7 +74,12 @@ defmodule AllbertAssist.Kernel.ContractTest do
     end
 
     test "a malformed provider row never reaches validation", ctx do
-      for row <- [{:confirmations, TestProviders}, %{contract: :confirmations}, :confirmations, nil] do
+      for row <- [
+            {:confirmations, TestProviders},
+            %{contract: :confirmations},
+            :confirmations,
+            nil
+          ] do
         assert {:error, {:malformed_provider, _row}} =
                  Contract.bind([row | TestProviders.complete()], ctx.generation, ctx.barrier)
       end
@@ -179,7 +188,9 @@ defmodule AllbertAssist.Kernel.ContractTest do
     end
 
     test "release deletes the set as a unit and retains nothing", ctx do
-      assert {:ok, _binding} = Contract.bind(TestProviders.complete(), ctx.generation, ctx.barrier)
+      assert {:ok, _binding} =
+               Contract.bind(TestProviders.complete(), ctx.generation, ctx.barrier)
+
       assert {:ok, TestProviders} = Contract.fetch(:confirmations)
 
       assert :ok = Contract.release()
@@ -201,7 +212,8 @@ defmodule AllbertAssist.Kernel.ContractTest do
     end
 
     test "an id outside the closed set never resolves", ctx do
-      assert {:ok, _binding} = Contract.bind(TestProviders.complete(), ctx.generation, ctx.barrier)
+      assert {:ok, _binding} =
+               Contract.bind(TestProviders.complete(), ctx.generation, ctx.barrier)
 
       assert {:error, {:unknown_contract, :anything}} = Contract.fetch(:anything)
       assert {:error, {:unknown_contract, :anything}} = Contract.fetch(:anything, ctx.generation)
@@ -244,7 +256,15 @@ defmodule AllbertAssist.Kernel.ContractTest do
         |> Enum.uniq()
         |> Enum.sort()
 
-      assert exported == [:bind, :current, :fetch, :generation, :ids, :release, :required_callbacks]
+      assert exported == [
+               :bind,
+               :current,
+               :fetch,
+               :generation,
+               :ids,
+               :release,
+               :required_callbacks
+             ]
     end
   end
 end
