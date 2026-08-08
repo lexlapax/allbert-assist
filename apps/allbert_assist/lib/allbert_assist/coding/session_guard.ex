@@ -31,7 +31,6 @@ defmodule AllbertAssist.Coding.SessionGuard do
     end
   end
 
-  @spec denied_decision(atom(), map(), denial_reason()) :: map()
   def denied_decision(permission, context, reason) do
     permission
     |> Security.authorize(normalize_context(context))

@@ -21,6 +21,8 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
   @repo_root Path.expand("../../../../", __DIR__)
   @freeze_notes "docs/developer/public-contract-freeze.md"
@@ -143,10 +145,13 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
       assert col in channel_fields, "ThreadChannelRef.#{col} missing"
     end
 
-    schema = read!("apps/allbert_assist/lib/allbert_assist/settings/schema.ex")
-
-    for key <- ["mcp_server", "openai_api", "acp_server", "templates.create.enabled"] do
-      assert schema =~ key, "settings schema missing #{key}"
+    for key <- [
+          "mcp_server.enabled",
+          "openai_api.enabled",
+          "acp_server.enabled",
+          "templates.create.enabled"
+        ] do
+      assert schema_has?(key), "composed settings schema missing #{key}"
     end
 
     notes_root_source =
@@ -171,15 +176,8 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
   # ── Row 5: public-protocol surface policy freeze ─────────────────────────────
 
   test "v1-public-surface-policy-freeze-001: the public-protocol settings shape, its eval proof, and Runner routing hold" do
-    schema = read!("apps/allbert_assist/lib/allbert_assist/settings/schema.ex")
-
-    for key <- ["mcp_server", "openai_api", "acp_server"] do
-      assert schema =~ key
-    end
-
-    # Default-off exposure is frozen (the public surfaces ship disabled by default).
-    assert schema =~ ~s("enabled" => false),
-           "public-protocol default-off exposure ('enabled' => false) is missing"
+    assert public_protocol_settings_present?(),
+           "composed public-protocol Settings keys/default-off exposure are missing"
 
     # The public-surface routing/denial proof still exists (deny-before-allow, self-approval).
     assert File.exists?(
@@ -329,8 +327,7 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
        fn ->
          schema_has?("templates.create.enabled") and schema_has?("templates.allowed_patterns")
        end},
-      {"public-protocol Settings", "mcp_server",
-       fn -> Enum.all?(~w(mcp_server openai_api acp_server), &schema_has?/1) end},
+      {"public-protocol Settings", "mcp_server", &public_protocol_settings_present?/0},
       {"CLI operator_table", "operator_table",
        fn -> exported?(AllbertAssist.CLI.Commands, :operator_table, 0) end},
       {"secret Vault + token_ref", "token_ref", fn -> loaded?(AllbertAssist.Settings.Vault) end},
@@ -405,8 +402,19 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
 
   defp registered?(name), do: name in ActionsRegistry.names()
 
-  defp schema_has?(key),
-    do: src?("apps/allbert_assist/lib/allbert_assist/settings/schema.ex", key)
+  defp schema_has?(key), do: Map.has_key?(Settings.schema(), key)
+
+  defp public_protocol_settings_present? do
+    SettingsFragments.with_composition(fn ->
+      schema = Settings.schema()
+      defaults = Settings.defaults()
+
+      Enum.all?(~w(mcp_server openai_api acp_server), fn surface ->
+        Map.has_key?(schema, "#{surface}.enabled") and
+          get_in(defaults, [surface, "enabled"]) == false
+      end)
+    end)
+  end
 
   defp src?(relative, str), do: read!(relative) =~ str
 

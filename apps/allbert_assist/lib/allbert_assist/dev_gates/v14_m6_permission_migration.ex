@@ -79,12 +79,15 @@ defmodule AllbertAssist.DevGates.V14M6PermissionMigration do
   @spec load_fixture!() :: map()
   def load_fixture! do
     fixture =
-      fixture_path()
-      |> File.read!()
-      |> String.trim()
-      |> Base.decode64!()
-      |> :zlib.uncompress()
-      |> Jason.decode!()
+      case fixture_path()
+           |> File.read!()
+           |> String.trim()
+           |> Base.decode64!()
+           |> :zlib.uncompress()
+           |> Jason.decode!() do
+        %{} = decoded -> decoded
+        _other -> raise "invalid v1.4 M6 permission caller fixture"
+      end
 
     valid? =
       fixture["schema_version"] == @schema_version and
@@ -132,7 +135,6 @@ defmodule AllbertAssist.DevGates.V14M6PermissionMigration do
   end
 
   @doc "Discover the current production caller inventory."
-  @spec current_inventory() :: map()
   def current_inventory do
     fixture = load_fixture!()
     paths = MapSet.new(fixture["files"], & &1["source_path"])

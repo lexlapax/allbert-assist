@@ -264,11 +264,14 @@ defmodule AllbertAssist.Settings.Fragments do
   end
 
   defp schema_from_fragments(fragments) do
-    Enum.reduce(fragments, %{}, fn fragment, acc ->
-      Map.merge(acc, fragment.schema, fn key, _left, _right ->
-        raise ArgumentError, "duplicate settings key: #{key}"
-      end)
-    end)
+    Enum.reduce(fragments, %{}, fn fragment, acc -> merge_schema!(acc, fragment.schema) end)
+  end
+
+  defp merge_schema!(left, right) do
+    case Enum.find(Map.keys(right), &Map.has_key?(left, &1)) do
+      nil -> Map.merge(left, right)
+      key -> raise ArgumentError, "duplicate settings key: #{key}"
+    end
   end
 
   defp defaults_from_fragments(fragments) do

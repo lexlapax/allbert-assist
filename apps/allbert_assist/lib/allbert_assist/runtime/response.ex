@@ -115,6 +115,33 @@ defmodule AllbertAssist.Runtime.Response do
 
   @type action_response :: t()
   @type outcome_class :: :success | :needs_confirmation | :denied | :error
+  @type action_status_outcomes :: %{
+          required(:advisory) => :success,
+          required(:already_finished) => :success,
+          required(:answer) => :success,
+          required(:cancelled) => :success,
+          required(:clarification) => :success,
+          required(:completed) => :success,
+          required(:degraded) => :success,
+          required(:denied) => :denied,
+          required(:disabled) => :success,
+          required(:error) => :error,
+          required(:failed) => :error,
+          required(:finalizing) => :success,
+          required(:needs_clarification) => :success,
+          required(:needs_confirmation) => :needs_confirmation,
+          required(:not_found) => :success,
+          required(:objective_abandoned) => :success,
+          required(:objective_cancelled) => :success,
+          required(:objective_failed) => :success,
+          required(:queued) => :success,
+          required(:running) => :success,
+          required(:still_blocked) => :success,
+          required(:stopped) => :success,
+          required(:timed_out) => :success,
+          required(:unavailable) => :error,
+          required(:unsupported) => :error
+        }
   @type action_response_schema :: %{
           message: :string,
           model_payload: :string,
@@ -148,7 +175,7 @@ defmodule AllbertAssist.Runtime.Response do
   def action_statuses, do: @action_statuses
 
   @doc "Return the explicit public-protocol outcome class for every admitted action status."
-  @spec action_status_outcomes() :: %{required(status()) => outcome_class()}
+  @spec action_status_outcomes() :: action_status_outcomes()
   def action_status_outcomes, do: @action_status_outcomes
 
   @doc "Classify a response or status for transport mapping; unknown values fail closed."

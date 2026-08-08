@@ -305,7 +305,6 @@ defmodule AllbertAssist.Boundary do
   def compatibility_shims, do: @compatibility_shims
 
   @doc "Return deletion candidates and their owning milestone."
-  @spec deletion_candidates() :: [entry()]
   def deletion_candidates, do: @deletion_candidates
 
   @doc "Return entries for a subsystem."

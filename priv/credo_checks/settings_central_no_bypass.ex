@@ -54,6 +54,10 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "LC_ALL",
         "LC_CTYPE",
         "LANG",
+        # Mix build identity and the v1.4 gate-owner repository locator are
+        # development/build infrastructure, never durable operator policy.
+        "MIX_ENV",
+        "ALLBERT_REPOSITORY_ROOT",
         # v0.63 M8.2: the standard OTP/OpenSSL CA-bundle override for outbound HTTPS
         # (External.TLS) — infrastructure trust config, not an operator-tunable setting.
         "SSL_CERT_FILE",

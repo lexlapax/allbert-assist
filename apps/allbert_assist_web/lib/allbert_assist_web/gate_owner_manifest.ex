@@ -6,7 +6,6 @@ defmodule AllbertAssistWeb.GateOwnerManifest do
   test execution metadata without becoming a capability Pack.
   """
 
-  @spec test_lanes() :: [map()]
   def test_lanes do
     [
       %{

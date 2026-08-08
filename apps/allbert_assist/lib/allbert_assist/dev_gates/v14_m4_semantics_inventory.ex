@@ -23,7 +23,6 @@ defmodule AllbertAssist.DevGates.V14M4SemanticsInventory do
   end
 
   @doc "Discover the current source inventory and merge its reviewed decisions."
-  @spec snapshot() :: map()
   def snapshot do
     fixture = load_fixture!()
     source = source_inventory()
@@ -46,7 +45,11 @@ defmodule AllbertAssist.DevGates.V14M4SemanticsInventory do
   @doc "Load and validate the reviewed decision fixture."
   @spec load_fixture!() :: map()
   def load_fixture! do
-    fixture = fixture_path() |> File.read!() |> Jason.decode!()
+    fixture =
+      case fixture_path() |> File.read!() |> Jason.decode!() do
+        %{} = decoded -> decoded
+        _other -> raise "invalid v1.4 M4 semantics inventory fixture"
+      end
 
     unless fixture["schema_version"] == @schema_version and
              fixture["normalization"] == @normalization and
@@ -81,7 +84,6 @@ defmodule AllbertAssist.DevGates.V14M4SemanticsInventory do
   end
 
   @doc "Discover all production definitions and local call/capture sites."
-  @spec source_inventory() :: map()
   def source_inventory do
     definitions =
       @source_globs

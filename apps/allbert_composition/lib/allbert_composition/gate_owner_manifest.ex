@@ -7,7 +7,6 @@ defmodule AllbertComposition.GateOwnerManifest do
   at this inert manifest instead.
   """
 
-  @spec test_lanes() :: [map()]
   def test_lanes do
     [
       %{

@@ -104,11 +104,7 @@ defmodule AllbertAssist.Settings.FragmentOwner do
   def schema!(pack_id, application, modules) do
     pack_id
     |> fragments!(application, modules)
-    |> Enum.reduce(%{}, fn fragment, schema ->
-      Map.merge(schema, fragment.schema, fn key, _left, _right ->
-        raise ArgumentError, "duplicate settings key: #{key}"
-      end)
-    end)
+    |> Enum.reduce(%{}, fn fragment, schema -> merge_schema!(schema, fragment.schema) end)
   end
 
   @doc false
@@ -170,6 +166,13 @@ defmodule AllbertAssist.Settings.FragmentOwner do
     exception -> {:error, {:settings_fragment_owner_raised, exception.__struct__}}
   catch
     kind, reason -> {:error, {:settings_fragment_owner_caught, kind, reason}}
+  end
+
+  defp merge_schema!(left, right) do
+    case Enum.find(Map.keys(right), &Map.has_key?(left, &1)) do
+      nil -> Map.merge(left, right)
+      key -> raise ArgumentError, "duplicate settings key: #{key}"
+    end
   end
 
   defp unique_modules(modules) do

@@ -11,7 +11,7 @@ defmodule AllbertAssist.Pack.ActionCatalog do
   alias AllbertAssist.Pack.CompiledInventory
   alias AllbertAssist.{Action, Actions.Capability}
 
-  @spec compiled_modules() :: {:ok, [module()]} | {:error, atom()}
+  @spec compiled_modules() :: CompiledInventory.action_modules_result()
   def compiled_modules, do: CompiledInventory.action_modules()
 
   @spec capability(module() | String.t() | atom()) ::

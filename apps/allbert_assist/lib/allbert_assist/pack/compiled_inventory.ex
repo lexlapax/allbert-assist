@@ -12,7 +12,19 @@ defmodule AllbertAssist.Pack.CompiledInventory do
 
   @application :allbert_assist
 
-  @spec action_modules() :: {:ok, [module()]} | {:error, atom()}
+  @type action_inventory_error ::
+          :compiled_inventory_unavailable
+          | :duplicate_action_module
+          | :duplicate_compiled_module
+          | :empty_action_inventory
+          | :invalid_action_inventory
+          | :invalid_action_module
+          | :invalid_action_registry_order
+          | :invalid_compiled_module
+  @type action_modules_result ::
+          {:ok, [module()]} | {:error, action_inventory_error()}
+
+  @spec action_modules() :: action_modules_result()
   def action_modules do
     with {:ok, modules} <- application_modules() do
       modules
