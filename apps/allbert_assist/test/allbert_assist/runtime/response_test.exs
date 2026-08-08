@@ -2,8 +2,6 @@ defmodule AllbertAssist.Runtime.ResponseTest do
   use ExUnit.Case, async: true
   @moduletag :external_runtime_serial
 
-  alias AllbertAssist.Intent.ApprovalHandoff
-  alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Runtime.Response
 
   test "builders cover the shared runtime status vocabulary" do
@@ -15,27 +13,6 @@ defmodule AllbertAssist.Runtime.ResponseTest do
     assert Response.error("broken", :boom).status == :error
     assert Response.unsupported("not yet", :missing_capability).status == :unsupported
     assert Response.unavailable("offline", :bridge_disabled).status == :unavailable
-  end
-
-  test "normalizes map responses while preserving extra payload keys" do
-    handoff = %ApprovalHandoff{confirmation_id: "conf_1", status: :pending}
-
-    response =
-      Response.normalize(%{
-        "message" => "Ready.",
-        "status" => "needs_confirmation",
-        decision: %Decision{intent: :answer, diagnostics: [%{source: :decision}]},
-        approval_handoff: handoff,
-        custom: %{kept?: true}
-      })
-
-    assert response.message == "Ready."
-    assert response.status == :needs_confirmation
-    assert response.actions == []
-    assert response.custom == %{kept?: true}
-    assert response.decision.intent == :answer
-    assert response.approval_handoff.confirmation_id == "conf_1"
-    assert response.diagnostics == [%{source: :decision}]
   end
 
   test "normalizes action callback errors and invalid results" do

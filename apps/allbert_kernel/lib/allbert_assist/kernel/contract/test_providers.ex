@@ -12,6 +12,7 @@ if Mix.env() == :test do
     alias AllbertAssist.Kernel.Contract
 
     @settings_key {__MODULE__, :settings}
+    @home_roots_key {__MODULE__, :home_roots}
 
     @doc """
     Substitute this module as the `settings` provider for the current binding.
@@ -25,32 +26,43 @@ if Mix.env() == :test do
     Returns a zero-arity restore function.
     """
     @spec stub_settings!(%{optional(String.t()) => term()}) :: (-> :ok)
-    def stub_settings!(values) when is_map(values) do
+    def stub_settings!(values) when is_map(values), do: rebind!(:settings, @settings_key, values)
+
+    @doc """
+    Substitute this module as the `home_roots` provider for the current binding.
+
+    Keys are the canonical root ids `AllbertAssist.Kernel.Contract.HomeRoots`
+    accepts. This is how a kernel test states an owner-contributed root override
+    without naming the residual module whose application-environment key used to
+    carry it.
+    """
+    @spec stub_home_roots!(%{optional(atom()) => Path.t()}) :: (-> :ok)
+    def stub_home_roots!(values) when is_map(values),
+      do: rebind!(:home_roots, @home_roots_key, values)
+
+    defp rebind!(contract, key, values) do
       {:ok, binding} = Contract.current()
-      :persistent_term.put(@settings_key, values)
+      :persistent_term.put(key, values)
 
-      providers =
-        Enum.map(binding.providers, fn
-          {:settings, _provider} -> {:settings, __MODULE__, :allbert_kernel}
-          {contract, provider} -> {contract, provider.implementation, provider.application}
-        end)
-
-      {:ok, _stubbed} = Contract.bind(providers, binding.generation, binding.barrier_pid)
+      {:ok, _stubbed} =
+        Contract.bind(providers(binding, contract), binding.generation, binding.barrier_pid)
 
       fn ->
-        :persistent_term.erase(@settings_key)
-
-        restored =
-          Enum.map(binding.providers, fn {contract, provider} ->
-            {contract, provider.implementation, provider.application}
-          end)
-
-        {:ok, _restored} = Contract.bind(restored, binding.generation, binding.barrier_pid)
+        :persistent_term.erase(key)
+        {:ok, _restored} = Contract.bind(providers(binding), binding.generation, binding.barrier_pid)
         :ok
       end
     end
 
+    defp providers(binding, stubbed \\ nil) do
+      Enum.map(binding.providers, fn
+        {^stubbed, _provider} when not is_nil(stubbed) -> {stubbed, __MODULE__, :allbert_kernel}
+        {contract, provider} -> {contract, provider.implementation, provider.application}
+      end)
+    end
+
     defp stubbed_settings, do: :persistent_term.get(@settings_key, %{})
+    defp stubbed_home_roots, do: :persistent_term.get(@home_roots_key, %{})
 
     @doc "A complete, valid provider set for the closed contract catalog."
     @spec complete(module()) :: [{atom(), module(), atom()}]
@@ -93,7 +105,7 @@ if Mix.env() == :test do
     def redacted_ref(_ref), do: nil
 
     # home_roots
-    def override(_root_id), do: nil
+    def override(root_id), do: Map.get(stubbed_home_roots(), root_id)
 
     # membership
     def app_id_for_action(_module, _opts), do: nil

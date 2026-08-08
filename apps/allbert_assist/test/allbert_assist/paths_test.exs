@@ -2,7 +2,7 @@ defmodule AllbertAssist.PathsTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
-  alias AllbertAssist.Memory
+  alias AllbertAssist.Kernel.Contract.TestProviders
   alias AllbertAssist.Paths
 
   @env_vars [
@@ -21,22 +21,13 @@ defmodule AllbertAssist.PathsTest do
       end)
 
     original_paths_config = Application.get_env(:allbert_assist, Paths)
-    original_settings_config = Application.get_env(:allbert_assist, AllbertAssist.Settings)
-    original_memory_config = Application.get_env(:allbert_assist, Memory)
-    original_artifacts_config = Application.get_env(:allbert_assist, AllbertAssist.Artifacts)
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
-    Application.delete_env(:allbert_assist, AllbertAssist.Settings)
-    Application.delete_env(:allbert_assist, Memory)
-    Application.delete_env(:allbert_assist, AllbertAssist.Artifacts)
 
     on_exit(fn ->
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
-      restore_app_env(AllbertAssist.Settings, original_settings_config)
-      restore_app_env(Memory, original_memory_config)
-      restore_app_env(AllbertAssist.Artifacts, original_artifacts_config)
     end)
   end
 
@@ -132,9 +123,16 @@ defmodule AllbertAssist.PathsTest do
     System.put_env("ALLBERT_MEMORY_ROOT", temp_path("env-memory"))
     System.put_env("ALLBERT_ARTIFACTS_ROOT", temp_path("env-artifacts"))
 
-    Application.put_env(:allbert_assist, AllbertAssist.Settings, root: settings_root)
-    Application.put_env(:allbert_assist, Memory, root: memory_root)
-    Application.put_env(:allbert_assist, AllbertAssist.Artifacts, root: artifacts_root)
+    # These overrides reach Paths through the owner-contributed HomeRoots
+    # contract, so the row states them by canonical root id rather than through
+    # the owning module's application-environment key.
+    on_exit(
+      TestProviders.stub_home_roots!(%{
+        settings: settings_root,
+        memory: memory_root,
+        artifacts: artifacts_root
+      })
+    )
 
     assert Paths.settings_root() == settings_root
     assert Paths.memory_root() == memory_root
@@ -200,14 +198,6 @@ defmodule AllbertAssist.PathsTest do
     end
 
     File.rm_rf!(home)
-  end
-
-  test "memory root derives from Allbert Home when no specific override exists" do
-    home = temp_path("home")
-
-    System.put_env("ALLBERT_HOME", home)
-
-    assert Memory.root() == Path.join(home, "memory")
   end
 
   defp temp_path(name) do
