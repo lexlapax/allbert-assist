@@ -11,9 +11,9 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures
   alias AllbertAssist.Workspace.Fragment.Guard
 
   @identity_context_keys ~w(user_id thread_id session_id)
@@ -115,31 +115,31 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    # v1.0.2 M8 drift-fix: converge on the shipped baseline (both registries)
-    # instead of a plugin-only shipped restore + conditional app register —
-    # the snapshot/conditional pattern re-applied earlier damage (M2 sweep
-    # class; this file was an out-of-scope straggler).
-    ShippedRegistries.restore!()
     Guard.reset_for_test()
+    registry = RegistryIsolationFixtures.start_shipped_registries(:param_contract)
+    Process.put(:param_contract_registry, registry)
 
-    assert {:ok, "example.param_contract"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.param_contract",
-               display_name: "Example Param Contract Actions",
-               version: "0.1.0",
-               kind: "actions",
-               source: :project,
-               status: :enabled,
-               trust_status: :trusted,
-               actions: [StrictEcho, NoParams, OpenMap]
-             })
+    assert "example.param_contract" ==
+             RegistryIsolationFixtures.register_plugin!(
+               registry,
+               %PluginEntry{
+                 plugin_id: "example.param_contract",
+                 display_name: "Example Param Contract Actions",
+                 version: "0.1.0",
+                 kind: "actions",
+                 source: :project,
+                 status: :enabled,
+                 trust_status: :trusted,
+                 actions: [StrictEcho, NoParams, OpenMap]
+               }
+             )
 
     on_exit(fn ->
       restore_env(Confirmations, original_confirmations)
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
-      ShippedRegistries.restore!()
       Guard.reset_for_test()
+      Process.delete(:param_contract_registry)
       File.rm_rf!(root)
     end)
 
@@ -161,7 +161,8 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   end
 
   test "valid string-keyed params normalize to schema atoms and Jido defaults reach run/2" do
-    assert {:ok, response} = Runner.run("param_contract_strict_echo", %{"text" => "hello"}, %{})
+    assert {:ok, response} =
+             Runner.run("param_contract_strict_echo", %{"text" => "hello"}, effect_context())
 
     assert response.status == :completed
     assert response.params == %{text: "hello", count: 1}
@@ -178,7 +179,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
              Runner.run(
                "param_contract_strict_echo",
                %{"text" => "hello", unknown_key => "sk-secret-value"},
-               %{}
+               effect_context()
              )
 
     assert response.status == :error
@@ -197,7 +198,11 @@ defmodule AllbertAssist.Actions.ParamContractTest do
 
   test "typed validation failures are redacted invalid params before the body runs" do
     assert {:ok, response} =
-             Runner.run("param_contract_strict_echo", %{text: "hello", count: "not-an-int"}, %{})
+             Runner.run(
+               "param_contract_strict_echo",
+               %{text: "hello", count: "not-an-int"},
+               effect_context()
+             )
 
     assert response.status == :error
 
@@ -209,13 +214,17 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   end
 
   test "empty schema actions are no-param actions unless explicitly dispositioned" do
-    assert {:ok, ok} = Runner.run("param_contract_no_params", %{}, %{})
+    assert {:ok, ok} = Runner.run("param_contract_no_params", %{}, effect_context())
     assert ok.status == :completed
     assert ok.params == %{}
     assert_received {:no_params_ran, %{}}
 
     assert {:ok, rejected} =
-             Runner.run("param_contract_no_params", %{"unexpected" => "value"}, %{})
+             Runner.run(
+               "param_contract_no_params",
+               %{"unexpected" => "value"},
+               effect_context()
+             )
 
     assert rejected.status == :error
 
@@ -235,7 +244,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
              Runner.run(
                "param_contract_open_map",
                %{"payload" => %{nested_key => "value"}, "rows" => [%{"label" => "one"}]},
-               %{}
+               effect_context()
              )
 
     assert response.status == :completed
@@ -271,7 +280,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
              "#{action_name} rejected representative valid params: #{inspect(response)}"
 
       assert response.status in accepted_statuses,
-             "#{action_name} returned unexpected status #{inspect(response.status)}"
+             "#{action_name} returned unexpected response #{inspect(response)}"
     end
 
     assert {:ok, rejected} =
@@ -313,17 +322,22 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     )
 
     try do
+      effect_context = effect_context()
+
       assert {:ok, response} =
-               IntentAgent.respond(%{
-                 text: "send an email to alice@example.com saying hello from route",
-                 channel: :test,
-                 user_id: "local",
-                 operator_id: "local",
-                 thread_id: "thr-param-contract-route",
-                 session_id: "sess-param-contract-route",
-                 active_app: :allbert,
-                 input_signal_id: "sig-param-contract-route"
-               })
+               IntentAgent.respond(
+                 %{
+                   text: "send an email to alice@example.com saying hello from route",
+                   channel: :test,
+                   user_id: "local",
+                   operator_id: "local",
+                   thread_id: "thr-param-contract-route",
+                   session_id: "sess-param-contract-route",
+                   active_app: :allbert,
+                   input_signal_id: "sig-param-contract-route"
+                 },
+                 allbert_pack_epoch: effect_context.allbert_pack_epoch
+               )
 
       assert response.status == :needs_confirmation
       assert response.decision.selected_action == "send_email"
@@ -436,19 +450,24 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   end
 
   defp runner_context do
-    %{
+    ReadyEffectContext.attach(%{
       actor: "local",
       channel: :test,
       user_id: "local",
       thread_id: "thr-param-contract",
       session_id: "sess-param-contract",
+      registry: Process.get(:param_contract_registry),
       request: %{
         user_id: "local",
         thread_id: "thr-param-contract",
         session_id: "sess-param-contract",
         channel: :test
       }
-    }
+    })
+  end
+
+  defp effect_context do
+    ReadyEffectContext.attach(%{registry: Process.get(:param_contract_registry)})
   end
 
   defp replay_cases do
