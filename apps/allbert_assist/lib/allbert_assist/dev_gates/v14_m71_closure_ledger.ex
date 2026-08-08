@@ -69,6 +69,30 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     "apps/allbert_assist/lib/allbert_assist/registry_context.ex" => :capability_plane
   }
 
+  # Owning tests that do not relocate at all, with the reason each stays.
+  #
+  # M7.2's rule is that a row which cannot be made kernel-pure without changing
+  # what it asserts stays with the residual. Applied to every row of a file, the
+  # file stays. These four are integration suites by subject: they exercise
+  # kernel modules, but proving them needs the residual registry, dynamic
+  # overlay, signal bus, and database. Stubbing that machinery would leave each
+  # row asserting the stub.
+  #
+  # After extraction this is the steady state ADR 0098 describes — a pack tests
+  # against the kernel — but it is recorded here rather than left implicit,
+  # because the consequence is that the Capability Plane relocates with no
+  # kernel-owned test of its own.
+  @residual_owned_tests %{
+    "apps/allbert_assist/test/allbert_assist/actions/param_contract_test.exs" =>
+      "DataCase-bound; every row drives Runner through isolated registries and the confirmed overlay",
+    "apps/allbert_assist/test/allbert_assist/actions/registry_test.exs" =>
+      "asserts the shipped action catalog and App/Plugin registration lifecycle, both residual subjects",
+    "apps/allbert_assist/test/allbert_assist/actions/runner_test.exs" =>
+      "exercises registry resolution, plugin actions, and overlay registration end to end",
+    "apps/allbert_assist/test/allbert_assist/registry_context_test.exs" =>
+      "its subject is registry isolation across App/Plugin/extension registries and the signal bus"
+  }
+
   # Suites that prove a whole concern rather than one module. They relocate with
   # the concern; no per-module row claims them as its dedicated owner.
   @shared_tests [
@@ -197,7 +221,7 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
         |> references()
         |> Enum.reject(&(MapSet.member?(allowed, &1) or admitted?(&1)))
         |> Enum.map(&%{path: path, concern: concern, module: &1, reason: classify_finding(&1)})
-      end) ++ kernel_test_findings(allowed)
+      end) ++ relocating_test_findings(allowed) ++ kernel_test_findings(allowed)
 
     {:ok, Enum.sort_by(findings, &{&1.path, Atom.to_string(&1.module)})}
   end
@@ -209,12 +233,11 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   # checked here; the half that stays becomes a separate residual file that
   # this gate does not constrain.
   @doc """
-  The M7.2 split backlog: owning tests that do not yet close.
+  The M7.2 split backlog: owning tests that do not close.
 
-  This is deliberately not part of `findings/0` while the split is in progress,
-  so the closure gate stays an assertion about finished work rather than a
-  standing red. When the backlog reaches zero these rows fold into `findings/0`
-  and the two checks become one.
+  Empty since the split completed, at which point these rows folded into
+  `findings/0` — the two checks are now one, and this remains as the narrower
+  view for diagnosing which owning test regressed.
   """
   @spec split_backlog() :: {:ok, [finding()]}
   def split_backlog do
@@ -359,6 +382,10 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     (dedicated ++ shared) |> Enum.uniq() |> Enum.sort()
   end
 
+  @doc "Owning tests that stay with the residual, mapped to the reason each stays."
+  @spec residual_owned_tests() :: %{String.t() => String.t()}
+  def residual_owned_tests, do: Map.new(@residual_owned_tests)
+
   defp owning_test(source) do
     candidate =
       source
@@ -366,7 +393,11 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
       |> String.replace_suffix(".ex", "_test.exs")
       |> then(&Path.join("apps/allbert_assist/test/allbert_assist", &1))
 
-    if File.exists?(Path.join(@repo_root, candidate)), do: candidate, else: nil
+    cond do
+      Map.has_key?(@residual_owned_tests, candidate) -> nil
+      File.exists?(Path.join(@repo_root, candidate)) -> candidate
+      true -> nil
+    end
   end
 
   defp destination(source) do

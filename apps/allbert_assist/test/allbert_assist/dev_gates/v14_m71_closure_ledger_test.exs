@@ -1,7 +1,7 @@
 defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
   use ExUnit.Case, async: true
 
-  @moduletag :pure_async
+  @moduletag :global_process_serial
 
   alias AllbertAssist.DevGates.V14M71ClosureLedger, as: Ledger
 
@@ -132,6 +132,36 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
       assert Enum.any?(references, &(Atom.to_string(&1) =~ ~r/\.ReadyBarrier$/))
     end
 
+    test "an owning test that stays residual is named with its reason, not silently dropped" do
+      residual = Ledger.residual_owned_tests()
+
+      # The backlog can be emptied two ways: by splitting a test, or by
+      # declaring it residual-owned. The second is legitimate but must stay
+      # small and reasoned, or the gate becomes a list of excuses.
+      assert map_size(residual) == 4
+
+      for {path, reason} <- residual do
+        assert File.exists?(Path.expand(path, repository_root())), "stale entry: #{path}"
+        assert is_binary(reason) and String.length(reason) > 30
+        refute path in Ledger.relocating_tests()
+      end
+
+      # Their modules still relocate; only their tests stay.
+      {:ok, rows} = Ledger.move_manifest()
+
+      for module <- ~w[
+            AllbertAssist.Actions.ParamContract
+            AllbertAssist.Actions.Registry
+            AllbertAssist.Actions.Runner
+            AllbertAssist.RegistryContext
+          ] do
+        row = Enum.find(rows, &(&1["module"] == module))
+        assert row, "#{module} must still be a relocation target"
+        assert row["test_source"] == ""
+        assert row["test_sha256"] == ""
+      end
+    end
+
     test "the M7.2 split backlog only ever names residual reaches in owning tests" do
       assert {:ok, backlog} = Ledger.split_backlog()
 
@@ -151,6 +181,10 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
       ]
 
       for path <- closed, do: refute(Enum.any?(backlog, &(&1.path == path)))
+
+      # The split is complete, so the backlog is empty and its rows now also
+      # flow through findings/0. Both views must agree.
+      assert backlog == []
     end
 
     test "the external dependencies the kernel will declare at M8 are named, not discovered" do
@@ -255,7 +289,8 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
                  "one module's dedicated owner"
       end
 
-      assert length(Ledger.relocating_tests()) == 16
+      # Sixteen owning tests, less the four recorded as residual-owned.
+      assert length(Ledger.relocating_tests()) == 12
     end
 
     test "every path in the manifest exists" do
