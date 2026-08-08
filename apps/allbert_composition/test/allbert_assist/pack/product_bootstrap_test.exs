@@ -73,4 +73,24 @@ defmodule AllbertAssist.Pack.ProductBootstrapTest do
 
     assert_receive {:stopped, :allbert_composition}
   end
+
+  test "a malformed final ready epoch tears down newly-started applications" do
+    parent = self()
+    epoch = %{barrier_pid: self(), snapshot_digest: String.duplicate("c", 64)}
+
+    assert {:error, :readiness_lost} =
+             ProductBootstrap.ensure_ready_for_test(
+               application_starter: fn :allbert_composition -> {:ok, [:allbert_composition]} end,
+               readiness_await: fn _deadline -> {:ok, epoch} end,
+               readiness_status: fn _timeout ->
+                 {:ok, %{phase: :ready, barrier_pid: :not_a_pid, snapshot_digest: "invalid"}}
+               end,
+               application_stopper: fn app ->
+                 send(parent, {:stopped, app})
+                 :ok
+               end
+             )
+
+    assert_receive {:stopped, :allbert_composition}
+  end
 end

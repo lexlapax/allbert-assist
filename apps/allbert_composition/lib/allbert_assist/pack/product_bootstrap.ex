@@ -88,8 +88,7 @@ defmodule AllbertAssist.Pack.ProductBootstrap do
 
   defp final_ready_status(deadline, seams) do
     with {:ok, status} <- seams.readiness_status.(remaining_timeout(deadline, seams)),
-         {:ok, epoch} <- epoch_from_status(status),
-         :ok <- valid_epoch(epoch) do
+         {:ok, epoch} <- epoch_from_status(status) do
       {:ok, epoch}
     else
       _other -> {:error, :readiness_lost}
@@ -130,12 +129,6 @@ defmodule AllbertAssist.Pack.ProductBootstrap do
        do: {:ok, %{barrier_pid: pid, snapshot_digest: digest}}
 
   defp epoch_from_status(_status), do: {:error, :not_ready}
-
-  defp valid_epoch(%{barrier_pid: pid, snapshot_digest: digest})
-       when is_pid(pid) and is_binary(digest),
-       do: :ok
-
-  defp valid_epoch(_epoch), do: {:error, :not_ready}
 
   defp readiness_deadline(deadline, seams) do
     min(deadline, seams.monotonic_ms.() + @readiness_deadline_ms)
