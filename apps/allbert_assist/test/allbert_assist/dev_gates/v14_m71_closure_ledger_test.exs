@@ -124,5 +124,104 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
     end
   end
 
+  describe "the R2 move manifest" do
+    @manifest "docs/validation/v1.4-m8-move-manifest.csv"
+
+    test "the committed manifest matches a live regeneration byte for byte" do
+      assert {:ok, rows} = Ledger.move_manifest()
+
+      committed =
+        @manifest
+        |> Path.expand(repository_root())
+        |> File.read!()
+        |> String.split("\n", trim: true)
+
+      [header | committed_rows] = committed
+      headers = String.split(header, ",")
+
+      regenerated =
+        Enum.map(rows, fn row ->
+          headers |> Enum.map(&Map.fetch!(row, &1)) |> Enum.join(",")
+        end)
+
+      assert committed_rows == regenerated,
+             "the frozen move manifest has drifted; M8 must consume the exact " <>
+               "bytes R2 froze. Regenerate deliberately, never to make this pass."
+    end
+
+    test "every row moves one file into the kernel under the same module name" do
+      assert {:ok, rows} = Ledger.move_manifest()
+      assert length(rows) == 25
+
+      for row <- rows do
+        assert row["disposition"] == "move"
+
+        assert row["destination"] ==
+                 String.replace_prefix(
+                   row["source"],
+                   "apps/allbert_assist/",
+                   "apps/allbert_kernel/"
+                 )
+
+        # A module name is independent of its application on the BEAM, which is
+        # the whole reason relocation is a file move rather than a rewrite.
+        assert String.starts_with?(row["module"], "AllbertAssist.")
+        assert String.length(row["source_sha256"]) == 64
+      end
+    end
+
+    test "a source digest tracks its file, so a content change cannot pass as a move" do
+      assert {:ok, rows} = Ledger.move_manifest()
+
+      row = Enum.find(rows, &(&1["module"] == "AllbertAssist.Paths"))
+
+      actual =
+        row["source"]
+        |> Path.expand(repository_root())
+        |> File.read!()
+        |> then(&:crypto.hash(:sha256, &1))
+        |> Base.encode16(case: :lower)
+
+      assert row["source_sha256"] == actual
+    end
+
+    test "concern-wide suites are recorded as shared rather than claimed by one module" do
+      shared = Ledger.shared_tests()
+
+      assert Map.keys(shared) == [:security_central]
+      assert length(shared.security_central) == 4
+
+      dedicated =
+        Ledger.move_manifest()
+        |> elem(1)
+        |> Enum.map(& &1["test_source"])
+        |> Enum.reject(&(&1 == ""))
+
+      for path <- shared.security_central do
+        refute path in dedicated,
+               "#{path} proves the Security plane as a unit and cannot also be " <>
+                 "one module's dedicated owner"
+      end
+
+      assert length(Ledger.relocating_tests()) == 16
+    end
+
+    test "every path in the manifest exists" do
+      assert {:ok, rows} = Ledger.move_manifest()
+
+      for row <- rows do
+        assert File.exists?(Path.expand(row["source"], repository_root()))
+
+        if row["test_source"] != "" do
+          assert File.exists?(Path.expand(row["test_source"], repository_root()))
+        end
+      end
+
+      for path <- Ledger.relocating_tests() do
+        assert File.exists?(Path.expand(path, repository_root()))
+      end
+    end
+  end
+
   defp repository_root, do: Path.expand("../../../../..", __DIR__)
 end

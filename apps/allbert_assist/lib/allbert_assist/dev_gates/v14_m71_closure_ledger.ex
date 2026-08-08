@@ -68,6 +68,17 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     "apps/allbert_assist/lib/allbert_assist/registry_context.ex" => :capability_plane
   }
 
+  # Suites that prove a whole concern rather than one module. They relocate with
+  # the concern; no per-module row claims them as its dedicated owner.
+  @shared_tests [
+    security_central: [
+      "apps/allbert_assist/test/allbert_assist/security/channel_inbound_policy_test.exs",
+      "apps/allbert_assist/test/allbert_assist/security/permission_gate_test.exs",
+      "apps/allbert_assist/test/allbert_assist/security/public_surface_policy_test.exs",
+      "apps/allbert_assist/test/allbert_assist/security/security_central_test.exs"
+    ]
+  ]
+
   # External library dependencies the relocated kernel will carry. Each is a
   # real call or struct match in a target, not a documentation mention, and each
   # becomes a declared dependency of `apps/allbert_kernel/mix.exs` under the R2
@@ -198,6 +209,86 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
       {"module", inspect(finding.module)},
       {"reason", Atom.to_string(finding.reason)}
     ])
+  end
+
+  @doc """
+  The R2 move manifest M8 consumes without changing a byte.
+
+  Every row carries the pre-move content digest of its source and of its owning
+  test. M8's acceptance is that each relocated file still hashes to the value
+  frozen here: a relocation that changes content is not a relocation.
+
+  Destinations are mechanical — the same path under `apps/allbert_kernel`,
+  because BEAM module names are independent of application names and nothing is
+  renamed. A module with no dedicated owning test carries an empty test row and
+  is covered by its concern's shared tests below.
+  """
+  @spec move_manifest() :: {:ok, [map()]}
+  def move_manifest do
+    rows =
+      Enum.map(roster(), fn {source, concern} ->
+        test_source = owning_test(source)
+
+        Map.new([
+          {"concern", Atom.to_string(concern)},
+          {"module", source |> module_for_source() |> inspect()},
+          {"source", source},
+          {"destination", destination(source)},
+          {"source_sha256", digest(source)},
+          {"test_source", test_source || ""},
+          {"test_destination", (test_source && destination(test_source)) || ""},
+          {"test_sha256", (test_source && digest(test_source)) || ""},
+          {"disposition", "move"}
+        ])
+      end)
+
+    {:ok, rows}
+  end
+
+  @doc """
+  Tests that cover a whole concern rather than one module.
+
+  They move with their concern. Recording them separately keeps the per-module
+  rows honest: four Security Central suites exercise the plane as a unit, and
+  claiming any one of them as a single module's owner would misstate what
+  proves that module.
+  """
+  @spec shared_tests() :: %{atom() => [String.t()]}
+  def shared_tests, do: Map.new(@shared_tests)
+
+  @doc "Every test file that relocates, dedicated and shared, sorted."
+  @spec relocating_tests() :: [String.t()]
+  def relocating_tests do
+    dedicated = @roster |> Map.keys() |> Enum.map(&owning_test/1) |> Enum.reject(&is_nil/1)
+    shared = @shared_tests |> Enum.flat_map(&elem(&1, 1))
+
+    (dedicated ++ shared) |> Enum.uniq() |> Enum.sort()
+  end
+
+  defp owning_test(source) do
+    candidate =
+      source
+      |> String.replace_prefix("apps/allbert_assist/lib/allbert_assist/", "")
+      |> String.replace_suffix(".ex", "_test.exs")
+      |> then(&Path.join("apps/allbert_assist/test/allbert_assist", &1))
+
+    if File.exists?(Path.join(@repo_root, candidate)), do: candidate, else: nil
+  end
+
+  defp destination(source) do
+    String.replace_prefix(source, "apps/allbert_assist/", "apps/allbert_kernel/")
+  end
+
+  defp digest(relative_path) do
+    @repo_root
+    |> Path.join(relative_path)
+    |> File.read!()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  defp module_for_source(source) do
+    source |> quoted!() |> defined_modules() |> List.last()
   end
 
   @doc "Every module a relocation target references, with aliases resolved."
