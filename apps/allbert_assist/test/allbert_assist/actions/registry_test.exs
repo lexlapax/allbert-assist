@@ -10,7 +10,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
   alias Jido.Signal.Bus
 
   defmodule PluginEcho do
@@ -93,13 +93,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   end
 
   setup do
-    PluginRegistry.clear()
-
-    on_exit(fn ->
-      ShippedRegistries.restore!()
-    end)
-
-    :ok
+    {:ok, registry_context: Fixtures.start_isolated_registries(:actions_registry)}
   end
 
   test "retry safety honors explicit unsafe declarations before reviewed mode defaults" do
@@ -113,8 +107,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert unknown.retry_safety == :unknown
   end
 
-  test "returns the canonical runtime action names in stable order" do
-    assert Registry.names() == [
+  test "returns the canonical runtime action names in stable order", %{
+    registry_context: context
+  } do
+    assert Registry.names(context) == [
              "direct_answer",
              "append_memory",
              "read_recent_memory",
@@ -361,7 +357,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "ensure_voice_token"
            ]
 
-    assert Registry.duplicate_names() == []
+    assert Registry.duplicate_names(context) == []
   end
 
   test "returns the intent-agent action surface without internal actions" do
@@ -418,18 +414,20 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "record_trace" in agent_action_names
   end
 
-  test "returns canonical capability metadata for every registered action" do
-    capabilities = Registry.capabilities()
+  test "returns canonical capability metadata for every registered action", %{
+    registry_context: context
+  } do
+    capabilities = Registry.capabilities(context)
 
-    assert Enum.map(capabilities, & &1.name) == Registry.names()
-    assert Enum.all?(capabilities, &(&1.module in Registry.modules()))
+    assert Enum.map(capabilities, & &1.name) == Registry.names(context)
+    assert Enum.all?(capabilities, &(&1.module in Registry.modules(context)))
     assert Enum.all?(capabilities, &is_atom(&1.permission))
     assert Enum.all?(capabilities, &(&1.exposure in [:agent, :internal]))
 
-    assert Enum.map(Registry.agent_capabilities(), & &1.name) ==
-             Enum.map(Registry.agent_modules(), & &1.name())
+    assert Enum.map(Registry.agent_capabilities(context), & &1.name) ==
+             Enum.map(Registry.agent_modules(context), & &1.name())
 
-    assert Enum.map(Registry.internal_capabilities(), & &1.name) == [
+    assert Enum.map(Registry.internal_capabilities(context), & &1.name) == [
              "read",
              "grep",
              "glob",
@@ -1234,28 +1232,28 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute Registry.registered_module?(Multiply)
   end
 
-  test "stamps app ids onto capabilities for registered app actions" do
-    on_exit(fn -> AllbertAssist.App.Registry.unregister(:action_tagging_app) end)
+  test "stamps app ids onto capabilities for registered app actions", %{
+    registry_context: context
+  } do
+    assert :action_tagging_app = Fixtures.register_app!(context, ActionTaggingApp)
 
-    assert {:ok, :action_tagging_app} = AllbertAssist.App.Registry.register(ActionTaggingApp)
-
-    assert {:ok, direct_answer} = Registry.capability("direct_answer")
+    assert {:ok, direct_answer} = Registry.capability("direct_answer", context)
     assert direct_answer.app_id == :action_tagging_app
 
     assert %{app_id: :action_tagging_app} = Capability.summary(direct_answer)
 
     assert [%{name: "direct_answer", app_id: :action_tagging_app}] =
              Enum.map(
-               Registry.capabilities_for_app(:action_tagging_app),
+               Registry.capabilities_for_app(:action_tagging_app, context),
                &Capability.summary/1
              )
 
-    assert Registry.capabilities_for_app(:missing_app) == []
+    assert Registry.capabilities_for_app(:missing_app, context) == []
   end
 
-  test "app and plugin registration emit lifecycle and action registry signals" do
-    on_exit(fn -> AllbertAssist.App.Registry.unregister(:action_tagging_app) end)
-
+  test "app and plugin registration emit lifecycle and action registry signals", %{
+    registry_context: context
+  } do
     assert {:ok, _app_subscription} =
              Bus.subscribe(AllbertAssist.SignalBus, "allbert.app.**")
 
@@ -1265,7 +1263,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, _action_subscription} =
              Bus.subscribe(AllbertAssist.SignalBus, "allbert.action.registry_changed")
 
-    assert {:ok, :action_tagging_app} = AllbertAssist.App.Registry.register(ActionTaggingApp)
+    app_opts = context |> Keyword.fetch!(:app) |> Keyword.put(:side_effects, true)
+    plugin_opts = context |> Keyword.fetch!(:plugin) |> Keyword.put(:side_effects, true)
+
+    assert {:ok, :action_tagging_app} =
+             AllbertAssist.App.Registry.register(ActionTaggingApp, app_opts)
 
     assert_receive {:signal, %{type: "allbert.app.registered"} = app_signal}, 1_000
     assert app_signal.data.app_id == :action_tagging_app
@@ -1278,16 +1280,19 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert action_signal.data.app_id == :action_tagging_app
 
     assert {:ok, "example.signals"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.signals",
-               display_name: "Example Signals",
-               version: "0.1.0",
-               kind: "actions",
-               source: :project,
-               status: :enabled,
-               trust_status: :trusted,
-               actions: [PluginEcho]
-             })
+             PluginRegistry.register_entry(
+               %PluginEntry{
+                 plugin_id: "example.signals",
+                 display_name: "Example Signals",
+                 version: "0.1.0",
+                 kind: "actions",
+                 source: :project,
+                 status: :enabled,
+                 trust_status: :trusted,
+                 actions: [PluginEcho]
+               },
+               plugin_opts
+             )
 
     assert_receive {:signal, %{type: "allbert.plugin.registered"} = plugin_signal}, 1_000
     assert plugin_signal.data.plugin_id == "example.signals"
@@ -1300,9 +1305,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert plugin_action_signal.data.plugin_id == "example.signals"
   end
 
-  test "merges plugin-contributed actions with capability provenance" do
-    assert {:ok, "example.actions"} =
-             PluginRegistry.register_entry(%PluginEntry{
+  test "merges plugin-contributed actions with capability provenance", %{
+    registry_context: context
+  } do
+    assert "example.actions" =
+             Fixtures.register_plugin!(context, %PluginEntry{
                plugin_id: "example.actions",
                display_name: "Example Actions",
                version: "0.1.0",
@@ -1313,12 +1320,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
                actions: [PluginEcho]
              })
 
-    assert "plugin_echo" in Registry.names()
-    assert {:ok, PluginEcho} = Registry.resolve("plugin_echo")
-    assert Registry.registered_module?(PluginEcho)
-    assert PluginEcho in Registry.agent_modules()
+    assert "plugin_echo" in Registry.names(context)
+    assert {:ok, PluginEcho} = Registry.resolve("plugin_echo", context)
+    assert Registry.registered_module?(PluginEcho, context)
+    assert PluginEcho in Registry.agent_modules(context)
 
-    assert {:ok, capability} = Registry.capability("plugin_echo")
+    assert {:ok, capability} = Registry.capability("plugin_echo", context)
     assert capability.permission == :read_only
     assert capability.exposure == :agent
     assert capability.plugin_id == "example.actions"
@@ -1326,9 +1333,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert %{plugin_id: "example.actions"} = Capability.summary(capability)
   end
 
-  test "rejects duplicate plugin action names with diagnostics" do
-    assert {:ok, "example.duplicate_action"} =
-             PluginRegistry.register_entry(%PluginEntry{
+  test "rejects duplicate plugin action names with diagnostics", %{
+    registry_context: context
+  } do
+    assert "example.duplicate_action" =
+             Fixtures.register_plugin!(context, %PluginEntry{
                plugin_id: "example.duplicate_action",
                display_name: "Example Duplicate Action",
                version: "0.1.0",
@@ -1339,9 +1348,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
                actions: [DuplicateDirectAnswer]
              })
 
-    assert {:ok, DirectAnswer} = Registry.resolve("direct_answer")
-    refute Registry.registered_module?(DuplicateDirectAnswer)
-    assert Registry.duplicate_names() == []
+    assert {:ok, DirectAnswer} = Registry.resolve("direct_answer", context)
+    refute Registry.registered_module?(DuplicateDirectAnswer, context)
+    assert Registry.duplicate_names(context) == []
 
     assert [
              %{
@@ -1350,7 +1359,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
                action_name: "direct_answer",
                action_module: DuplicateDirectAnswer
              }
-           ] = Registry.diagnostics()
+           ] = Registry.diagnostics(context)
   end
 
   test "projects the static catalog without live registry provenance" do
