@@ -7,7 +7,7 @@ defmodule StockSage.App do
   provider behaviour.
   """
 
-  use AllbertAssist.App
+  use AllbertAssist.App, reserved?: true
   use AllbertAssist.App.SurfaceProvider
 
   alias AllbertAssist.Surface

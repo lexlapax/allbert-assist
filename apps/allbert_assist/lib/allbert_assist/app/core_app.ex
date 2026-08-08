@@ -1,7 +1,7 @@
 defmodule AllbertAssist.App.CoreApp do
   @moduledoc false
 
-  use AllbertAssist.App
+  use AllbertAssist.App, default?: true, reserved?: true
   use AllbertAssist.App.SurfaceProvider
 
   alias AllbertAssist.Actions.Integrations.{OpenCalendarPanel, OpenGithubPanel, OpenMailPanel}

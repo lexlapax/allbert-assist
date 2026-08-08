@@ -2,24 +2,9 @@ defmodule AllbertAssist.Plugin.Discovery do
   @moduledoc false
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.Pack.CompiledInventory
   alias AllbertAssist.Plugin.Validator
   alias AllbertAssist.Settings
-
-  @shipped_modules %{
-    "allbert.telegram" => AllbertAssist.Plugins.Telegram,
-    "allbert.email" => AllbertAssist.Plugins.Email,
-    "allbert.discord" => AllbertAssist.Plugins.Discord,
-    "allbert.slack" => AllbertAssist.Plugins.Slack,
-    "allbert.matrix" => AllbertAssist.Plugins.Matrix,
-    "allbert.whatsapp" => AllbertAssist.Plugins.WhatsApp,
-    "allbert.signal" => AllbertAssist.Plugins.Signal,
-    "allbert.tui" => AllbertAssist.Plugins.TUI,
-    "allbert.notes_files" => AllbertNotesFiles.Plugin,
-    "allbert.browser" => AllbertBrowser.Plugin,
-    "allbert.artifacts" => AllbertArtifacts.Plugin,
-    "allbert.research" => AllbertResearch.Plugin,
-    "stocksage" => StockSage.Plugin
-  }
 
   @default_settings %{
     "enabled" => [],
@@ -46,7 +31,12 @@ defmodule AllbertAssist.Plugin.Discovery do
   end
 
   @spec shipped_modules() :: %{String.t() => module()}
-  def shipped_modules, do: @shipped_modules
+  def shipped_modules do
+    case CompiledInventory.plugin_modules() do
+      {:ok, modules} -> modules
+      {:error, reason} -> raise "compiled Plugin inventory unavailable: #{inspect(reason)}"
+    end
+  end
 
   defp read_settings do
     Map.new(@default_settings, fn {key, default} ->
@@ -183,7 +173,7 @@ defmodule AllbertAssist.Plugin.Discovery do
   end
 
   defp shipped_module(%{"plugin_id" => plugin_id, "module" => module_name}, :shipped) do
-    with {:ok, module} <- Map.fetch(@shipped_modules, plugin_id),
+    with {:ok, module} <- Map.fetch(shipped_modules(), plugin_id),
          true <- module_name == String.replace_prefix(Atom.to_string(module), "Elixir.", "") do
       {:ok, module}
     else
@@ -240,7 +230,7 @@ defmodule AllbertAssist.Plugin.Discovery do
   defp source_for(folder, project_root) do
     cond do
       Path.dirname(folder) == Path.join(project_root, "plugins") and
-          Path.basename(folder) in Map.keys(@shipped_modules) ->
+          Path.basename(folder) in Map.keys(shipped_modules()) ->
         :shipped
 
       String.starts_with?(Path.expand(folder), Path.expand(project_root) <> "/") ->

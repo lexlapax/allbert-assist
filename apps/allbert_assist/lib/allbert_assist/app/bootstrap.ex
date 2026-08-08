@@ -3,12 +3,11 @@ defmodule AllbertAssist.App.Bootstrap do
 
   use GenServer
 
+  alias AllbertAssist.Pack.CompiledInventory
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
   require Logger
-
-  @default_apps [AllbertAssist.App.CoreApp]
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -97,5 +96,10 @@ defmodule AllbertAssist.App.Bootstrap do
     end
   end
 
-  defp default_apps, do: @default_apps
+  defp default_apps do
+    case CompiledInventory.default_app_modules() do
+      {:ok, modules} -> modules
+      {:error, reason} -> raise "compiled default App inventory unavailable: #{inspect(reason)}"
+    end
+  end
 end

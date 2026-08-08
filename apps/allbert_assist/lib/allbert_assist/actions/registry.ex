@@ -10,7 +10,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.Registry.CandidateProjection
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
+  alias AllbertAssist.Pack.{ActionCatalog, PathSegment, ValidationDiagnostic}
 
   alias AllbertAssist.Actions.Apps.ListApps
   alias AllbertAssist.Actions.Apps.ShowApp
@@ -563,18 +563,24 @@ defmodule AllbertAssist.Actions.Registry do
   """
   @spec static_projection() :: {:ok, [map()]} | {:error, [ValidationDiagnostic.t()]}
   def static_projection do
-    @actions
-    |> Enum.with_index(1)
-    |> Enum.reduce_while({:ok, []}, fn {module, legacy_index}, {:ok, projections} ->
-      case project_module(module, legacy_index, nil, nil) do
-        {:ok, projection} -> {:cont, {:ok, [projection | projections]}}
-        {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
-      end
-    end)
-    |> then(fn
-      {:ok, projections} -> {:ok, Enum.reverse(projections)}
-      error -> error
-    end)
+    case ActionCatalog.residual_modules() do
+      {:ok, modules} ->
+        modules
+        |> Enum.with_index(1)
+        |> Enum.reduce_while({:ok, []}, fn {module, legacy_index}, {:ok, projections} ->
+          case project_module(module, legacy_index, nil, nil) do
+            {:ok, projection} -> {:cont, {:ok, [projection | projections]}}
+            {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
+          end
+        end)
+        |> then(fn
+          {:ok, projections} -> {:ok, Enum.reverse(projections)}
+          error -> error
+        end)
+
+      {:error, reason} ->
+        {:error, [projection_diagnostic(reason)]}
+    end
   end
 
   @doc """

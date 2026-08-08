@@ -56,9 +56,29 @@ defmodule AllbertAssist.App do
   @callback surfaces() :: [surface_entry() | AllbertAssist.Surface.t()]
   @optional_callbacks memory_namespace: 0
 
-  defmacro __using__(_opts) do
-    quote do
+  defmacro __using__(opts) do
+    unless Keyword.keyword?(opts) and Keyword.keys(opts) == Enum.uniq(Keyword.keys(opts)) and
+             Enum.all?(Keyword.keys(opts), &(&1 in [:default?, :reserved?])) and
+             Enum.all?(Keyword.values(opts), &is_boolean/1) do
+      raise ArgumentError, "invalid Allbert App owner declarations: #{inspect(opts)}"
+    end
+
+    default_owner = Keyword.get(opts, :default?, false)
+    reserved_owner = Keyword.get(opts, :reserved?, false)
+
+    quote bind_quoted: [default_owner: default_owner, reserved_owner: reserved_owner] do
       @behaviour AllbertAssist.App
+      @allbert_app_default default_owner
+      @allbert_app_reserved reserved_owner
+
+      @doc false
+      def allbert_app?, do: true
+
+      @doc false
+      def default_app?, do: @allbert_app_default
+
+      @doc false
+      def reserved_app_id?, do: @allbert_app_reserved
 
       @impl AllbertAssist.App
       def child_spec(_opts), do: :ignore

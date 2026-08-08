@@ -3,6 +3,7 @@ defmodule AllbertAssist.App.Validator do
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Maps
+  alias AllbertAssist.Pack.CompiledInventory
 
   @required_exports [
     app_id: 0,
@@ -20,11 +21,6 @@ defmodule AllbertAssist.App.Validator do
 
   @app_id_regex ~r/^[a-z][a-z0-9_]*$/
   @reserved_nil_aliases [:none, :general]
-  @reserved_app_owners %{
-    allbert: [AllbertAssist.App.CoreApp],
-    stocksage: [StockSage.App]
-  }
-
   @known_setting_types [
     :string,
     :string_or_empty,
@@ -137,9 +133,15 @@ defmodule AllbertAssist.App.Validator do
   end
 
   defp reserved_for_other_module?(app_id, module) do
-    case Map.get(@reserved_app_owners, app_id) do
-      nil -> false
-      owners -> module not in owners
+    case CompiledInventory.reserved_app_owners() do
+      {:ok, owners_by_id} ->
+        case Map.get(owners_by_id, app_id) do
+          nil -> false
+          owners -> module not in owners
+        end
+
+      {:error, reason} ->
+        raise "compiled reserved App inventory unavailable: #{inspect(reason)}"
     end
   end
 
