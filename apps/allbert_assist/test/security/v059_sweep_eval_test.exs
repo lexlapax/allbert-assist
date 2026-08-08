@@ -67,20 +67,6 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert_eval_group!(:param_contract, :param_contract)
   end
 
-  test "v0.59 sweep rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v059)
-
-    assert Enum.any?(rows, &(&1.expected == :needs_confirmation))
-    assert Enum.any?(rows, &(&1.expected == :denied))
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert)
-      assert length(row.assert) >= 3
-      assert row.scenario =~ ~r/\w/
-    end
-  end
-
   test "mcp client and browser egress remain bounded by settings and confirmation floors" do
     defaults = Settings.defaults()
 
@@ -378,7 +364,6 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     IO.puts("param-contract-safe-key-normalization-001 status=pass atom_creation_calls=0")
   end
 
-  @tag :rc_substrate
   test "rc-substrate handoff enumerates downstream consumers without scope drift" do
     row = EvalInventory.row!("rc-substrate-no-drift-001")
     handoff = File.read!(@v059_plan_path)

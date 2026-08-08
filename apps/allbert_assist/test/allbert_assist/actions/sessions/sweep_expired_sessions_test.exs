@@ -9,8 +9,6 @@ defmodule AllbertAssist.Actions.Sessions.SweepExpiredSessionsTest do
 
   alias AllbertAssist.Actions.Sessions.SweepExpiredSessions
 
-  @moduletag :sweep_expired_sessions
-
   test "allowed path sweeps and returns a non-negative removed count" do
     assert {:ok, %{status: :completed, count: count}} =
              SweepExpiredSessions.run(%{}, %{user_id: "local"})

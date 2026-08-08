@@ -159,18 +159,20 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
 
   @spec prompt_outbound(map(), session(), term()) :: {:ok, [map()]} | {:error, error()}
   def prompt_outbound(runtime_response, session, request_id) when is_map(runtime_response) do
-    case Response.status(runtime_response) do
+    case Response.outcome_class(runtime_response) do
       :needs_confirmation ->
         pending_prompt_outbound(runtime_response, session, request_id)
 
       :denied ->
         {:error, authorization_error(Map.get(runtime_response, :message, "Request was denied."))}
 
-      status when status in [:error, :failed, :unsupported, :unavailable] ->
+      :error ->
+        status = Response.status(runtime_response, :error)
+
         {:error,
          runtime_error(Map.get(runtime_response, :message, "Allbert runtime returned #{status}."))}
 
-      _status ->
+      :success ->
         {:ok,
          [
            agent_message_chunk(

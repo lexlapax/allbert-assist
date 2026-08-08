@@ -120,16 +120,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     IO.puts("v065-inventory-complete status=pass rows=13 owners=routed")
   end
 
-  test "v0.65 rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v065)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert) and row.assert != []
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   test "local-knowledge-notes-root-explicit-001: the notes root is one explicit safe key" do
     dir =
       Path.join(

@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
+  import AllbertAssist.TestSupport.ActionEnvelopeAssertions
   import Plug.Conn
 
   alias AllbertAssist.Actions.Channels.MatrixDoctor
@@ -58,6 +59,24 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
     assert response.doctor.user_id == "@allbert:example.com"
     refute inspect(response) =~ "matrix-secret"
 
+    assert_channel_envelope(response,
+      name: "matrix_doctor",
+      message:
+        "Matrix doctor: status=ok auth_ok=true endpoint_ok=true " <>
+          "poller=#{response.doctor.poller_status} user=@allbert:example.com",
+      status: :completed,
+      action_status: :completed,
+      decision: :allowed,
+      diagnostics: [],
+      metadata: %{
+        doctor_status: :ok,
+        auth_ok: true,
+        endpoint_ok: true,
+        poller_status: response.doctor.poller_status,
+        diagnostics: []
+      }
+    )
+
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "ok"
     assert state["auth_ok"] == true
@@ -80,6 +99,22 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
     refute response.doctor.auth_ok
     assert :token_rejected in response.diagnostics
     refute inspect(response) =~ "matrix-secret"
+  end
+
+  test "preserves the exact denial envelope before diagnostics run" do
+    assert {:ok, response} = MatrixDoctor.run(%{}, denied_context())
+
+    assert response.doctor == %{}
+
+    assert_channel_envelope(response,
+      name: "matrix_doctor",
+      message: denied_message(),
+      status: :denied,
+      action_status: :denied,
+      decision: :denied,
+      diagnostics: [],
+      metadata: %{error: :permission_denied}
+    )
   end
 
   defp configure_matrix! do
@@ -124,6 +159,11 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
     }
     |> AllbertAssist.TestSupport.ReadyEffectContext.attach()
   end
+
+  defp denied_context, do: %{selected_action: "unregistered_boundary_probe"}
+
+  defp denied_message,
+    do: "Unknown or unregistered action boundary: \"unregistered_boundary_probe\"."
 
   defp json(conn, body) do
     status = conn.status || 200

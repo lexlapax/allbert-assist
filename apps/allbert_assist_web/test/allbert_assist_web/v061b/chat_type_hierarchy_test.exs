@@ -10,8 +10,6 @@ defmodule AllbertAssistWeb.V061b.ChatTypeHierarchyTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  @moduletag :chat_type
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "chat bubble type ranks strictly body > label > timestamp on token-resolved values" do

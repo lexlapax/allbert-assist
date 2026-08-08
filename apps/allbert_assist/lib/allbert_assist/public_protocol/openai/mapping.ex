@@ -121,8 +121,8 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
 
   @spec chat_completion(map(), chat_request(), map()) :: {:ok, map()} | {:error, error()}
   def chat_completion(runtime_response, chat, auth) when is_map(runtime_response) do
-    case Response.status(runtime_response) do
-      :completed ->
+    case Response.outcome_class(runtime_response) do
+      :success ->
         {:ok, completion_object(runtime_response, chat)}
 
       :needs_confirmation ->
@@ -131,15 +131,14 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
       :denied ->
         {:error, authorization_error(Map.get(runtime_response, :message, "Request was denied."))}
 
-      status when status in [:error, :failed, :unsupported, :unavailable] ->
+      :error ->
+        status = Response.status(runtime_response, :error)
+
         {:error,
          invalid(
            Map.get(runtime_response, :message, "Allbert runtime returned #{status}."),
            "runtime_error"
          )}
-
-      _status ->
-        {:ok, completion_object(runtime_response, chat)}
     end
   end
 

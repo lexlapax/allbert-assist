@@ -9,8 +9,6 @@ defmodule AllbertAssist.Actions.Sessions.ClearSessionTest do
 
   alias AllbertAssist.Actions.Sessions.ClearSession
 
-  @moduletag :clear_session
-
   test "allowed path clears the owner's session and returns the removed? result" do
     assert {:ok, %{status: :completed, result: %{removed?: removed?}}} =
              ClearSession.run(%{session_id: "sess-clear-1"}, %{user_id: "local"})

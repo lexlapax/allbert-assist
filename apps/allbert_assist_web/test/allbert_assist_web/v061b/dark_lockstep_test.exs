@@ -12,8 +12,6 @@ defmodule AllbertAssistWeb.V061b.DarkLockstepTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  @moduletag :dark_tokens
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "the two dark token blocks are value-identical (parsed token map, no drift)" do

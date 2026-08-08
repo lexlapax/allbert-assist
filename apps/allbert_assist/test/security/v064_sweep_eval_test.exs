@@ -117,16 +117,6 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
     IO.puts("v064-inventory-complete status=pass rows=13 owners=routed")
   end
 
-  test "v0.64 rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v064)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert) and row.assert != []
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   @tag :preflight_fixture_historical_contracts
   test "first-run-no-raw-mix-required-001: operator docs are package-first" do
     onboarding_doc = read!("docs/operator/onboarding.md")

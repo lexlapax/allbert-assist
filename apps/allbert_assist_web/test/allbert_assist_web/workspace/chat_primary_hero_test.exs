@@ -8,8 +8,6 @@ defmodule AllbertAssistWeb.Workspace.ChatPrimaryHeroTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  @moduletag :v061_screens
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "the workspace conversation renders as a raised Direction C card" do

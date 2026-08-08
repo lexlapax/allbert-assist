@@ -7,8 +7,6 @@ defmodule AllbertAssistWeb.Workspace.VisualHierarchyTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  @moduletag :v061_hierarchy
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "card surfaces consume Direction C depth tokens, not hardcoded radii/shadows" do

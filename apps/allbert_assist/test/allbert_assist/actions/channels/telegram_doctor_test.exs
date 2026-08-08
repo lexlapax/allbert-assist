@@ -1,14 +1,14 @@
 defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
   use AllbertAssist.DataCase, async: false
 
+  import AllbertAssist.TestSupport.ActionEnvelopeAssertions
+
   alias AllbertAssist.Actions.Channels.TelegramDoctor
   alias AllbertAssist.Channels.Telegram.Doctor
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -26,11 +26,6 @@ defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, :telegram_doctor_client_opts, mode: :stub)
 
-    PluginRegistry.clear()
-
-    assert {:ok, "allbert.telegram"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-
     Fragments.clear_cache()
 
     assert {:ok, _secret} =
@@ -43,7 +38,6 @@ defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
       restore_env(Settings, original_settings_config)
       restore_app_env(:telegram_doctor_client_opts, original_doctor_opts)
       restore_app_env(:telegram_client_stub_result, original_stub_result)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -62,6 +56,24 @@ defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
     assert response.doctor.bot_username == "allbert_fixture_bot"
     assert response.message =~ "Telegram doctor"
     refute inspect(response) =~ "123:secret"
+
+    assert_channel_envelope(response,
+      name: "telegram_doctor",
+      message:
+        "Telegram doctor: status=ok auth_ok=true endpoint_ok=true " <>
+          "poller=#{response.doctor.poller_status} bot=allbert_fixture_bot",
+      status: :completed,
+      action_status: :completed,
+      decision: :allowed,
+      diagnostics: [],
+      metadata: %{
+        doctor_status: :ok,
+        auth_ok: true,
+        endpoint_ok: true,
+        poller_status: response.doctor.poller_status,
+        diagnostics: []
+      }
+    )
 
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "ok"
@@ -93,6 +105,22 @@ defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
     refute inspect(response) =~ "123:secret"
   end
 
+  test "preserves the exact denial envelope before diagnostics run" do
+    assert {:ok, response} = TelegramDoctor.run(%{}, denied_context())
+
+    assert response.doctor == %{}
+
+    assert_channel_envelope(response,
+      name: "telegram_doctor",
+      message: denied_message(),
+      status: :denied,
+      action_status: :denied,
+      decision: :denied,
+      diagnostics: [],
+      metadata: %{error: :permission_denied}
+    )
+  end
+
   defp context do
     %{
       actor: "local",
@@ -100,6 +128,11 @@ defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
   end
+
+  defp denied_context, do: %{selected_action: "unregistered_boundary_probe"}
+
+  defp denied_message,
+    do: "Unknown or unregistered action boundary: \"unregistered_boundary_probe\"."
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

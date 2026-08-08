@@ -8,8 +8,6 @@ defmodule AllbertAssistWeb.Workspace.MotionLayerTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  @moduletag :v061_motion
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "the entrance/drawer/skeleton motion roles are token-driven" do

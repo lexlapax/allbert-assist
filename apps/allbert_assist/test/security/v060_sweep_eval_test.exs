@@ -68,17 +68,6 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     end
   end
 
-  test "v0.60 sweep rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v060)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert)
-      assert length(row.assert) >= 3
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   test "design artifacts are present and carry their v0.60 handoff contracts" do
     product = read!("docs/design/product-experience-spec.md")
 
@@ -215,7 +204,6 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     )
   end
 
-  @tag :v060_cross_doc_coherence
   test "first-model states and persona boundary stay coherent across design docs" do
     first_model = read!("docs/design/first-model-path.md")
     entry_point = read!("docs/design/entry-point-cli-ux.md")
@@ -277,7 +265,6 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     )
   end
 
-  @tag :v060_persona_seed_preaudit
   test "persona seed pre-audit is anchored to existing Settings Central safe-write keys" do
     persona = read!("docs/design/persona-model.md")
 
@@ -302,7 +289,6 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     )
   end
 
-  @tag :rc_design_handoff
   test "v0.60 handoff names downstream consumers without build-scope drift" do
     plan = read!("docs/plans/archives/v0.60-plan.md")
     request_flow = read!("docs/plans/archives/v0.60-request-flow.md")

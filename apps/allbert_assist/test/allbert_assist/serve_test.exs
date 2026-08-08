@@ -14,8 +14,6 @@ defmodule AllbertAssist.ServeTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Service
 
-  @moduletag :serve_daemon
-
   test "Health.snapshot reports runtime/database/channels bounded" do
     snap = Health.snapshot()
     assert snap.status in [:ok, :degraded]

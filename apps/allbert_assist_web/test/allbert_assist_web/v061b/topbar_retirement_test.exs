@@ -15,8 +15,6 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Settings
 
-  @moduletag :topbar_retirement
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   # Mirror of the plan's M0 relocation table (row, disposition, proof selector,

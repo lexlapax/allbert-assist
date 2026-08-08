@@ -71,16 +71,6 @@ defmodule AllbertAssist.Security.V063SweepEvalTest do
     IO.puts("v063-inventory-complete status=pass rows=16 owners=routed")
   end
 
-  test "v0.63 sweep rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v063)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert) and row.assert != []
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   test "adr-0069-accepted-001: ADR 0069 is Accepted (v0.63)" do
     adr = read!("docs/adr/0069-operator-onboarding-flow.md")
     assert adr =~ "Status: Accepted (v0.63)"

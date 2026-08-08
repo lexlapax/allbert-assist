@@ -12,8 +12,6 @@ defmodule AllbertAssistWeb.V061b.SidebarCollapseTest do
 
   import Phoenix.LiveViewTest
 
-  @moduletag :sidebar_collapse
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
   @js_path Path.expand("../../../assets/js/app.js", __DIR__)
 

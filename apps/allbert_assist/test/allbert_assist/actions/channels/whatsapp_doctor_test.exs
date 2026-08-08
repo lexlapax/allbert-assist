@@ -1,6 +1,9 @@
 defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
+  import AllbertAssist.TestSupport.ActionEnvelopeAssertions
+
+  alias AllbertAssist.Actions.Channels.WhatsAppDoctor
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.WhatsApp.Doctor
   alias AllbertAssist.Paths
@@ -55,10 +58,47 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
     refute inspect(response) =~ "whatsapp-secret"
     refute inspect(response) =~ "+15551234567"
 
+    assert {:ok, direct_response} = WhatsAppDoctor.run(%{}, action_context())
+
+    assert_channel_envelope(direct_response,
+      name: "whatsapp_doctor",
+      message:
+        "WhatsApp doctor: status=implemented_not_released auth_ok=true endpoint_ok=false " <>
+          "adapter=#{direct_response.doctor.adapter_status} phone=[REDACTED_PHONE] " <>
+          "diagnostics=implemented_not_released",
+      status: :completed,
+      action_status: :completed,
+      decision: :allowed,
+      diagnostics: [:implemented_not_released],
+      metadata: %{
+        doctor_status: :implemented_not_released,
+        auth_ok: true,
+        endpoint_ok: false,
+        adapter_status: direct_response.doctor.adapter_status,
+        diagnostics: [:implemented_not_released]
+      }
+    )
+
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "implemented_not_released"
     assert state["release_status"] == "implemented_not_released"
     assert state["phone_number_id"] == "[REDACTED_PHONE]"
+  end
+
+  test "preserves the exact denial envelope before diagnostics run" do
+    assert {:ok, response} = WhatsAppDoctor.run(%{}, denied_context())
+
+    assert response.doctor == %{}
+
+    assert_channel_envelope(response,
+      name: "whatsapp_doctor",
+      message: denied_message(),
+      status: :denied,
+      action_status: :denied,
+      decision: :denied,
+      diagnostics: [],
+      metadata: %{error: :permission_denied}
+    )
   end
 
   defp configure_whatsapp! do
@@ -104,6 +144,12 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
+
+  defp action_context, do: %{actor: "operator"}
+  defp denied_context, do: %{selected_action: "unregistered_boundary_probe"}
+
+  defp denied_message,
+    do: "Unknown or unregistered action boundary: \"unregistered_boundary_probe\"."
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

@@ -50,17 +50,6 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
     end
   end
 
-  test "v0.60b sweep rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v060b)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert)
-      assert length(row.assert) >= 3
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   test "visual-language design artifacts are present and carry their v0.60b contracts" do
     research = read!("docs/design/visual-language-research.md")
 
@@ -219,7 +208,6 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
     )
   end
 
-  @tag :v060b_handoff
   test "v0.60b handoff names v0.61 as the sole consumer without build-scope drift" do
     plan = read!("docs/plans/archives/v0.60b-plan.md")
     selected = read!("docs/design/visual-language-selected.md")

@@ -10,8 +10,6 @@ defmodule AllbertAssistWeb.DarkModeResolutionTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
-  @moduletag :v061_dark_mode
-
   @css_path Path.expand("../../assets/css/app.css", __DIR__)
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]

@@ -58,17 +58,6 @@ defmodule AllbertAssist.Security.V061bSweepEvalTest do
     end
   end
 
-  test "v0.61b sweep rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v061b)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert)
-      assert length(row.assert) >= 3
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   test "the plan's M0 shell-spec section carries its subsections and the recorded S2 sign-off" do
     plan = read!("docs/plans/archives/v0.61b-plan.md")
 

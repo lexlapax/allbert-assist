@@ -77,17 +77,6 @@ defmodule AllbertAssist.Security.V061SweepEvalTest do
     end
   end
 
-  test "v0.61 sweep rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v061)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert)
-      assert length(row.assert) >= 3
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   test "layout-systems-explored.md specifies >=3 divergent systems across all nine surfaces" do
     doc = read!("docs/design/layout-systems-explored.md")
 

@@ -10,8 +10,6 @@ defmodule AllbertAssist.InstallPathTest do
 
   alias AllbertAssist.SecurityFixtures.AssertBinding
 
-  @moduletag :install_path
-
   @repo_root Path.expand("../../../../", __DIR__)
   @install Path.join(@repo_root, "scripts/install/install.sh")
   @uninstall Path.join(@repo_root, "scripts/install/uninstall.sh")

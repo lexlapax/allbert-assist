@@ -1,13 +1,13 @@
 defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
   use AllbertAssist.DataCase, async: false
 
+  import AllbertAssist.TestSupport.ActionEnvelopeAssertions
+
   alias AllbertAssist.Actions.Channels.DiscordDoctor
   alias AllbertAssist.Channels.Discord.Doctor
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -22,11 +22,6 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-
-    PluginRegistry.clear()
-
-    assert {:ok, "allbert.discord"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
 
     Fragments.clear_cache()
 
@@ -48,7 +43,6 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:discord_client_stub_result, original_stub_result)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -76,6 +70,24 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
     refute :missing_message_content_intent in response.doctor.diagnostics
     assert response.message =~ "Discord doctor"
     refute inspect(response) =~ "Bot "
+
+    assert_channel_envelope(response,
+      name: "discord_doctor",
+      message:
+        "Discord doctor: status=ok auth_ok=true endpoint_ok=true gateway=disabled " <>
+          "bot=allbert-fixture",
+      status: :completed,
+      action_status: :completed,
+      decision: :allowed,
+      diagnostics: [],
+      metadata: %{
+        doctor_status: :ok,
+        auth_ok: true,
+        endpoint_ok: true,
+        gateway_status: :disabled,
+        diagnostics: []
+      }
+    )
 
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "ok"
@@ -120,6 +132,22 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
     refute inspect(response) =~ "Bot "
   end
 
+  test "preserves the exact denial envelope before diagnostics run" do
+    assert {:ok, response} = DiscordDoctor.run(%{}, denied_context())
+
+    assert response.doctor == %{}
+
+    assert_channel_envelope(response,
+      name: "discord_doctor",
+      message: denied_message(),
+      status: :denied,
+      action_status: :denied,
+      decision: :denied,
+      diagnostics: [],
+      metadata: %{error: :permission_denied}
+    )
+  end
+
   defp context do
     %{
       actor: "local",
@@ -127,6 +155,11 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
   end
+
+  defp denied_context, do: %{selected_action: "unregistered_boundary_probe"}
+
+  defp denied_message,
+    do: "Unknown or unregistered action boundary: \"unregistered_boundary_probe\"."
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

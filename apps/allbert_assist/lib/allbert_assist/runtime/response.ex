@@ -10,24 +10,65 @@ defmodule AllbertAssist.Runtime.Response do
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.ResourceAccess
+  alias AllbertAssist.Runtime.Redactor
 
-  @known_string_statuses %{
-    "completed" => :completed,
-    "needs_confirmation" => :needs_confirmation,
-    "denied" => :denied,
-    "advisory" => :advisory,
-    "error" => :error,
-    "unsupported" => :unsupported,
-    "unavailable" => :unavailable,
-    "failed" => :failed,
-    "timed_out" => :timed_out,
-    "cancelled" => :cancelled,
-    "not_found" => :not_found,
-    "still_blocked" => :still_blocked,
-    "objective_abandoned" => :objective_abandoned,
-    "objective_cancelled" => :objective_cancelled,
-    "objective_failed" => :objective_failed
+  @action_statuses [
+    :completed,
+    :needs_confirmation,
+    :denied,
+    :advisory,
+    :error,
+    :unsupported,
+    :unavailable,
+    :failed,
+    :timed_out,
+    :cancelled,
+    :not_found,
+    :still_blocked,
+    :objective_abandoned,
+    :objective_cancelled,
+    :objective_failed,
+    :already_finished,
+    :clarification,
+    :degraded,
+    :disabled,
+    :finalizing,
+    :needs_clarification,
+    :queued,
+    :running,
+    :stopped
+  ]
+  @known_string_statuses Map.new(@action_statuses, &{Atom.to_string(&1), &1})
+  @action_status_outcomes %{
+    completed: :success,
+    needs_confirmation: :needs_confirmation,
+    denied: :denied,
+    advisory: :success,
+    error: :error,
+    unsupported: :error,
+    unavailable: :error,
+    failed: :error,
+    timed_out: :success,
+    cancelled: :success,
+    not_found: :success,
+    still_blocked: :success,
+    objective_abandoned: :success,
+    objective_cancelled: :success,
+    objective_failed: :success,
+    already_finished: :success,
+    clarification: :success,
+    degraded: :success,
+    disabled: :success,
+    finalizing: :success,
+    needs_clarification: :success,
+    queued: :success,
+    running: :success,
+    stopped: :success
   }
+
+  if MapSet.new(Map.keys(@action_status_outcomes)) != MapSet.new(@action_statuses) do
+    raise "action status outcome inventory must classify every admitted status"
+  end
 
   @type status ::
           :completed
@@ -37,7 +78,23 @@ defmodule AllbertAssist.Runtime.Response do
           | :error
           | :unsupported
           | :unavailable
-          | atom()
+          | :failed
+          | :timed_out
+          | :cancelled
+          | :not_found
+          | :still_blocked
+          | :objective_abandoned
+          | :objective_cancelled
+          | :objective_failed
+          | :already_finished
+          | :clarification
+          | :degraded
+          | :disabled
+          | :finalizing
+          | :needs_clarification
+          | :queued
+          | :running
+          | :stopped
 
   @type t :: %{
           required(:message) => String.t(),
@@ -54,6 +111,7 @@ defmodule AllbertAssist.Runtime.Response do
         }
 
   @type action_response :: t()
+  @type outcome_class :: :success | :needs_confirmation | :denied | :error
   @type action_response_schema :: %{
           message: :string,
           model_payload: :string,
@@ -81,6 +139,24 @@ defmodule AllbertAssist.Runtime.Response do
   @doc "Return the stable internal fields guaranteed for registered action responses."
   @spec action_response_schema() :: action_response_schema()
   def action_response_schema, do: @action_response_schema
+
+  @doc "Return the complete status vocabulary admitted at the registered-action boundary."
+  @spec action_statuses() :: [status(), ...]
+  def action_statuses, do: @action_statuses
+
+  @doc "Return the explicit public-protocol outcome class for every admitted action status."
+  @spec action_status_outcomes() :: %{required(status()) => outcome_class()}
+  def action_status_outcomes, do: @action_status_outcomes
+
+  @doc "Classify a response or status for transport mapping; unknown values fail closed."
+  @spec outcome_class(map() | status()) :: outcome_class()
+  def outcome_class(response) when is_map(response),
+    do: response |> status(:unknown) |> outcome_class()
+
+  def outcome_class(status) when is_atom(status),
+    do: Map.get(@action_status_outcomes, status, :error)
+
+  def outcome_class(_status), do: :error
 
   @doc "Build a completed response."
   @spec completed(String.t(), map() | keyword()) :: t()
@@ -136,23 +212,25 @@ defmodule AllbertAssist.Runtime.Response do
   shapes get the same operator-facing messages Runner used before M6.
   """
   @spec from_action_result({:ok, map()} | {:error, term()} | term(), String.t()) :: t()
-  def from_action_result({:ok, response}, _action_name) when is_map(response),
-    do: normalize(response)
+  def from_action_result({:ok, response}, action_name) when is_map(response),
+    do: normalize(response, default_message: default_action_message(action_name))
 
   def from_action_result({:error, reason}, action_name) do
-    error("Action #{action_name} failed: #{inspect(reason)}", reason,
+    safe_reason = Redactor.redact(reason)
+
+    error("Action #{action_name} failed: #{inspect(safe_reason)}", safe_reason,
       actions: [
-        action(action_name, :error, error: inspect(reason))
+        action(action_name, :error, error: :action_failed)
       ]
     )
   end
 
-  def from_action_result(other, action_name) do
+  def from_action_result(_other, action_name) do
     error(
-      "Action #{action_name} returned an invalid result: #{inspect(other)}",
-      {:invalid_action_result, other},
+      "Action #{action_name} returned an invalid result.",
+      :invalid_action_result,
       actions: [
-        action(action_name, :error, error: inspect(other))
+        action(action_name, :error, error: :invalid_action_result)
       ]
     )
   end
@@ -160,6 +238,17 @@ defmodule AllbertAssist.Runtime.Response do
   @doc "Normalize and validate a registered action result at the Runner boundary."
   @spec canonical_action_result({:ok, map()} | {:error, term()} | term(), String.t()) ::
           action_response()
+  def canonical_action_result({:ok, response}, action_name)
+      when is_map(response) and is_binary(action_name) do
+    with :ok <- validate_present_action_fields(response),
+         normalized <- normalize(response, default_message: default_action_message(action_name)),
+         {:ok, canonical_response} <- validate_action_response(normalized) do
+      canonical_response
+    else
+      {:error, _reason} -> invalid_canonical_action_response(action_name)
+    end
+  end
+
   def canonical_action_result(result, action_name) when is_binary(action_name) do
     result
     |> from_action_result(action_name)
@@ -182,7 +271,7 @@ defmodule AllbertAssist.Runtime.Response do
     is_binary(message) and
       is_binary(model_payload) and
       is_binary(surface_payload) and
-      is_atom(status) and
+      status in @action_statuses and
       is_list(actions) and
       (is_nil(decision) or is_map(decision)) and
       is_list(resource_access) and
@@ -325,14 +414,67 @@ defmodule AllbertAssist.Runtime.Response do
       {:ok, canonical_response} ->
         canonical_response
 
-      {:error, reason} ->
-        error(
-          "Action #{action_name} returned an invalid canonical response: #{inspect(reason)}",
-          reason,
-          actions: [action(action_name, :error, error: inspect(reason))]
-        )
+      {:error, _reason} ->
+        invalid_canonical_action_response(action_name)
     end
   end
+
+  defp invalid_canonical_action_response(action_name) do
+    error(
+      "Action #{action_name} returned an invalid canonical response.",
+      :invalid_canonical_action_response,
+      actions: [
+        action(action_name, :error, error: :invalid_canonical_action_response)
+      ]
+    )
+  end
+
+  defp default_action_message(action_name), do: "Action #{action_name} completed."
+
+  defp validate_present_action_fields(response) do
+    validators = [
+      message: &is_binary/1,
+      model_payload: &is_binary/1,
+      surface_payload: &is_binary/1,
+      status: &valid_action_status?/1,
+      actions: &is_list/1,
+      decision: &(is_nil(&1) or is_map(&1)),
+      resource_access: &is_list/1,
+      approval_handoff: &(is_nil(&1) or is_map(&1)),
+      diagnostics: &is_list/1
+    ]
+
+    Enum.reduce_while(validators, :ok, fn {key, validator}, :ok ->
+      case present_values(response, key) do
+        [] ->
+          {:cont, :ok}
+
+        values ->
+          if Enum.all?(values, validator) do
+            {:cont, :ok}
+          else
+            {:halt, {:error, {:invalid_action_response_field, key}}}
+          end
+      end
+    end)
+  end
+
+  defp present_values(response, key) do
+    string_key = Atom.to_string(key)
+
+    [{key, Map.fetch(response, key)}, {string_key, Map.fetch(response, string_key)}]
+    |> Enum.flat_map(fn
+      {_key, {:ok, value}} -> [value]
+      {_key, :error} -> []
+    end)
+  end
+
+  defp valid_action_status?(status) when is_atom(status), do: status in @action_statuses
+
+  defp valid_action_status?(status) when is_binary(status),
+    do: Map.has_key?(@known_string_statuses, status)
+
+  defp valid_action_status?(_status), do: false
 
   defp message(%{message: message}, _default) when is_binary(message), do: message
   defp message(%{"message" => message}, _default) when is_binary(message), do: message

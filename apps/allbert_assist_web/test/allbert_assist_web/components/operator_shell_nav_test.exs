@@ -11,8 +11,6 @@ defmodule AllbertAssistWeb.OperatorShellNavTest do
 
   import Phoenix.LiveViewTest
 
-  @moduletag :v061_ia_navigation
-
   test "the new /objectives index route resolves through the D sidebar shell", %{conn: conn} do
     {:ok, _view, html} = live(conn, "/objectives")
 

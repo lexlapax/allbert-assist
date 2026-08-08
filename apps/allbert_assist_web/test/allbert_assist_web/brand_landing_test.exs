@@ -8,8 +8,6 @@ defmodule AllbertAssistWeb.BrandLandingTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  @moduletag :v061_brand
-
   @priv Path.expand("../../priv/static", __DIR__)
   @brand_doc Path.expand("../../../../docs/design/brand-identity-selected.md", __DIR__)
 

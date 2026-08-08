@@ -11,8 +11,6 @@ defmodule AllbertAssist.Channels.TUIConvergenceTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Channels.TUI.SlashCommands
 
-  @moduletag :tui_convergence
-
   # slash -> backing registered action
   @m6_reads %{
     "/jobs" => "list_jobs",

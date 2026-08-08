@@ -11,8 +11,6 @@ defmodule AllbertAssist.Actions.Conversations.CompleteThreadTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Repo
 
-  @moduletag :complete_thread
-
   defp create_thread(user_id, title \\ "Original title") do
     {:ok, thread} = Conversations.create_thread(%{user_id: user_id, title: title})
     thread

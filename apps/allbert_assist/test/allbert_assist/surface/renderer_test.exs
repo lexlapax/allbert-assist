@@ -61,6 +61,26 @@ defmodule AllbertAssist.Surface.RendererTest do
              "result" => %{"stopReason" => "end_turn"}
            }
 
+    for status <-
+          Response.action_statuses() --
+            [:needs_confirmation, :denied, :error, :failed, :unsupported, :unavailable] do
+      response = canonical_public_response(status)
+
+      assert {:ok, _completion} =
+               OpenAIMapping.chat_completion(
+                 response,
+                 %{model: "local"},
+                 %{client_id: "fixture-client"}
+               )
+
+      assert {:ok, [_update, _terminal]} =
+               AcpMapping.prompt_outbound(
+                 response,
+                 %{id: "acp_session_fixture", client_id: "fixture-client"},
+                 41
+               )
+    end
+
     for {status, openai_status, openai_code, acp_code} <- [
           {:denied, 403, "authorization_error", "authorization_error"},
           {:error, 400, "runtime_error", "runtime_error"},

@@ -14,8 +14,6 @@ defmodule AllbertAssistWeb.V061b.DockedPaneTest do
 
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
 
-  @moduletag :docked_pane
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "the canvas region is a docked grid pane, never a fixed overlay" do

@@ -17,8 +17,6 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
 
   alias AllbertAssistWeb.Workspace.Components.Patterns
 
-  @moduletag :v061_visual_tokens
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   defmodule DirectionCHost do

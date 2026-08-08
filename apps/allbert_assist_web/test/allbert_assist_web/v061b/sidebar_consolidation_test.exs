@@ -16,8 +16,6 @@ defmodule AllbertAssistWeb.V061b.SidebarConsolidationTest do
   alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
 
-  @moduletag :sidebar_consolidation
-
   test "the workspace sections nest under the sidebar and the column is retired", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/workspace")
 

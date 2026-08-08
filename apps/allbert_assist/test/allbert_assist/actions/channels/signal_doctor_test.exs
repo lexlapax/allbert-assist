@@ -1,14 +1,14 @@
 defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
   use AllbertAssist.DataCase, async: false
 
+  import AllbertAssist.TestSupport.ActionEnvelopeAssertions
+
+  alias AllbertAssist.Actions.Channels.SignalDoctor
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Signal.Doctor
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.Signal, as: SignalPlugin
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @aci "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001"
 
@@ -27,8 +27,6 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, :signal_doctor_client_opts, mode: :stub)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.signal"} = PluginRegistry.register_module(SignalPlugin)
     Fragments.clear_cache()
     configure_signal!(root)
 
@@ -36,7 +34,6 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:signal_doctor_client_opts, original_doctor_opts)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -57,10 +54,48 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
     assert :implemented_not_released in response.doctor.diagnostics
     refute inspect(response) =~ "+15551234567"
 
+    assert {:ok, direct_response} = SignalDoctor.run(%{}, action_context())
+
+    assert_channel_envelope(direct_response,
+      name: "signal_doctor",
+      message:
+        "Signal doctor: status=implemented_not_released auth_ok=true endpoint_ok=false " <>
+          "adapter=#{direct_response.doctor.adapter_status} control=socket local_only=false " <>
+          "diagnostics=implemented_not_released",
+      status: :completed,
+      action_status: :completed,
+      decision: :allowed,
+      diagnostics: [:implemented_not_released],
+      metadata: %{
+        doctor_status: :implemented_not_released,
+        auth_ok: true,
+        endpoint_ok: false,
+        adapter_status: direct_response.doctor.adapter_status,
+        control_mode: "socket",
+        diagnostics: [:implemented_not_released]
+      }
+    )
+
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "implemented_not_released"
     assert state["release_status"] == "implemented_not_released"
     assert state["control_mode"] == "socket"
+  end
+
+  test "preserves the exact denial envelope before diagnostics run" do
+    assert {:ok, response} = SignalDoctor.run(%{}, denied_context())
+
+    assert response.doctor == %{}
+
+    assert_channel_envelope(response,
+      name: "signal_doctor",
+      message: denied_message(),
+      status: :denied,
+      action_status: :denied,
+      decision: :denied,
+      diagnostics: [],
+      metadata: %{error: :permission_denied}
+    )
   end
 
   defp configure_signal!(root) do
@@ -99,6 +134,12 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
   end
+
+  defp action_context, do: %{actor: "operator"}
+  defp denied_context, do: %{selected_action: "unregistered_boundary_probe"}
+
+  defp denied_message,
+    do: "Unknown or unregistered action boundary: \"unregistered_boundary_probe\"."
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

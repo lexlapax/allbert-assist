@@ -15,8 +15,6 @@ defmodule AllbertAssist.FirstModelTest do
   alias AllbertAssist.Settings.Store
   alias Jido.Signal.Bus
 
-  @moduletag :first_model_path
-
   setup {Req.Test, :verify_on_exit!}
 
   setup do

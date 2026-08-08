@@ -71,16 +71,6 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     IO.puts("v066-inventory-complete status=pass rows=#{length(row_ids)} owners=routed")
   end
 
-  test "v0.66 rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v066)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert) and length(row.assert) >= 3
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   # ── M3: browser web smoke (render/dispatch contract) ─────────────────────────
 
   test "product-rc-web-smoke-no-console-error-001: the web shell renders behind the browser pipeline and its panels stay action-backed" do

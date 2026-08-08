@@ -40,8 +40,6 @@ defmodule AllbertAssistWeb.V103.SidebarOwnershipTest do
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias Ecto.Adapters.SQL.Sandbox
 
-  @moduletag :sidebar_ownership
-
   # `DBConnection.Ownership.Proxy`'s built-in lease, i.e. the pre-fix constant
   # this file regresses against. Kept literal on purpose: the regression must
   # cross the boundary the OLD code granted, not a value the new code computes.

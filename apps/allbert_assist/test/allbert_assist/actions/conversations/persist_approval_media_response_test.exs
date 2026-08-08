@@ -11,8 +11,6 @@ defmodule AllbertAssist.Actions.Conversations.PersistApprovalMediaResponseTest d
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations
 
-  @moduletag :approval_media_write
-
   defp create_thread(user_id) do
     {:ok, thread} = Conversations.create_thread(%{user_id: user_id, title: "Media thread"})
     thread

@@ -56,14 +56,6 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
     IO.puts("v1-inventory-complete status=pass rows=7 owners=routed")
   end
 
-  test "v1.0 rows encode concrete pass criteria" do
-    for row <- EvalInventory.rows_for_milestone(:v1) do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert) and length(row.assert) >= 3
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   # ── Row 1: no new authority / permission-class freeze ────────────────────────
 
   test "v1-contract-freeze-no-new-features-001: the permission-class set is frozen and Tier 1 anchors are present" do

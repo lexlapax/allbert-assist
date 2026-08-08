@@ -188,7 +188,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   end
 
   defp response_to_payload(response, name, context, surface) do
-    case RuntimeResponse.status(response) do
+    case RuntimeResponse.outcome_class(response) do
       :needs_confirmation ->
         pending_payload(response, name, context, surface)
 
@@ -200,7 +200,9 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
            error: Redactor.redact(Map.get(response, :error))
          }}
 
-      status when status in [:error, :failed, :unsupported, :unavailable] ->
+      :error ->
+        status = RuntimeResponse.status(response, :error)
+
         {:ok,
          %{
            status: Atom.to_string(status),
@@ -208,7 +210,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
            error: Redactor.redact(Map.get(response, :error))
          }}
 
-      _status ->
+      :success ->
         {:ok,
          response
          |> Redactor.redact()

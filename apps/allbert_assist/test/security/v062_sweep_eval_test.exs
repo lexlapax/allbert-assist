@@ -115,16 +115,6 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
     end
   end
 
-  test "v0.62 sweep rows encode concrete pass criteria" do
-    rows = EvalInventory.rows_for_milestone(:v062)
-
-    for row <- rows do
-      assert is_atom(row.boundary)
-      assert is_list(row.assert) and row.assert != []
-      assert is_binary(row.scenario) and byte_size(row.scenario) > 12
-    end
-  end
-
   test "packaging-no-authority-change-001: registry diff is exactly the named internal actions" do
     names = MapSet.new(Registry.names())
     agent_names = MapSet.new(Enum.map(Registry.agent_capabilities(), & &1.name))

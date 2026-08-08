@@ -1,14 +1,14 @@
 defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
   use AllbertAssist.DataCase, async: false
 
+  import AllbertAssist.TestSupport.ActionEnvelopeAssertions
+
   alias AllbertAssist.Actions.Channels.EmailDoctor
   alias AllbertAssist.Channels.Email.Doctor
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule FakeImapClient do
     def connect(_host, _port, opts), do: {:ok, %{opts: opts}}
@@ -36,8 +36,6 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
     Application.put_env(:allbert_assist, :email_doctor_imap_client, FakeImapClient)
     Application.put_env(:allbert_assist, :email_doctor_imap_opts, uids: ["1"])
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
     Fragments.clear_cache()
 
     configure_email!()
@@ -47,7 +45,6 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
       restore_env(Settings, original_settings_config)
       restore_app_env(:email_doctor_imap_client, original_imap_client)
       restore_app_env(:email_doctor_imap_opts, original_imap_opts)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -69,6 +66,24 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
     refute inspect(response) =~ "imap-secret"
     refute inspect(response) =~ "smtp-secret"
 
+    assert_channel_envelope(response,
+      name: "email_doctor",
+      message:
+        "Email doctor: status=ok auth_ok=true endpoint_ok=true " <>
+          "poller=#{response.doctor.poller_status} imap=true smtp=true",
+      status: :completed,
+      action_status: :completed,
+      decision: :allowed,
+      diagnostics: [],
+      metadata: %{
+        doctor_status: :ok,
+        auth_ok: true,
+        endpoint_ok: true,
+        poller_status: response.doctor.poller_status,
+        diagnostics: []
+      }
+    )
+
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "ok"
     assert state["imap_endpoint_ok"] == true
@@ -87,6 +102,22 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
     assert response.doctor.status == :error
     assert :imap_login_or_mailbox_failed in response.diagnostics
     refute inspect(response) =~ "bad-secret"
+  end
+
+  test "preserves the exact denial envelope before diagnostics run" do
+    assert {:ok, response} = EmailDoctor.run(%{}, denied_context())
+
+    assert response.doctor == %{}
+
+    assert_channel_envelope(response,
+      name: "email_doctor",
+      message: denied_message(),
+      status: :denied,
+      action_status: :denied,
+      decision: :denied,
+      diagnostics: [],
+      metadata: %{error: :permission_denied}
+    )
   end
 
   defp configure_email! do
@@ -143,6 +174,11 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
   end
+
+  defp denied_context, do: %{selected_action: "unregistered_boundary_probe"}
+
+  defp denied_message,
+    do: "Unknown or unregistered action boundary: \"unregistered_boundary_probe\"."
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

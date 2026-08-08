@@ -1,0 +1,1062 @@
+{
+  "counts": {
+    "definitions": 39,
+    "json_safe": 13,
+    "truthy": 26,
+    "use_sites": 63
+  },
+  "definitions": [
+    {
+      "arity": 1,
+      "definition_sha256": "d8b250320532c7879f2fcc8ab73a61ac9d83acd9fe63d21a106033e57f199a86",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Actions.Coding.Grep.truthy?/1",
+      "module": "AllbertAssist.Actions.Coding.Grep",
+      "profile": "truth.true_or_true_string",
+      "purpose": "Interpret grep option flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/coding/grep.ex",
+      "trust_or_wire": "action_param_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "run_grep/3",
+          "capture_count": 0,
+          "purpose": "Interpret grep option flags",
+          "trust_or_wire": "action_param_input",
+          "use_sha256": "1e7ab798a231cde680358ed7ca0f289292d620a13735a21dcd39fb7a911d5fc7"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Actions.Confirmations.ApproveConfirmation.truthy?/1",
+      "module": "AllbertAssist.Actions.Confirmations.ApproveConfirmation",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret confirmed run-analysis async flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex",
+      "trust_or_wire": "confirmed_action_state",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "live_view_async_run_analysis?/2",
+          "capture_count": 0,
+          "purpose": "Interpret confirmed run-analysis async flags",
+          "trust_or_wire": "confirmed_action_state",
+          "use_sha256": "51f25011a4a61d7a997c3808f04f0ed580be1be833781720e2a3b4b5ca238865"
+        },
+        {
+          "call_count": 1,
+          "caller": "run_analysis_start_result/2",
+          "capture_count": 0,
+          "purpose": "Interpret confirmed run-analysis async flags",
+          "trust_or_wire": "confirmed_action_state",
+          "use_sha256": "51f25011a4a61d7a997c3808f04f0ed580be1be833781720e2a3b4b5ca238865"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Actions.Intent.DirectAnswer.truthy?/1",
+      "module": "AllbertAssist.Actions.Intent.DirectAnswer",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret coding-stream request flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/intent/direct_answer.ex",
+      "trust_or_wire": "action_param_input",
+      "use_sites": [
+        {
+          "call_count": 4,
+          "caller": "coding_streaming_request?/1",
+          "capture_count": 0,
+          "purpose": "Interpret coding-stream request flags",
+          "trust_or_wire": "action_param_input",
+          "use_sha256": "1282822c59baa243a2274e579c00251162c110c9be2aab67ac9cb9cdd521b77a"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "399aa940d432bf6823fbd5ecc0241d7947ea182250c22998707247a51fa4c8f2",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Actions.Intent.MutationSupport.truthy?/1",
+      "module": "AllbertAssist.Actions.Intent.MutationSupport",
+      "profile": "truth.true_or_true_string",
+      "purpose": "Interpret mutation capture and strategy flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/intent/mutation_support.ex",
+      "trust_or_wire": "action_param_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "add_capture/1",
+          "capture_count": 0,
+          "purpose": "Interpret mutation capture and strategy flags",
+          "trust_or_wire": "action_param_input",
+          "use_sha256": "f0e7b0a265a36bb3066bae98589ee96ff85c8bd3cdc0221e652d1deeb26064fa"
+        },
+        {
+          "call_count": 2,
+          "caller": "capture_attrs/1",
+          "capture_count": 0,
+          "purpose": "Interpret mutation capture and strategy flags",
+          "trust_or_wire": "action_param_input",
+          "use_sha256": "446a066efbf6209045b4008307b51d361df024a1b639faeafff403f836e3eeeb"
+        },
+        {
+          "call_count": 1,
+          "caller": "strategy/1",
+          "capture_count": 0,
+          "purpose": "Interpret mutation capture and strategy flags",
+          "trust_or_wire": "action_param_input",
+          "use_sha256": "ce1d82f4ca17171c9b64ce2c5d61b71dbe851f5fa856fe429a6035a064f2f43e"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "399aa940d432bf6823fbd5ecc0241d7947ea182250c22998707247a51fa4c8f2",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Actions.Intent.OperatorSupport.truthy?/1",
+      "module": "AllbertAssist.Actions.Intent.OperatorSupport",
+      "profile": "truth.true_or_true_string",
+      "purpose": "Interpret operator-support descriptor flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/intent/operator_support.ex",
+      "trust_or_wire": "operator_descriptor_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "coverage/0",
+          "capture_count": 0,
+          "purpose": "Interpret operator-support descriptor flags",
+          "trust_or_wire": "operator_descriptor_input",
+          "use_sha256": "df5564e82bff978f42eef1257454d4884150652c5522a711787e41ed9dcf874c"
+        },
+        {
+          "call_count": 1,
+          "caller": "descriptor_dto/1",
+          "capture_count": 0,
+          "purpose": "Interpret operator-support descriptor flags",
+          "trust_or_wire": "operator_descriptor_input",
+          "use_sha256": "4d7a21711d6798152177b5fd8e0a40accc0cf234765b7adcd92d10bbd8c23781"
+        },
+        {
+          "call_count": 1,
+          "caller": "proposal_dto/2",
+          "capture_count": 0,
+          "purpose": "Interpret operator-support descriptor flags",
+          "trust_or_wire": "operator_descriptor_input",
+          "use_sha256": "d31ec71c1ba175eb990d569b9d354f196a666a20cc8a114889f517642f46d3d9"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Actions.Mcp.CallTool.truthy?/1",
+      "module": "AllbertAssist.Actions.Mcp.CallTool",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret MCP tool result error flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/mcp/call_tool.ex",
+      "trust_or_wire": "provider_result_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "result_summary/5",
+          "capture_count": 0,
+          "purpose": "Interpret MCP tool result error flags",
+          "trust_or_wire": "provider_result_input",
+          "use_sha256": "2d69a9e497e45db569a79a272ab723a2e6648968b1b9715a1b0080cf7e63ff1f"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "399aa940d432bf6823fbd5ecc0241d7947ea182250c22998707247a51fa4c8f2",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Actions.Memory.PruneMemoryEntries.truthy?/1",
+      "module": "AllbertAssist.Actions.Memory.PruneMemoryEntries",
+      "profile": "truth.true_or_true_string",
+      "purpose": "Interpret memory prune dry-run flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/prune_memory_entries.ex",
+      "trust_or_wire": "action_param_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "dispatch/4",
+          "capture_count": 0,
+          "purpose": "Interpret memory prune dry-run flags",
+          "trust_or_wire": "action_param_input",
+          "use_sha256": "61bbaed7db42eb748623d4bca0f32f10b479d72a10776d530490c7a79863629d"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Agents.IntentAgent.truthy?/1",
+      "module": "AllbertAssist.Agents.IntentAgent",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret intent-agent coding-turn flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/agents/intent_agent.ex",
+      "trust_or_wire": "runtime_context_input",
+      "use_sites": [
+        {
+          "call_count": 4,
+          "caller": "coding_turn?/1",
+          "capture_count": 0,
+          "purpose": "Interpret intent-agent coding-turn flags",
+          "trust_or_wire": "runtime_context_input",
+          "use_sha256": "1282822c59baa243a2274e579c00251162c110c9be2aab67ac9cb9cdd521b77a"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "ed33e995ef5cc27d56d854dd61ed0f9249ad7d7e6fc23c8d96edc6e2f1b8c1e7",
+      "disposition": "retain_local",
+      "function": "truthy?",
+      "id": "AllbertAssist.Coding.SessionGuard.truthy?/1",
+      "module": "AllbertAssist.Coding.SessionGuard",
+      "profile": "truth.common_boolean_plus_enabled",
+      "purpose": "Interpret coding-session enablement flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/coding/session_guard.ex",
+      "trust_or_wire": "runtime_context_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "coding_session?/1",
+          "capture_count": 0,
+          "purpose": "Interpret coding-session enablement flags",
+          "trust_or_wire": "runtime_context_input",
+          "use_sha256": "cc6ee8a1981797206c25c07cb438aff875155acd4c9d05f7c4e492e2002f381a"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "fc07b2f6cbf4886d6bcc4f095792020af2e95845ea577422f429090be7158898",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "AllbertAssist.Conversations.ChannelThread.json_safe/1",
+      "module": "AllbertAssist.Conversations.ChannelThread",
+      "profile": "json.conversation_thread_canonical",
+      "purpose": "Canonicalize channel-thread state before encoding",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/conversations/channel_thread.ex",
+      "trust_or_wire": "durable_storage_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "canonical_encode/1",
+          "capture_count": 0,
+          "purpose": "Canonicalize channel-thread state before encoding",
+          "trust_or_wire": "durable_storage_wire",
+          "use_sha256": "c303afbc4485e1a3b250e23c97cbca444ba22fe29ec9b8bb8bbf0e56fb70ea06"
+        },
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Canonicalize channel-thread state before encoding",
+          "trust_or_wire": "durable_storage_wire",
+          "use_sha256": "6dfab3a377a246265d0851630bba50adbdef73a2ceb7eaf7f46e6c29eabab6af"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "bb2679a06a9f8d92e60b048d723acbffad74820be2fbd2c57b25823441123b8e",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Conversations.UnifiedHistory.truthy?/1",
+      "module": "AllbertAssist.Conversations.UnifiedHistory",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret unified-history inclusion flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/conversations/unified_history.ex",
+      "trust_or_wire": "settings_and_query_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "normalize_history_opts/1",
+          "capture_count": 0,
+          "purpose": "Interpret unified-history inclusion flags",
+          "trust_or_wire": "settings_and_query_input",
+          "use_sha256": "00c95f8e675e522600da4d95783d7a4ad1771da8b56a6758bf271989cac31ca9"
+        },
+        {
+          "call_count": 1,
+          "caller": "settings_include_e2ee_origin?/0",
+          "capture_count": 0,
+          "purpose": "Interpret unified-history inclusion flags",
+          "trust_or_wire": "settings_and_query_input",
+          "use_sha256": "d3d7be00f63973fbce8ecbaf40172e9068bc4c0d564fa2802eee56f3b201635b"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "2a1071580faa0f938d2669b6ec8fdda26e8840ec8efd83cdaa5d8c828edcb197",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "AllbertAssist.Conversations.json_safe/1",
+      "module": "AllbertAssist.Conversations",
+      "profile": "json.conversation_message_canonical",
+      "purpose": "Canonicalize conversation message attributes",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/conversations.ex",
+      "trust_or_wire": "durable_storage_wire",
+      "use_sites": [
+        {
+          "call_count": 5,
+          "caller": "json_safe/1",
+          "capture_count": 0,
+          "purpose": "Canonicalize conversation message attributes",
+          "trust_or_wire": "durable_storage_wire",
+          "use_sha256": "d1180858d54b4dbb6382827e14b0a7d9d08fc58e4ea391d7f69fade918fa7b0e"
+        },
+        {
+          "call_count": 0,
+          "caller": "message_attrs/2",
+          "capture_count": 2,
+          "purpose": "Canonicalize conversation message attributes",
+          "trust_or_wire": "durable_storage_wire",
+          "use_sha256": "9c3f8cab570f12bc02402074d8810cfc598328fc0afc7fff33a5434e582b68b9"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "f6151886d376ca9390c9b1b608714d159cad285c1101ce3f67172bdd871bf0fb",
+      "disposition": "retain_local",
+      "function": "truthy?",
+      "id": "AllbertAssist.Conversations.truthy?/1",
+      "module": "AllbertAssist.Conversations",
+      "profile": "truth.common_boolean_plus_yes_on",
+      "purpose": "Interpret conversation thread-resolution flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/conversations.ex",
+      "trust_or_wire": "runtime_context_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "resolve_thread/1",
+          "capture_count": 0,
+          "purpose": "Interpret conversation thread-resolution flags",
+          "trust_or_wire": "runtime_context_input",
+          "use_sha256": "b0654e37ec75f059afa0949b60080be7e572759a8a1696b0433e7cded713f7d2"
+        },
+        {
+          "call_count": 1,
+          "caller": "resolve_thread/2",
+          "capture_count": 0,
+          "purpose": "Interpret conversation thread-resolution flags",
+          "trust_or_wire": "runtime_context_input",
+          "use_sha256": "b0654e37ec75f059afa0949b60080be7e572759a8a1696b0433e7cded713f7d2"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "613dbf58ccd18bebdabd5ba36c9415d358fdf642f2b6a3a38e045851af7577f5",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.DynamicPlugins.Codegen.CapabilityGap.truthy?/1",
+      "module": "AllbertAssist.DynamicPlugins.Codegen.CapabilityGap",
+      "profile": "truth.common_boolean_plus_yes",
+      "purpose": "Interpret generated capability declaration flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/codegen/capability_gap.ex",
+      "trust_or_wire": "generated_descriptor_input",
+      "use_sites": [
+        {
+          "call_count": 3,
+          "caller": "explicit?/3",
+          "capture_count": 0,
+          "purpose": "Interpret generated capability declaration flags",
+          "trust_or_wire": "generated_descriptor_input",
+          "use_sha256": "a515844ab5f68c5a417d1b8447605b7fdd04c8277d20001f50edea0b35f064ed"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "d6bac2c55b20ca95c2167dc11e8c83e2bd62acfa203858ea64f3db2e2a73d60d",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "AllbertAssist.DynamicPlugins.Codegen.Workflow.json_safe/1",
+      "module": "AllbertAssist.DynamicPlugins.Codegen.Workflow",
+      "profile": "json.bounded_codegen_artifact",
+      "purpose": "Bound and canonicalize generated workflow artifacts",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/codegen/workflow.ex",
+      "trust_or_wire": "generated_artifact_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "canonical_command/1",
+          "capture_count": 0,
+          "purpose": "Bound and canonicalize generated workflow artifacts",
+          "trust_or_wire": "generated_artifact_wire",
+          "use_sha256": "67a61c7a501be7e59004cd848e7cb561f53ba1b065c92cfcc723ffab3aa62abf"
+        },
+        {
+          "call_count": 1,
+          "caller": "canonical_report/1",
+          "capture_count": 0,
+          "purpose": "Bound and canonicalize generated workflow artifacts",
+          "trust_or_wire": "generated_artifact_wire",
+          "use_sha256": "8c4810210485c3af1a34f14ea2293912f36023e5a99f757289a46896640116e1"
+        },
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Bound and canonicalize generated workflow artifacts",
+          "trust_or_wire": "generated_artifact_wire",
+          "use_sha256": "f8745f350bd7314a25e982d5fd1d0bb0a3e930f6850ba88dbf45d80fe779af0f"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "399aa940d432bf6823fbd5ecc0241d7947ea182250c22998707247a51fa4c8f2",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Intent.Eval.Corpus.truthy?/1",
+      "module": "AllbertAssist.Intent.Eval.Corpus",
+      "profile": "truth.true_or_true_string",
+      "purpose": "Interpret intent-evaluation fixture flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/intent/eval/corpus.ex",
+      "trust_or_wire": "evaluation_fixture_input",
+      "use_sites": [
+        {
+          "call_count": 2,
+          "caller": "normalize_case/2",
+          "capture_count": 0,
+          "purpose": "Interpret intent-evaluation fixture flags",
+          "trust_or_wire": "evaluation_fixture_input",
+          "use_sha256": "62b786a9aaf5a721f226ac93afafb41c0b697e65a1c17001a45f7b983773ac4f"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "399aa940d432bf6823fbd5ecc0241d7947ea182250c22998707247a51fa4c8f2",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Intent.Router.DescriptorResolver.truthy?/1",
+      "module": "AllbertAssist.Intent.Router.DescriptorResolver",
+      "profile": "truth.true_or_true_string",
+      "purpose": "Interpret stored descriptor disablement flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/intent/router/descriptor_resolver.ex",
+      "trust_or_wire": "stored_descriptor_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "disabled_keys/0",
+          "capture_count": 0,
+          "purpose": "Interpret stored descriptor disablement flags",
+          "trust_or_wire": "stored_descriptor_input",
+          "use_sha256": "d31ec71c1ba175eb990d569b9d354f196a666a20cc8a114889f517642f46d3d9"
+        },
+        {
+          "call_count": 1,
+          "caller": "merge_stored_layer/2",
+          "capture_count": 0,
+          "purpose": "Interpret stored descriptor disablement flags",
+          "trust_or_wire": "stored_descriptor_input",
+          "use_sha256": "d31ec71c1ba175eb990d569b9d354f196a666a20cc8a114889f517642f46d3d9"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "e8c17f28b9ec7de1e50012d9f245ecae141023ecbca1bd5997f3c78299858dbd",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "AllbertAssist.Jobs.Runner.json_safe/1",
+      "module": "AllbertAssist.Jobs.Runner",
+      "profile": "json.job_result_canonical",
+      "purpose": "Canonicalize durable job result values",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/jobs/runner.ex",
+      "trust_or_wire": "durable_storage_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Canonicalize durable job result values",
+          "trust_or_wire": "durable_storage_wire",
+          "use_sha256": "6dfab3a377a246265d0851630bba50adbdef73a2ceb7eaf7f46e6c29eabab6af"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Mcp.ConnectSpec.truthy?/1",
+      "module": "AllbertAssist.Mcp.ConnectSpec",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret MCP environment secret-reference flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/mcp/connect_spec.ex",
+      "trust_or_wire": "untrusted_config_input",
+      "use_sites": [
+        {
+          "call_count": 2,
+          "caller": "environment_secret_refs/2",
+          "capture_count": 0,
+          "purpose": "Interpret MCP environment secret-reference flags",
+          "trust_or_wire": "untrusted_config_input",
+          "use_sha256": "c8814ba0d7972b024817c16203b2b740c98993f57e300ceb131877b27435d3c7"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "eb7d88442d8182c5edb343c12f4be341b4f5c9ec5fcae005a64965147f1e9adb",
+      "disposition": "named_equivalence",
+      "function": "json_safe",
+      "id": "AllbertAssist.Mcp.ServerTrust.json_safe/1",
+      "module": "AllbertAssist.Mcp.ServerTrust",
+      "profile": "json.scalar_stringification",
+      "purpose": "Canonicalize MCP trust baselines and attributes",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/mcp/server_trust.ex",
+      "trust_or_wire": "trust_snapshot_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "capture_live_baseline/3",
+          "capture_count": 0,
+          "purpose": "Canonicalize MCP trust baselines and attributes",
+          "trust_or_wire": "trust_snapshot_wire",
+          "use_sha256": "5445b1a057289388ee283c00ed96f319262fea53c0a1c92b33a4fd3034f50f82"
+        },
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Canonicalize MCP trust baselines and attributes",
+          "trust_or_wire": "trust_snapshot_wire",
+          "use_sha256": "91e0492cafe5a4830fa05b2a70dd93cf7f0a4763a92aa17f0a071b58fc78ab37"
+        },
+        {
+          "call_count": 0,
+          "caller": "json_safe_attrs/2",
+          "capture_count": 1,
+          "purpose": "Canonicalize MCP trust baselines and attributes",
+          "trust_or_wire": "trust_snapshot_wire",
+          "use_sha256": "faa9ae2deea50d443b7ee3d299e633317f425322bd306a04c4bb29212e35ea62"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.PlanBuild.Runtime.truthy?/1",
+      "module": "AllbertAssist.PlanBuild.Runtime",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret workflow condition expressions",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex",
+      "trust_or_wire": "operator_workflow_input",
+      "use_sites": [
+        {
+          "call_count": 2,
+          "caller": "truthy_expression?/2",
+          "capture_count": 0,
+          "purpose": "Interpret workflow condition expressions",
+          "trust_or_wire": "operator_workflow_input",
+          "use_sha256": "8000e27d8c49b82472bde4d0055faec3b0b31bb89ac6bbfc69723a4e8fbd8e42"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "c1ca933415b2a3e0a914f5538573e477726b6cbb89f029b08d1538df308c908b",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "AllbertAssist.PlanBuild.json_safe/1",
+      "module": "AllbertAssist.PlanBuild",
+      "profile": "json.plan_preview_projection",
+      "purpose": "Project typed plan previews; declared inputs are scalar-typed and workflow params are Jason-validated before this boundary",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build.ex",
+      "trust_or_wire": "action_response_wire",
+      "use_sites": [
+        {
+          "call_count": 2,
+          "caller": "create_plan_start_confirmation/4",
+          "capture_count": 0,
+          "purpose": "Project typed plan previews; declared inputs are scalar-typed and workflow params are Jason-validated before this boundary",
+          "trust_or_wire": "action_response_wire",
+          "use_sha256": "957760e9f76081cff580b63ce81bb42f79630d1b428e994fe63703cfa15e8bd1"
+        },
+        {
+          "call_count": 1,
+          "caller": "execute_plan/4",
+          "capture_count": 0,
+          "purpose": "Project typed plan previews; declared inputs are scalar-typed and workflow params are Jason-validated before this boundary",
+          "trust_or_wire": "action_response_wire",
+          "use_sha256": "793bcd19902e115f2c94b20e1b901df7da49b88a29020c4ea3994e54c8cd2a92"
+        },
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Project typed plan previews; declared inputs are scalar-typed and workflow params are Jason-validated before this boundary",
+          "trust_or_wire": "action_response_wire",
+          "use_sha256": "6dfab3a377a246265d0851630bba50adbdef73a2ceb7eaf7f46e6c29eabab6af"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "eeb63d713e590f22672afafa2ec021fa4a473343dc1600ebeb7c2429c679a191",
+      "disposition": "named_equivalence",
+      "function": "json_safe",
+      "id": "AllbertAssist.PublicProtocol.Mcp.StdioServer.json_safe/1",
+      "module": "AllbertAssist.PublicProtocol.Mcp.StdioServer",
+      "profile": "json.mcp_tool_result",
+      "purpose": "Serialize MCP tool results for the stdio protocol",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/stdio_server.ex",
+      "trust_or_wire": "public_protocol_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "stringify_value/1",
+          "capture_count": 0,
+          "purpose": "Serialize MCP tool results for the stdio protocol",
+          "trust_or_wire": "public_protocol_wire",
+          "use_sha256": "c303afbc4485e1a3b250e23c97cbca444ba22fe29ec9b8bb8bbf0e56fb70ea06"
+        },
+        {
+          "call_count": 1,
+          "caller": "tool_result/1",
+          "capture_count": 0,
+          "purpose": "Serialize MCP tool results for the stdio protocol",
+          "trust_or_wire": "public_protocol_wire",
+          "use_sha256": "d82db0d2274173c5266fa1c59a76af47d669f324ac3a06f80abc078e85a01f3e"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "b85638392dc8899e9349a2b8d7ffa77442fef038650e9f00ffad2938230e89a3",
+      "disposition": "retain_local",
+      "function": "truthy?",
+      "id": "AllbertAssist.Resources.GrantHandoff.truthy?/1",
+      "module": "AllbertAssist.Resources.GrantHandoff",
+      "profile": "truth.common_boolean_plus_yes_all",
+      "purpose": "Interpret grant handoff selection flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/resources/grant_handoff.ex",
+      "trust_or_wire": "confirmed_resource_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "selected_refs/2",
+          "capture_count": 0,
+          "purpose": "Interpret grant handoff selection flags",
+          "trust_or_wire": "confirmed_resource_input",
+          "use_sha256": "b42ddf42f70d489693ec7deb882e2c3976027c57e6ad6c0573c6a08b4ed71e45"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Runtime.truthy?/1",
+      "module": "AllbertAssist.Runtime",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret runtime coding and fan-out flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex",
+      "trust_or_wire": "runtime_context_input",
+      "use_sites": [
+        {
+          "call_count": 6,
+          "caller": "coding_turn?/1",
+          "capture_count": 0,
+          "purpose": "Interpret runtime coding and fan-out flags",
+          "trust_or_wire": "runtime_context_input",
+          "use_sha256": "18243a04afeb9ef95b306e3b2dab58b3f058b62a5b9092772b7af5fe9baca012"
+        },
+        {
+          "call_count": 1,
+          "caller": "explicit_fanout?/1",
+          "capture_count": 0,
+          "purpose": "Interpret runtime coding and fan-out flags",
+          "trust_or_wire": "runtime_context_input",
+          "use_sha256": "58053769bd52c717cd788c85137c9b9d240f163dc8ae3013dfb9a6072444f8fd"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "9f401e4dab6c1e8e710a85e1552759c118457cdae7c3216b1ee86ddf10e55624",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "AllbertAssist.Sandbox.ReportWriter.json_safe/1",
+      "module": "AllbertAssist.Sandbox.ReportWriter",
+      "profile": "json.sandbox_report",
+      "purpose": "Canonicalize sandbox evidence reports",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/sandbox/report_writer.ex",
+      "trust_or_wire": "sandbox_report_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Canonicalize sandbox evidence reports",
+          "trust_or_wire": "sandbox_report_wire",
+          "use_sha256": "f8745f350bd7314a25e982d5fd1d0bb0a3e930f6850ba88dbf45d80fe779af0f"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "8ef1a74c04ab2a9308696b5d3aa140e162ea659c05cc821d9a73222f35308ae5",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Security.Policy.truthy?/1",
+      "module": "AllbertAssist.Security.Policy",
+      "profile": "truth.true_or_true_string_or_one_string",
+      "purpose": "Interpret Security Central policy-mode flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/security/policy.ex",
+      "trust_or_wire": "security_policy_input",
+      "use_sites": [
+        {
+          "call_count": 2,
+          "caller": "pi_mode_enabled?/1",
+          "capture_count": 0,
+          "purpose": "Interpret Security Central policy-mode flags",
+          "trust_or_wire": "security_policy_input",
+          "use_sha256": "a83289cc4f1c61407441869ba3a4a5af5a090f8162bb349943349a1933da8919"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "327e6cd650984de484288554f082527d673053c4289b557084241dc0c0fd1961",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.SurfacePolicy.truthy?/1",
+      "module": "AllbertAssist.SurfacePolicy",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret surface affordance policy flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/surface_policy.ex",
+      "trust_or_wire": "surface_policy_input",
+      "use_sites": [
+        {
+          "call_count": 6,
+          "caller": "explicit_affordance?/2",
+          "capture_count": 0,
+          "purpose": "Interpret surface affordance policy flags",
+          "trust_or_wire": "surface_policy_input",
+          "use_sha256": "6f0255703f8e3e2e745276081e4bb95105a6c19cf9aca8414d1a6e4c42d5b137"
+        },
+        {
+          "call_count": 1,
+          "caller": "normalize_policy/1",
+          "capture_count": 0,
+          "purpose": "Interpret surface affordance policy flags",
+          "trust_or_wire": "surface_policy_input",
+          "use_sha256": "ca26ee8208dd9bcb5719378e98b6a685c30efa03c7cbc925a53c6532bb17d911"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "7e9ef7479cdbd0f2f8b61e7ba6011275cdb676c04915c98b03c4c52cf570291d",
+      "disposition": "named_equivalence",
+      "function": "json_safe",
+      "id": "AllbertAssist.Tools.Discovery.json_safe/1",
+      "module": "AllbertAssist.Tools.Discovery",
+      "profile": "json.scalar_stringification",
+      "purpose": "Canonicalize discovered tool attributes",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/tools/discovery.ex",
+      "trust_or_wire": "discovery_metadata_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Canonicalize discovered tool attributes",
+          "trust_or_wire": "discovery_metadata_wire",
+          "use_sha256": "91e0492cafe5a4830fa05b2a70dd93cf7f0a4763a92aa17f0a071b58fc78ab37"
+        },
+        {
+          "call_count": 0,
+          "caller": "json_safe_attrs/2",
+          "capture_count": 1,
+          "purpose": "Canonicalize discovered tool attributes",
+          "trust_or_wire": "discovery_metadata_wire",
+          "use_sha256": "faa9ae2deea50d443b7ee3d299e633317f425322bd306a04c4bb29212e35ea62"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "399aa940d432bf6823fbd5ecc0241d7947ea182250c22998707247a51fa4c8f2",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssist.Tools.Discovery.truthy?/1",
+      "module": "AllbertAssist.Tools.Discovery",
+      "profile": "truth.true_or_true_string",
+      "purpose": "Interpret tool health-probe flags",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/tools/discovery.ex",
+      "trust_or_wire": "discovery_metadata_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "health_probe/2",
+          "capture_count": 0,
+          "purpose": "Interpret tool health-probe flags",
+          "trust_or_wire": "discovery_metadata_input",
+          "use_sha256": "2b1e6d7887fbacc305e1636021981c56314b17d8be83fcaf467bcd28d9d0c677"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "73b1d1b17353dc16f076c4da36a2fdfd99e1c59559940297dc704e47e66d766b",
+      "disposition": "retain_local",
+      "function": "truthy?",
+      "id": "AllbertAssist.Workflows.truthy?/1",
+      "module": "AllbertAssist.Workflows",
+      "profile": "truth.common_boolean_plus_on",
+      "purpose": "Interpret workflow confirmation overrides",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/workflows.ex",
+      "trust_or_wire": "operator_workflow_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "apply_confirmation_override/2",
+          "capture_count": 0,
+          "purpose": "Interpret workflow confirmation overrides",
+          "trust_or_wire": "operator_workflow_input",
+          "use_sha256": "b41315d0084e641b23ada1d0902430035b084081e8e63e4d89fc819c41fb3f25"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "3cfa01d5b3a5ca785540eda3f76e7b004b72e4aeb8559440a31c1138234cd0df",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "AllbertAssist.Workspace.AGUI.Bridge.json_safe/1",
+      "module": "AllbertAssist.Workspace.AGUI.Bridge",
+      "profile": "json.agui_event",
+      "purpose": "Canonicalize AG-UI event payloads",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/workspace/agui/bridge.ex",
+      "trust_or_wire": "public_protocol_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "base_event/2",
+          "capture_count": 0,
+          "purpose": "Canonicalize AG-UI event payloads",
+          "trust_or_wire": "public_protocol_wire",
+          "use_sha256": "ec24ed15c7f7034686d465476da862a49fa935dda54970dfe28748f4653859a0"
+        },
+        {
+          "call_count": 1,
+          "caller": "json_safe/1",
+          "capture_count": 1,
+          "purpose": "Canonicalize AG-UI event payloads",
+          "trust_or_wire": "public_protocol_wire",
+          "use_sha256": "6dfab3a377a246265d0851630bba50adbdef73a2ceb7eaf7f46e6c29eabab6af"
+        },
+        {
+          "call_count": 2,
+          "caller": "payload/2",
+          "capture_count": 0,
+          "purpose": "Canonicalize AG-UI event payloads",
+          "trust_or_wire": "public_protocol_wire",
+          "use_sha256": "1817ac498636bd230785a63777d0f00c802da2439324f354d4a77ad27fc53e46"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "1f03a071142ae58372a4d3327bb1292399f808d4d4f6fd06bb80ca905b741166",
+      "disposition": "named_equivalence",
+      "function": "json_safe",
+      "id": "AllbertAssistWeb.PublicProtocol.McpHttpController.json_safe/1",
+      "module": "AllbertAssistWeb.PublicProtocol.McpHttpController",
+      "profile": "json.mcp_tool_result",
+      "purpose": "Serialize MCP tool results for the HTTP protocol",
+      "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/mcp_http_controller.ex",
+      "trust_or_wire": "public_protocol_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "stringify_value/1",
+          "capture_count": 0,
+          "purpose": "Serialize MCP tool results for the HTTP protocol",
+          "trust_or_wire": "public_protocol_wire",
+          "use_sha256": "c303afbc4485e1a3b250e23c97cbca444ba22fe29ec9b8bb8bbf0e56fb70ea06"
+        },
+        {
+          "call_count": 1,
+          "caller": "tool_result/1",
+          "capture_count": 0,
+          "purpose": "Serialize MCP tool results for the HTTP protocol",
+          "trust_or_wire": "public_protocol_wire",
+          "use_sha256": "d82db0d2274173c5266fa1c59a76af47d669f324ac3a06f80abc078e85a01f3e"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "f257a87b3fc008aacee729d9c5df7c87c0f5269bbf9c158c5b16201868518728",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "AllbertAssistWeb.Workspace.Components.SettingsCentral.truthy?/1",
+      "module": "AllbertAssistWeb.Workspace.Components.SettingsCentral",
+      "profile": "truth.common_boolean_plus_yes",
+      "purpose": "Interpret Settings Central checkbox values",
+      "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/settings_central.ex",
+      "trust_or_wire": "operator_ui_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "handle_event/3",
+          "capture_count": 0,
+          "purpose": "Interpret Settings Central checkbox values",
+          "trust_or_wire": "operator_ui_input",
+          "use_sha256": "8f543ddda7a14c2cdde4fc0f5706a5e08c3a37057910b86c1f4004f8293b6d00"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "8ef1a74c04ab2a9308696b5d3aa140e162ea659c05cc821d9a73222f35308ae5",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "StockSage.Actions.ImportSqlite.truthy?/1",
+      "module": "StockSage.Actions.ImportSqlite",
+      "profile": "truth.true_or_true_string_or_one_string",
+      "purpose": "Interpret StockSage import option flags",
+      "source_path": "plugins/stocksage/lib/stocksage/actions/import_sqlite.ex",
+      "trust_or_wire": "action_param_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "run/2",
+          "capture_count": 0,
+          "purpose": "Interpret StockSage import option flags",
+          "trust_or_wire": "action_param_input",
+          "use_sha256": "70382fce0c97f67024e332bd90dfe3d6a461834af49839b594d14dd26d3e2fb5"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "53fa6dbaa81b731d3863100fc08d8b9d65111620642cb2086f9fafb038a912a4",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "StockSage.Actions.RunAnalysis.json_safe/1",
+      "module": "StockSage.Actions.RunAnalysis",
+      "profile": "json.stocksage_analysis_payload",
+      "purpose": "Canonicalize StockSage analysis details and parity diffs",
+      "source_path": "plugins/stocksage/lib/stocksage/actions/run_analysis.ex",
+      "trust_or_wire": "action_response_wire",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "detail_content/1",
+          "capture_count": 0,
+          "purpose": "Canonicalize StockSage analysis details and parity diffs",
+          "trust_or_wire": "action_response_wire",
+          "use_sha256": "087a94c3332a1089c281debaaf21d0dc52a0bc6fdfebc38981e252562a546bdb"
+        },
+        {
+          "call_count": 1,
+          "caller": "parity_diff_json/1",
+          "capture_count": 0,
+          "purpose": "Canonicalize StockSage analysis details and parity diffs",
+          "trust_or_wire": "action_response_wire",
+          "use_sha256": "8833b7167d689387418a42368f4b4d7e89fc5d28df62414bcbbd1e98b5348190"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "e91c3746a50ce869bf04ac08669d1e269862eda78c85449145ddbfd3976859ea",
+      "disposition": "retain_local",
+      "function": "json_safe",
+      "id": "StockSage.Agents.NativeCoordinator.Commands.ParityRun.json_safe/1",
+      "module": "StockSage.Agents.NativeCoordinator.Commands.ParityRun",
+      "profile": "json.stocksage_parity_report",
+      "purpose": "Canonicalize merged StockSage parity reports",
+      "source_path": "plugins/stocksage/lib/stocksage/agents/native_coordinator/commands/parity_run.ex",
+      "trust_or_wire": "internal_agent_wire",
+      "use_sites": [
+        {
+          "call_count": 2,
+          "caller": "merged_report/4",
+          "capture_count": 0,
+          "purpose": "Canonicalize merged StockSage parity reports",
+          "trust_or_wire": "internal_agent_wire",
+          "use_sha256": "18b748e46b2f974c92d043630253e0e839f103874f2f5e11c5d6ff7d45339408"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "24a252b86ef5b0be602b7cb21e08c400be3e891a7242d4b63d69dc6aebe23cb4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "StockSage.Evidence.truthy?/1",
+      "module": "StockSage.Evidence",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret StockSage evidence-mode flags",
+      "source_path": "plugins/stocksage/lib/stocksage/evidence.ex",
+      "trust_or_wire": "provider_result_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "mode/1",
+          "capture_count": 0,
+          "purpose": "Interpret StockSage evidence-mode flags",
+          "trust_or_wire": "provider_result_input",
+          "use_sha256": "fd9447789e036ee096f33fc597712097c4f4a06c7d705d4daabc2af37b9ace2e"
+        }
+      ]
+    },
+    {
+      "arity": 1,
+      "definition_sha256": "96fee64fb333f4960ae9fdb1a2ea0424964fbf97967a6c1e55a6e60525dcf6c4",
+      "disposition": "named_equivalence",
+      "function": "truthy?",
+      "id": "StockSage.Outcomes.truthy?/1",
+      "module": "StockSage.Outcomes",
+      "profile": "truth.common_boolean",
+      "purpose": "Interpret StockSage outcome due-state flags",
+      "source_path": "plugins/stocksage/lib/stocksage/outcomes.ex",
+      "trust_or_wire": "provider_result_input",
+      "use_sites": [
+        {
+          "call_count": 1,
+          "caller": "resolve_due/2",
+          "capture_count": 0,
+          "purpose": "Interpret StockSage outcome due-state flags",
+          "trust_or_wire": "provider_result_input",
+          "use_sha256": "fd296b69478f90dffac664f9841bbb79232eeb9c1dedc4ef62c0e5a962fe295d"
+        }
+      ]
+    }
+  ],
+  "normalization": "v14_m4_semantics_inventory_v1",
+  "schema_version": 1
+}

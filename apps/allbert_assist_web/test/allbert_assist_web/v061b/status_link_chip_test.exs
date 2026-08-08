@@ -17,8 +17,6 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
 
   alias AllbertAssist.Objectives
 
-  @moduletag :status_chip
-
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "the objective chip names destination, title, and status", %{conn: conn} do
