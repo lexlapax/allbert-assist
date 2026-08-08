@@ -4,8 +4,10 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   import ExUnit.CaptureLog
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Response
@@ -163,7 +165,15 @@ defmodule AllbertAssist.Actions.RunnerTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    registry = RegistryIsolationFixtures.start_isolated_registries(:runner)
+    overlay = :"runner_actions_overlay_#{System.unique_integer([:positive])}"
+
+    start_supervised!(Supervisor.child_spec({ActionsOverlay, name: overlay}, id: overlay))
+
+    registry =
+      :runner
+      |> RegistryIsolationFixtures.start_isolated_registries()
+      |> Keyword.put(:actions_overlay, overlay)
+
     Process.put(:runner_registry, registry)
     configure_external()
     Logger.configure(level: :info)
@@ -262,19 +272,16 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   test "runs plugin-contributed actions through the normal runner boundary" do
     assert {:ok, "example.runner_actions"} =
-             PluginRegistry.register_entry(
-               %PluginEntry{
-                 plugin_id: "example.runner_actions",
-                 display_name: "Example Runner Actions",
-                 version: "0.1.0",
-                 kind: "actions",
-                 source: :project,
-                 status: :enabled,
-                 trust_status: :trusted,
-                 actions: [PluginEcho]
-               },
-               plugin_registry_opts()
-             )
+             register_plugin_actions(%PluginEntry{
+               plugin_id: "example.runner_actions",
+               display_name: "Example Runner Actions",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginEcho]
+             })
 
     assert {:ok, response} = Runner.run("runner_plugin_echo", %{text: "hello"}, context())
 
@@ -288,30 +295,27 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   test "blocks explicitly unreleased action refs without blocking undeclared actions" do
     assert {:ok, "example.runner_actions"} =
-             PluginRegistry.register_entry(
-               %PluginEntry{
-                 plugin_id: "example.runner_actions",
-                 display_name: "Example Runner Actions",
-                 version: "0.1.0",
-                 kind: "actions",
-                 source: :project,
-                 status: :enabled,
-                 trust_status: :trusted,
-                 actions: [PluginEcho],
-                 release_availability: [
-                   %{
-                     kind: :action,
-                     id: "runner_plugin_echo",
-                     release_status: :implemented_not_released,
-                     live_use_allowed?: false,
-                     decision: "Implemented, but not released for live use.",
-                     decision_ref: "docs/plans/example.md",
-                     future_features_ref: nil
-                   }
-                 ]
-               },
-               plugin_registry_opts()
-             )
+             register_plugin_actions(%PluginEntry{
+               plugin_id: "example.runner_actions",
+               display_name: "Example Runner Actions",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginEcho],
+               release_availability: [
+                 %{
+                   kind: :action,
+                   id: "runner_plugin_echo",
+                   release_status: :implemented_not_released,
+                   live_use_allowed?: false,
+                   decision: "Implemented, but not released for live use.",
+                   decision_ref: "docs/plans/example.md",
+                   future_features_ref: nil
+                 }
+               ]
+             })
 
     assert {:ok, blocked} = Runner.run("runner_plugin_echo", %{text: "hello"}, context())
 
@@ -352,19 +356,16 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   test "action errors are returned as structured error responses" do
     assert {:ok, "example.runner_failure"} =
-             PluginRegistry.register_entry(
-               %PluginEntry{
-                 plugin_id: "example.runner_failure",
-                 display_name: "Example Runner Failure",
-                 version: "0.1.0",
-                 kind: "actions",
-                 source: :project,
-                 status: :enabled,
-                 trust_status: :trusted,
-                 actions: [PluginFailure]
-               },
-               plugin_registry_opts()
-             )
+             register_plugin_actions(%PluginEntry{
+               plugin_id: "example.runner_failure",
+               display_name: "Example Runner Failure",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginFailure]
+             })
 
     assert {:ok, response} =
              Runner.run("runner_plugin_failure", %{}, context())
@@ -379,19 +380,16 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   test "same-digest E1 replacement before action invocation returns product_not_ready without re-admission" do
     assert {:ok, "example.runner_epoch_race"} =
-             PluginRegistry.register_entry(
-               %PluginEntry{
-                 plugin_id: "example.runner_epoch_race",
-                 display_name: "Example Runner Epoch Race",
-                 version: "0.1.0",
-                 kind: "actions",
-                 source: :project,
-                 status: :enabled,
-                 trust_status: :trusted,
-                 actions: [EpochRaceAction]
-               },
-               plugin_registry_opts()
-             )
+             register_plugin_actions(%PluginEntry{
+               plugin_id: "example.runner_epoch_race",
+               display_name: "Example Runner Epoch Race",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [EpochRaceAction]
+             })
 
     original_readiness = Process.whereis(AllbertAssist.Pack.Readiness)
     assert is_pid(original_readiness)
@@ -465,6 +463,28 @@ defmodule AllbertAssist.Actions.RunnerTest do
     Process.get(:runner_registry)
     |> Keyword.fetch!(:plugin)
     |> Keyword.put(:side_effects, false)
+  end
+
+  defp register_plugin_actions(%PluginEntry{} = entry) do
+    registry = Process.get(:runner_registry)
+    existing_names = ActionsRegistry.names(registry)
+
+    with {:ok, plugin_id} <- PluginRegistry.register_entry(entry, plugin_registry_opts()),
+         :ok <-
+           ActionsOverlay.register_many(
+             Enum.map(entry.actions, fn module ->
+               %{
+                 module: module,
+                 slug: entry.plugin_id,
+                 revision: entry.version,
+                 exposure: :agent
+               }
+             end),
+             server: Keyword.fetch!(registry, :actions_overlay),
+             existing_names: existing_names
+           ) do
+      {:ok, plugin_id}
+    end
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
