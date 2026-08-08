@@ -11,6 +11,47 @@ if Mix.env() == :test do
 
     alias AllbertAssist.Kernel.Contract
 
+    @settings_key {__MODULE__, :settings}
+
+    @doc """
+    Substitute this module as the `settings` provider for the current binding.
+
+    A kernel concern's real dependency after M8 is its contract, not Settings
+    Central, so a kernel test states the settings it needs and binds them here
+    instead of writing a temporary Allbert Home and driving `Settings.put/3`
+    through the residual. The rest of the bound set is carried over unchanged,
+    so nothing else about the generation changes.
+
+    Returns a zero-arity restore function.
+    """
+    @spec stub_settings!(%{optional(String.t()) => term()}) :: (-> :ok)
+    def stub_settings!(values) when is_map(values) do
+      {:ok, binding} = Contract.current()
+      :persistent_term.put(@settings_key, values)
+
+      providers =
+        Enum.map(binding.providers, fn
+          {:settings, _provider} -> {:settings, __MODULE__, :allbert_kernel}
+          {contract, provider} -> {contract, provider.implementation, provider.application}
+        end)
+
+      {:ok, _stubbed} = Contract.bind(providers, binding.generation, binding.barrier_pid)
+
+      fn ->
+        :persistent_term.erase(@settings_key)
+
+        restored =
+          Enum.map(binding.providers, fn {contract, provider} ->
+            {contract, provider.implementation, provider.application}
+          end)
+
+        {:ok, _restored} = Contract.bind(restored, binding.generation, binding.barrier_pid)
+        :ok
+      end
+    end
+
+    defp stubbed_settings, do: :persistent_term.get(@settings_key, %{})
+
     @doc "A complete, valid provider set for the closed contract catalog."
     @spec complete(module()) :: [{atom(), module(), atom()}]
     def complete(implementation \\ __MODULE__) do
@@ -77,7 +118,12 @@ if Mix.env() == :test do
 
     # settings, plus `skills.get/2` grouped here so the compiler does not warn
     # about split clauses of the same name.
-    def get(_key), do: {:error, :not_found}
+    def get(key) do
+      case Map.fetch(stubbed_settings(), key) do
+        {:ok, value} -> {:ok, value}
+        :error -> {:error, :not_found}
+      end
+    end
     def get(_selected, _context), do: {:error, :not_found}
     def defaults, do: %{}
     def resolved_settings, do: {:error, :unavailable}

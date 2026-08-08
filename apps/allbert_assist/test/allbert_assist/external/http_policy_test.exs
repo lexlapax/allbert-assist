@@ -3,29 +3,39 @@ defmodule AllbertAssist.External.HttpPolicyTest do
   @moduletag :app_env_serial
 
   alias AllbertAssist.External.RequestSpec
-  alias AllbertAssist.Paths
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Kernel.Contract.TestProviders
+
+  # RequestSpec's real dependency is the kernel settings contract, so this
+  # states the policy it needs and binds it. That replaces a temporary Allbert
+  # Home, three Settings.put/3 calls, and two application-environment
+  # save/restore pairs with one declaration of the same facts.
+  @external_policy %{
+    "external_services.enabled" => true,
+    "external_services.allowed_paths" => ["/status"],
+    "external_services.allowed_hosts" => [
+      "example.com",
+      "metadata.google.internal",
+      "10.0.0.1",
+      "169.254.169.254",
+      "localhost",
+      "::ffff:127.0.0.1",
+      "::ffff:10.0.0.1",
+      "::ffff:169.254.169.254",
+      "::ffff:0.0.0.0",
+      "::ffff:100.64.0.1",
+      "::ffff:240.0.0.1",
+      "::ffff:8.8.8.8",
+      "::1",
+      "fc00::1",
+      "fe80::1",
+      "ff00::1",
+      "2001:4860:4860::8888"
+    ]
+  }
 
   setup do
-    original_paths_config = Application.get_env(:allbert_assist, Paths)
-    original_settings_config = Application.get_env(:allbert_assist, Settings)
-
-    root =
-      Path.join(
-        System.tmp_dir!(),
-        "allbert-external-http-policy-#{System.unique_integer([:positive])}"
-      )
-
-    Application.put_env(:allbert_assist, Paths, home: root)
-    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    configure_external()
-
-    on_exit(fn ->
-      restore_env(Paths, original_paths_config)
-      restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
-    end)
-
+    restore = TestProviders.stub_settings!(@external_policy)
+    on_exit(restore)
     :ok
   end
 
@@ -90,48 +100,4 @@ defmodule AllbertAssist.External.HttpPolicyTest do
     assert {:error, spec} = RequestSpec.normalize(%{url: "https://user:pass@example.com/status"})
     assert spec.denial_reason == :url_credentials_not_allowed
   end
-
-  defp configure_external do
-    assert {:ok, _setting} =
-             Settings.put(
-               "external_services.enabled",
-               true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-
-    assert {:ok, _setting} =
-             Settings.put(
-               "external_services.allowed_hosts",
-               [
-                 "example.com",
-                 "metadata.google.internal",
-                 "10.0.0.1",
-                 "169.254.169.254",
-                 "localhost",
-                 "::ffff:127.0.0.1",
-                 "::ffff:10.0.0.1",
-                 "::ffff:169.254.169.254",
-                 "::ffff:0.0.0.0",
-                 "::ffff:100.64.0.1",
-                 "::ffff:240.0.0.1",
-                 "::ffff:8.8.8.8",
-                 "::1",
-                 "fc00::1",
-                 "fe80::1",
-                 "ff00::1",
-                 "2001:4860:4860::8888"
-               ],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-
-    assert {:ok, _setting} =
-             Settings.put(
-               "external_services.allowed_paths",
-               ["/status"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
-             )
-  end
-
-  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
-  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

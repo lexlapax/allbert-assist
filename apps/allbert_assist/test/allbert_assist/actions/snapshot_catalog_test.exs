@@ -6,16 +6,21 @@ defmodule AllbertAssist.Actions.SnapshotCatalogTest do
   alias AllbertAssist.Pack.ActionBinding
   alias AllbertAssist.Pack.Registry.Snapshot
 
-  test "authoritative bindings drive ordered public action views" do
-    snapshot = snapshot([binding(AllbertAssist.Actions.Intent.DirectAnswer, 1, :agent)])
+  # Capability metadata reads `name/0` off the projected module, so a binding
+  # needs a module that answers it. This row asserts how SnapshotCatalog
+  # projects bindings, not anything about a particular action, so it answers
+  # for itself rather than reaching for a shipped action module.
+  def name, do: "direct_answer"
 
-    assert SnapshotCatalog.modules(snapshot) == [AllbertAssist.Actions.Intent.DirectAnswer]
-    assert SnapshotCatalog.agent_modules(snapshot) == [AllbertAssist.Actions.Intent.DirectAnswer]
+  test "authoritative bindings drive ordered public action views" do
+    snapshot = snapshot([binding(__MODULE__, 1, :agent)])
+
+    assert SnapshotCatalog.modules(snapshot) == [__MODULE__]
+    assert SnapshotCatalog.agent_modules(snapshot) == [__MODULE__]
     assert SnapshotCatalog.internal_modules(snapshot) == []
     assert SnapshotCatalog.names(snapshot) == ["direct_answer"]
 
-    assert {:ok, AllbertAssist.Actions.Intent.DirectAnswer} =
-             SnapshotCatalog.resolve(snapshot, "Direct Answer")
+    assert {:ok, __MODULE__} = SnapshotCatalog.resolve(snapshot, "Direct Answer")
 
     assert {:ok, %Capability{name: "direct_answer", exposure: :agent}} =
              SnapshotCatalog.capability(snapshot, :direct_answer)
