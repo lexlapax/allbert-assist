@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.FetchServerManifest do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 75,
     permission: :tool_discovery,
     exposure: :internal,
     execution_mode: :mcp_discovery,

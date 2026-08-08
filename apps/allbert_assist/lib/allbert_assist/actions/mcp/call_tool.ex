@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.CallTool do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 74,
     permission: :mcp_tool_call,
     exposure: :internal,
     execution_mode: :mcp_tool_call,

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Database.RestoreBackup do
   """
 
   use AllbertAssist.Action,
+    registry_order: 209,
     permission: :command_execute,
     exposure: :internal,
     execution_mode: :database_restore,

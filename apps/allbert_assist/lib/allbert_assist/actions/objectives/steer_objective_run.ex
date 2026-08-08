@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.SteerObjectiveRun do
   @moduledoc "Apply an operator steering directive to an owned active objective run."
 
   use AllbertAssist.Action,
+    registry_order: 53,
     permission: :objective_write,
     exposure: :agent,
     execution_mode: :objective_engine,

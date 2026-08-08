@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 29,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :settings_read,

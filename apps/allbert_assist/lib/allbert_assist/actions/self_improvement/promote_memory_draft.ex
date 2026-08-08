@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteMemoryDraft do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 89,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_promotion,

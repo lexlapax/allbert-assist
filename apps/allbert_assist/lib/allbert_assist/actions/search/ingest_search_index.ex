@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Search.IngestSearchIndex do
   @moduledoc "Run one bounded Search projection ingestion/reconciliation pass."
 
   use AllbertAssist.Action,
+    registry_order: 62,
     permission: :search_manage,
     exposure: :internal,
     execution_mode: :search_manage,

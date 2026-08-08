@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 77,
     permission: :mcp_server_connect,
     exposure: :internal,
     execution_mode: :mcp_server_connect,

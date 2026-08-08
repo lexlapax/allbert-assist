@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Session.ShowSessionScratchpad do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 139,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

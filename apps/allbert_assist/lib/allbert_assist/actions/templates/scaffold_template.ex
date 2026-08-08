@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Templates.ScaffoldTemplate do
   """
 
   use AllbertAssist.Action,
+    registry_order: 231,
     permission: :skill_write,
     exposure: :internal,
     execution_mode: :template_scaffold,

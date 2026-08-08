@@ -13,6 +13,7 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
   """
 
   use AllbertAssist.Action,
+    registry_order: 205,
     permission: :command_execute,
     exposure: :internal,
     execution_mode: :first_model_install,

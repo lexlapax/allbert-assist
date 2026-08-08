@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Channels.LinkChannelIdentity do
   """
 
   use AllbertAssist.Action,
+    registry_order: 236,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :channel_identity_write,

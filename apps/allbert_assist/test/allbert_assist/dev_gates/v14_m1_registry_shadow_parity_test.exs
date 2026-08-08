@@ -214,6 +214,8 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParityTest do
     assert length(plugin_action_rows) == 40
     assert length(action_rows -- alias_source_rows) == 281
     assert length(candidate.action_bindings) == 281
+    assert Enum.map(candidate.action_bindings, & &1.registry_order) == Enum.to_list(1..281)
+    assert Enum.all?(action_rows -- alias_source_rows, &(&1.order.namespace == :registry_order))
     assert length(alias_source_rows) == 3
     assert length(candidate.compatibility_aliases) == 3
     assert length(app_action_refs) == 23

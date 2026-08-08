@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
   """
 
   use AllbertAssist.Action,
+    registry_order: 9,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :unsupported_resource_workflow,

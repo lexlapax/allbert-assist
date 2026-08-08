@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.SweepCache do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 256,
     permission: :browser_extract,
     exposure: :internal,
     execution_mode: :local,

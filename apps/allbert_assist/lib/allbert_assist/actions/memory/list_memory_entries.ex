@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryEntries do
   @moduledoc "Lists markdown-backed memory entries through the action boundary."
 
   use AllbertAssist.Action,
+    registry_order: 170,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_read,

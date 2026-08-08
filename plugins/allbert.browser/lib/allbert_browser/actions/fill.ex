@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.Fill do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 252,
     permission: :browser_form_fill,
     exposure: :internal,
     execution_mode: :browser_session,

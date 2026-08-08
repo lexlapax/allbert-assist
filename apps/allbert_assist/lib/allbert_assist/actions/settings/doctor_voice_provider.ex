@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Settings.DoctorVoiceProvider do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 24,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :settings_read,

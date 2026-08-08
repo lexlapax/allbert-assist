@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   """
 
   use AllbertAssist.Action,
+    registry_order: 13,
     permission: :external_network,
     exposure: :agent,
     execution_mode: :online_skill_detail,

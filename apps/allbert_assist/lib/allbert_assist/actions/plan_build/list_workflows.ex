@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.PlanBuild.ListWorkflows do
   @moduledoc "List operator-authored workflow YAML files."
 
   use AllbertAssist.Action,
+    registry_order: 187,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :local,

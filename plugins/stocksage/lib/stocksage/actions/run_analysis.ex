@@ -47,6 +47,7 @@ defmodule StockSage.Actions.RunAnalysis do
   """
 
   use AllbertAssist.Action,
+    registry_order: 274,
     permission: :stocksage_analyze,
     exposure: :agent,
     execution_mode: :native_agent_graph,

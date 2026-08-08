@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Operator.Status do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 118,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :security_status,

@@ -53,22 +53,29 @@ defmodule AllbertAssist.Action do
           | :retry_safety
 
   defmacro __using__(opts) do
+    {registry_order, opts} = Keyword.pop(opts, :registry_order)
+    registry_order = validate_registry_order!(registry_order)
     {capability_opts, jido_opts} = Keyword.split(opts, @capability_keys)
     capability_attrs = validate_capability!(capability_opts)
 
     quote bind_quoted: [
             capability_attrs: Macro.escape(capability_attrs),
+            registry_order: registry_order,
             jido_opts: Macro.escape(jido_opts)
           ] do
       use Jido.Action, jido_opts
 
       @allbert_action_capability capability_attrs
+      @allbert_action_registry_order registry_order
 
       @doc false
       def capability, do: @allbert_action_capability
 
       @doc false
       def allbert_action?, do: true
+
+      @doc false
+      def registry_order, do: @allbert_action_registry_order
 
       defoverridable capability: 0
     end
@@ -148,6 +155,14 @@ defmodule AllbertAssist.Action do
     |> Map.take(@capability_keys)
     |> Map.put_new(:resumable?, false)
     |> Map.put_new(:retry_safety, :unknown)
+  end
+
+  defp validate_registry_order!(nil), do: nil
+
+  defp validate_registry_order!(value) when is_integer(value) and value >= 0, do: value
+
+  defp validate_registry_order!(value) do
+    raise ArgumentError, "invalid Allbert action registry_order: #{inspect(value)}"
   end
 
   defp atom?(value), do: is_atom(value) and not is_nil(value)

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ConsolidateMemory do
   @moduledoc "Run one bounded local-only Memory consolidation pass."
 
   use AllbertAssist.Action,
+    registry_order: 164,
     permission: :memory_propose,
     exposure: :internal,
     execution_mode: :memory_propose,

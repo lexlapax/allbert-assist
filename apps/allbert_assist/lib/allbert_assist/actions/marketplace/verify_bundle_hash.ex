@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Marketplace.VerifyBundleHash do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 104,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :marketplace_browse,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 68,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :channel_diagnostic,

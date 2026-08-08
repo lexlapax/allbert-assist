@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.Sessions.SweepExpiredSessions do
   """
 
   use AllbertAssist.Action,
+    registry_order: 239,
     permission: :conversation_write,
     exposure: :internal,
     execution_mode: :session_control,

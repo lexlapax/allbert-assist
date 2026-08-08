@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.PlanBuild.ConfirmPlanStep do
   alias AllbertAssist.PlanBuild.Runtime, as: PlanBuildRuntime
 
   use AllbertAssist.Action,
+    registry_order: 191,
     permission: :objective_write,
     exposure: :internal,
     execution_mode: :plan_step_confirm,

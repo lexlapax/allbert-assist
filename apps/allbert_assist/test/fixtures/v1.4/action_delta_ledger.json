@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "normalization": "v14_action_delta_ledger_v1",
+  "entry_contract": [
+    "sequence",
+    "change",
+    "module",
+    "id",
+    "pack_id",
+    "registry_order",
+    "exposure",
+    "param_contract",
+    "security_placement",
+    "envelope_owner",
+    "test_owner",
+    "baseline_row_sha256",
+    "current_row_sha256"
+  ],
+  "baseline": {
+    "m0_actions_sha256": "9fb84a5b5fef5874fbaca205dcfaf3f9f1baa9f2c8f57ed92821fd18fcda5a7f",
+    "m0_source_sha": "1739a402834310f996dc3649cb5a2979a6757af1",
+    "action_count": 281
+  },
+  "entries": []
+}

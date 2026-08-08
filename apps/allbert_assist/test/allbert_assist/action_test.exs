@@ -6,6 +6,7 @@ defmodule AllbertAssist.ActionTest do
 
   defmodule DemoAction do
     use AllbertAssist.Action,
+      registry_order: 777,
       permission: :read_only,
       exposure: :agent,
       execution_mode: :read_only,
@@ -50,6 +51,7 @@ defmodule AllbertAssist.ActionTest do
   test "wraps Jido.Action and pins Allbert capability metadata" do
     assert DemoAction.name() == "demo_allbert_action"
     assert Action.allbert_action?(DemoAction)
+    assert DemoAction.registry_order() == 777
 
     assert DemoAction.capability() == %{
              permission: :read_only,
@@ -64,6 +66,7 @@ defmodule AllbertAssist.ActionTest do
 
   test "lets plugin-style modules override capability metadata explicitly" do
     assert Action.allbert_action?(OverrideAction)
+    assert OverrideAction.registry_order() == nil
     assert OverrideAction.capability().permission == :memory_write
     assert OverrideAction.capability().confirmation == :required
     assert OverrideAction.capability().resumable?

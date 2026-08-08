@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Calendar.CreateCalendarEvent do
   underlying MCP call is itself confirmation-gated at the client (double-gated).
   """
   use AllbertAssist.Action,
+    registry_order: 47,
     permission: :calendar_write,
     exposure: :agent,
     execution_mode: :mcp_tool_call,

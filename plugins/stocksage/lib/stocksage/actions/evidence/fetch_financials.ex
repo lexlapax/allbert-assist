@@ -2,6 +2,7 @@ defmodule StockSage.Actions.Evidence.FetchFinancials do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 281,
     permission: :stocksage_evidence_fetch,
     exposure: :internal,
     execution_mode: :req_http,

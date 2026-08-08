@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   """
 
   use AllbertAssist.Action,
+    registry_order: 10,
     permission: :external_network,
     exposure: :agent,
     execution_mode: :req_http,

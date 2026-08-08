@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
   """
 
   use AllbertAssist.Action,
+    registry_order: 66,
     permission: :conversation_write,
     exposure: :internal,
     execution_mode: :conversation_delete,

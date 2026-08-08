@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ReadMemoryEntry do
   @moduledoc "Reads one markdown-backed memory entry through the action boundary."
 
   use AllbertAssist.Action,
+    registry_order: 171,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_read,

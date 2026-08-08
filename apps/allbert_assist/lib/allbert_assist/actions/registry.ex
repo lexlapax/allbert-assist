@@ -894,7 +894,12 @@ defmodule AllbertAssist.Actions.Registry do
     static
     |> Enum.with_index(1)
     |> Enum.reduce_while({:ok, []}, fn {projection, expected_index}, {:ok, acc} ->
-      with %{legacy_index: ^expected_index, module: module, name: name} <- projection,
+      with %{
+             legacy_index: ^expected_index,
+             registry_order: ^expected_index,
+             module: module,
+             name: name
+           } <- projection,
            true <- is_atom(module) and is_binary(name) and name == normalize_name(name),
            true <- is_map(Map.get(projection, :normalized_capability)),
            true <- sha256?(Map.get(projection, :input_schema_sha256)),
@@ -1056,17 +1061,28 @@ defmodule AllbertAssist.Actions.Registry do
         Map.put(projection, :legacy_index, legacy_index)
       end)
 
-    {:ok,
-     %CandidateProjection{
-       effective: effective_static ++ effective_plugins,
-       plugin_declarations: declarations,
-       alias_sources: Enum.reject(declarations, &(&1.disposition == :effective))
-     }}
+    effective = effective_static ++ effective_plugins
+    expected_orders = if effective == [], do: [], else: Enum.to_list(1..length(effective))
+
+    if Enum.map(effective, & &1.registry_order) == expected_orders do
+      {:ok,
+       %CandidateProjection{
+         effective: effective,
+         plugin_declarations: declarations,
+         alias_sources: Enum.reject(declarations, &(&1.disposition == :effective))
+       }}
+    else
+      {:error, [projection_diagnostic(:invalid_registry_order)]}
+    end
   end
 
   defp project_module(module, legacy_index, app_id, plugin_id) when is_atom(module) do
     with true <- Code.ensure_loaded?(module),
          true <- function_exported?(module, :name, 0),
+         registry_order <- module_registry_order(module),
+         true <-
+           (is_integer(registry_order) and registry_order >= 0) or
+             (is_nil(legacy_index) and is_nil(registry_order)),
          {:ok, attrs} <- module_capability_attrs(module) do
       name = module.name()
 
@@ -1093,6 +1109,7 @@ defmodule AllbertAssist.Actions.Registry do
         {:ok,
          %{
            legacy_index: legacy_index,
+           registry_order: registry_order,
            module: module,
            name: name,
            normalized_capability: capability,
@@ -1115,6 +1132,10 @@ defmodule AllbertAssist.Actions.Registry do
 
   defp project_module(_module, _legacy_index, _app_id, _plugin_id),
     do: {:error, projection_diagnostic(:invalid_action_module)}
+
+  defp module_registry_order(module) do
+    if function_exported?(module, :registry_order, 0), do: module.registry_order(), else: nil
+  end
 
   defp schema_sha256(module, function) do
     value = if function_exported?(module, function, 0), do: apply(module, function, []), else: nil

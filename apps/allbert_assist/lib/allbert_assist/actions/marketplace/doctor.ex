@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Marketplace.Doctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 100,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :marketplace_diagnostic,

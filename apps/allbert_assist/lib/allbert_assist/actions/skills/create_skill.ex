@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Skills.CreateSkill do
   """
 
   use AllbertAssist.Action,
+    registry_order: 49,
     permission: :skill_write,
     exposure: :agent,
     execution_mode: :skill_write,

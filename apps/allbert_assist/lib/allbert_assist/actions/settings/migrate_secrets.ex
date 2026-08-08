@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
   """
 
   use AllbertAssist.Action,
+    registry_order: 211,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :settings_write,

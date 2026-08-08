@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
   """
 
   use AllbertAssist.Action,
+    registry_order: 221,
     permission: :dynamic_integration,
     exposure: :internal,
     execution_mode: :dynamic_loader,

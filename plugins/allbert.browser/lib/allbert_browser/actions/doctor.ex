@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.Doctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 245,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :browser_diagnostic,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.PlanBuild.StartPlanRun do
   @moduledoc "Confirm and start a Plan/Build workflow run."
 
   use AllbertAssist.Action,
+    registry_order: 190,
     permission: :workflow_run_start,
     exposure: :internal,
     execution_mode: :plan_run_start,

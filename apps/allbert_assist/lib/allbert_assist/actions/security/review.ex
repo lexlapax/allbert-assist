@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Security.Review do
   """
 
   use AllbertAssist.Action,
+    registry_order: 112,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :security_status,

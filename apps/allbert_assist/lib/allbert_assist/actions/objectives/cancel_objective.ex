@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
   @moduledoc "Cooperatively cancel a durable objective."
 
   use AllbertAssist.Action,
+    registry_order: 51,
     permission: :objective_write,
     # v0.54 M10: agent-routable. confirmation stays :not_required because the plan
     # engine (cancel_plan_run) calls this internally and needs immediate cancel; a

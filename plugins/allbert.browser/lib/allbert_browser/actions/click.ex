@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.Click do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 251,
     permission: :browser_interact,
     exposure: :internal,
     execution_mode: :browser_session,

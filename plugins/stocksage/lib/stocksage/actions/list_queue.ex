@@ -2,6 +2,7 @@ defmodule StockSage.Actions.ListQueue do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 272,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :local_domain,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ShowMemoryProposal do
   @moduledoc "Show one Memory proposal with transient bounded Corpus context."
 
   use AllbertAssist.Action,
+    registry_order: 167,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_read,

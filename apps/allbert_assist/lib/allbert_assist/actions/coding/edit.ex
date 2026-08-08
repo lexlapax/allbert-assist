@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Coding.Edit do
   """
 
   use AllbertAssist.Action,
+    registry_order: 58,
     permission: :coding_file_write,
     exposure: :internal,
     execution_mode: :coding_file_write,

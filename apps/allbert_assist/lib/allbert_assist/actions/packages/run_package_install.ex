@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   """
 
   use AllbertAssist.Action,
+    registry_order: 95,
     permission: :package_install,
     exposure: :internal,
     execution_mode: :package_manager_process,

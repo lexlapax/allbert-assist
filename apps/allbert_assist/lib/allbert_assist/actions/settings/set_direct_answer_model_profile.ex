@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Settings.SetDirectAnswerModelProfile do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 26,
     permission: :settings_write,
     exposure: :agent,
     execution_mode: :settings_write,

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   """
 
   use AllbertAssist.Action,
+    registry_order: 8,
     permission: :command_execute,
     exposure: :agent,
     execution_mode: :local_process,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Jobs.ResumeJob do
   @moduledoc "Resume one of the local operator's own scheduled jobs (v0.61 M10.4)."
 
   use AllbertAssist.Action,
+    registry_order: 198,
     permission: :job_write,
     exposure: :internal,
     execution_mode: :job_control,

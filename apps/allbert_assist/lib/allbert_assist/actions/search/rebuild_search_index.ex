@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Search.RebuildSearchIndex do
   @moduledoc "Build, verify, and promote the complete derived Search projection."
 
   use AllbertAssist.Action,
+    registry_order: 65,
     permission: :search_manage,
     exposure: :internal,
     execution_mode: :search_manage,

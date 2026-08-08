@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Resources.RevokeResourceGrant do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 135,
     permission: :confirmation_decide,
     exposure: :internal,
     execution_mode: :resource_grant_revoke,

@@ -79,7 +79,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ActionAssembly do
       name: projection.name,
       source_lane: source_lane,
       legacy_index: projection.legacy_index,
-      registry_order: nil,
+      registry_order: projection.registry_order,
       normalized_capability: projection.normalized_capability,
       m0_row_sha256: sha256(CanonicalJSON.encode(m0_projection)),
       input_schema_sha256: projection.input_schema_sha256,
@@ -194,8 +194,8 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ActionAssembly do
       owner_id: owner_id,
       identity: %{namespace: :action_name, value: binding.name},
       order: %{
-        namespace: if(alias?, do: :alias_target, else: :legacy_index),
-        value: binding.legacy_index
+        namespace: if(alias?, do: :alias_target, else: :registry_order),
+        value: binding.registry_order
       },
       payload_schema: :action_ref_v1,
       payload: RowSchemas.canonical_projection(normalized),

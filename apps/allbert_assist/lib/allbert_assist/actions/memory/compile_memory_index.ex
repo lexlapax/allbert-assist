@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.CompileMemoryIndex do
   @moduledoc "Compatibility action that rebuilds the derived Memory projection."
 
   use AllbertAssist.Action,
+    registry_order: 178,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_index_compile,

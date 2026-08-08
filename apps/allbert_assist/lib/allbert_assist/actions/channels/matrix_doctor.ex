@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 260,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :channel_diagnostic,
@@ -26,10 +27,12 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctor do
     permission_decision = PermissionGate.authorize(:read_only, context)
 
     with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, result} <- Doctor.diagnose() do
+         {:ok, epoch} <- Map.fetch(context, :allbert_pack_epoch),
+         {:ok, result} <- Doctor.diagnose(allbert_pack_epoch: epoch) do
       {:ok, completed(result, permission_decision)}
     else
       false -> {:ok, denied(permission_decision)}
+      :error -> {:ok, failed(permission_decision, :product_not_ready)}
       {:error, reason} -> {:ok, failed(permission_decision, reason)}
     end
   end

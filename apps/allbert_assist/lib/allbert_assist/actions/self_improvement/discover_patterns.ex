@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.DiscoverPatterns do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 84,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :self_improvement_discovery,

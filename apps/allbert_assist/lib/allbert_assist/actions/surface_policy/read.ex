@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.SurfacePolicy.Read do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 123,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

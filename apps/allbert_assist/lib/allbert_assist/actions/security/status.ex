@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Security.Status do
   """
 
   use AllbertAssist.Action,
+    registry_order: 111,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :security_status,

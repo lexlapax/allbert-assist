@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 27,
     permission: :image_generate,
     exposure: :agent,
     execution_mode: :image_provider_call,

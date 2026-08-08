@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.FirstModel.Detect do
   """
 
   use AllbertAssist.Action,
+    registry_order: 204,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

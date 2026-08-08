@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
   @moduledoc "Cancel an owned fan-out run through cooperative, supervised, and OS tiers."
 
   use AllbertAssist.Action,
+    registry_order: 52,
     permission: :objective_write,
     exposure: :agent,
     execution_mode: :objective_engine,

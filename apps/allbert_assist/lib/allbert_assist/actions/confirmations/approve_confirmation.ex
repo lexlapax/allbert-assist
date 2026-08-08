@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 130,
     permission: :confirmation_decide,
     exposure: :internal,
     execution_mode: :confirmation_decision,

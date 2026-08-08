@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.PlanBuild.CancelPlanRun do
   @moduledoc "Cancel a Plan/Build objective run cooperatively."
 
   use AllbertAssist.Action,
+    registry_order: 192,
     permission: :plan_cancel,
     exposure: :internal,
     execution_mode: :plan_cancel,

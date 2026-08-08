@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.SlackDoctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 264,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :channel_diagnostic,

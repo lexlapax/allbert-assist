@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   """
 
   use AllbertAssist.Action,
+    registry_order: 206,
     permission: :external_network,
     exposure: :internal,
     execution_mode: :first_model_pull,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Integrations.OpenGithubPanel do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 41,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :read_only,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.DoctorServer do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 70,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :mcp_doctor,

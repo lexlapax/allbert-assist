@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Settings.VaultStatus do
   """
 
   use AllbertAssist.Action,
+    registry_order: 210,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

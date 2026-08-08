@@ -13,6 +13,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.CreateProtocolToken do
   """
 
   use AllbertAssist.Action,
+    registry_order: 241,
     permission: :settings_secret_write,
     exposure: :internal,
     execution_mode: :public_protocol_token,

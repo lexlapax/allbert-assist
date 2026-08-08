@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.DiscardDraft do
   @permission :dynamic_codegen_discard
 
   use AllbertAssist.Action,
+    registry_order: 86,
     permission: :dynamic_codegen_discard,
     exposure: :internal,
     execution_mode: :self_improvement_draft,

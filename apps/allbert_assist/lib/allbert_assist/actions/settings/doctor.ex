@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Settings.Doctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 125,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

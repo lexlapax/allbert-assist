@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Operator.SettingGet do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 122,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

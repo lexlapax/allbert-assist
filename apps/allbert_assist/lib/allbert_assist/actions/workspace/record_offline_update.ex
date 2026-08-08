@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Workspace.RecordOfflineUpdate do
   @moduledoc "Record a browser-originated workspace editor update through Security Central."
 
   use AllbertAssist.Action,
+    registry_order: 215,
     permission: :workspace_canvas_write,
     exposure: :internal,
     execution_mode: :workspace_canvas_write,

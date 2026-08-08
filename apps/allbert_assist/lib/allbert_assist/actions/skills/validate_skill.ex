@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Skills.ValidateSkill do
   """
 
   use AllbertAssist.Action,
+    registry_order: 93,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :skill_validation,

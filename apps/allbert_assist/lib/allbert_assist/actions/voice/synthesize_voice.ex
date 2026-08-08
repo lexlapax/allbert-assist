@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 28,
     permission: :voice_synthesize,
     exposure: :agent,
     execution_mode: :voice_provider_call,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.PlanBuild.ListPlanRuns do
   @moduledoc "List plan-run objectives."
 
   use AllbertAssist.Action,
+    registry_order: 193,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :local,

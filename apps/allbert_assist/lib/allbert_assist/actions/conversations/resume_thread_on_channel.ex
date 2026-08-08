@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 32,
     permission: :conversation_write,
     exposure: :agent,
     execution_mode: :conversation_resume,

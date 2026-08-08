@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Coding.Read do
   """
 
   use AllbertAssist.Action,
+    registry_order: 54,
     permission: :coding_file_read,
     exposure: :internal,
     execution_mode: :coding_file_read,

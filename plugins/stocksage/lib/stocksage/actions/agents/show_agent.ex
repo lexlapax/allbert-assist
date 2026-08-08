@@ -2,6 +2,7 @@ defmodule StockSage.Actions.Agents.ShowAgent do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 276,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

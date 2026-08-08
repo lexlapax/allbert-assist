@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
   @moduledoc "Emit an advisory Plan Preview Contract packet."
 
   use AllbertAssist.Action,
+    registry_order: 38,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :plan_preview,

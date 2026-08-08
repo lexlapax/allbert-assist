@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ConfirmManualMemoryRevision do
   @moduledoc "Confirm one unchanged raw manual claim revision through the claim writer."
 
   use AllbertAssist.Action,
+    registry_order: 163,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_write,

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
   """
 
   use AllbertAssist.Action,
+    registry_order: 208,
     permission: :command_execute,
     exposure: :internal,
     execution_mode: :service_control,

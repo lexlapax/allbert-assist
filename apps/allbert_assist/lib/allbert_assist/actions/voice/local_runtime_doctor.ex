@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Voice.LocalRuntimeDoctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 142,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

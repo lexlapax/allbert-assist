@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Channels.UnlinkChannelIdentity do
   """
 
   use AllbertAssist.Action,
+    registry_order: 237,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :channel_identity_write,

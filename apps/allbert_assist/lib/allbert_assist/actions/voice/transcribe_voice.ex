@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 141,
     permission: :voice_transcribe,
     exposure: :internal,
     execution_mode: :voice_provider_call,

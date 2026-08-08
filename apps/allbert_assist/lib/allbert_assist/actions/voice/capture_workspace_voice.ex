@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 140,
     permission: :microphone_capture,
     exposure: :internal,
     execution_mode: :live_microphone_capture,

@@ -1368,6 +1368,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert %{
              legacy_index: 1,
+             registry_order: 1,
              module: DirectAnswer,
              name: "direct_answer",
              app_id: nil,
@@ -1376,7 +1377,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              hd(static)
 
     assert Enum.all?(static, fn projection ->
-             projection.input_schema_sha256 =~ ~r/^[0-9a-f]{64}$/ and
+             projection.registry_order == projection.legacy_index and
+               projection.input_schema_sha256 =~ ~r/^[0-9a-f]{64}$/ and
                projection.output_schema_sha256 =~ ~r/^[0-9a-f]{64}$/
            end)
   end

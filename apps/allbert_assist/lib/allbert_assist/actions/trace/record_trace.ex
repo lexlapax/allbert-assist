@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Trace.RecordTrace do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 144,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :internal_trace,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Artifacts.DeleteArtifact do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 109,
     permission: :artifact_delete,
     exposure: :internal,
     execution_mode: :artifact_delete,

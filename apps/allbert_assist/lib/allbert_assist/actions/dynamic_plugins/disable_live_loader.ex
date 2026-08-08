@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader do
   """
 
   use AllbertAssist.Action,
+    registry_order: 223,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :settings_write,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 34,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :settings_read,

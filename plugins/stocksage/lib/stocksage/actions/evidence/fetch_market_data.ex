@@ -2,6 +2,7 @@ defmodule StockSage.Actions.Evidence.FetchMarketData do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 277,
     permission: :stocksage_evidence_fetch,
     exposure: :internal,
     execution_mode: :req_http,

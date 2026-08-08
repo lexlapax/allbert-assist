@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Artifacts.PutArtifact do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 105,
     permission: :artifact_write,
     exposure: :internal,
     execution_mode: :artifact_write,

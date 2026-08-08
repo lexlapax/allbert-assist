@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
   """
 
   use AllbertAssist.Action,
+    registry_order: 184,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :app_memory_sync,

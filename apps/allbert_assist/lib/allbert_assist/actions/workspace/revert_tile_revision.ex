@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Workspace.RevertTileRevision do
   @moduledoc "Revert an editable workspace tile to a recorded revision snapshot."
 
   use AllbertAssist.Action,
+    registry_order: 214,
     permission: :workspace_canvas_write,
     exposure: :internal,
     execution_mode: :workspace_canvas_write,

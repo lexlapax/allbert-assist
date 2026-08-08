@@ -12,6 +12,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.RotateProtocolToken do
   """
 
   use AllbertAssist.Action,
+    registry_order: 242,
     permission: :settings_secret_write,
     exposure: :internal,
     execution_mode: :public_protocol_token,

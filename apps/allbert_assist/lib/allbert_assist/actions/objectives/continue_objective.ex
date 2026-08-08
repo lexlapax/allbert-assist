@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
   @moduledoc "Advance a blocked objective when its blocker has changed."
 
   use AllbertAssist.Action,
+    registry_order: 50,
     permission: :objective_write,
     exposure: :agent,
     execution_mode: :objective_engine,

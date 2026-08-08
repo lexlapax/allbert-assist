@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.StartSession do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 246,
     permission: :browser_session_start,
     exposure: :internal,
     execution_mode: :browser_session,

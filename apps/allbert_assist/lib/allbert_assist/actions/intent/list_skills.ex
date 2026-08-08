@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
   """
 
   use AllbertAssist.Action,
+    registry_order: 4,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :read_only,

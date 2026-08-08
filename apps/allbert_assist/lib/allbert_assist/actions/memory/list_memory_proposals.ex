@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryProposals do
   @moduledoc "List inert Memory proposals through the shared review DTO."
 
   use AllbertAssist.Action,
+    registry_order: 166,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_read,

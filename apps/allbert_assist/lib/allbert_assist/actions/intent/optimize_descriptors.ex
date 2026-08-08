@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.OptimizeDescriptors do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 153,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :intent_descriptor_write,

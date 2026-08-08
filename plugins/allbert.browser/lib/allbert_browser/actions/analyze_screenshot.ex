@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.AnalyzeScreenshot do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 250,
     permission: :image_input,
     exposure: :internal,
     execution_mode: :read_only,

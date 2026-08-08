@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.Extract do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 248,
     permission: :browser_extract,
     exposure: :internal,
     execution_mode: :browser_session,

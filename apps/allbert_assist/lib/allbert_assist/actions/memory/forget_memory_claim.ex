@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ForgetMemoryClaim do
   @moduledoc "Destructively Forget one exact Memory claim after explicit confirmation."
 
   use AllbertAssist.Action,
+    registry_order: 165,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_forget,

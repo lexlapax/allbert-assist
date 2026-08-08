@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.ListReview do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 152,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :intent_operator_read,

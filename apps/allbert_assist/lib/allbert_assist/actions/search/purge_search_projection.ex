@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Search.PurgeSearchProjection do
   """
 
   use AllbertAssist.Action,
+    registry_order: 64,
     permission: :search_manage,
     exposure: :internal,
     execution_mode: :search_purge,

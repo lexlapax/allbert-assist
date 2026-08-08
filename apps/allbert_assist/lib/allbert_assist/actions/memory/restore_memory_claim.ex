@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.RestoreMemoryClaim do
   @moduledoc "Restore one archived Memory claim through the canonical claim writer."
 
   use AllbertAssist.Action,
+    registry_order: 182,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_write,

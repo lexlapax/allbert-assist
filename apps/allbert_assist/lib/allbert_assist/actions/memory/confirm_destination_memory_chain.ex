@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ConfirmDestinationMemoryChain do
   @moduledoc "Confirm one unchanged foreign claim chain under the destination Home key."
 
   use AllbertAssist.Action,
+    registry_order: 162,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_write,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Workspace.ManageTile do
   @moduledoc "Manage a workspace canvas tile through Security Central."
 
   use AllbertAssist.Action,
+    registry_order: 213,
     permission: :workspace_canvas_write,
     exposure: :internal,
     execution_mode: :workspace_canvas_write,

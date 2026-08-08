@@ -7,6 +7,8 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.DevGates.V14ActionDeltaLedger
+  alias AllbertAssist.DevGates.V14M0RegistryLedger
   alias AllbertAssist.Intent.Router.FakeRouter
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Paths
@@ -187,6 +189,24 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     assert response.error ==
              {:invalid_params, {:unknown_params, "param_contract_strict_echo", [unknown_key]}}
 
+    reason = {:unknown_params, "param_contract_strict_echo", [unknown_key]}
+    error = {:invalid_params, reason}
+
+    assert [%{name: "param_contract_strict_echo", status: :error, error: ^error}] =
+             response.actions
+
+    assert [
+             %{
+               code: :invalid_params,
+               action: "param_contract_strict_echo",
+               reason: ^reason
+             }
+           ] = response.diagnostics
+
+    assert response.runner_metadata.action_name == "param_contract_strict_echo"
+    assert response.runner_metadata.action_module == StrictEcho
+    assert response.runner_metadata.status == :error
+    assert response.runner_metadata.error == error
     assert response.message == "Action param_contract_strict_echo rejected: invalid params."
     refute response.message =~ "sk-secret-value"
     refute_received {:strict_echo_ran, _params}
@@ -267,6 +287,48 @@ defmodule AllbertAssist.Actions.ParamContractTest do
              catalog,
              &(&1.disposition in [:json_schema_runtime_unsupported, :unsupported_schema])
            )
+  end
+
+  test "every M0 action contract rejects an unknown param before its body" do
+    unknown_key = "__allbert_v14_unknown_param__"
+    secret_value = "sk-v14-negative-probe-must-not-appear"
+
+    rows =
+      V14M0RegistryLedger.load_frozen!()
+      |> get_in(["payload", "actions", "rows"])
+
+    assert length(rows) == 281
+
+    Enum.each(rows, fn row ->
+      name = row["name"]
+      module_name = row["module"]
+      action_module = String.to_existing_atom("Elixir." <> module_name)
+
+      reason = {:unknown_params, name, [unknown_key]}
+
+      assert action_module.name() == name
+
+      assert ParamContract.normalize_and_validate(action_module, %{
+               unknown_key => secret_value
+             }) == {:error, reason}
+    end)
+
+    IO.puts(
+      "v14-param-contract-negative-roster-001 status=pass actions=#{length(rows)} " <>
+        "negative_probe=unknown_param action_bodies=not_entered"
+    )
+  end
+
+  test "v1.4 action-delta ledger records the M2 no-op roster reconciliation" do
+    assert :ok = V14ActionDeltaLedger.check!()
+
+    ledger = V14ActionDeltaLedger.load!()
+    assert ledger["entries"] == []
+
+    IO.puts(
+      "v14-action-delta-ledger-001 status=pass baseline_actions=281 deltas=0 " <>
+        "disposition=no_op_parity"
+    )
   end
 
   test "representative shipped valid requests replay with system context outside params" do

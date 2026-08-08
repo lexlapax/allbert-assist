@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 226,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

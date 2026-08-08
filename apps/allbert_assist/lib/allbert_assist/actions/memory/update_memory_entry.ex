@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.UpdateMemoryEntry do
   @moduledoc "Corrects a markdown memory entry in place."
 
   use AllbertAssist.Action,
+    registry_order: 173,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_write,

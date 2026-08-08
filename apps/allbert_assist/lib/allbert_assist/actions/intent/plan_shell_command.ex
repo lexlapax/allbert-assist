@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Intent.PlanShellCommand do
   """
 
   use AllbertAssist.Action,
+    registry_order: 7,
     permission: :command_plan,
     exposure: :agent,
     execution_mode: :command_plan_only,

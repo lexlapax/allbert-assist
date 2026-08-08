@@ -99,9 +99,15 @@ defmodule AllbertAssist.Channels.Matrix.Doctor do
   end
 
   defp client_opts(opts) do
-    Keyword.get_lazy(opts, :client_opts, fn ->
-      Application.get_env(:allbert_assist, :matrix_doctor_client_opts, [])
-    end)
+    client_opts =
+      Keyword.get_lazy(opts, :client_opts, fn ->
+        Application.get_env(:allbert_assist, :matrix_doctor_client_opts, [])
+      end)
+
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} -> Keyword.put(client_opts, :allbert_pack_epoch, epoch)
+      :error -> client_opts
+    end
   end
 
   defp transport_status(opts) do

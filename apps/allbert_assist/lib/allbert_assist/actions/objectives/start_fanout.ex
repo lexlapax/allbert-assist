@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.StartFanout do
   @moduledoc "Start an acknowledged fan-out after an optional durable confirmation."
 
   use AllbertAssist.Action,
+    registry_order: 67,
     permission: :objective_write,
     exposure: :internal,
     execution_mode: :objective_engine,

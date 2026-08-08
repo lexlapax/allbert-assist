@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.ScanPause do
   @moduledoc "Pause the managed MCP discovery scan job through the action spine."
 
   use AllbertAssist.Action,
+    registry_order: 79,
     permission: :job_write,
     exposure: :internal,
     execution_mode: :mcp_discovery_scan,

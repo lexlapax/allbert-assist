@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.ScanRunOnce do
   @moduledoc "Run the managed MCP discovery scan once through the action spine."
 
   use AllbertAssist.Action,
+    registry_order: 81,
     permission: :job_write,
     exposure: :internal,
     execution_mode: :mcp_discovery_scan,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 69,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :channel_diagnostic,

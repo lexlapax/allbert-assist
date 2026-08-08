@@ -13,6 +13,7 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRoot do
   """
 
   use AllbertAssist.Action,
+    registry_order: 17,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :settings_write,

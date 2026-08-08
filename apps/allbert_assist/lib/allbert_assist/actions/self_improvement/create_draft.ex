@@ -15,6 +15,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
   }
 
   use AllbertAssist.Action,
+    registry_order: 85,
     permission: :dynamic_codegen_request,
     exposure: :internal,
     execution_mode: :self_improvement_draft,

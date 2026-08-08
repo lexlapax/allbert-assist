@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Jobs.TraceSummary do
   """
 
   use AllbertAssist.Action,
+    registry_order: 195,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

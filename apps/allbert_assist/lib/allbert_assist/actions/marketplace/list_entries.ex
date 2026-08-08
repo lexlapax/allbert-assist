@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Marketplace.ListEntries do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 42,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :marketplace_browse,

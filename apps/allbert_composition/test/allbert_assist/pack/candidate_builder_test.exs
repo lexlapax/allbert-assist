@@ -45,6 +45,14 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
 
     assert builder_bytes == legacy_bytes
     assert builder_digest == legacy_digest
+
+    assert Enum.map(builder_candidate.action_bindings, & &1.registry_order) ==
+             Enum.to_list(1..281)
+
+    assert Enum.all?(
+             builder_candidate.action_bindings,
+             &(&1.registry_order == &1.legacy_index)
+           )
   end
 
   @tag :parity

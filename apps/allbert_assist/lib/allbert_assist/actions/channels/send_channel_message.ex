@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
   client directly). Routing grants no authority.
   """
   use AllbertAssist.Action,
+    registry_order: 46,
     permission: :channel_message_send,
     exposure: :agent,
     execution_mode: :channel_post,

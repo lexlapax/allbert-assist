@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Integrations.OpenCalendarPanel do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 39,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :read_only,

@@ -2,6 +2,7 @@ defmodule StockSage.Actions.ListAnalyses do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 266,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :local_domain,

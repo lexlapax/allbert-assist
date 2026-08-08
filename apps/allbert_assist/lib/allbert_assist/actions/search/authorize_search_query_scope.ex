@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Search.AuthorizeSearchQueryScope do
   """
 
   use AllbertAssist.Action,
+    registry_order: 61,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :search_scope_authorization,

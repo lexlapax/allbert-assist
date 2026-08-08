@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ReviewMemoryProposalBatch do
   @moduledoc "Freeze or resume an exact ordinary Memory Keep All batch."
 
   use AllbertAssist.Action,
+    registry_order: 169,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_write,

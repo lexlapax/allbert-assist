@@ -19,6 +19,7 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
   """
 
   use AllbertAssist.Action,
+    registry_order: 257,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :read_only,

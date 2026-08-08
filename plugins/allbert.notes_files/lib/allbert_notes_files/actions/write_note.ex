@@ -2,6 +2,7 @@ defmodule AllbertNotesFiles.Actions.WriteNote do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 263,
     permission: :notes_file_write,
     exposure: :agent,
     execution_mode: :notes_file_write,

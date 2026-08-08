@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Jobs.CreateJob do
   """
 
   use AllbertAssist.Action,
+    registry_order: 200,
     permission: :job_write,
     exposure: :internal,
     execution_mode: :job_control,

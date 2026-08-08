@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Workspace.DismissEphemeral do
   @moduledoc "Dismiss a workspace ephemeral surface through Security Central."
 
   use AllbertAssist.Action,
+    registry_order: 216,
     permission: :workspace_canvas_write,
     exposure: :internal,
     execution_mode: :workspace_canvas_write,

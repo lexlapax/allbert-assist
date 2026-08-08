@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Search.MaintainSearchIndex do
   @moduledoc "Run one bounded Search integrity, merge, and prune pass."
 
   use AllbertAssist.Action,
+    registry_order: 63,
     permission: :search_manage,
     exposure: :internal,
     execution_mode: :search_manage,

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.RevokeProtocolToken do
   """
 
   use AllbertAssist.Action,
+    registry_order: 243,
     permission: :settings_secret_write,
     exposure: :internal,
     execution_mode: :public_protocol_token,

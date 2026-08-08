@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Marketplace.InstallBundle do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 48,
     permission: :marketplace_install,
     exposure: :agent,
     execution_mode: :marketplace_install_bundle,

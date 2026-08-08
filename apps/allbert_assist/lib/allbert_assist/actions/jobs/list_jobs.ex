@@ -5,6 +5,7 @@ defmodule AllbertAssist.Actions.Jobs.ListJobs do
   """
 
   use AllbertAssist.Action,
+    registry_order: 196,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

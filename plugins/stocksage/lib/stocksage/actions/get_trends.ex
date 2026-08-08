@@ -2,6 +2,7 @@ defmodule StockSage.Actions.GetTrends do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 268,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :local_domain,

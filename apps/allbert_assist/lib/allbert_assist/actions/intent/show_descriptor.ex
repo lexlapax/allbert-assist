@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.ShowDescriptor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 149,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :intent_operator_read,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.ListResources do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 72,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :mcp_discovery,

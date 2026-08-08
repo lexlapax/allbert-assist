@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteObjectiveDraft do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 91,
     permission: :objective_write,
     exposure: :internal,
     execution_mode: :objective_draft_promotion,

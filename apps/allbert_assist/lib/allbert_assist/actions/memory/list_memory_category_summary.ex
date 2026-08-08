@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryCategorySummary do
   @moduledoc "Reads a derived memory category summary."
 
   use AllbertAssist.Action,
+    registry_order: 180,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_read,

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Coding.Glob do
   """
 
   use AllbertAssist.Action,
+    registry_order: 56,
     permission: :coding_file_read,
     exposure: :internal,
     execution_mode: :coding_search,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 228,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

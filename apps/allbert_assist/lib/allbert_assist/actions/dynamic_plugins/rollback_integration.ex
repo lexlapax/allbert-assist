@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RollbackIntegration do
   """
 
   use AllbertAssist.Action,
+    registry_order: 222,
     permission: :dynamic_integration,
     exposure: :internal,
     execution_mode: :dynamic_loader,

@@ -116,6 +116,8 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
   describe "client" do
     test "gets updates through Telegram Bot API" do
+      epoch = ReadyEffectContext.context().allbert_pack_epoch
+
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/getUpdates"
         query = Query.decode(conn.query_string)
@@ -125,11 +127,18 @@ defmodule AllbertAssist.Channels.TelegramTest do
         json(conn, %{"ok" => true, "result" => [text_update(42)]})
       end)
 
-      assert {:ok, [update]} = Client.get_updates("token", 42, 25, plug: {Req.Test, __MODULE__})
+      assert {:ok, [update]} =
+               Client.get_updates("token", 42, 25,
+                 plug: {Req.Test, __MODULE__},
+                 allbert_pack_epoch: epoch
+               )
+
       assert update["update_id"] == 42
     end
 
     test "sends messages and callback acknowledgements" do
+      epoch = ReadyEffectContext.context().allbert_pack_epoch
+
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/sendMessage"
         {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -140,7 +149,10 @@ defmodule AllbertAssist.Channels.TelegramTest do
       end)
 
       assert {:ok, %{"message_id" => 99}} =
-               Client.send_message("token", "456", "hello", plug: {Req.Test, __MODULE__})
+               Client.send_message("token", "456", "hello",
+                 plug: {Req.Test, __MODULE__},
+                 allbert_pack_epoch: epoch
+               )
 
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/sendMessage"
@@ -157,7 +169,8 @@ defmodule AllbertAssist.Channels.TelegramTest do
                Client.send_message("token", "456", "threaded",
                  reply_to_message_id: "10",
                  message_thread_id: "7",
-                 plug: {Req.Test, __MODULE__}
+                 plug: {Req.Test, __MODULE__},
+                 allbert_pack_epoch: epoch
                )
 
       Req.Test.expect(__MODULE__, fn conn ->
@@ -167,11 +180,14 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
       assert {:ok, true} =
                Client.answer_callback_query("token", "callback-1", "ok",
-                 plug: {Req.Test, __MODULE__}
+                 plug: {Req.Test, __MODULE__},
+                 allbert_pack_epoch: epoch
                )
     end
 
     test "gets and downloads Telegram files" do
+      epoch = ReadyEffectContext.context().allbert_pack_epoch
+
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/getFile"
         {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -184,7 +200,10 @@ defmodule AllbertAssist.Channels.TelegramTest do
       end)
 
       assert {:ok, %{"file_path" => "voice/hello.ogg", "file_size" => 16}} =
-               Client.get_file("token", "voice-file-103", plug: {Req.Test, __MODULE__})
+               Client.get_file("token", "voice-file-103",
+                 plug: {Req.Test, __MODULE__},
+                 allbert_pack_epoch: epoch
+               )
 
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/file/bottoken/voice/hello.ogg"
@@ -195,7 +214,10 @@ defmodule AllbertAssist.Channels.TelegramTest do
       end)
 
       assert {:ok, "voice fixture"} =
-               Client.download_file("token", "voice/hello.ogg", plug: {Req.Test, __MODULE__})
+               Client.download_file("token", "voice/hello.ogg",
+                 plug: {Req.Test, __MODULE__},
+                 allbert_pack_epoch: epoch
+               )
 
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/file/bottoken/voice/large.ogg"
@@ -208,7 +230,8 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert {:error, {:telegram_file_too_large, _size, 4}} =
                Client.download_file("token", "voice/large.ogg",
                  max_response_bytes: 4,
-                 plug: {Req.Test, __MODULE__}
+                 plug: {Req.Test, __MODULE__},
+                 allbert_pack_epoch: epoch
                )
     end
   end

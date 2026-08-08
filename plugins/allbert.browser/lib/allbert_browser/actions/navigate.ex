@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.Navigate do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 247,
     permission: :browser_navigate,
     exposure: :internal,
     execution_mode: :browser_session,

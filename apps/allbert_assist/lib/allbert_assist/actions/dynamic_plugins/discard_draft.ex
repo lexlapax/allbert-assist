@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
   @permission :dynamic_codegen_discard
 
   use AllbertAssist.Action,
+    registry_order: 220,
     permission: :dynamic_codegen_discard,
     exposure: :internal,
     execution_mode: :dynamic_codegen_discard,

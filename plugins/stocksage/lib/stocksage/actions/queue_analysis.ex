@@ -2,6 +2,7 @@ defmodule StockSage.Actions.QueueAnalysis do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 271,
     permission: :stocksage_write,
     exposure: :agent,
     execution_mode: :local_domain,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Operator.Confirmations do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 119,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :confirmation_read,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
   @moduledoc "Finds and archives memory prune candidates."
 
   use AllbertAssist.Action,
+    registry_order: 175,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_archive,

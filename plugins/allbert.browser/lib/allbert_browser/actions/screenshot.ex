@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.Screenshot do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 249,
     permission: :browser_screenshot,
     exposure: :internal,
     execution_mode: :browser_session,

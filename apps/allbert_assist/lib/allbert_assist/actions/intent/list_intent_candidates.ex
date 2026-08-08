@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.ListIntentCandidates do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 146,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

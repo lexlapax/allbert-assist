@@ -154,7 +154,8 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
     unless V14M0RegistryLedger.digest(payload) == payload_sha256 and
              get_in(payload, ["actions", "rows"]) == rows and
              Enum.map(rows, &Map.fetch!(&1, "index")) == expected_indices and
-             Enum.map(bindings, & &1.legacy_index) == expected_indices do
+             Enum.map(bindings, & &1.legacy_index) == expected_indices and
+             Enum.map(bindings, & &1.registry_order) == expected_indices do
       raise "v1.4 M1.a2 prepared M0 payload or binding indices are not exact"
     end
 

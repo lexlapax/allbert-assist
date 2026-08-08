@@ -2,6 +2,7 @@ defmodule AllbertNotesFiles.Actions.SearchNotes do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 261,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :read_only,

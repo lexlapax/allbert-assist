@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Templates.RenderTemplate do
   """
 
   use AllbertAssist.Action,
+    registry_order: 229,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :template_render,

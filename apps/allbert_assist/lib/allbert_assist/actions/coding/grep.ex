@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Coding.Grep do
   """
 
   use AllbertAssist.Action,
+    registry_order: 55,
     permission: :coding_file_read,
     exposure: :internal,
     execution_mode: :coding_search,

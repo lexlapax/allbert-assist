@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.Coverage do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 150,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :intent_operator_read,

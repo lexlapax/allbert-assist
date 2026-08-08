@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.DeleteMemoryEntry do
   @moduledoc "Archives a Memory claim reversibly, usually after confirmation."
 
   use AllbertAssist.Action,
+    registry_order: 174,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_archive,

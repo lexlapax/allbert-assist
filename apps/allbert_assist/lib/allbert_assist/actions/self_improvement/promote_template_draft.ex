@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteTemplateDraft do
   @permission :dynamic_codegen_request
 
   use AllbertAssist.Action,
+    registry_order: 90,
     permission: :dynamic_codegen_request,
     exposure: :internal,
     execution_mode: :template_dynamic_draft,

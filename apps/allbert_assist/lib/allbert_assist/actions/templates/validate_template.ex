@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Templates.ValidateTemplate do
   """
 
   use AllbertAssist.Action,
+    registry_order: 230,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :template_validate,

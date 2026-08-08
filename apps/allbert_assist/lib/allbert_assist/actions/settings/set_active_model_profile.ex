@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Settings.SetActiveModelProfile do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 25,
     permission: :settings_write,
     exposure: :agent,
     execution_mode: :settings_write,

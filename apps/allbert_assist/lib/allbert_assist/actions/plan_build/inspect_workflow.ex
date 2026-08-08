@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.PlanBuild.InspectWorkflow do
   @moduledoc "Validate and inspect one workflow YAML file."
 
   use AllbertAssist.Action,
+    registry_order: 188,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :local,

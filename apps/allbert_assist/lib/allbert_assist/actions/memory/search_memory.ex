@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
   @moduledoc "Searches canonical Memory through its projection or bounded Markdown fallback."
 
   use AllbertAssist.Action,
+    registry_order: 177,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_read,

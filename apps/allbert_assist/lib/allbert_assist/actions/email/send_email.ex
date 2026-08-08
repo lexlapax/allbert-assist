@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Email.SendEmail do
   confirmation summary; secrets never enter summaries/traces.
   """
   use AllbertAssist.Action,
+    registry_order: 45,
     permission: :email_send,
     exposure: :agent,
     execution_mode: :smtp_send,

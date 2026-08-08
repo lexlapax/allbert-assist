@@ -2,6 +2,7 @@ defmodule StockSage.Actions.ResolveOutcomes do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 269,
     permission: :stocksage_write,
     exposure: :internal,
     execution_mode: :local_domain,

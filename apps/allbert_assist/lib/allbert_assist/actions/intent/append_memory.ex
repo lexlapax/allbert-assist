@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Intent.AppendMemory do
   """
 
   use AllbertAssist.Action,
+    registry_order: 2,
     permission: :memory_write,
     exposure: :agent,
     execution_mode: :memory_write,

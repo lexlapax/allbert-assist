@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
   """
 
   use AllbertAssist.Action,
+    registry_order: 96,
     permission: :external_network,
     exposure: :internal,
     execution_mode: :online_skill_audit,

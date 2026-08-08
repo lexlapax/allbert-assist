@@ -2987,10 +2987,15 @@ defmodule AllbertAssist.SettingsTest do
 
   test "model runtime passes Settings Central credentials as per-request ReqLLM options" do
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/gemini/api_key", "AIza-test-runtime-key", %{
-               actor: "local",
-               channel: :test
-             })
+             Secrets.put_secret(
+               "secret://providers/gemini/api_key",
+               "AIza-test-runtime-key",
+               %{
+                 actor: "local",
+                 channel: :test
+               }
+               |> AllbertAssist.TestSupport.ReadyEffectContext.attach()
+             )
 
     assert {:ok, coding} = Settings.resolve_model_profile("coding")
     assert {:ok, %{provider: :google, id: "gemini-3.5-flash"}} = ModelRuntime.model_spec(coding)
@@ -3039,10 +3044,15 @@ defmodule AllbertAssist.SettingsTest do
 
   test "secret writes encrypt raw value and store only secret ref in settings", %{home: home} do
     assert {:ok, %{status: :configured, diagnostics: [%{audit_path: audit_path}]}} =
-             Secrets.put_secret("secret://providers/openai/api_key", "test-key", %{
-               actor: "local",
-               channel: :test
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "test-key",
+               %{
+                 actor: "local",
+                 channel: :test
+               }
+               |> AllbertAssist.TestSupport.ReadyEffectContext.attach()
+             )
 
     assert {:ok, "test-key"} = Secrets.get_secret("secret://providers/openai/api_key")
     assert {:ok, providers} = Settings.list_provider_profiles()

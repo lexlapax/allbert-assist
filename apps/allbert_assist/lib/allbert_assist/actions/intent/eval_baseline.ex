@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.EvalBaseline do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 159,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :intent_eval_write,

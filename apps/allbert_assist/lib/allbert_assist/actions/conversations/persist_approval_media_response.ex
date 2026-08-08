@@ -13,6 +13,7 @@ defmodule AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse do
   """
 
   use AllbertAssist.Action,
+    registry_order: 203,
     permission: :conversation_write,
     exposure: :internal,
     execution_mode: :conversation_control,

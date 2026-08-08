@@ -2,6 +2,7 @@ defmodule StockSage.Actions.ImportSqlite do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 273,
     permission: :stocksage_write,
     exposure: :internal,
     execution_mode: :local_domain,

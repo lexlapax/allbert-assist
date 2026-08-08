@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Operator.Channels do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 121,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

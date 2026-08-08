@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 82,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :mcp_discovery,

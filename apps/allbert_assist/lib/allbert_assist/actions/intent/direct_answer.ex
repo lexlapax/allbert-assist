@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   """
 
   use AllbertAssist.Action,
+    registry_order: 1,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :read_only,

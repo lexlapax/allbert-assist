@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
   """
 
   use AllbertAssist.Action,
+    registry_order: 59,
     permission: :coding_shell_execute,
     exposure: :internal,
     execution_mode: :coding_shell_execute,

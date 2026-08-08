@@ -103,6 +103,8 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
   end
 
   test "client uses bearer auth and Graph API message paths without query credentials" do
+    epoch = ReadyEffectContext.context().allbert_pack_epoch
+
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.method == "POST"
       assert conn.request_path == "/v23.0/15551234567/messages"
@@ -125,7 +127,8 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
                "+15550001111",
                "hello",
                context_message_id: "wamid.parent",
-               plug: {Req.Test, __MODULE__}
+               plug: {Req.Test, __MODULE__},
+               allbert_pack_epoch: epoch
              )
 
     request =

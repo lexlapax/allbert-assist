@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 127,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

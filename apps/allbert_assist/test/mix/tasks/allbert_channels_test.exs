@@ -14,6 +14,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
 
@@ -1164,14 +1165,20 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Mix.Task.reenable("allbert.channels")
 
     assert {:ok, confirmation} =
-             Confirmations.create(%{
-               origin: %{actor: "alice", channel: :discord, surface: "mix allbert.channels"},
-               target_action: %{name: "write_note"},
-               target_permission: :notes_file_write,
-               target_execution_mode: :notes_file_write,
-               security_decision: %{permission: :notes_file_write, decision: :needs_confirmation},
-               params_summary: %{title: "discord callback"}
-             })
+             Confirmations.create(
+               %{
+                 origin: %{actor: "alice", channel: :discord, surface: "mix allbert.channels"},
+                 target_action: %{name: "write_note"},
+                 target_permission: :notes_file_write,
+                 target_execution_mode: :notes_file_write,
+                 security_decision: %{
+                   permission: :notes_file_write,
+                   decision: :needs_confirmation
+                 },
+                 params_summary: %{title: "discord callback"}
+               },
+               ReadyEffectContext.context()
+             )
 
     discord_callback_output =
       capture_io(fn ->

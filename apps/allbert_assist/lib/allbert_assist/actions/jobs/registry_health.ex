@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Jobs.RegistryHealth do
   """
 
   use AllbertAssist.Action,
+    registry_order: 194,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

@@ -122,6 +122,7 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
       channel: :test,
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
+    |> AllbertAssist.TestSupport.ReadyEffectContext.attach()
   end
 
   defp json(conn, body) do

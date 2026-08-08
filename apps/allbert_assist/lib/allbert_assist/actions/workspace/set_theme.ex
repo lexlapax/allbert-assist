@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
   @moduledoc "Set the workspace theme through the registered action boundary."
 
   use AllbertAssist.Action,
+    registry_order: 218,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :settings_write,

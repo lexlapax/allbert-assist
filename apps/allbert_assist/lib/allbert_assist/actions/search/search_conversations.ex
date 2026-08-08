@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Search.SearchConversations do
   """
 
   use AllbertAssist.Action,
+    registry_order: 60,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :search_read,

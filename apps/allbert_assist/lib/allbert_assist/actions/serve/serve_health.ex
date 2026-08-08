@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Serve.ServeHealth do
   """
 
   use AllbertAssist.Action,
+    registry_order: 207,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :settings_read,

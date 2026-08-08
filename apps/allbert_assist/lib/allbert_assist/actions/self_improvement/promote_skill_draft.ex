@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteSkillDraft do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 87,
     permission: :skill_write,
     exposure: :internal,
     execution_mode: :skill_write,

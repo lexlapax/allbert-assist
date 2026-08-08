@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.EvaluateServer do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 76,
     permission: :tool_discovery,
     exposure: :internal,
     execution_mode: :mcp_discovery,

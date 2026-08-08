@@ -1155,7 +1155,7 @@ defmodule AllbertAssist.Pack.LegacyAdapter do
           name: capability.name,
           source_lane: source_lane,
           legacy_index: legacy_index,
-          registry_order: nil,
+          registry_order: capability.module.registry_order(),
           normalized_capability: normalized_capability,
           m0_row_sha256: m0_sha256(m0_projection),
           input_schema_sha256: input_schema_sha256,
@@ -1255,8 +1255,8 @@ defmodule AllbertAssist.Pack.LegacyAdapter do
       owner_id: owner_id,
       identity: %{namespace: :action_name, value: binding.name},
       order: %{
-        namespace: if(alias?, do: :alias_target, else: :legacy_index),
-        value: binding.legacy_index
+        namespace: if(alias?, do: :alias_target, else: :registry_order),
+        value: binding.registry_order
       },
       payload_schema: :action_ref_v1,
       payload: RowSchemas.canonical_projection(normalized),

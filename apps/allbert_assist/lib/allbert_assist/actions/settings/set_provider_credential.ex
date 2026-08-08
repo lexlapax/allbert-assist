@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 22,
     permission: :settings_secret_write,
     exposure: :agent,
     execution_mode: :secret_write,

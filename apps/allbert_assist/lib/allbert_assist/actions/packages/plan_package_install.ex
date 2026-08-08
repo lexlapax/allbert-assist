@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
   """
 
   use AllbertAssist.Action,
+    registry_order: 11,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :package_install_plan,

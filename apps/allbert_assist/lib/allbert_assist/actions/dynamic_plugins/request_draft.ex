@@ -6,6 +6,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RequestDraft do
   @permission :dynamic_codegen_request
 
   use AllbertAssist.Action,
+    registry_order: 219,
     permission: :dynamic_codegen_request,
     exposure: :internal,
     execution_mode: :dynamic_codegen,

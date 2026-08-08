@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.SurfacePolicy.Update do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 124,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :settings_write,

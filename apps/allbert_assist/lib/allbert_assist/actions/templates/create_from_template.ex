@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Templates.CreateFromTemplate do
   """
 
   use AllbertAssist.Action,
+    registry_order: 232,
     permission: :dynamic_codegen_request,
     exposure: :internal,
     execution_mode: :template_dynamic_draft,

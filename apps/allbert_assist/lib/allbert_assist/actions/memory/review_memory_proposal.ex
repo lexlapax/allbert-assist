@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.ReviewMemoryProposal do
   @moduledoc "Apply one exact Memory proposal review decision."
 
   use AllbertAssist.Action,
+    registry_order: 168,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_write,

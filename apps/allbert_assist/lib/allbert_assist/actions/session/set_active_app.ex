@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Session.SetActiveApp do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 137,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :settings_write,

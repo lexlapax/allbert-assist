@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.Sessions.ClearSession do
   """
 
   use AllbertAssist.Action,
+    registry_order: 238,
     permission: :conversation_write,
     exposure: :internal,
     execution_mode: :session_control,

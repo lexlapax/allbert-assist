@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.RetrieveActiveMemory do
   @moduledoc "Retrieves deterministic read-only Active Memory chunks."
 
   use AllbertAssist.Action,
+    registry_order: 181,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_read,

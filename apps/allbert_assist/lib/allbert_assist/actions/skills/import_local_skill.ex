@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Skills.ImportLocalSkill do
   """
 
   use AllbertAssist.Action,
+    registry_order: 99,
     permission: :skill_write,
     exposure: :internal,
     execution_mode: :local_skill_import,

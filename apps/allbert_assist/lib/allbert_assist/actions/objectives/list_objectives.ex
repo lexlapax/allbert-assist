@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
   @moduledoc "List durable objectives for one local user."
 
   use AllbertAssist.Action,
+    registry_order: 43,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :objectives_read,

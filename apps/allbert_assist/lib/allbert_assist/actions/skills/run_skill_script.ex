@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   """
 
   use AllbertAssist.Action,
+    registry_order: 94,
     permission: :skill_script_execute,
     exposure: :internal,
     execution_mode: :skill_script_process,

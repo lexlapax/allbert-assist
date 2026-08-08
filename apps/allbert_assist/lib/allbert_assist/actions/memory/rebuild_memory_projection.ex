@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
   @moduledoc "Reconcile pending Forget work, then rebuild the daemon-owned Memory projection."
 
   use AllbertAssist.Action,
+    registry_order: 176,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_index_compile,

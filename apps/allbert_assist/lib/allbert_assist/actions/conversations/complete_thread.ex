@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.Conversations.CompleteThread do
   """
 
   use AllbertAssist.Action,
+    registry_order: 240,
     permission: :conversation_write,
     exposure: :internal,
     execution_mode: :conversation_control,

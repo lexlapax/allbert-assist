@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.SummarizeMemoryCategory do
   @moduledoc "Builds a derived category summary markdown file."
 
   use AllbertAssist.Action,
+    registry_order: 179,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :memory_summary_compile,

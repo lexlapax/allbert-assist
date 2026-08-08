@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Artifacts.GetArtifact do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 106,
     permission: :artifact_read,
     exposure: :internal,
     execution_mode: :artifact_read,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 259,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :channel_diagnostic,

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Sandbox.RunGate do
   """
 
   use AllbertAssist.Action,
+    registry_order: 116,
     permission: :sandbox_trial,
     exposure: :internal,
     execution_mode: :sandbox_trial,

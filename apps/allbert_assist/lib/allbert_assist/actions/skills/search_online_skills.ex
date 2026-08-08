@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
   """
 
   use AllbertAssist.Action,
+    registry_order: 12,
     permission: :external_network,
     exposure: :agent,
     execution_mode: :online_skill_search,

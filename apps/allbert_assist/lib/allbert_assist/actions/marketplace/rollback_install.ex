@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Marketplace.RollbackInstall do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 102,
     permission: :marketplace_install,
     exposure: :internal,
     execution_mode: :marketplace_rollback,

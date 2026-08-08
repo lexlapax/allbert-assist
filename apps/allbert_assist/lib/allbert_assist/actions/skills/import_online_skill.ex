@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Skills.ImportOnlineSkill do
   """
 
   use AllbertAssist.Action,
+    registry_order: 97,
     permission: :online_skill_import,
     exposure: :internal,
     execution_mode: :online_skill_import,

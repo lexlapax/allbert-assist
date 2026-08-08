@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.PlanBuild.ExpandWorkflow do
   @moduledoc "Expand a validated workflow into objective step attrs."
 
   use AllbertAssist.Action,
+    registry_order: 189,
     permission: :workflow_read,
     exposure: :internal,
     execution_mode: :workflow_expand,

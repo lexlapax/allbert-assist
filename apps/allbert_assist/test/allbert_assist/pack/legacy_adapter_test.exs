@@ -646,12 +646,20 @@ defmodule AllbertAssist.Pack.LegacyAdapterTest do
       assert length(action_rows) == 284
       assert length(action_bindings) == 281
       assert Enum.map(action_bindings, & &1.legacy_index) == Enum.to_list(1..281)
-      assert Enum.all?(action_bindings, &is_nil(&1.registry_order))
+      assert Enum.map(action_bindings, & &1.registry_order) == Enum.to_list(1..281)
       assert Enum.count(action_bindings, &(&1.source_lane == :native_static)) == 244
       assert Enum.count(action_bindings, &(&1.source_lane == :legacy_plugin)) == 37
 
       assert length(aliases) == 3
       assert Enum.count(action_rows, &(&1.order.namespace == :alias_target)) == 3
+      assert Enum.count(action_rows, &(&1.order.namespace == :registry_order)) == 281
+
+      assert Enum.map(
+               action_rows -- Enum.filter(action_rows, &(&1.order.namespace == :alias_target)),
+               & &1.order.value
+             ) ==
+               Enum.to_list(1..281)
+
       assert Enum.count(diagnostics, &(&1.code == :child_spec)) == 3
 
       skill_rows =

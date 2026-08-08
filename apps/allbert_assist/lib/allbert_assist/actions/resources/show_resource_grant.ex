@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Resources.ShowResourceGrant do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 134,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :resource_grant_read,

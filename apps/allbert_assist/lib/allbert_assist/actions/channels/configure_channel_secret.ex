@@ -12,6 +12,7 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSecret do
   """
 
   use AllbertAssist.Action,
+    registry_order: 234,
     permission: :settings_secret_write,
     exposure: :internal,
     execution_mode: :channel_config_write,

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReport do
   """
 
   use AllbertAssist.Action,
+    registry_order: 202,
     permission: :conversation_write,
     exposure: :internal,
     execution_mode: :conversation_control,

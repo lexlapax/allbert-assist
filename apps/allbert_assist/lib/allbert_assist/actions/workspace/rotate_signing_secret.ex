@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Workspace.RotateSigningSecret do
   """
 
   use AllbertAssist.Action,
+    registry_order: 217,
     permission: :settings_secret_write,
     exposure: :internal,
     execution_mode: :workspace_secret_rotation,

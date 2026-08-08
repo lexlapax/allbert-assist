@@ -2,6 +2,7 @@ defmodule AllbertBrowser.Actions.Download do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 253,
     permission: :browser_download,
     exposure: :internal,
     execution_mode: :browser_session,

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Mcp.ScanEnable do
   """
 
   use AllbertAssist.Action,
+    registry_order: 78,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :mcp_discovery_scan,

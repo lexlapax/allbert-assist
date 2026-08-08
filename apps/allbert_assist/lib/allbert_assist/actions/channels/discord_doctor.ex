@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.DiscordDoctor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 258,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :channel_diagnostic,

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Jobs.RunJob do
   """
 
   use AllbertAssist.Action,
+    registry_order: 199,
     permission: :job_write,
     exposure: :internal,
     execution_mode: :job_control,

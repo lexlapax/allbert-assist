@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.ExplainIntent do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 145,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :read_only,

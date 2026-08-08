@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Plugins.ListPlugins do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 35,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :settings_read,

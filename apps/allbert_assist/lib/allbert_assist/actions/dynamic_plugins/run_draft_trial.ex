@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RunDraftTrial do
   """
 
   use AllbertAssist.Action,
+    registry_order: 224,
     permission: :sandbox_trial,
     exposure: :internal,
     execution_mode: :sandbox_trial,

@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   @moduledoc "Show a durable objective with proposed steps and recent events."
 
   use AllbertAssist.Action,
+    registry_order: 185,
     permission: :read_only,
     exposure: :internal,
     execution_mode: :objectives_read,

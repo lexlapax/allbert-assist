@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.PromoteDescriptor do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 154,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :intent_descriptor_write,

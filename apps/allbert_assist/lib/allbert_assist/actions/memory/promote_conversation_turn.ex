@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Memory.PromoteConversationTurn do
   @moduledoc "Promotes one explicitly selected conversation turn to markdown memory."
 
   use AllbertAssist.Action,
+    registry_order: 183,
     permission: :memory_write,
     exposure: :internal,
     execution_mode: :memory_promotion,

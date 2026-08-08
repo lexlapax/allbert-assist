@@ -100,6 +100,8 @@ defmodule AllbertAssist.Channels.MatrixTest do
   end
 
   test "client uses bearer auth and Matrix v3 paths without query credentials" do
+    epoch = ReadyEffectContext.context().allbert_pack_epoch
+
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.method == "GET"
       assert conn.request_path == "/_matrix/client/v3/sync"
@@ -115,7 +117,8 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
     assert {:ok, %{"next_batch" => "s1"}} =
              Client.sync("https://matrix.example.com", "matrix-secret", nil, 30_000,
-               plug: {Req.Test, __MODULE__}
+               plug: {Req.Test, __MODULE__},
+               allbert_pack_epoch: epoch
              )
 
     request =
@@ -599,6 +602,8 @@ defmodule AllbertAssist.Channels.MatrixTest do
   end
 
   test "generic outbound sends through Channels.Outbound" do
+    epoch = ReadyEffectContext.context().allbert_pack_epoch
+
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.method == "PUT"
 
@@ -618,7 +623,8 @@ defmodule AllbertAssist.Channels.MatrixTest do
     assert {:ok, receipt} =
              Outbound.send("matrix", "!room:example.com", "v055 outbound check",
                req_options: [plug: {Req.Test, __MODULE__}],
-               txn_id: "txn-out"
+               txn_id: "txn-out",
+               allbert_pack_epoch: epoch
              )
 
     assert receipt.channel == "matrix"

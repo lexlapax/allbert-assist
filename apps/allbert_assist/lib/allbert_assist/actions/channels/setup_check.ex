@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.SetupCheck do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 31,
     permission: :read_only,
     exposure: :agent,
     execution_mode: :settings_read,

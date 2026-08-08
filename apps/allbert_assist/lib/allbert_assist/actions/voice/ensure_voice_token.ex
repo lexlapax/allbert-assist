@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceToken do
   """
 
   use AllbertAssist.Action,
+    registry_order: 244,
     permission: :voice_local_runtime_manage,
     exposure: :internal,
     execution_mode: :voice_token,

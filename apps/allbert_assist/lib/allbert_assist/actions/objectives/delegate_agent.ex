@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
   @moduledoc "Dispatch a bounded objective step to a registered delegate agent."
 
   use AllbertAssist.Action,
+    registry_order: 186,
     permission: :objective_write,
     exposure: :internal,
     execution_mode: :objective_delegate,

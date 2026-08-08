@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Channels.SignalLinkDevice do
   @moduledoc false
 
   use AllbertAssist.Action,
+    registry_order: 233,
     permission: :settings_write,
     exposure: :internal,
     execution_mode: :channel_setup,
