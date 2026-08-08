@@ -6,7 +6,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   alias AllbertAssist.Intent.Candidate
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Memory
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Trace
   alias Jido.Signal
@@ -366,7 +366,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
               }
             },
             permission_decision:
-              PermissionGate.authorize(:read_only, %{
+              Security.authorize(:read_only, %{
                 request: %{operator_id: "local", channel: :test, input_signal_id: input_signal.id},
                 selected_action: "direct_answer"
               })
@@ -448,7 +448,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   defp permission_decision(permission) do
-    PermissionGate.authorize(permission, %{
+    Security.authorize(permission, %{
       request: %{operator_id: "local", channel: :test, input_signal_id: "sig-trace"},
       selected_action: to_string(permission)
     })

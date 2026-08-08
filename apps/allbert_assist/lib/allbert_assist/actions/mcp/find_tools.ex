@@ -31,16 +31,17 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Tools.Source.McpRegistry
   alias AllbertAssist.Tools.ToolCandidate
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:tool_discovery, context)
+    permission_decision = Security.authorize(:tool_discovery, context)
     query = query(params)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
         McpRegistry.search_with_diagnostics(query, %{
           context: context,
@@ -58,7 +59,7 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
   defp completed(query, candidates, diagnostics, permission_decision) do
     %{
       message: "Found #{length(candidates)} MCP registry candidate(s) for #{inspect(query)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       candidates: Enum.map(candidates, &ToolCandidate.to_map/1),
       diagnostics: diagnostics,
@@ -75,7 +76,7 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
   defp denied(query, permission_decision, reason) do
     %{
       message: "MCP registry discovery denied for #{inspect(query)}: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       candidates: [],
       diagnostics: [],

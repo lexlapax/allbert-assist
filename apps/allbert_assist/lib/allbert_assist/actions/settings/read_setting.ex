@@ -19,19 +19,20 @@ defmodule AllbertAssist.Actions.Settings.ReadSetting do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(%{key: key}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     case Settings.resolve(key, context) do
       {:ok, setting} ->
         {:ok,
          %{
            message: "#{setting.key}: #{inspect(setting.value)}\nSource: #{setting.source}",
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            setting: setting,
            actions: [action(setting, permission_decision)]
          }}

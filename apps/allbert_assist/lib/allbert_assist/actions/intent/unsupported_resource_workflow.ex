@@ -1,11 +1,14 @@
 defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
   @moduledoc """
+
    User-facing deferred response for resource workflows that v0.11 must not run.
 
    The action is intentionally inert. It gives every current channel the same
    explanation when a request needs a later adapter instead of turning the
    request into a partial fetch, import, file read, or execution path.
   """
+
+  alias AllbertAssist.Security
 
   use AllbertAssist.Action,
     registry_order: 9,
@@ -26,8 +29,6 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
     ],
     output_schema: :legacy_standard_response
 
-  alias AllbertAssist.Security.PermissionGate
-
   @workflow_aliases %{
     "summarize_url" => :summarize_url,
     "inspect_document" => :inspect_document,
@@ -41,7 +42,7 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     workflow = workflow(params)
     resource = text_param(params, :resource)
 

@@ -20,7 +20,7 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @type spec :: %{
           required(:action_name) => String.t(),
@@ -33,13 +33,13 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
   @spec run(spec(), map(), (-> {:ok, map()} | {:error, term()})) :: {:ok, map()}
   def run(spec, context, send_fn) when is_function(send_fn, 0) do
     context = action_spec_context(spec, context)
-    decision = PermissionGate.authorize(spec.permission, context)
+    decision = Security.authorize(spec.permission, context)
 
     cond do
       decision.decision == :denied ->
         {:ok, stopped(spec, decision, :permission_denied)}
 
-      PermissionGate.allowed?(decision) or confirmation_prompt_suppressed?(decision) or
+      Security.allowed?(decision) or confirmation_prompt_suppressed?(decision) or
           approved_resume?(context) ->
         execute(spec, decision, send_fn)
 

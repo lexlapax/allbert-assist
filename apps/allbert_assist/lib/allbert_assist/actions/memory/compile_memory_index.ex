@@ -26,15 +26,16 @@ defmodule AllbertAssist.Actions.Memory.CompileMemoryIndex do
 
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Paths
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     started = System.monotonic_time(:millisecond)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, projection} <- projection_owner(context),
          max_entries <- max_entries(params),
          {:ok, result} <- Projection.rebuild_with_options([max_entries: max_entries], projection) do
@@ -131,7 +132,7 @@ defmodule AllbertAssist.Actions.Memory.CompileMemoryIndex do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, nil, nil)]
      }}

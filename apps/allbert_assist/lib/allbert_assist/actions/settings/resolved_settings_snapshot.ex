@@ -20,14 +20,14 @@ defmodule AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.Store
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, settings, user_settings} <- Store.resolved_settings() do
       {:ok,
        %{

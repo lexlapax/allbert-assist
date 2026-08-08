@@ -55,7 +55,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
@@ -74,7 +74,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:external_network, context)
+    permission_decision = Security.authorize(:external_network, context)
 
     {:ok,
      %{
@@ -99,7 +99,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     summary = request_summary(spec, params)
 
     permission_decision =
-      PermissionGate.authorize(:external_network, request_context(spec, context))
+      Security.authorize(:external_network, request_context(spec, context))
 
     cond do
       permission_decision.decision == :denied ->
@@ -155,7 +155,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       decision: :denied,
       reason: "External request policy denied before confirmation: #{inspect(reason)}",
       requires_confirmation: false,
-      source: PermissionGate
+      source: Security
     }
   end
 

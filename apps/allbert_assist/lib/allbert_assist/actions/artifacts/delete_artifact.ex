@@ -28,14 +28,14 @@ defmodule AllbertAssist.Actions.Artifacts.DeleteArtifact do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @permission :artifact_delete
   @action_name "delete_artifact"
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     with {:denied, false} <- {:denied, permission_decision.decision == :denied},
          {:ok, artifact_ref} <- artifact_ref(params) do
@@ -51,7 +51,7 @@ defmodule AllbertAssist.Actions.Artifacts.DeleteArtifact do
   end
 
   def run(_params, context),
-    do: stopped(PermissionGate.authorize(@permission, context), :invalid_params, :error)
+    do: stopped(Security.authorize(@permission, context), :invalid_params, :error)
 
   defp delete_now(artifact_ref, permission_decision, execution) do
     case Artifacts.delete(artifact_ref) do

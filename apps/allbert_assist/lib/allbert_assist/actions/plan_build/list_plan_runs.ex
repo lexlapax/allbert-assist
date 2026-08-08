@@ -22,11 +22,11 @@ defmodule AllbertAssist.Actions.PlanBuild.ListPlanRuns do
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     user_id = field(params, :user_id) || field(context, :user_id) || "local"
     limit = field(params, :limit) || 50
     statuses = field(params, :status)

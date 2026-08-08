@@ -21,12 +21,12 @@ defmodule AllbertAssist.Actions.Voice.LocalRuntimeDoctor do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Voice.LocalRuntime
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:voice_local_runtime_manage, context)
+    permission_decision = Security.authorize(:voice_local_runtime_manage, context)
 
     doctor =
       LocalRuntime.doctor(

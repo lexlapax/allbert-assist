@@ -270,7 +270,7 @@ defmodule AllbertAssist.CLI.Areas.Threads do
   end
 
   # Completion is a mutation: it rides the one spine through `Runner.run`, which
-  # enforces the PermissionGate + audit around `Conversations.complete_thread/2`.
+  # enforces the Security Central + audit around `Conversations.complete_thread/2`.
   # Identity is server-derived from the CLI context, not the caller's params.
   defp complete_thread(user_id, thread_id, ctx) do
     case Runner.run(

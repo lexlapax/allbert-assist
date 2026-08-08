@@ -239,7 +239,6 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
     IO.puts("adr-0070-converged-001 status=pass adr=converged")
   end
 
-  defp read!(relative) do
-    @repo_root |> Path.join(relative) |> File.read!()
-  end
+  defp read!(relative),
+    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
 end

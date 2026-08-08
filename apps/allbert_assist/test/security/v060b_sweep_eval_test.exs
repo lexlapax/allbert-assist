@@ -226,11 +226,8 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
     )
   end
 
-  defp read!(relative_path) do
-    @repo_root
-    |> Path.join(relative_path)
-    |> File.read!()
-  end
+  defp read!(relative_path),
+    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative_path)
 
   defp assert_contains!(text, phrases) when is_list(phrases) do
     for phrase <- phrases do

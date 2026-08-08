@@ -21,13 +21,13 @@ defmodule AllbertAssist.Actions.Confirmations.ExpireConfirmations do
 
   alias AllbertAssist.Actions.Confirmations.Context
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:confirmation_decide, context)
+    permission_decision = Security.authorize(:confirmation_decide, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       {:ok, results} =
         Confirmations.expire(
           context,

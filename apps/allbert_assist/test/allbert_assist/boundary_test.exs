@@ -167,6 +167,6 @@ defmodule AllbertAssist.BoundaryTest do
   test "inventory can be filtered by subsystem" do
     assert Enum.any?(Boundary.by_subsystem(:surface), &(&1.id == :surface_dsl))
     assert Enum.any?(Boundary.by_subsystem(:settings), &(&1.id == :settings_fragment))
-    assert Enum.any?(Boundary.by_subsystem(:security), &(&1.id == :permission_gate))
+    refute Enum.any?(Boundary.by_subsystem(:security), &(&1.id == :permission_gate))
   end
 end

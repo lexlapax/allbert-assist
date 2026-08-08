@@ -21,8 +21,8 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
   alias AllbertAssist.Settings.Fragments, as: SettingsFragments
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
-  @expected_behavior_digest "4a3661c3440dc21b58f91776b9d711cb14fd3343aa639384acdc3933d4d24b91"
-  @expected_bytes_sha256 "4464fcdf3eb31233d09f524ae9c5167b91980103e519fa21fe551807934913ae"
+  @expected_behavior_digest "e3e5683e94ee5498da5d8a9aaa1401195ea5c9664262017c8784abb2fbfff9ea"
+  @expected_bytes_sha256 "41f1d4910a0b31ca90621d79b67a3aff806d24fb36765d70e9f34b054aedd593"
 
   setup context do
     if context[:parity] do
@@ -201,6 +201,25 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     refute source =~ ~r/\b(?:ActionsRegistry|Registry)\.(?:modules|capabilities)\b/
     refute source =~ ~r/\bSettingsFragments\.registered_fragments\b/
     refute source =~ ~r/\bExtensionsRegistry\.contributions\b/
+  end
+
+  @tag :parity
+  test "candidate test-lane callbacks equal the canonical Pack-backed gate projection", context do
+    assert {:ok, candidate} =
+             CandidateBuilder.build(context.closed, context.apps, context.plugins)
+
+    candidate_rows =
+      candidate.contributions
+      |> Enum.flat_map(& &1.callbacks.test_lanes)
+      |> Enum.sort_by(&{&1.owner_id, &1.identity.value})
+
+    expected_rows =
+      context.closed
+      |> AllbertAssist.DevGates.GateOwners.canonical_pack_rows!()
+      |> Enum.sort_by(&{&1.owner_id, &1.identity.value})
+
+    assert length(candidate_rows) == 12
+    assert candidate_rows == expected_rows
   end
 
   defp canonical_identity(candidate) do

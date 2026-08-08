@@ -41,13 +41,14 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RequestDraft do
     ]
 
   alias AllbertAssist.DynamicPlugins
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, result} <- DynamicPlugins.request_draft(params, request_context(context)) do
       {:ok, completed(permission_decision, result)}
     else
@@ -98,7 +99,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RequestDraft do
   defp denied(permission_decision) do
     %{
       message: "Dynamic draft request is denied by Security Central.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       error: :permission_denied,
       actions: [action(:denied, permission_decision, %{error: :permission_denied})]

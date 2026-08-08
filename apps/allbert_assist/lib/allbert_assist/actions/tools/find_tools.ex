@@ -26,7 +26,8 @@ defmodule AllbertAssist.Actions.Tools.FindTools do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Tools.Finder
   alias AllbertAssist.Tools.Source.Local
   alias AllbertAssist.Tools.Source.McpRegistry
@@ -34,11 +35,11 @@ defmodule AllbertAssist.Actions.Tools.FindTools do
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
-    tool_discovery_decision = PermissionGate.authorize(:tool_discovery, context)
+    permission_decision = Security.authorize(:read_only, context)
+    tool_discovery_decision = Security.authorize(:tool_discovery, context)
     query = query(params)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       {sources, source_diagnostics} = source_plan(tool_discovery_decision)
 
       {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
@@ -51,7 +52,7 @@ defmodule AllbertAssist.Actions.Tools.FindTools do
   end
 
   defp source_plan(tool_discovery_decision) do
-    if PermissionGate.allowed?(tool_discovery_decision) do
+    if Security.allowed?(tool_discovery_decision) do
       {[Local, McpRegistry], []}
     else
       {[Local],
@@ -68,7 +69,7 @@ defmodule AllbertAssist.Actions.Tools.FindTools do
   defp completed(query, candidates, diagnostics, permission_decision) do
     %{
       message: "Found #{length(candidates)} tool candidate(s) for #{inspect(query)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       candidates: Enum.map(candidates, &ToolCandidate.to_map/1),
       diagnostics: diagnostics,
@@ -85,7 +86,7 @@ defmodule AllbertAssist.Actions.Tools.FindTools do
   defp denied(query, permission_decision, reason) do
     %{
       message: "Tool discovery denied for #{inspect(query)}: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       candidates: [],
       diagnostics: [],

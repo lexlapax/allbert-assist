@@ -21,13 +21,13 @@ defmodule AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts do
     ]
 
   alias AllbertAssist.DynamicPlugins
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       drafts = DynamicPlugins.list_drafts()
 
       {:ok,

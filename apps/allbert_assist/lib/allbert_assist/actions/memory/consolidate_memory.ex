@@ -27,13 +27,14 @@ defmodule AllbertAssist.Actions.Memory.ConsolidateMemory do
 
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory.Consolidator
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission = PermissionGate.authorize(:memory_propose, context)
+    permission = Security.authorize(:memory_propose, context)
 
-    with true <- PermissionGate.allowed?(permission),
+    with true <- Security.allowed?(permission),
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, result} <- Consolidator.run(user_id) do
       {:ok,
@@ -46,7 +47,11 @@ defmodule AllbertAssist.Actions.Memory.ConsolidateMemory do
        }}
     else
       false ->
-        response(permission, PermissionGate.response_status(permission), permission.reason)
+        response(
+          permission,
+          Response.permission_status(permission),
+          permission.reason
+        )
 
       {:error, reason} ->
         response(

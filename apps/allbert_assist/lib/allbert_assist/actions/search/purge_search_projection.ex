@@ -42,18 +42,19 @@ defmodule AllbertAssist.Actions.Search.PurgeSearchProjection do
   alias AllbertAssist.Actions.Jobs.Identity
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Search.Projection
   alias AllbertAssist.Search.Purge
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @action_name "purge_search_projection"
   @permission :search_manage
 
   @impl true
   def run(params, context) when is_map(params) do
-    decision = PermissionGate.authorize(@permission, context)
+    decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          {:ok, operator_id} <- Identity.user_id(params, context) do
       if approved_resume?(context),
         do: purge_now(params, operator_id, context, decision),
@@ -65,7 +66,7 @@ defmodule AllbertAssist.Actions.Search.PurgeSearchProjection do
   end
 
   def run(_params, context),
-    do: failed(PermissionGate.authorize(@permission, context), :invalid_params)
+    do: failed(Security.authorize(@permission, context), :invalid_params)
 
   def trace_safe_summary(:params, params) do
     %{
@@ -172,7 +173,7 @@ defmodule AllbertAssist.Actions.Search.PurgeSearchProjection do
     {:ok,
      %{
        message: decision.reason,
-       status: PermissionGate.response_status(decision),
+       status: Response.permission_status(decision),
        permission_decision: decision,
        actions: [action(:denied, decision, nil, nil)]
      }}

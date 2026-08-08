@@ -4,8 +4,9 @@ defmodule AllbertAssist.Pack.ResidualTest do
 
   alias AllbertAssist.Pack.Descriptor
   alias AllbertAssist.Pack.Residual
+  alias AllbertAssist.Settings.FragmentOwner
 
-  test "residual application exposes its native-pack identity and inert contribution ABI" do
+  test "residual application exposes its native-pack identity and unused contribution ABI" do
     assert %Descriptor{
              schema_version: 1,
              id: "allbert_assist",
@@ -19,7 +20,6 @@ defmodule AllbertAssist.Pack.ResidualTest do
     for callback <- [
           :apps,
           :actions,
-          :settings_fragments,
           :settings_migrations,
           :channels,
           :surfaces,
@@ -30,10 +30,32 @@ defmodule AllbertAssist.Pack.ResidualTest do
           :prompt_rules,
           :intent_descriptors,
           :cli_groups,
-          :release_assets,
-          :test_lanes
+          :release_assets
         ] do
       assert [] == apply(Residual, callback, [])
     end
+
+    assert Enum.map(Residual.test_lanes(), & &1.owner_id) == [
+             :core,
+             :stocksage,
+             :telegram,
+             :email,
+             :discord,
+             :slack,
+             :matrix,
+             :whatsapp,
+             :signal,
+             :notes_files,
+             :artifacts
+           ]
+  end
+
+  test "residual application exposes every compiled settings fragment owner" do
+    owners = Residual.settings_fragments()
+
+    assert [_owner | _owners] = owners
+    assert owners == Enum.sort(owners)
+    assert Enum.all?(owners, &FragmentOwner.owner_module?/1)
+    assert {:ok, ^owners} = FragmentOwner.compiled_owner_modules(:allbert_assist)
   end
 end

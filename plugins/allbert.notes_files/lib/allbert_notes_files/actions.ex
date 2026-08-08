@@ -1,7 +1,8 @@
 defmodule AllbertNotesFiles.Actions do
-  @moduledoc false
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
-  alias AllbertAssist.Security.PermissionGate
+  @moduledoc false
 
   @app_id :notes_files
   @plugin_id "allbert.notes_files"
@@ -21,9 +22,9 @@ defmodule AllbertNotesFiles.Actions do
     |> Map.merge(attrs)
   end
 
-  def authorize(permission, context), do: PermissionGate.authorize(permission, context)
-  def allowed?(decision), do: PermissionGate.allowed?(decision)
-  def status_from_decision(decision), do: PermissionGate.response_status(decision)
+  def authorize(permission, context), do: Security.authorize(permission, context)
+  def allowed?(decision), do: Security.allowed?(decision)
+  def status_from_decision(decision), do: Response.permission_status(decision)
 
   def field(map, key, default \\ nil)
 

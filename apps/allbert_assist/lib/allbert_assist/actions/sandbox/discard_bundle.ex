@@ -17,14 +17,15 @@ defmodule AllbertAssist.Actions.Sandbox.DiscardBundle do
     schema: [root: [type: :string, required: true]],
     output_schema: :legacy_standard_response
 
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Sandbox
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:sandbox_trial, context)
+    permission_decision = Security.authorize(:sandbox_trial, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          :ok <- Sandbox.cleanup(Map.fetch!(params, :root)) do
       {:ok,
        %{
@@ -45,7 +46,7 @@ defmodule AllbertAssist.Actions.Sandbox.DiscardBundle do
   defp denied(permission_decision) do
     %{
       message: "Sandbox bundle cleanup is denied by Security Central.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, %{})]
     }

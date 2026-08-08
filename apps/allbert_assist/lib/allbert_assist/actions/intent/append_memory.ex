@@ -27,15 +27,16 @@ defmodule AllbertAssist.Actions.Intent.AppendMemory do
     ]
 
   alias AllbertAssist.Memory
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{memory: memory} = params, context) do
     memory = String.trim(memory)
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
     request = Map.get(context, :request, %{})
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       case Memory.append(%{
              category: category_for(memory),
              body: memory,
@@ -75,7 +76,7 @@ defmodule AllbertAssist.Actions.Intent.AppendMemory do
   end
 
   defp blocked(memory, params, permission_decision) do
-    status = PermissionGate.response_status(permission_decision)
+    status = Response.permission_status(permission_decision)
 
     %{
       message: permission_decision.reason,

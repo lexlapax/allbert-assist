@@ -23,13 +23,14 @@ defmodule AllbertAssist.Actions.Settings.ListProviderProfiles do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.SurfacePolicy
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     policy = SurfacePolicy.report_policy(name(), params, context)
     {:ok, providers} = Settings.list_provider_profiles()
     visible_providers = bounded(providers, policy)
@@ -37,7 +38,7 @@ defmodule AllbertAssist.Actions.Settings.ListProviderProfiles do
     {:ok,
      %{
        message: message(visible_providers, length(providers), policy),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        providers: visible_providers,
        actions: [
          %{

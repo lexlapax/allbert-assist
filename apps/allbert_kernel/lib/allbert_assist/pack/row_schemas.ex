@@ -302,7 +302,7 @@ defmodule AllbertAssist.Pack.RowSchemas do
           "canonical_string",
           false,
           "scalar",
-          "owner.id",
+          "none",
           [],
           nil
         ),

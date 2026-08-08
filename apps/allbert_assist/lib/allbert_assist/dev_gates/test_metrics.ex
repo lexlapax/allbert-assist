@@ -183,13 +183,14 @@ defmodule AllbertAssist.DevGates.TestMetrics do
   """
   def file_costs(opts \\ []) do
     store = Keyword.get(opts, :store) || readable_store()
+    owner_aliases = Keyword.get(opts, :owner_aliases, %{})
 
     store
     |> read_records()
     |> Enum.sort_by(&Map.get(&1, "recorded_at", ""), :desc)
     |> Enum.take(@slowest_aggregate_limit)
     |> Enum.flat_map(fn record ->
-      owner = Map.get(record, "owner")
+      owner = record |> Map.get("owner") |> canonical_owner(owner_aliases)
 
       record
       |> Map.get("slowest")
@@ -205,6 +206,9 @@ defmodule AllbertAssist.DevGates.TestMetrics do
 
   defp cost_key(nil, file), do: file
   defp cost_key(owner, file), do: "#{owner}:#{file}"
+
+  defp canonical_owner(nil, _aliases), do: nil
+  defp canonical_owner(owner, aliases) when is_map(aliases), do: Map.get(aliases, owner, owner)
 
   def default_store_path, do: Path.join(repo_root(), @store_relative)
 

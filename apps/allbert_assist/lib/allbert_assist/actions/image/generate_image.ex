@@ -28,11 +28,12 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Maps
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata, ResourceURI}
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Pack.EffectGuard
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.{ModelRuntime, Models, Schema, Store}
 
@@ -66,7 +67,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
 
   defp attempt_generation([resolution | rest], prompt, settings, context, params, attempts) do
     permission_decision =
-      PermissionGate.authorize(@permission, image_context(context, resolution.profile))
+      Security.authorize(@permission, image_context(context, resolution.profile))
 
     cond do
       permission_decision.decision == :denied ->
@@ -75,7 +76,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
            provider_attempts: Enum.reverse(attempts)
          })}
 
-      PermissionGate.allowed?(permission_decision) or approved_resume?(context) ->
+      Security.allowed?(permission_decision) or approved_resume?(context) ->
         attempt_allowed_generation(
           resolution,
           rest,
@@ -301,12 +302,16 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   defp stopped(permission_decision, reason, metadata) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       error: reason,
       image_metadata: metadata,
       permission_decision: permission_decision,
       actions: [
-        action(PermissionGate.response_status(permission_decision), permission_decision, metadata)
+        action(
+          Response.permission_status(permission_decision),
+          permission_decision,
+          metadata
+        )
       ]
     }
   end

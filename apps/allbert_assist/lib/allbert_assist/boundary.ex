@@ -274,15 +274,6 @@ defmodule AllbertAssist.Boundary do
 
   @compatibility_shims [
     %{
-      id: :permission_gate,
-      role: :compatibility_shim,
-      subsystem: :security,
-      module: AllbertAssist.Security.PermissionGate,
-      target: AllbertAssist.Security,
-      milestone: :m8,
-      notes: "Retire after Security Central parity and eval coverage are explicit."
-    },
-    %{
       id: :settings_schema_monolith,
       role: :compatibility_shim,
       subsystem: :settings,
@@ -293,17 +284,7 @@ defmodule AllbertAssist.Boundary do
     }
   ]
 
-  @deletion_candidates [
-    %{
-      id: :permission_gate,
-      role: :deletion_candidate,
-      subsystem: :security,
-      module: AllbertAssist.Security.PermissionGate,
-      milestone: :post_v0_31,
-      notes:
-        "Retire only after all callers use Security Central directly in a future parity pass."
-    }
-  ]
+  @deletion_candidates []
 
   @inventory @current_facades ++ @planned_facades ++ @compatibility_shims ++ @deletion_candidates
 

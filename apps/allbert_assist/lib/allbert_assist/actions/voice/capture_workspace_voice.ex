@@ -30,14 +30,14 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
   alias AllbertAssist.Maps
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @permission :microphone_capture
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     with :ok <- voice_enabled?(),
          false <- permission_decision.decision == :denied,
@@ -57,7 +57,7 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     {:ok, denied(:invalid_params, permission_decision)}
   end
 

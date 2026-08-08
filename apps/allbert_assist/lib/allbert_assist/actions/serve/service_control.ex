@@ -31,12 +31,13 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
     output_schema: :legacy_standard_response
 
   alias AllbertAssist.Actions.Support.ConfirmationRequest
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Service
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:command_execute, context)
+    permission_decision = Security.authorize(:command_execute, context)
     operation = Map.get(params, :operation, "status")
 
     cond do
@@ -65,7 +66,7 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
            ]
          }}
 
-      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
+      not Security.allowed?(permission_decision) and not approval_resume?(context) ->
         request_or_deny(operation, params, permission_decision, context)
 
       not Service.manager_available?() ->
@@ -129,7 +130,7 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
         {:ok,
          %{
            message: permission_decision.reason,
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            actions: [
              action(:denied, permission_decision, %{operation: operation, executed: false})

@@ -25,15 +25,15 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.RegistryContext
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.SurfacePolicy
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     policy = SurfacePolicy.report_policy(name(), params, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       # v1.0.3 M3 (ADR 0086 monolith-class corollary / ADR 0082): honor the
       # internal registry context riding the action context map under
       # `:registry` (the M1 ListApps/ShowApp pattern). Production call sites

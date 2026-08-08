@@ -25,18 +25,19 @@ defmodule AllbertAssist.Actions.Mcp.ScanRunOnce do
     ]
 
   alias AllbertAssist.Actions.Jobs.Identity
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Tools.Discovery.Scan
 
   @permission :job_write
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     user_id = user_id(params, context)
     query = query(params)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, result} <-
            Scan.run_once(query,
              user_id: user_id,
@@ -65,12 +66,12 @@ defmodule AllbertAssist.Actions.Mcp.ScanRunOnce do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        error: reason,
        actions: [
          action(
-           PermissionGate.response_status(permission_decision),
+           Response.permission_status(permission_decision),
            permission_decision,
            user_id,
            nil,

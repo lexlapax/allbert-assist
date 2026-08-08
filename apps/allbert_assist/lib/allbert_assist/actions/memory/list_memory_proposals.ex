@@ -27,13 +27,14 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryProposals do
 
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory.Proposals
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:read_only, context)
+    decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, _reconciled} <- Proposals.reconcile_unavailable(user_id) do
       namespace = value(params, :namespace) || "default"
@@ -57,7 +58,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryProposals do
     {:ok,
      %{
        message: decision.reason,
-       status: PermissionGate.response_status(decision),
+       status: Response.permission_status(decision),
        permission_decision: decision,
        proposals: [],
        actions: [action(:denied, decision)]

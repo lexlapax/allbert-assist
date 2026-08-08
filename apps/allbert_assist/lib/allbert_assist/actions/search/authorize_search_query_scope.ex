@@ -46,18 +46,19 @@ defmodule AllbertAssist.Actions.Search.AuthorizeSearchQueryScope do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Search.Query
   alias AllbertAssist.Search.QueryScope
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @action_name "authorize_search_query_scope"
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:read_only, context)
+    decision = Security.authorize(:read_only, context)
 
     cond do
-      not PermissionGate.allowed?(decision) -> denied(decision)
+      not Security.allowed?(decision) -> denied(decision)
       approved_resume?(context) -> resubmit_required(context, decision)
       true -> request_confirmation(params, context, decision)
     end
@@ -139,7 +140,7 @@ defmodule AllbertAssist.Actions.Search.AuthorizeSearchQueryScope do
     {:ok,
      %{
        message: decision.reason,
-       status: PermissionGate.response_status(decision),
+       status: Response.permission_status(decision),
        permission_decision: decision,
        actions: [action(:denied, decision, nil)]
      }}

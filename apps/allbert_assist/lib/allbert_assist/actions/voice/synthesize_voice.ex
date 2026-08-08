@@ -28,7 +28,8 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Voice.ProviderAdapter
@@ -59,7 +60,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
 
   defp attempt_synthesis([resolution | rest], text, context, params, attempts) do
     permission_decision =
-      PermissionGate.authorize(@permission, voice_context(context, resolution.profile))
+      Security.authorize(@permission, voice_context(context, resolution.profile))
 
     cond do
       permission_decision.decision == :denied ->
@@ -68,7 +69,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
            adapter_attempts: Enum.reverse(attempts)
          })}
 
-      PermissionGate.allowed?(permission_decision) or approved_resume?(context) ->
+      Security.allowed?(permission_decision) or approved_resume?(context) ->
         attempt_allowed_synthesis(
           resolution,
           rest,
@@ -155,12 +156,16 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   defp stopped(permission_decision, reason, metadata) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       error: reason,
       voice_metadata: metadata,
       permission_decision: permission_decision,
       actions: [
-        action(PermissionGate.response_status(permission_decision), permission_decision, metadata)
+        action(
+          Response.permission_status(permission_decision),
+          permission_decision,
+          metadata
+        )
       ]
     }
   end

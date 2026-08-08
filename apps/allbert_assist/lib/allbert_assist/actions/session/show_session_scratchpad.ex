@@ -22,14 +22,14 @@ defmodule AllbertAssist.Actions.Session.ShowSessionScratchpad do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Session
 
   @impl true
   def run(%{user_id: user_id, session_id: session_id}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, entry} <- Session.get(user_id, session_id) do
       summary = Session.summary(entry)
 
@@ -49,7 +49,7 @@ defmodule AllbertAssist.Actions.Session.ShowSessionScratchpad do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     denied(nil, nil, permission_decision, :invalid_params)
   end
 

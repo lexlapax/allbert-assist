@@ -23,13 +23,14 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.SurfacePolicy
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     policy = SurfacePolicy.report_policy(name(), params, context)
     {:ok, models} = Settings.list_model_profiles()
     visible_models = bounded(models, policy)
@@ -37,7 +38,7 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
     {:ok,
      %{
        message: message(visible_models, length(models), policy),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        models: visible_models,
        actions: [
          %{

@@ -4,7 +4,7 @@ defmodule StockSage.Actions.AgentsTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   setup do
     PluginRegistry.register_module(StockSage.Plugin)
@@ -67,11 +67,11 @@ defmodule StockSage.Actions.AgentsTest do
   end
 
   test "stocksage_evidence_fetch permission requires confirmation except approved parent analysis" do
-    outside = PermissionGate.authorize(:stocksage_evidence_fetch, %{channel: :test})
+    outside = Security.authorize(:stocksage_evidence_fetch, %{channel: :test})
     assert outside.decision == :needs_confirmation
 
     inside =
-      PermissionGate.authorize(:stocksage_evidence_fetch, %{
+      Security.authorize(:stocksage_evidence_fetch, %{
         parent: %{permission: :stocksage_analyze, approved?: true},
         channel: :test
       })

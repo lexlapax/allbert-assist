@@ -96,6 +96,30 @@ defmodule AllbertAssist.DevGates.OwnerQualifiedCostsTest do
     assert costs["test/shared_test.exs"] == 400.0
   end
 
+  test "historical owner aliases are requalified to the current owner" do
+    store = Path.join(owned_dir(), "runs.jsonl")
+
+    assert :ok =
+             TestMetrics.record(%{
+               store: store,
+               gate: "serial-core",
+               owner: "serial-core",
+               git_sha: nil,
+               recorded_at: "2026-07-19T00:00:00Z",
+               status: "passed",
+               slowest: [%{"name" => "test/legacy_test.exs:10", "ms" => 900.0}]
+             })
+
+    costs =
+      TestMetrics.file_costs(
+        store: store,
+        owner_aliases: %{"serial-core" => "core", "core" => "core"}
+      )
+
+    assert costs["core:test/legacy_test.exs"] == 900.0
+    refute Map.has_key?(costs, "serial-core:test/legacy_test.exs")
+  end
+
   defp owned_dir do
     dir =
       Path.join(

@@ -25,14 +25,15 @@ defmodule AllbertAssist.Actions.Marketplace.Doctor do
 
   alias AllbertAssist.Actions.Marketplace.Support
   alias AllbertAssist.Marketplace
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
     if Support.marketplace_enabled?() do
-      decision = PermissionGate.authorize(:read_only, context)
+      decision = Security.authorize(:read_only, context)
 
-      if PermissionGate.allowed?(decision) do
+      if Security.allowed?(decision) do
         {:ok, doctor} =
           params
           |> normalize_params()
@@ -77,7 +78,7 @@ defmodule AllbertAssist.Actions.Marketplace.Doctor do
   defp denied(decision) do
     %{
       message: "Marketplace doctor denied: #{inspect(decision.reason)}.",
-      status: PermissionGate.response_status(decision),
+      status: Response.permission_status(decision),
       permission_decision: decision,
       doctor: %{},
       result: %{},

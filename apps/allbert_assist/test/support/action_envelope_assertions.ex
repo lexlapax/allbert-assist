@@ -4,7 +4,6 @@ defmodule AllbertAssist.TestSupport.ActionEnvelopeAssertions do
   import ExUnit.Assertions
 
   alias AllbertAssist.Runtime.Response
-  alias AllbertAssist.Security.PermissionGate
 
   @channel_response_keys [
     :actions,
@@ -136,7 +135,7 @@ defmodule AllbertAssist.TestSupport.ActionEnvelopeAssertions do
              permission: permission,
              decision: decision,
              requires_confirmation: false,
-             source: PermissionGate
+             source: AllbertAssist.Security
            }
   end
 

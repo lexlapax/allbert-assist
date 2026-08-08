@@ -24,7 +24,8 @@ defmodule AllbertAssist.Pack.CandidateBuilder do
     ActionAssembly,
     ChannelRows,
     CompatibilityEvidence,
-    MetadataRows
+    MetadataRows,
+    TestLaneRows
   }
 
   alias AllbertAssist.Pack.Projection.Closed
@@ -88,8 +89,9 @@ defmodule AllbertAssist.Pack.CandidateBuilder do
              Keyword.put(opts, :action_bindings, actions.bindings)
            ),
          {:ok, channels} <- ChannelRows.build(plugins.entries),
+         {:ok, test_lanes} <- TestLaneRows.build(closed, opts),
          {:ok, diagnostics} <- CompatibilityEvidence.build(plugins.entries),
-         {:ok, families} <- merge_families([actions.families, metadata, channels]) do
+         {:ok, families} <- merge_families([actions.families, metadata, channels, test_lanes]) do
       assemble(
         closed,
         plugins,

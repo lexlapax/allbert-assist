@@ -26,14 +26,14 @@ defmodule AllbertAssist.Actions.Templates.RenderTemplate do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Templates
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, rendered} <- Templates.render(pattern_id(params), template_params(params)) do
       {:ok,
        %{
@@ -50,7 +50,7 @@ defmodule AllbertAssist.Actions.Templates.RenderTemplate do
   end
 
   def run(_params, context) do
-    {:ok, denied(PermissionGate.authorize(:read_only, context), :invalid_params)}
+    {:ok, denied(Security.authorize(:read_only, context), :invalid_params)}
   end
 
   defp rendered_summary(rendered) do

@@ -23,17 +23,17 @@ defmodule AllbertAssist.Actions.Settings.SetActiveModelProfile do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DirectAnswerSelection
   alias AllbertAssist.Settings.ModelCapabilities
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     profile = field(params, :profile) || field(params, :model_profile) || "local"
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, model_profile} <- Settings.resolve_model_profile(profile),
          :ok <- validate_direct_answer_profile(model_profile),
          {:ok, assist} <- validated_assist(params),

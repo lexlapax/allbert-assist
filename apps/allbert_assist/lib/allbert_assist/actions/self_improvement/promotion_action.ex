@@ -2,16 +2,17 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromotionAction do
   @moduledoc false
 
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   def run(params, context, opts) when is_map(params) and is_map(context) and is_map(opts) do
     permission = Map.fetch!(opts, :permission)
     action_name = Map.fetch!(opts, :action_name)
     kind = Map.fetch!(opts, :kind)
     promote = Map.fetch!(opts, :promote)
-    permission_decision = PermissionGate.authorize(permission, context)
+    permission_decision = Security.authorize(permission, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, id} <- required_id(params) do
       if approval_resume?(context) do
         complete(
@@ -35,7 +36,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromotionAction do
   def run(_params, context, opts) do
     permission = Map.fetch!(opts, :permission)
     action_name = Map.fetch!(opts, :action_name)
-    permission_decision = PermissionGate.authorize(permission, context)
+    permission_decision = Security.authorize(permission, context)
     denied(action_name, permission, permission_decision, :id_required)
   end
 
@@ -157,7 +158,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromotionAction do
   defp approval_resume?(_context), do: false
 
   defp denied_status(permission_decision, :permission_denied),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
   defp denied_status(_permission_decision, _reason), do: :denied
 

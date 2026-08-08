@@ -24,18 +24,19 @@ defmodule AllbertAssist.Actions.Intent.ExplainIntent do
 
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{text: text} = params, context) when is_binary(text) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     request = request(params, context)
 
     with {:ok, decision} <- Engine.decide(request) do
       {:ok,
        %{
          message: message(decision),
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          decision: Decision.to_map(decision),
          intent_candidates: get_in(decision.trace_metadata, [:intent_candidates]),
          actions: [action(:completed, permission_decision, decision)]
@@ -44,7 +45,7 @@ defmodule AllbertAssist.Actions.Intent.ExplainIntent do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     {:ok,
      %{

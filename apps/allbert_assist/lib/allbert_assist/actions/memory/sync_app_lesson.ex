@@ -50,7 +50,8 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
   alias AllbertAssist.Maps
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Entry
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @kind "stocksage_lesson"
   @max_lesson_text_length 4_000
@@ -59,11 +60,11 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
   @impl true
   def run(params, context) when is_map(params) and is_map(context) do
     security_context = memory_sync_context(context)
-    permission_decision = PermissionGate.authorize(:memory_write, security_context)
+    permission_decision = Security.authorize(:memory_write, security_context)
 
     with {:ok, attrs} <- normalize_attrs(params, context) do
       cond do
-        PermissionGate.allowed?(permission_decision) ->
+        Security.allowed?(permission_decision) ->
           write_lesson(attrs, context, permission_decision)
 
         permission_decision.requires_confirmation ->
@@ -181,7 +182,7 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, %{execution: :not_started})]
      }}

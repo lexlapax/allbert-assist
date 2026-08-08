@@ -26,20 +26,21 @@ defmodule AllbertAssist.Actions.Skills.ValidateSkill do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Skills.LocalHelper
 
   @impl true
   def run(%{path: path}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       validation = LocalHelper.validate_dir(path)
 
       {:ok,
        %{
          message: message(validation),
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          permission_decision: permission_decision,
          validation: validation,
          actions: [
@@ -56,13 +57,13 @@ defmodule AllbertAssist.Actions.Skills.ValidateSkill do
       {:ok,
        %{
          message: "Local skill validation is not allowed by current policy.",
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          permission_decision: permission_decision,
          validation: %{},
          actions: [
            %{
              name: "validate_skill",
-             status: PermissionGate.response_status(permission_decision),
+             status: Response.permission_status(permission_decision),
              permission: :read_only,
              permission_decision: permission_decision
            }

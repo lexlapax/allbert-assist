@@ -26,20 +26,21 @@ defmodule AllbertAssist.Actions.Artifacts.PutArtifact do
   alias AllbertAssist.Actions.Artifacts.Support
   alias AllbertAssist.Artifacts
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :artifact_write
   @action_name "put_artifact"
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     cond do
       permission_decision.decision == :denied ->
         stopped(permission_decision, :permission_denied)
 
-      PermissionGate.allowed?(permission_decision) or Support.approved_resume?(context) ->
+      Security.allowed?(permission_decision) or Support.approved_resume?(context) ->
         put(params, context, permission_decision)
 
       permission_decision.decision == :needs_confirmation ->
@@ -51,7 +52,7 @@ defmodule AllbertAssist.Actions.Artifacts.PutArtifact do
   end
 
   def run(_params, context),
-    do: stopped(PermissionGate.authorize(@permission, context), :invalid_params)
+    do: stopped(Security.authorize(@permission, context), :invalid_params)
 
   defp put(params, context, permission_decision) do
     with {:ok, bytes} <- bytes(params),
@@ -135,7 +136,7 @@ defmodule AllbertAssist.Actions.Artifacts.PutArtifact do
 
   defp failed_status(permission_decision, _reason)
        when permission_decision.decision in [:denied, :needs_confirmation],
-       do: PermissionGate.response_status(permission_decision)
+       do: Response.permission_status(permission_decision)
 
   defp failed_status(_permission_decision, _reason), do: :error
 end

@@ -26,7 +26,7 @@ defmodule AllbertAssist.Actions.Skills.ImportLocalSkill do
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Skills.DirectImport
   alias AllbertAssist.Skills.Online.Audit
   alias AllbertAssist.Skills.Online.Importer
@@ -37,7 +37,10 @@ defmodule AllbertAssist.Actions.Skills.ImportLocalSkill do
   @impl true
   def run(params, context) when is_map(params) do
     path = params |> param(:path) |> to_string() |> String.trim()
-    permission_decision = PermissionGate.authorize(@permission, request_context(path, context))
+
+    permission_decision =
+      Security.authorize(@permission, request_context(path, context))
+
     summary = request_summary(path)
 
     cond do

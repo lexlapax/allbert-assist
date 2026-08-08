@@ -34,8 +34,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
   alias AllbertAssist.Runtime.FanoutDiagnostics
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Runtime.SafeTerm
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Settings.Schema
@@ -75,7 +76,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     response =
       %{
         message: answer.message,
-        status: PermissionGate.response_status(permission_decision),
+        status: Response.permission_status(permission_decision),
         permission_decision: permission_decision,
         direct_answer: answer.direct_answer,
         actions: [direct_answer_action]
@@ -87,7 +88,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   end
 
   defp answer(text, context, permission_decision, image_inputs) do
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       model_answer(text, context, image_inputs)
     else
       fallback(:permission_denied)
@@ -878,13 +879,13 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     _exception -> false
   end
 
-  defp permission_decision(context, []), do: PermissionGate.authorize(:read_only, context)
+  defp permission_decision(context, []), do: Security.authorize(:read_only, context)
 
   defp permission_decision(context, _image_inputs) do
-    read_only = PermissionGate.authorize(:read_only, context)
-    image_input = PermissionGate.authorize(:image_input, context)
+    read_only = Security.authorize(:read_only, context)
+    image_input = Security.authorize(:image_input, context)
 
-    if PermissionGate.allowed?(read_only), do: image_input, else: read_only
+    if Security.allowed?(read_only), do: image_input, else: read_only
   end
 
   defp image_inputs(context) do

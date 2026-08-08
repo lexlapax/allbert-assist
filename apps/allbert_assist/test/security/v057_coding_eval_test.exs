@@ -25,7 +25,8 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Runtime
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
+  alias AllbertAssist.Security.Policy
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
@@ -176,10 +177,10 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     assert Enum.map(rejected, & &1.name) == @tool_names
 
     assert Enum.all?([:coding_file_read, :coding_file_write, :coding_shell_execute], fn atom ->
-             atom in PermissionGate.permission_classes()
+             atom in Policy.permission_classes()
            end)
 
-    refute :coding_session_write in PermissionGate.permission_classes()
+    refute :coding_session_write in Policy.permission_classes()
 
     for {key, value} <- [
           {"permissions.coding_file_read", "allowed"},
@@ -439,17 +440,25 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     assert_eval_group!(:trust_and_approval)
     context = trusted_context(workspace)
 
-    assert PermissionGate.coding_tier(context) == :local_coding_operator
+    assert Policy.coding_tier(context) == :local_coding_operator
 
-    assert PermissionGate.coding_tier(%{context | actor: "other"}) == :none
+    assert Policy.coding_tier(%{context | actor: "other"}) == :none
 
-    assert PermissionGate.coding_tier(%{context | channel: %{name: :slack, trust: :local}}) ==
+    assert Policy.coding_tier(%{
+             context
+             | channel: %{name: :slack, trust: :local}
+           }) ==
              :none
 
-    assert PermissionGate.coding_tier(%{context | session: %{main?: false}}) == :none
-    assert PermissionGate.coding_tier(Map.put(context, :channel_originated?, true)) == :none
-    assert PermissionGate.coding_tier(Map.put(context, :scheduled?, true)) == :none
-    assert PermissionGate.coding_tier(Map.put(context, :generated_code_session?, true)) == :none
+    assert Policy.coding_tier(%{context | session: %{main?: false}}) ==
+             :none
+
+    assert Policy.coding_tier(Map.put(context, :channel_originated?, true)) ==
+             :none
+
+    assert Policy.coding_tier(Map.put(context, :scheduled?, true)) == :none
+
+    assert Policy.coding_tier(Map.put(context, :generated_code_session?, true)) == :none
 
     setting_controlled_context = update_in(context, [:coding], &Map.delete(&1, :pi_mode_enabled))
 
@@ -460,7 +469,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert PermissionGate.coding_tier(setting_controlled_context) == :none
+    assert Policy.coding_tier(setting_controlled_context) == :none
 
     assert {:ok, _setting} =
              Settings.put(
@@ -469,12 +478,15 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    default_write = PermissionGate.authorize(:coding_file_write, context)
+    default_write = Security.authorize(:coding_file_write, context)
     assert default_write.decision == :needs_confirmation
     assert default_write.requires_confirmation
 
     accept_write =
-      PermissionGate.authorize(:coding_file_write, approval_context(workspace, "accept-edits"))
+      Security.authorize(
+        :coding_file_write,
+        approval_context(workspace, "accept-edits")
+      )
 
     assert accept_write.decision == :needs_confirmation
     refute accept_write.requires_confirmation
@@ -482,12 +494,14 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     assert accept_write.trace.confirmation_cost == :suppressed
 
     plan_context = approval_context(workspace, "plan")
-    assert PermissionGate.authorize(:coding_file_read, plan_context).decision == :allowed
-    assert PermissionGate.authorize(:coding_file_write, plan_context).decision == :denied
-    assert PermissionGate.authorize(:coding_shell_execute, plan_context).decision == :denied
+    assert Security.authorize(:coding_file_read, plan_context).decision == :allowed
+    assert Security.authorize(:coding_file_write, plan_context).decision == :denied
+
+    assert Security.authorize(:coding_shell_execute, plan_context).decision ==
+             :denied
 
     tier_shell =
-      PermissionGate.authorize(:coding_shell_execute, approval_context(workspace, "tier"))
+      Security.authorize(:coding_shell_execute, approval_context(workspace, "tier"))
 
     assert tier_shell.decision == :needs_confirmation
     refute tier_shell.requires_confirmation
@@ -506,7 +520,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     refute inspect(grant) =~ "hello"
 
     command_context = put_in(context, [:coding, :command_params], params)
-    grant_decision = PermissionGate.authorize(:coding_shell_execute, command_context)
+    grant_decision = Security.authorize(:coding_shell_execute, command_context)
     assert grant_decision.decision == :needs_confirmation
     refute grant_decision.requires_confirmation
 

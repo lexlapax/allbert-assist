@@ -30,19 +30,20 @@ defmodule AllbertAssist.Actions.Jobs.TraceSummary do
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Memory
   alias AllbertAssist.Repo
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @default_limit 5
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     summary = summary(limit(params))
 
     {:ok,
      %{
        message: message(summary),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        trace_summary: summary,
        actions: [

@@ -27,14 +27,14 @@ defmodule AllbertAssist.Actions.Templates.ValidateTemplate do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Templates.Scaffold
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, preview} <- Scaffold.preview(pattern_id(params), template_params(params)),
          :ok <- validate_mode(preview, mode(params)) do
       validation = %{
@@ -62,7 +62,7 @@ defmodule AllbertAssist.Actions.Templates.ValidateTemplate do
   end
 
   def run(_params, context) do
-    {:ok, denied(PermissionGate.authorize(:read_only, context), :invalid_params)}
+    {:ok, denied(Security.authorize(:read_only, context), :invalid_params)}
   end
 
   defp validate_mode(%{live_integration?: true}, "live_integration"), do: :ok

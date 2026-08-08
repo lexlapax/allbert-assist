@@ -12,7 +12,7 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
   Token issuance/rotation/revocation mutate Settings-Secrets state, so
   (v0.62 M8.15) they run through the action Runner — `create_protocol_token`,
   `rotate_protocol_token`, `revoke_protocol_token` — which enforces the
-  PermissionGate + audit spine. `token list` is a pure read and still calls
+  Security Central + audit spine. `token list` is a pure read and still calls
   `TokenAuth.list/1` directly. The registered actions return the raw token
   under a `token`-named field so the CLI can print it once; that field name is
   redacted in every logged signal and audit record.
@@ -153,7 +153,7 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
     end
   end
 
-  # Mutations go on-spine: the Runner enforces PermissionGate + audit and
+  # Mutations go on-spine: the Runner enforces Security Central + audit and
   # returns the TokenAuth result under `token_result`. Unwrapping it here keeps
   # the existing `{:ok, token_map}` render clauses (and their exact output).
   defp run_token_action(name, surface, client, ctx) do

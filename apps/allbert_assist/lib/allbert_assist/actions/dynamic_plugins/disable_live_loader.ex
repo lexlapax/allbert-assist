@@ -18,13 +18,13 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader do
     output_schema: :legacy_standard_response
 
   alias AllbertAssist.DynamicPlugins
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, result} <- DynamicPlugins.disable_live_loader(context: context) do
       {:ok,
        %{

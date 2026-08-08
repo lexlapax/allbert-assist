@@ -16,14 +16,14 @@ defmodule AllbertAssist.Actions.PlanBuild.ExpandWorkflow do
     output_schema: []
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Workflows
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:workflow_read, context)
+    permission_decision = Security.authorize(:workflow_read, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, expanded} <-
            Workflows.expand(field(params, :workflow_id), field(params, :inputs) || %{}, context) do
       output_data = Map.take(expanded, [:steps, :step_count, :preview, :resolved_inputs])

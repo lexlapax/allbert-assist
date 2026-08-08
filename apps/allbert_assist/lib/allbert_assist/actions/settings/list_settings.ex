@@ -24,13 +24,14 @@ defmodule AllbertAssist.Actions.Settings.ListSettings do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.SurfacePolicy
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     policy = SurfacePolicy.report_policy(name(), params, context)
 
     with {:ok, settings} <- Settings.list(namespace: Map.get(params, :namespace)) do
@@ -39,7 +40,7 @@ defmodule AllbertAssist.Actions.Settings.ListSettings do
       {:ok,
        %{
          message: message(visible_settings, length(settings), policy),
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          settings: visible_settings,
          actions: [action(settings, visible_settings, permission_decision, policy)]
        }}

@@ -29,14 +29,15 @@ defmodule AllbertAssist.Actions.Mcp.FetchServerManifest do
   alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Registry.Official
   alias AllbertAssist.Mcp.Registry.PulseMcp
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Tools.Discovery
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:tool_discovery, context)
+    permission_decision = Security.authorize(:tool_discovery, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, manifest, metadata} <- manifest(params, context) do
       {:ok, completed(manifest, metadata, permission_decision)}
     else
@@ -106,7 +107,7 @@ defmodule AllbertAssist.Actions.Mcp.FetchServerManifest do
   defp completed(manifest, metadata, permission_decision) do
     %{
       message: "Fetched MCP server manifest metadata.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       manifest: manifest,
       actions: [
@@ -118,7 +119,7 @@ defmodule AllbertAssist.Actions.Mcp.FetchServerManifest do
   defp denied(params, permission_decision, reason) do
     %{
       message: "MCP server manifest could not be fetched: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       manifest: %{},
       error: reason,

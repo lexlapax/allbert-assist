@@ -113,7 +113,6 @@ defmodule AllbertAssist.Security.V063SweepEvalTest do
     IO.puts("v063-assert-atom-binding status=pass rows=16 unbound=0")
   end
 
-  defp read!(relative) do
-    @repo_root |> Path.join(relative) |> File.read!()
-  end
+  defp read!(relative),
+    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
 end

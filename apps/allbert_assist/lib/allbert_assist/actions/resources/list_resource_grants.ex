@@ -22,11 +22,12 @@ defmodule AllbertAssist.Actions.Resources.ListResourceGrants do
 
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Grants
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     with {:ok, grants} <- Grants.list() do
       grants = Enum.map(grants, &GrantHandoff.summary/1)
@@ -34,7 +35,7 @@ defmodule AllbertAssist.Actions.Resources.ListResourceGrants do
       {:ok,
        %{
          message: "Found #{length(grants)} remembered resource grant(s).",
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          permission_decision: permission_decision,
          grants: grants,
          actions: [

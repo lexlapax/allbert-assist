@@ -31,13 +31,14 @@ defmodule AllbertAssist.Actions.Memory.RestoreMemoryClaim do
 
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory.ClaimLifecycle
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, claim_id} <- required(value(params, :claim_id), :missing_claim_id),
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, preview} <- ClaimLifecycle.preview(claim_id, user_id),
@@ -69,7 +70,7 @@ defmodule AllbertAssist.Actions.Memory.RestoreMemoryClaim do
   end
 
   def run(_params, context),
-    do: error(PermissionGate.authorize(:memory_write, context), :missing_claim_id)
+    do: error(Security.authorize(:memory_write, context), :missing_claim_id)
 
   defp exact_tail(_preview, nil), do: :ok
   defp exact_tail(%{expected_tail_digest: expected}, expected), do: :ok
@@ -89,7 +90,7 @@ defmodule AllbertAssist.Actions.Memory.RestoreMemoryClaim do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, nil)]
      }}

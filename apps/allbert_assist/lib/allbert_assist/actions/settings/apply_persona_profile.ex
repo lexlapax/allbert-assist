@@ -43,12 +43,13 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Maps
   alias AllbertAssist.Personas
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     persona_id = field(params, :persona_id)
 
     case Personas.fetch(to_string(persona_id)) do
@@ -75,10 +76,10 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
           {:ok, denied(persona["persona_id"], permission_decision, :reviewed_persona_mismatch)}
         end
 
-      PermissionGate.response_status(permission_decision) == :needs_confirmation ->
+      Response.permission_status(permission_decision) == :needs_confirmation ->
         request_confirmation(persona, context, permission_decision)
 
-      PermissionGate.response_status(permission_decision) == :denied ->
+      Response.permission_status(permission_decision) == :denied ->
         {:ok, denied(persona["persona_id"], permission_decision, :permission_denied)}
 
       # Fail closed: reaching :allowed means the confirmation floor did not apply,

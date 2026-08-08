@@ -8,7 +8,7 @@ defmodule AllbertAssistWeb.JobsLive do
   (v0.61 M10.4). Those actions resolve identity with the context-supplied user id ahead
   of any params value and load the job through the ownership-scoped `Jobs.get_job/2`, so
   a crafted `phx-value-id` for another user's job cannot be read, paused, resumed, or
-  executed, and every effect passes the `:job_write` PermissionGate — restoring the
+  executed, and every effect passes the `:job_write` Security Central — restoring the
   ADR-0073 read-through-action boundary for this surface.
   """
 

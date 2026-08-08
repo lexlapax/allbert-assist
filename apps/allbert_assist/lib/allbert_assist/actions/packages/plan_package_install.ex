@@ -28,11 +28,12 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
     output_schema: :legacy_standard_response
 
   alias AllbertAssist.Packages.InstallSpec
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     case InstallSpec.normalize(params, context: context) do
       {:ok, spec} ->
@@ -44,7 +45,7 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     spec = %InstallSpec{policy_decision: :denied, denial_reason: :invalid_params}
     denied_response(spec, permission_decision)
   end
@@ -55,7 +56,7 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
     {:ok,
      %{
        message: message(plan),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        install_plan: plan,
        actions: [

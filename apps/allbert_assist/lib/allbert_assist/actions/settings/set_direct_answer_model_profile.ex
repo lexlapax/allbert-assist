@@ -22,15 +22,15 @@ defmodule AllbertAssist.Actions.Settings.SetDirectAnswerModelProfile do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.DirectAnswerSelection
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     profile = Maps.field_truthy(params, :profile)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          :ok <- validate_profile(profile),
          {:ok, selection} <-
            DirectAnswerSelection.select(

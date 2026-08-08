@@ -31,6 +31,11 @@ defmodule AllbertAssist.Security do
     })
   end
 
+  @doc "Return true only when Security Central allowed the permission decision."
+  @spec allowed?(map()) :: boolean()
+  def allowed?(%{decision: :allowed}), do: true
+  def allowed?(_decision), do: false
+
   @doc "Return redacted, read-only operator security status."
   @spec status(map()) :: map()
   def status(context \\ %{}) when is_map(context), do: Status.summary(context)

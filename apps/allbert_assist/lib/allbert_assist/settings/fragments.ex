@@ -8,9 +8,17 @@ defmodule AllbertAssist.Settings.Fragments do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
+
+  alias AllbertAssist.Pack.{
+    PathSegment,
+    Projection,
+    ProjectionProvider,
+    Residual,
+    ValidationDiagnostic
+  }
+
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Settings.Fragment
+  alias AllbertAssist.Settings.{Fragment, FragmentOwner}
   alias AllbertAssist.Settings.Schema
 
   @composition_cache_key {__MODULE__, :default_composition}
@@ -30,6 +38,17 @@ defmodule AllbertAssist.Settings.Fragments do
 
   @spec safe_write_keys(keyword()) :: [String.t()]
   def safe_write_keys(opts \\ []), do: composition(opts).safe_write_keys
+
+  @doc "Return the Settings Central provenance bound to every composed key."
+  @spec provenance(keyword()) :: %{String.t() => map()}
+  def provenance(opts \\ []), do: composition(opts).provenance
+
+  @doc "Validate that fragment identities and key ownership are globally unique."
+  @spec validate_ownership([Fragment.t()]) :: :ok | {:error, term()}
+  def validate_ownership(fragments) when is_list(fragments),
+    do: validate_unique_ownership(fragments)
+
+  def validate_ownership(value), do: {:error, {:invalid_settings_fragments, value}}
 
   @doc false
   def clear_cache do
@@ -84,24 +103,7 @@ defmodule AllbertAssist.Settings.Fragments do
 
   @spec core_fragments() :: [Fragment.t()]
   def core_fragments do
-    Schema.core_schema()
-    |> Enum.group_by(fn {key, _schema} -> namespace(key) end)
-    |> Enum.map(fn {namespace, entries} ->
-      schema = Map.new(entries)
-      defaults = namespace_defaults(namespace, Schema.core_defaults())
-
-      Fragment.new!(%{
-        id: "core:#{namespace}",
-        owner: namespace,
-        source: :core,
-        group: namespace,
-        schema: schema,
-        defaults: defaults,
-        safe_write_keys: namespace_safe_write_keys(namespace, Schema.core_safe_write_keys()),
-        metadata: %{label: titleize(namespace)}
-      })
-    end)
-    |> Enum.sort_by(& &1.id)
+    FragmentOwner.fragments!("allbert_assist", :allbert_assist, Residual.settings_fragments())
   end
 
   @doc """
@@ -115,13 +117,36 @@ defmodule AllbertAssist.Settings.Fragments do
           {:ok, [Fragment.t()]} | {:error, [ValidationDiagnostic.t()]}
   def candidate_fragments(app_entries, plugin_entries)
       when is_list(app_entries) and is_list(plugin_entries) do
-    with {:ok, apps} <- app_fragments_from_entries(app_entries),
-         {:ok, plugins} <- plugin_fragments_from_entries(plugin_entries) do
-      {:ok, core_fragments() ++ apps ++ plugins}
+    with {:ok, closed} <- ProjectionProvider.closed() do
+      candidate_fragments(closed, app_entries, plugin_entries)
+    else
+      _error -> {:error, [candidate_diagnostic(:settings_pack_projection_unavailable)]}
     end
   end
 
   def candidate_fragments(_app_entries, _plugin_entries),
+    do: {:error, [candidate_diagnostic(:invalid_candidate_entries)]}
+
+  @spec candidate_fragments(Projection.Closed.t(), [map()], [map()]) ::
+          {:ok, [Fragment.t()]} | {:error, [ValidationDiagnostic.t()]}
+  def candidate_fragments(%Projection.Closed{} = closed, app_entries, plugin_entries)
+      when is_list(app_entries) and is_list(plugin_entries) do
+    with {:ok, pack_contributions} <- pack_contributions(closed),
+         {:ok, apps} <- app_fragments_from_entries(app_entries),
+         {:ok, plugins} <- plugin_fragments_from_entries(plugin_entries) do
+      fragments = Enum.map(pack_contributions, & &1.fragment) ++ apps ++ plugins
+
+      case validate_unique_ownership(fragments) do
+        :ok -> {:ok, fragments}
+        {:error, reason} -> {:error, [candidate_diagnostic(reason)]}
+      end
+    else
+      {:error, [%ValidationDiagnostic{} | _diagnostics]} = error -> error
+      {:error, reason} -> {:error, [candidate_diagnostic(reason)]}
+    end
+  end
+
+  def candidate_fragments(_closed, _app_entries, _plugin_entries),
     do: {:error, [candidate_diagnostic(:invalid_candidate_entries)]}
 
   @spec app_fragments(keyword()) :: [Fragment.t()]
@@ -205,32 +230,45 @@ defmodule AllbertAssist.Settings.Fragments do
   end
 
   defp build_composition(opts) do
+    pack_contributions = pack_contributions!(opts)
+    pack_fragments = Enum.map(pack_contributions, & &1.fragment)
     app_fragments = app_fragments(opts)
     plugin_fragments = plugin_fragments(opts)
-    fragments = core_fragments() ++ app_fragments ++ plugin_fragments
+    fragments = pack_fragments ++ app_fragments ++ plugin_fragments
+
+    case validate_unique_ownership(fragments) do
+      :ok -> :ok
+      {:error, reason} -> raise ArgumentError, "invalid settings ownership: #{inspect(reason)}"
+    end
 
     %{
       fragments: fragments,
-      schema:
-        plugin_fragments
-        |> schema_from_fragments()
-        |> Map.merge(schema_from_fragments(app_fragments))
-        |> Map.merge(Schema.core_schema()),
+      schema: schema_from_fragments(fragments),
       defaults:
-        plugin_fragments
-        |> defaults_from_fragments()
+        pack_contributions
+        |> Enum.reduce(%{}, fn contribution, defaults ->
+          deep_merge(defaults, contribution.defaults)
+        end)
         |> deep_merge(defaults_from_fragments(app_fragments))
-        |> deep_merge(Schema.core_defaults()),
+        |> deep_merge(defaults_from_fragments(plugin_fragments)),
       safe_write_keys:
-        (Schema.core_safe_write_keys() ++
+        ((pack_contributions
+          |> Enum.flat_map(& &1.safe_write_rows)
+          |> Enum.sort_by(&elem(&1, 0))
+          |> Enum.map(&elem(&1, 1))) ++
            Enum.flat_map(app_fragments, & &1.safe_write_keys) ++
            Enum.flat_map(plugin_fragments, & &1.safe_write_keys))
-        |> Enum.uniq()
+        |> Enum.uniq(),
+      provenance: provenance_from_fragments(pack_contributions, app_fragments, plugin_fragments)
     }
   end
 
   defp schema_from_fragments(fragments) do
-    Enum.reduce(fragments, %{}, fn fragment, acc -> Map.merge(acc, fragment.schema) end)
+    Enum.reduce(fragments, %{}, fn fragment, acc ->
+      Map.merge(acc, fragment.schema, fn key, _left, _right ->
+        raise ArgumentError, "duplicate settings key: #{key}"
+      end)
+    end)
   end
 
   defp defaults_from_fragments(fragments) do
@@ -249,19 +287,6 @@ defmodule AllbertAssist.Settings.Fragments do
     |> Enum.map(fn {key, _entry} -> key end)
   end
 
-  defp namespace_defaults(namespace, defaults) do
-    case Map.fetch(defaults, namespace) do
-      {:ok, value} -> %{namespace => value}
-      :error -> %{}
-    end
-  end
-
-  defp namespace_safe_write_keys(namespace, keys) do
-    prefix = namespace <> "."
-
-    Enum.filter(keys, fn key -> key == namespace or String.starts_with?(key, prefix) end)
-  end
-
   defp app_entries(opts) do
     opts
     |> Keyword.get(:app, [])
@@ -275,21 +300,26 @@ defmodule AllbertAssist.Settings.Fragments do
       schema_entries = Map.get(app, :settings_schema, [])
 
       if is_atom(app_id) and is_list(schema_entries) do
-        schema = Schema.normalize_app_schema_entries(schema_entries)
+        case Schema.normalize_app_schema_entries_checked(schema_entries) do
+          {:ok, schema} ->
+            fragment =
+              Fragment.new!(%{
+                id: "app:#{app_id}",
+                owner: app_id,
+                source: :app,
+                group: :apps,
+                schema: schema,
+                defaults: defaults_from_schema(schema),
+                safe_write_keys: safe_write_keys_from_schema(schema),
+                metadata: %{display_name: Map.get(app, :display_name)}
+              })
 
-        fragment =
-          Fragment.new!(%{
-            id: "app:#{app_id}",
-            owner: app_id,
-            source: :app,
-            group: :apps,
-            schema: schema,
-            defaults: defaults_from_schema(schema),
-            safe_write_keys: safe_write_keys_from_schema(schema),
-            metadata: %{display_name: Map.get(app, :display_name)}
-          })
+            {:cont,
+             {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
 
-        {:cont, {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
+          {:error, reason} ->
+            {:halt, {:error, [candidate_diagnostic(reason)]}}
+        end
       else
         {:halt, {:error, [candidate_diagnostic(:invalid_app_entry)]}}
       end
@@ -306,25 +336,30 @@ defmodule AllbertAssist.Settings.Fragments do
       schema_entries = Map.get(plugin, :settings_schema, [])
 
       if is_binary(plugin_id) and plugin_id != "" and is_list(schema_entries) do
-        schema = Schema.normalize_plugin_schema_entries(schema_entries, plugin: plugin)
+        case Schema.normalize_plugin_schema_entries_checked(schema_entries, plugin: plugin) do
+          {:ok, schema} ->
+            fragment =
+              Fragment.new!(%{
+                id: "plugin:#{plugin_id}",
+                owner: plugin_id,
+                source: :plugin,
+                group: :plugins,
+                schema: schema,
+                defaults: defaults_from_schema(schema),
+                safe_write_keys: safe_write_keys_from_schema(schema),
+                metadata: %{
+                  display_name: Map.get(plugin, :display_name),
+                  trust_status: Map.get(plugin, :trust_status),
+                  source: Map.get(plugin, :source)
+                }
+              })
 
-        fragment =
-          Fragment.new!(%{
-            id: "plugin:#{plugin_id}",
-            owner: plugin_id,
-            source: :plugin,
-            group: :plugins,
-            schema: schema,
-            defaults: defaults_from_schema(schema),
-            safe_write_keys: safe_write_keys_from_schema(schema),
-            metadata: %{
-              display_name: Map.get(plugin, :display_name),
-              trust_status: Map.get(plugin, :trust_status),
-              source: Map.get(plugin, :source)
-            }
-          })
+            {:cont,
+             {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
 
-        {:cont, {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
+          {:error, reason} ->
+            {:halt, {:error, [candidate_diagnostic(reason)]}}
+        end
       else
         {:halt, {:error, [candidate_diagnostic(:invalid_plugin_entry)]}}
       end
@@ -353,20 +388,191 @@ defmodule AllbertAssist.Settings.Fragments do
     |> PluginRegistry.registered_plugins()
   end
 
+  defp pack_contributions!(opts) do
+    result =
+      case Keyword.fetch(opts, :pack_projection) do
+        {:ok, %Projection.Closed{} = closed} ->
+          pack_contributions(closed)
+
+        {:ok, invalid} ->
+          raise ArgumentError, "invalid Settings Pack projection: #{inspect(invalid)}"
+
+        :error ->
+          default_pack_contributions()
+      end
+
+    case result do
+      {:ok, contributions} ->
+        contributions
+
+      {:error, reason} ->
+        raise ArgumentError, "invalid Settings Pack contribution: #{inspect(reason)}"
+    end
+  end
+
+  # `allbert_assist` must boot and run its owner tests without adding an upward
+  # dependency on `allbert_composition`. In the complete release code path the
+  # composition module is present and the sealed projection remains mandatory.
+  # In the deliberately smaller core-owner code path, resolve the residual
+  # Pack's declaration against the independent compiled-module census instead;
+  # this is the same fail-closed owner contract, not a hand-maintained fragment
+  # fallback. Candidate assembly always supplies its already-sealed projection.
+  defp default_pack_contributions do
+    if :code.which(AllbertAssist.Pack.CompositionCoordinator) == :non_existing do
+      FragmentOwner.resolve_pack(
+        "allbert_assist",
+        :allbert_assist,
+        Residual.settings_fragments()
+      )
+    else
+      projection!()
+      |> pack_contributions()
+    end
+  end
+
+  defp projection! do
+    case ProjectionProvider.closed() do
+      {:ok, closed} ->
+        closed
+
+      {:error, reason} ->
+        raise ArgumentError, "Settings Pack projection unavailable: #{inspect(reason)}"
+    end
+  end
+
+  defp pack_contributions(%Projection.Closed{rows: rows}) do
+    rows
+    |> Enum.sort_by(&{&1.registry_order, &1.id})
+    |> Enum.reduce_while({:ok, []}, fn row, {:ok, contributions} ->
+      module = row.descriptor_module
+
+      with true <- function_exported?(module, :settings_fragments, 0),
+           owner_modules when is_list(owner_modules) <- module.settings_fragments(),
+           {:ok, resolved} <- FragmentOwner.resolve_pack(row.id, row.application, owner_modules) do
+        {:cont, {:ok, contributions ++ resolved}}
+      else
+        false ->
+          {:halt, {:error, {:missing_settings_fragment_callback, row.id, module}}}
+
+        value when not is_list(value) ->
+          {:halt, {:error, {:invalid_settings_fragment_callback, row.id, value}}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+  rescue
+    exception -> {:error, {:settings_fragment_callback_raised, exception.__struct__}}
+  catch
+    kind, reason -> {:error, {:settings_fragment_callback_caught, kind, reason}}
+  end
+
+  defp validate_unique_ownership(fragments) do
+    with :ok <- unique_fragment_ids(fragments),
+         :ok <- unique_fragment_keys(fragments) do
+      :ok
+    end
+  end
+
+  defp unique_fragment_ids(fragments) do
+    fragments
+    |> Enum.group_by(& &1.id)
+    |> Enum.find(fn {_id, owners} -> length(owners) > 1 end)
+    |> case do
+      nil -> :ok
+      {id, owners} -> {:error, {:duplicate_settings_fragment_id, id, fragment_claims(owners)}}
+    end
+  end
+
+  defp unique_fragment_keys(fragments) do
+    fragments
+    |> Enum.flat_map(fn fragment -> Enum.map(Map.keys(fragment.schema), &{&1, fragment}) end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    |> Enum.find(fn {_key, owners} -> length(owners) > 1 end)
+    |> case do
+      nil -> :ok
+      {key, owners} -> {:error, {:duplicate_settings_key, key, fragment_claims(owners)}}
+    end
+  end
+
+  defp fragment_claims(fragments) do
+    Enum.map(fragments, &%{id: &1.id, owner: &1.owner, source: &1.source})
+  end
+
+  defp provenance_from_fragments(pack_contributions, app_fragments, plugin_fragments) do
+    pack =
+      Enum.reduce(pack_contributions, %{}, fn contribution, provenance ->
+        fragment = contribution.fragment
+        owner = pack_owner_metadata(contribution)
+
+        provenance =
+          Enum.reduce(Map.keys(fragment.schema), provenance, fn key, acc ->
+            Map.put(acc, key, Map.put(owner, :kind, :schema))
+          end)
+
+        provenance =
+          Enum.reduce(contribution.dynamic_default_rows, provenance, fn {key, declaration}, acc ->
+            Map.put(
+              acc,
+              key,
+              owner
+              |> Map.put(:kind, :dynamic_default)
+              |> Map.put(:declaration, declaration)
+            )
+          end)
+
+        Enum.reduce(contribution.safe_write_rows, provenance, fn {_index, key}, acc ->
+          case Map.fetch(acc, key) do
+            {:ok, existing} ->
+              Map.put(acc, key, Map.put(existing, :safe_write_declaration, key))
+
+            :error ->
+              kind = if String.contains?(key, "*"), do: :safe_write_pattern, else: :safe_write_key
+
+              Map.put(
+                acc,
+                key,
+                owner
+                |> Map.put(:kind, kind)
+                |> Map.put(:declaration, key)
+              )
+          end
+        end)
+      end)
+
+    legacy =
+      Enum.flat_map(app_fragments ++ plugin_fragments, fn fragment ->
+        Enum.map(Map.keys(fragment.schema), fn key ->
+          {key,
+           %{
+             fragment_id: fragment.id,
+             owner: fragment.owner,
+             source: fragment.source,
+             pack_id: nil,
+             application: nil,
+             owner_module: nil,
+             kind: :schema
+           }}
+        end)
+      end)
+
+    Map.merge(pack, Map.new(legacy))
+  end
+
+  defp pack_owner_metadata(contribution) do
+    fragment = contribution.fragment
+
+    %{
+      fragment_id: fragment.id,
+      owner: fragment.owner,
+      source: fragment.source,
+      pack_id: contribution.pack_id,
+      application: contribution.application,
+      owner_module: contribution.owner_module
+    }
+  end
+
   defp empty_fragment?(%Fragment{schema: schema}), do: map_size(schema) == 0
-
-  defp namespace(key) do
-    key
-    |> String.split(".", parts: 2)
-    |> List.first()
-  end
-
-  defp titleize(namespace) do
-    namespace
-    |> String.replace("_", " ")
-    |> String.split(" ", trim: true)
-    |> Enum.map_join(" ", &String.capitalize/1)
-  end
 
   defp deep_merge(left, right) when is_map(left) and is_map(right) do
     Map.merge(left, right, fn _key, left_value, right_value ->

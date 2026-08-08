@@ -35,14 +35,15 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
     ]
 
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Vault
   alias AllbertAssist.Settings.Vault.EncryptedFile
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     resolution = Vault.resolve()
 
     cond do
@@ -63,10 +64,10 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
 
       # M8.14: the settings_write floor is needs_confirmation for migrate_secrets
       # — create a durable confirmation the operator can approve.
-      PermissionGate.response_status(permission_decision) == :needs_confirmation ->
+      Response.permission_status(permission_decision) == :needs_confirmation ->
         request_confirmation(permission_decision, resolution, context)
 
-      PermissionGate.response_status(permission_decision) == :denied ->
+      Response.permission_status(permission_decision) == :denied ->
         {:ok,
          %{
            message: permission_decision.reason,

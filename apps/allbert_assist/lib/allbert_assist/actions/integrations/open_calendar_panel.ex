@@ -1,6 +1,9 @@
 defmodule AllbertAssist.Actions.Integrations.OpenCalendarPanel do
   @moduledoc false
 
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
+
   use AllbertAssist.Action,
     registry_order: 39,
     permission: :read_only,
@@ -21,8 +24,6 @@ defmodule AllbertAssist.Actions.Integrations.OpenCalendarPanel do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
-
   @action_name "open_calendar_panel"
   @destination "workspace:calendar"
 
@@ -30,9 +31,9 @@ defmodule AllbertAssist.Actions.Integrations.OpenCalendarPanel do
   def run(_params, context), do: respond(context)
 
   defp respond(context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       {:ok,
        %{
          message: "Open the Calendar workspace panel.",
@@ -44,7 +45,7 @@ defmodule AllbertAssist.Actions.Integrations.OpenCalendarPanel do
       {:ok,
        %{
          message: "Calendar panel handoff was denied.",
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          destination: @destination,
          actions: [action(:denied, permission_decision)]
        }}

@@ -226,12 +226,12 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert decision.trust_boundary.action_registered?
 
     compatibility =
-      Decision.compatibility(decision, source: AllbertAssist.Security.PermissionGate)
+      Decision.compatibility(decision, source: AllbertAssist.Security)
 
     assert Map.keys(compatibility) |> Enum.sort() ==
              [:decision, :permission, :reason, :requires_confirmation, :source]
 
-    assert compatibility.source == AllbertAssist.Security.PermissionGate
+    assert compatibility.source == AllbertAssist.Security
   end
 
   test "redacts sensitive values and secret references" do

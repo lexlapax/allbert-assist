@@ -1,7 +1,8 @@
 defmodule StockSage.Actions do
   @moduledoc false
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias StockSage.Domain
 
   def capability(permission, attrs \\ %{}) do
@@ -17,7 +18,7 @@ defmodule StockSage.Actions do
   end
 
   def authorize(permission, context) do
-    PermissionGate.authorize(permission, context)
+    Security.authorize(permission, context)
   end
 
   def user_id(params, context) do
@@ -84,9 +85,9 @@ defmodule StockSage.Actions do
   def blank_to_nil(value), do: value
 
   def status_from_decision(permission_decision),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
-  def allowed?(permission_decision), do: PermissionGate.allowed?(permission_decision)
+  def allowed?(permission_decision), do: Security.allowed?(permission_decision)
 
   def missing_user(action_name, permission, permission_decision) do
     {:ok,

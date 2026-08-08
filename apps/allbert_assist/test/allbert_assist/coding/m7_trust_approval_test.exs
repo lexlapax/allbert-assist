@@ -6,7 +6,8 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
   alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.Grants
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
+  alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
 
@@ -65,33 +66,43 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
        %{workspace: workspace} do
     context = trusted_context(workspace)
 
-    assert PermissionGate.coding_tier(put_in(context, [:coding, :pi_mode_enabled], false)) ==
+    assert Policy.coding_tier(put_in(context, [:coding, :pi_mode_enabled], false)) ==
              :none
 
-    assert PermissionGate.coding_tier(put_in(context, [:coding, :trusted_operator_id], nil)) ==
+    assert Policy.coding_tier(put_in(context, [:coding, :trusted_operator_id], nil)) ==
              :none
 
     put_pi_mode_settings!()
 
-    assert PermissionGate.coding_tier(context) == :local_coding_operator
-    assert PermissionGate.coding_tier(%{context | channel: %{name: :telegram}}) == :none
-    assert PermissionGate.coding_tier(%{context | session: %{main?: false}}) == :none
-    assert PermissionGate.coding_tier(Map.put(context, :channel_originated?, true)) == :none
-    assert PermissionGate.coding_tier(Map.put(context, :scheduled?, true)) == :none
-    assert PermissionGate.coding_tier(Map.put(context, :generated_code_session?, true)) == :none
+    assert Policy.coding_tier(context) == :local_coding_operator
+
+    assert Policy.coding_tier(%{context | channel: %{name: :telegram}}) ==
+             :none
+
+    assert Policy.coding_tier(%{context | session: %{main?: false}}) ==
+             :none
+
+    assert Policy.coding_tier(Map.put(context, :channel_originated?, true)) ==
+             :none
+
+    assert Policy.coding_tier(Map.put(context, :scheduled?, true)) == :none
+
+    assert Policy.coding_tier(Map.put(context, :generated_code_session?, true)) == :none
   end
 
   test "approval modes suppress only the local prompt cost and preserve decisions",
        %{workspace: workspace} do
     put_pi_mode_settings!()
 
-    default_write = PermissionGate.authorize(:coding_file_write, trusted_context(workspace))
+    default_write =
+      Security.authorize(:coding_file_write, trusted_context(workspace))
+
     assert default_write.decision == :needs_confirmation
     assert default_write.requires_confirmation
 
     accept_context = approval_context(workspace, "accept-edits")
-    accept_write = PermissionGate.authorize(:coding_file_write, accept_context)
-    accept_shell = PermissionGate.authorize(:coding_shell_execute, accept_context)
+    accept_write = Security.authorize(:coding_file_write, accept_context)
+    accept_shell = Security.authorize(:coding_shell_execute, accept_context)
 
     assert accept_write.decision == :needs_confirmation
     refute accept_write.requires_confirmation
@@ -104,16 +115,18 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
     assert accept_shell.requires_confirmation
 
     tier_context = approval_context(workspace, "tier")
-    tier_shell = PermissionGate.authorize(:coding_shell_execute, tier_context)
+    tier_shell = Security.authorize(:coding_shell_execute, tier_context)
 
     assert tier_shell.decision == :needs_confirmation
     refute tier_shell.requires_confirmation
     assert tier_shell.policy.effective == :needs_confirmation
 
     plan_context = approval_context(workspace, "plan")
-    assert PermissionGate.authorize(:coding_file_read, plan_context).decision == :allowed
-    assert PermissionGate.authorize(:coding_file_write, plan_context).decision == :denied
-    assert PermissionGate.authorize(:coding_shell_execute, plan_context).decision == :denied
+    assert Security.authorize(:coding_file_read, plan_context).decision == :allowed
+    assert Security.authorize(:coding_file_write, plan_context).decision == :denied
+
+    assert Security.authorize(:coding_shell_execute, plan_context).decision ==
+             :denied
   end
 
   test "accept-edits runs file writes without creating a confirmation", %{workspace: workspace} do
@@ -165,7 +178,7 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
              )
 
     command_context = put_in(context, [:coding, :command_params], params)
-    decision = PermissionGate.authorize(:coding_shell_execute, command_context)
+    decision = Security.authorize(:coding_shell_execute, command_context)
 
     assert decision.decision == :needs_confirmation
     refute decision.requires_confirmation

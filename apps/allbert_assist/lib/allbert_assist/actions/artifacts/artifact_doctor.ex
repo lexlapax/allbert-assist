@@ -23,16 +23,17 @@ defmodule AllbertAssist.Actions.Artifacts.ArtifactDoctor do
   alias AllbertAssist.Artifacts.Config
   alias AllbertAssist.Artifacts.GC
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :artifact_read
   @action_name "artifact_doctor"
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, gc} <- GC.sweep(delete_orphans?: false) do
       doctor = Config.doctor() |> Map.put(:gc_last_check, Map.drop(gc, [:removed]))
 
@@ -58,7 +59,7 @@ defmodule AllbertAssist.Actions.Artifacts.ArtifactDoctor do
     status =
       if permission_decision.decision == :allowed,
         do: :error,
-        else: PermissionGate.response_status(permission_decision)
+        else: Response.permission_status(permission_decision)
 
     {:ok,
      %{

@@ -30,13 +30,14 @@ defmodule AllbertAssist.Actions.Memory.UpdateMemoryEntry do
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Entry
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{path: path} = params, context) do
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, entry} <- Memory.update_entry(path, params, user_id: user_id) do
       entry_map = Entry.to_map(entry)
@@ -65,13 +66,13 @@ defmodule AllbertAssist.Actions.Memory.UpdateMemoryEntry do
   end
 
   def run(_params, context),
-    do: error(PermissionGate.authorize(:memory_write, context), :missing_path)
+    do: error(Security.authorize(:memory_write, context), :missing_path)
 
   defp denied(permission_decision) do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, nil)]
      }}

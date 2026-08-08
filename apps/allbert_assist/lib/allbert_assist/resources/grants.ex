@@ -10,7 +10,7 @@ defmodule AllbertAssist.Resources.Grants do
   alias AllbertAssist.Maps
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @setting_key "resource_grants.remembered"
@@ -177,7 +177,7 @@ defmodule AllbertAssist.Resources.Grants do
         {:error, :permission_required}
 
       permission ->
-        decision = PermissionGate.authorize(permission, field(opts, :context, %{}))
+        decision = Security.authorize(permission, field(opts, :context, %{}))
 
         if decision.decision == :denied do
           {:error, {:policy_denied, decision}}

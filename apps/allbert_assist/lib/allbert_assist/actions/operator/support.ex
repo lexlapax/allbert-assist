@@ -1,14 +1,14 @@
 defmodule AllbertAssist.Actions.Operator.Support do
   @moduledoc false
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
-  @spec read_only(String.t(), map(), (PermissionGate.decision() -> {:ok, map()})) ::
+  @spec read_only(String.t(), map(), (map() -> {:ok, map()})) ::
           {:ok, map()}
   def read_only(action_name, context, on_allowed) when is_function(on_allowed, 1) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       on_allowed.(permission_decision)
     else
       {:ok,
@@ -21,7 +21,7 @@ defmodule AllbertAssist.Actions.Operator.Support do
     end
   end
 
-  @spec action(String.t(), atom(), PermissionGate.decision(), map()) :: map()
+  @spec action(String.t(), atom(), map(), map()) :: map()
   def action(action_name, status, permission_decision, metadata \\ %{}) do
     Map.merge(
       %{

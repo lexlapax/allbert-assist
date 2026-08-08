@@ -29,20 +29,20 @@ defmodule AllbertAssist.Actions.Templates.CreateFromTemplate do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Templates.LiveDraft
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:dynamic_codegen_request, context)
+    permission_decision = Security.authorize(:dynamic_codegen_request, context)
 
     with :ok <- ensure_mode(params),
          :ok <- ensure_template_create_enabled(),
          :ok <- ensure_dynamic_codegen_enabled(),
          :ok <- ensure_dynamic_live_loader_enabled(),
          :ok <- ensure_sandbox_elixir_enabled(),
-         true <- PermissionGate.allowed?(permission_decision),
+         true <- Security.allowed?(permission_decision),
          {:ok, result} <-
            LiveDraft.create(pattern_id(params), template_params(params), live_draft_opts(context)) do
       {:ok,
@@ -64,7 +64,7 @@ defmodule AllbertAssist.Actions.Templates.CreateFromTemplate do
   end
 
   def run(_params, context) do
-    {:ok, denied(PermissionGate.authorize(:dynamic_codegen_request, context), :invalid_params)}
+    {:ok, denied(Security.authorize(:dynamic_codegen_request, context), :invalid_params)}
   end
 
   defp ensure_mode(params) do

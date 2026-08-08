@@ -21,18 +21,18 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.RegistryContext
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{app_id: raw_app_id}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     # v1.0.3 M1 (ADR 0086 contract 3 / ADR 0082): honor the internal
     # registry context riding the action context map under `:registry`.
     # Production call sites pass nothing and read the global default.
     app_opts = context |> registry_opts() |> RegistryContext.app_opts()
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, app_id} when not is_nil(app_id) <-
            AppRegistry.normalize_app_id(raw_app_id, app_opts),
          {:ok, entry} <- AppRegistry.lookup(app_id, app_opts) do
@@ -61,7 +61,7 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     denied(nil, permission_decision, :invalid_params)
   end
 

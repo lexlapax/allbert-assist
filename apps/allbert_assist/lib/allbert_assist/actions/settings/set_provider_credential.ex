@@ -23,7 +23,8 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.Vault
 
   @impl true
@@ -46,9 +47,9 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
   end
 
   defp store_secret(provider, api_key, context) when is_binary(api_key) do
-    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+    permission_decision = Security.authorize(:settings_secret_write, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          # M8.3: route through the tier vault — on macOS this stores in the OS Keychain
          # with no master key; headless Linux still falls to the encrypted-file tier.
          {:ok, result} <-
@@ -82,18 +83,18 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
   end
 
   defp store_secret(provider, _api_key, context) do
-    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+    permission_decision = Security.authorize(:settings_secret_write, context)
     denied(provider, permission_decision, :empty_provider_key)
   end
 
   defp credential_guidance(provider, context) do
-    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+    permission_decision = Security.authorize(:settings_secret_write, context)
 
     {:ok,
      %{
        message:
          "Credential entry for #{provider} must use the explicit CLI or LiveView secret form. Use `mix allbert.settings providers set-key #{provider}` or the Settings page provider key form.",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        actions: [
          action(
            provider,
@@ -107,7 +108,7 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
   end
 
   defp deny_raw_prompt(provider, context) do
-    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+    permission_decision = Security.authorize(:settings_secret_write, context)
 
     {:ok,
      %{
@@ -127,13 +128,13 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
   end
 
   defp deny_secret_read(provider, context) do
-    permission_decision = PermissionGate.authorize(:settings_secret_read, context)
+    permission_decision = Security.authorize(:settings_secret_read, context)
 
     {:ok,
      %{
        message:
          "I cannot display raw provider secrets. I can show only redacted credential status.",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        actions: [
          action(
            provider,

@@ -21,11 +21,12 @@ defmodule AllbertAssist.Actions.Resources.ShowResourceGrant do
 
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Grants
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{id: id}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     case Grants.get(id) do
       {:ok, grant} ->
@@ -34,7 +35,7 @@ defmodule AllbertAssist.Actions.Resources.ShowResourceGrant do
         {:ok,
          %{
            message: "Resource grant #{id}.",
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            grant: grant,
            actions: [

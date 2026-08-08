@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.RotateProtocolToken do
   Rotate a public-protocol bearer token through the action spine (v0.62 M8.15).
 
   Rotation mutates Settings-Secrets state (writes a fresh secret and disables
-  the old one), so it runs through the Runner (PermissionGate + audit) instead
+  the old one), so it runs through the Runner (Security Central + audit) instead
   of a direct `TokenAuth.rotate/3` call. The new raw token rides back under a
   `token`-named field inside `token_result` so the CLI can print it once; that
   field name is redacted by `AllbertAssist.Security.Redactor` in every logged
@@ -35,15 +35,16 @@ defmodule AllbertAssist.Actions.PublicProtocol.RotateProtocolToken do
     ]
 
   alias AllbertAssist.PublicProtocol.TokenAuth
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :settings_secret_write
 
   @impl true
   def run(%{surface: surface, client: client}, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, result} <- TokenAuth.rotate(surface, client, context) do
       completed(result, permission_decision)
     else
@@ -70,7 +71,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.RotateProtocolToken do
      %{
        message:
          "Public protocol token rotation was denied for #{surface}/#{client}: #{inspect(reason)}",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        error: reason,
        actions: [action(:denied, permission_decision, %{surface: surface, client_id: client})]

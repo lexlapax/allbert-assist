@@ -22,15 +22,15 @@ defmodule AllbertAssist.Actions.Workspace.RevertTileRevision do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Workspace
 
   @impl true
   def run(%{tile_id: tile_id, revision_id: revision_id}, context) do
-    permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
+    permission_decision = Security.authorize(:workspace_canvas_write, context)
     user_id = Map.get(context, :user_id) || Map.get(context, :actor)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          user_id when is_binary(user_id) and user_id != "" <- user_id,
          {:ok, result} <-
            Workspace.revert_tile_revision(%{
@@ -58,7 +58,7 @@ defmodule AllbertAssist.Actions.Workspace.RevertTileRevision do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
+    permission_decision = Security.authorize(:workspace_canvas_write, context)
     {:ok, denied(nil, nil, permission_decision, :invalid_params)}
   end
 

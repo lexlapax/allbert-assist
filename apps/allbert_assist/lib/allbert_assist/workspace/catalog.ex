@@ -139,7 +139,7 @@ defmodule AllbertAssist.Workspace.Catalog do
     "surface_policy" => :core_surface_policy_panel,
     "settings" => :core_settings_panel,
     # v0.65 M8.2: `workspace:notes` uses the notes/files app's action-backed
-    # interactive panel, so search/read stay on the Runner/PermissionGate seam.
+    # interactive panel, so search/read stay on the Runner/Security Central seam.
     "notes" => :notes_files_panel,
     # v0.65 M4: `workspace:memory` renders the interactive memory-review panel.
     "memory" => :core_memory_panel

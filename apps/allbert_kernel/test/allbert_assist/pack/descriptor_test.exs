@@ -5,7 +5,7 @@ defmodule AllbertAssist.Pack.DescriptorTest do
   alias AllbertAssist.Pack.Descriptor
   alias AllbertAssist.Pack.Kernel
 
-  test "kernel pack exposes its signed-release identity and inert contribution ABI" do
+  test "kernel pack exposes its signed-release identity and contributed gate owner" do
     assert %Descriptor{
              schema_version: 1,
              id: "allbert_kernel",
@@ -30,11 +30,12 @@ defmodule AllbertAssist.Pack.DescriptorTest do
           :prompt_rules,
           :intent_descriptors,
           :cli_groups,
-          :release_assets,
-          :test_lanes
+          :release_assets
         ] do
       assert [] == apply(Kernel, callback, [])
     end
+
+    assert [%{owner_id: :kernel, application: :allbert_kernel}] = Kernel.test_lanes()
   end
 
   test "descriptor validation rejects malformed or non-exact callback output" do

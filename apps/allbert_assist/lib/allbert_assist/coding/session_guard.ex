@@ -1,4 +1,7 @@
 defmodule AllbertAssist.Coding.SessionGuard do
+  alias AllbertAssist.Security
+  alias AllbertAssist.Security.Policy
+
   @moduledoc """
   Runtime guard for Pi-mode coding actions.
 
@@ -7,8 +10,6 @@ defmodule AllbertAssist.Coding.SessionGuard do
   public-protocol tools. A call must carry active Pi-mode session metadata and
   must resolve to the local-coding operator tier before touching files or shell.
   """
-
-  alias AllbertAssist.Security.PermissionGate
 
   @type denial_reason :: :coding_session_required | :local_coding_operator_required
   @type normalized_context :: %{required(:coding) => map(), optional(any()) => any()}
@@ -22,7 +23,7 @@ defmodule AllbertAssist.Coding.SessionGuard do
       not coding_session?(normalized) ->
         {:error, :coding_session_required, normalized}
 
-      PermissionGate.coding_tier(normalized) != :local_coding_operator ->
+      Policy.coding_tier(normalized) != :local_coding_operator ->
         {:error, :local_coding_operator_required, normalized}
 
       true ->
@@ -30,10 +31,10 @@ defmodule AllbertAssist.Coding.SessionGuard do
     end
   end
 
-  @spec denied_decision(atom(), map(), denial_reason()) :: PermissionGate.decision()
+  @spec denied_decision(atom(), map(), denial_reason()) :: map()
   def denied_decision(permission, context, reason) do
     permission
-    |> PermissionGate.authorize(normalize_context(context))
+    |> Security.authorize(normalize_context(context))
     |> Map.merge(%{
       decision: :denied,
       requires_confirmation: false,

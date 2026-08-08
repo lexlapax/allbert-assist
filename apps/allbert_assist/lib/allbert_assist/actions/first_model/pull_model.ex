@@ -42,7 +42,8 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.FirstRun.Enablement
   alias AllbertAssist.Pack.EffectGuard
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.ModelDoctor
   alias AllbertAssist.Signals
 
@@ -53,7 +54,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:external_network, context)
+    permission_decision = Security.authorize(:external_network, context)
     model = Map.get(params, :model) || Ollama.curated_model()
     progress_context = progress_context(params, context)
 
@@ -69,7 +70,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
            actions: [action(:completed, permission_decision, %{model: model, executed: false})]
          }}
 
-      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
+      not Security.allowed?(permission_decision) and not approval_resume?(context) ->
         request_or_deny(permission_decision, model, progress_context, context)
 
       true ->
@@ -403,7 +404,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, %{model: model, executed: false})]
      }}

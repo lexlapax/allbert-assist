@@ -30,14 +30,15 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Validation
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- user_id(params, context),
          {:ok, id} <- objective_id(params),
          {:ok, objective} <- Objectives.get_objective(user_id, id) do
@@ -209,7 +210,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       steps: [],
       events: [],

@@ -22,15 +22,16 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     theme = field(params, :theme)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          theme when is_binary(theme) and theme != "" <- theme,
          {:ok, setting} <-
            Settings.put(
@@ -58,7 +59,7 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
   end
 
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     {:ok, denied(field(params, :theme), permission_decision, :invalid_params)}
   end
 
@@ -106,7 +107,9 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
   end
 
   defp denied_status(%{decision: :allowed}), do: :denied
-  defp denied_status(permission_decision), do: PermissionGate.response_status(permission_decision)
+
+  defp denied_status(permission_decision),
+    do: Response.permission_status(permission_decision)
 
   defp action_context(context, permission_decision) do
     request_context =

@@ -27,13 +27,14 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
 
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.Draft
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{slug: slug}, context) when is_binary(slug) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, draft} <- DynamicPlugins.discard_draft(slug, operator_id: operator_id(context)) do
       {:ok, completed(permission_decision, draft)}
     else
@@ -43,7 +44,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     {:ok, denied(permission_decision, :slug_required)}
   end
 
@@ -80,7 +81,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
   end
 
   defp denied_status(permission_decision, :permission_denied),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
   defp denied_status(_permission_decision, _reason), do: :denied
 

@@ -16,15 +16,15 @@ defmodule AllbertAssist.Actions.PlanBuild.InspectWorkflow do
     output_schema: []
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Workflows
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     workflow_id = field(params, :workflow_id)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, workflow} <- Workflows.inspect_workflow(workflow_id) do
       output_data = %{workflow: workflow, diagnostics: []}
 

@@ -8,7 +8,7 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
   alias AllbertAssist.Maps
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.YamlCodec
 
   @safe_component ~r/^[a-z0-9][a-z0-9_-]*$/
@@ -17,12 +17,12 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
     "test/fixtures/intent/eval"
   ]
 
-  @spec write_action(String.t(), map(), (PermissionGate.decision() -> {:ok, map()})) ::
+  @spec write_action(String.t(), map(), (map() -> {:ok, map()})) ::
           {:ok, map()}
   def write_action(action_name, context, on_allowed) when is_function(on_allowed, 1) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       on_allowed.(permission_decision)
     else
       {:ok,
@@ -35,7 +35,7 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
     end
   end
 
-  @spec action(String.t(), atom(), PermissionGate.decision(), map()) :: map()
+  @spec action(String.t(), atom(), map(), map()) :: map()
   def action(action_name, status, permission_decision, metadata \\ %{}) do
     Map.merge(
       %{

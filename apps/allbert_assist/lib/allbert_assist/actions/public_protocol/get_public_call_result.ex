@@ -22,13 +22,13 @@ defmodule AllbertAssist.Actions.PublicProtocol.GetPublicCallResult do
     ]
 
   alias AllbertAssist.PublicProtocol.ResultReadback
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{id: id}, context) when is_binary(id) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, caller} <- ResultReadback.caller_from_context(context),
          {:ok, result} <- ResultReadback.get_for_client(id, caller.surface, caller.client_id) do
       completed(result, permission_decision)
@@ -42,7 +42,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.GetPublicCallResult do
   end
 
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     denied(Map.get(params, :id) || Map.get(params, "id"), permission_decision, :invalid_id)
   end
 

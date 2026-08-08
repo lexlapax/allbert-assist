@@ -23,13 +23,13 @@ defmodule AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft do
     ]
 
   alias AllbertAssist.DynamicPlugins
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{slug: slug}, context) when is_binary(slug) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       show(slug, permission_decision)
     else
       {:ok, denied(permission_decision, :permission_denied)}
@@ -37,7 +37,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     {:ok, denied(permission_decision, :slug_required)}
   end
 

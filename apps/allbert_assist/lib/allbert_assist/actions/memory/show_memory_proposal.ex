@@ -29,13 +29,14 @@ defmodule AllbertAssist.Actions.Memory.ShowMemoryProposal do
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory.ProposalReview
   alias AllbertAssist.Memory.Proposals
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:read_only, context)
+    decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          {:ok, proposal_id} <- required(value(params, :proposal_id), :missing_proposal_id),
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, preview} <- ProposalReview.preview(proposal_id, user_id) do
@@ -52,7 +53,11 @@ defmodule AllbertAssist.Actions.Memory.ShowMemoryProposal do
        }}
     else
       false ->
-        response(decision, PermissionGate.response_status(decision), decision.reason)
+        response(
+          decision,
+          Response.permission_status(decision),
+          decision.reason
+        )
 
       {:error, reason} ->
         response(decision, :error, "Unable to show Memory proposal: #{inspect(reason)}", reason)

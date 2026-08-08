@@ -20,13 +20,13 @@ defmodule AllbertAssist.Actions.Trace.RecordTrace do
     ]
 
   alias AllbertAssist.Runtime.Trace
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{turn: turn}, context) when is_map(turn) do
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, trace} <- Trace.record_turn(turn) do
       {:ok,
        %{
@@ -49,7 +49,7 @@ defmodule AllbertAssist.Actions.Trace.RecordTrace do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
     failed(permission_decision, :invalid_trace_turn)
   end
 

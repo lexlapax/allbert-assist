@@ -35,13 +35,14 @@ defmodule AllbertAssist.Actions.Memory.ReviewMemoryProposal do
 
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory.ProposalReview
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission = PermissionGate.authorize(:memory_write, context)
+    permission = Security.authorize(:memory_write, context)
 
-    with true <- PermissionGate.allowed?(permission),
+    with true <- Security.allowed?(permission),
          {:ok, proposal_id} <- required(value(params, :proposal_id), :missing_proposal_id),
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, result} <-
@@ -64,7 +65,11 @@ defmodule AllbertAssist.Actions.Memory.ReviewMemoryProposal do
        }}
     else
       false ->
-        response(permission, PermissionGate.response_status(permission), permission.reason)
+        response(
+          permission,
+          Response.permission_status(permission),
+          permission.reason
+        )
 
       {:error, reason} ->
         response(

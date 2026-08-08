@@ -33,14 +33,15 @@ defmodule AllbertAssist.Actions.Memory.PromoteConversationTurn do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Promotion
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, thread_id} <- required(params, :thread_id),
          {:ok, message_id} <- required(params, :message_id),
@@ -149,7 +150,7 @@ defmodule AllbertAssist.Actions.Memory.PromoteConversationTurn do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, nil)]
      }}

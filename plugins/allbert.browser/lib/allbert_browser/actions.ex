@@ -3,7 +3,8 @@ defmodule AllbertBrowser.Actions do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @plugin_id "allbert.browser"
 
@@ -21,9 +22,9 @@ defmodule AllbertBrowser.Actions do
     |> Map.merge(attrs)
   end
 
-  def authorize(permission, context), do: PermissionGate.authorize(permission, context)
-  def allowed?(decision), do: PermissionGate.allowed?(decision)
-  def status_from_decision(decision), do: PermissionGate.response_status(decision)
+  def authorize(permission, context), do: Security.authorize(permission, context)
+  def allowed?(decision), do: Security.allowed?(decision)
+  def status_from_decision(decision), do: Response.permission_status(decision)
 
   def field(map, key, default \\ nil)
 

@@ -21,13 +21,13 @@ defmodule AllbertAssist.Actions.Plugins.ShowPlugin do
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{plugin_id: plugin_id}, context) when is_binary(plugin_id) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, entry} <- PluginRegistry.lookup(plugin_id) do
       plugin = detail(entry)
 
@@ -48,7 +48,7 @@ defmodule AllbertAssist.Actions.Plugins.ShowPlugin do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     denied(nil, permission_decision, :invalid_params)
   end
 

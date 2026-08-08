@@ -33,14 +33,15 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.ClaimLifecycle
   alias AllbertAssist.Memory.Review
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Context.user_id(params, context) do
       dispatch(params, user_id, context, permission_decision)
     else
@@ -215,7 +216,7 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        candidates: [],
        actions: [action(:denied, permission_decision, nil)]

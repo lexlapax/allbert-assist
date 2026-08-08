@@ -184,7 +184,7 @@ defmodule AllbertAssist.CLI.Areas.Sessions do
   end
 
   # Mutations (clear, sweep) ride the one spine: `Runner.run` enforces the
-  # PermissionGate + audit around the `Session` call. Identity is server-derived
+  # Security Central + audit around the `Session` call. Identity is server-derived
   # from the CLI context, not the caller's params.
   defp gated_action(action, params, ctx, identity) do
     case Runner.run(action, params, action_context(ctx, identity)) do

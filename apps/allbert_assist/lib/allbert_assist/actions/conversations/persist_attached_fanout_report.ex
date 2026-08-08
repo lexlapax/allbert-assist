@@ -43,7 +43,8 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReport do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :conversation_write
   @action_name "persist_attached_fanout_report"
@@ -51,9 +52,9 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReport do
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Identity.user_id(%{}, context),
          {:ok, thread_id} <- required_param(params, :thread_id, :missing_thread_id),
          {:ok, parent_id} <- required_param(params, :parent_id, :missing_parent_id),
@@ -168,7 +169,7 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReport do
   defp denied_response(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [
         %{

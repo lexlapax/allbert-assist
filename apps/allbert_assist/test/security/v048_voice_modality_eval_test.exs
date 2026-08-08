@@ -11,7 +11,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
@@ -110,7 +110,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert stt.profile.media["deployment_mode"] == "local_endpoint"
 
     remote =
-      PermissionGate.authorize(:voice_transcribe, %{
+      Security.authorize(:voice_transcribe, %{
         provider_deployment_mode: :remote_credentialed
       })
 
@@ -216,14 +216,14 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     refute File.exists?(Path.join(home, "audio"))
 
     remote_transcribe =
-      PermissionGate.authorize(:voice_transcribe, %{
+      Security.authorize(:voice_transcribe, %{
         provider_deployment_mode: :remote_credentialed
       })
 
     assert remote_transcribe.decision == :needs_confirmation
 
     remote_synthesis =
-      PermissionGate.authorize(:voice_synthesize, %{
+      Security.authorize(:voice_synthesize, %{
         model_profile: %{media: %{"deployment_mode" => "remote_credentialed"}}
       })
 

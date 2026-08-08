@@ -31,13 +31,14 @@ defmodule AllbertAssist.Actions.Memory.ReviewMemoryProposalBatch do
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory.ProposalReview
   alias AllbertAssist.Memory.Proposals
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission = PermissionGate.authorize(:memory_write, context)
+    permission = Security.authorize(:memory_write, context)
 
-    with true <- PermissionGate.allowed?(permission),
+    with true <- Security.allowed?(permission),
          {:ok, user_id} <- Context.user_id(params, context),
          actor <- "operator:" <> user_id,
          {:ok, batch_id} <- batch_id(params, user_id, actor),
@@ -53,7 +54,11 @@ defmodule AllbertAssist.Actions.Memory.ReviewMemoryProposalBatch do
        }}
     else
       false ->
-        response(permission, PermissionGate.response_status(permission), permission.reason)
+        response(
+          permission,
+          Response.permission_status(permission),
+          permission.reason
+        )
 
       {:error, reason} ->
         response(

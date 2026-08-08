@@ -21,14 +21,14 @@ defmodule AllbertAssist.Actions.Channels.SetupCheck do
 
   alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Channels
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.Secrets
 
   @impl true
   def run(%{channel: channel}, context) when is_binary(channel) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, descriptor} <- Channels.channel_descriptor(channel),
          {:ok, settings} <- Channels.channel_settings(channel) do
       setup = setup_check(channel, descriptor, settings)
@@ -56,7 +56,7 @@ defmodule AllbertAssist.Actions.Channels.SetupCheck do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     denied(nil, permission_decision, :invalid_params)
   end
 

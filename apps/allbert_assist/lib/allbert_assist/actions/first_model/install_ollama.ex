@@ -32,14 +32,15 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
     output_schema: :legacy_standard_response
 
   alias AllbertAssist.Actions.Support.ConfirmationRequest
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @install_script_url "https://ollama.com/install.sh"
   @script_placeholder "<tmp>/ollama-install.sh"
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:command_execute, context)
+    permission_decision = Security.authorize(:command_execute, context)
 
     cond do
       # dry_run is a pre-gate PREVIEW: it executes nothing and only echoes the
@@ -48,7 +49,7 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
       Map.get(params, :dry_run, false) ->
         dry_run(permission_decision)
 
-      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
+      not Security.allowed?(permission_decision) and not approval_resume?(context) ->
         request_or_deny(permission_decision, context)
 
       true ->
@@ -243,7 +244,7 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
         {:ok,
          %{
            message: permission_decision.reason,
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            actions: [action(:denied, permission_decision, %{executed: false})]
          }}

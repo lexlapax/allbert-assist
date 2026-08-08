@@ -28,13 +28,14 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteTemplateDraft do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Drafts.Store
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{id: id}, context) when is_binary(id) and id != "" do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, draft} <- Store.show_draft(id, kind: "template_backed"),
          :ok <- require_promotable(draft),
          {:ok, template} <- template_payload(draft),
@@ -51,7 +52,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteTemplateDraft do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     {:ok, denied(permission_decision, :id_required)}
   end
 
@@ -143,7 +144,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteTemplateDraft do
   end
 
   defp denied_status(permission_decision, :permission_denied),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
   defp denied_status(_permission_decision, _reason), do: :denied
 

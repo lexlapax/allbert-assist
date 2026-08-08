@@ -26,16 +26,16 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Runs.Scheduler
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(%{id: id} = params, context) do
-    permission_decision = PermissionGate.authorize(:confirmation_decide, context)
+    permission_decision = Security.authorize(:confirmation_decide, context)
     reason = Map.get(params, :reason)
 
     cond do
-      not PermissionGate.allowed?(permission_decision) ->
+      not Security.allowed?(permission_decision) ->
         Context.denied(
           "deny_confirmation",
           :confirmation_decide,

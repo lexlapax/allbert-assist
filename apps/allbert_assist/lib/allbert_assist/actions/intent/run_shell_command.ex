@@ -38,7 +38,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
@@ -52,7 +52,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:command_execute, context)
+    permission_decision = Security.authorize(:command_execute, context)
 
     {:ok,
      %{
@@ -75,7 +75,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
 
   defp run_allowed_spec(spec, params, context) do
     permission_decision =
-      PermissionGate.authorize(:command_execute, command_context(spec, context))
+      Security.authorize(:command_execute, command_context(spec, context))
 
     cond do
       permission_decision.decision == :denied ->
@@ -91,7 +91,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
 
   defp denied_spec_response(spec, context) do
     permission_decision =
-      PermissionGate.authorize(:command_execute, command_context(spec, context))
+      Security.authorize(:command_execute, command_context(spec, context))
 
     denied_response(spec, permission_decision, spec.denial_reason)
   end

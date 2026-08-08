@@ -25,16 +25,17 @@ defmodule AllbertAssist.Actions.Workspace.ManageTile do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Workspace
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
+    permission_decision = Security.authorize(:workspace_canvas_write, context)
     user_id = field(params, :user_id) || field(context, :user_id) || field(context, :actor)
     thread_id = field(params, :thread_id) || field(context, :thread_id)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          user_id when is_binary(user_id) and user_id != "" <- user_id,
          {:ok, tile_id} <- required_string(params, :tile_id),
          {:ok, operation} <- operation(params),
@@ -60,7 +61,7 @@ defmodule AllbertAssist.Actions.Workspace.ManageTile do
   end
 
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
+    permission_decision = Security.authorize(:workspace_canvas_write, context)
     {:ok, denied(params, permission_decision, :invalid_params)}
   end
 
@@ -150,7 +151,9 @@ defmodule AllbertAssist.Actions.Workspace.ManageTile do
   defp operation_label(:restore), do: "Restored"
 
   defp denied_status(%{decision: :allowed}), do: :denied
-  defp denied_status(permission_decision), do: PermissionGate.response_status(permission_decision)
+
+  defp denied_status(permission_decision),
+    do: Response.permission_status(permission_decision)
 
   defp required_string(map, key) do
     case field(map, key) do

@@ -34,20 +34,20 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Conversations.UnifiedHistory
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @permission :conversation_write
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     params =
       params
       |> put_context_user_id(context)
       |> maybe_mark_confirmed(context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, resume} <- UnifiedHistory.resume_thread_on_channel(params) do
       {:ok,
        %{
@@ -69,7 +69,7 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     denied(%{}, permission_decision, :invalid_params)
   end
 

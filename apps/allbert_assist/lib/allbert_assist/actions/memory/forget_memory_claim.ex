@@ -34,13 +34,14 @@ defmodule AllbertAssist.Actions.Memory.ForgetMemoryClaim do
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory.Forget
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
-    decision = PermissionGate.authorize(:memory_write, context)
+    decision = Security.authorize(:memory_write, context)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          {:ok, claim_id} <- required(value(params, :claim_id), :missing_claim_id),
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, reason_code} <- reason_code(value(params, :reason_code)) do
@@ -56,7 +57,7 @@ defmodule AllbertAssist.Actions.Memory.ForgetMemoryClaim do
   end
 
   def run(_params, context),
-    do: error(PermissionGate.authorize(:memory_write, context), :missing_claim_id)
+    do: error(Security.authorize(:memory_write, context), :missing_claim_id)
 
   defp preview(claim_id, user_id, reason_code, context, decision) do
     actor = Map.get(context, :actor, user_id)
@@ -170,7 +171,7 @@ defmodule AllbertAssist.Actions.Memory.ForgetMemoryClaim do
     {:ok,
      %{
        message: decision.reason,
-       status: PermissionGate.response_status(decision),
+       status: Response.permission_status(decision),
        permission_decision: decision,
        actions: [action(:denied, decision, nil, nil)]
      }}

@@ -28,15 +28,16 @@ defmodule AllbertAssist.Actions.Coding.Grep do
   alias AllbertAssist.Coding.Search
   alias AllbertAssist.Coding.SessionGuard
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
     with {:ok, context} <- SessionGuard.ensure_active(context) do
       permission_decision =
-        PermissionGate.authorize(:coding_file_read, action_context(params, context))
+        Security.authorize(:coding_file_read, action_context(params, context))
 
-      if PermissionGate.allowed?(permission_decision) do
+      if Security.allowed?(permission_decision) do
         run_grep(params, permission_decision, context)
       else
         blocked_response(permission_decision)
@@ -123,12 +124,12 @@ defmodule AllbertAssist.Actions.Coding.Grep do
      %{
        message:
          "Coding grep did not run: permission gate returned #{permission_decision.decision}.",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [
          %{
            name: "grep",
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission: :coding_file_read,
            permission_decision: permission_decision,
            execution: :not_started

@@ -31,15 +31,16 @@ defmodule AllbertAssist.Actions.Workspace.RecordOfflineUpdate do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Workspace
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
+    permission_decision = Security.authorize(:workspace_canvas_write, context)
     user_id = field(context, :user_id) || field(context, :actor) || field(params, :user_id)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          user_id when is_binary(user_id) and user_id != "" <- user_id,
          {:ok, result} <- Workspace.record_offline_update(Map.put(params, :user_id, user_id)) do
       {:ok, completed(result, permission_decision)}
@@ -62,7 +63,7 @@ defmodule AllbertAssist.Actions.Workspace.RecordOfflineUpdate do
   end
 
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
+    permission_decision = Security.authorize(:workspace_canvas_write, context)
     {:ok, denied(params, permission_decision, :invalid_params)}
   end
 
@@ -118,7 +119,9 @@ defmodule AllbertAssist.Actions.Workspace.RecordOfflineUpdate do
   end
 
   defp denied_status(%{decision: :allowed}), do: :denied
-  defp denied_status(permission_decision), do: PermissionGate.response_status(permission_decision)
+
+  defp denied_status(permission_decision),
+    do: Response.permission_status(permission_decision)
 
   defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

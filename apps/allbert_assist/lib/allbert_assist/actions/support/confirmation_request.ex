@@ -13,7 +13,7 @@ defmodule AllbertAssist.Actions.Support.ConfirmationRequest do
   """
 
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
 
   @doc """
   Given a permission decision and the target-action attrs, either persist a
@@ -25,7 +25,7 @@ defmodule AllbertAssist.Actions.Support.ConfirmationRequest do
   @spec resolve(map(), map(), map()) ::
           {:needs_confirmation, map()} | :denied | :allowed
   def resolve(permission_decision, attrs, context) do
-    case PermissionGate.response_status(permission_decision) do
+    case Response.permission_status(permission_decision) do
       :needs_confirmation ->
         {:ok, confirmation} =
           Confirmations.create(

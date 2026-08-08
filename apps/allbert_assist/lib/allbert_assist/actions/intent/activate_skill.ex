@@ -27,12 +27,13 @@ defmodule AllbertAssist.Actions.Intent.ActivateSkill do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Skills
 
   @impl true
   def run(%{name: name}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     case Skills.activate(name, context) do
       {:ok, activation} ->
@@ -41,7 +42,7 @@ defmodule AllbertAssist.Actions.Intent.ActivateSkill do
         {:ok,
          %{
            message: activation.instructions,
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            activation: activation,
            actions: [

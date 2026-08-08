@@ -29,13 +29,13 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
   alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Runtime.Response
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:objective_write, context)
+    permission_decision = Security.authorize(:objective_write, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- user_id(params, context),
          {:ok, objective_id} <- objective_id(params),
          {:ok, objective} <- Objectives.get_objective(user_id, objective_id),

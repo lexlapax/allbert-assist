@@ -21,18 +21,19 @@ defmodule AllbertAssist.Actions.Confirmations.ShowConfirmation do
 
   alias AllbertAssist.Actions.Confirmations.Context
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{id: id}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     case Confirmations.read(id) do
       {:ok, record} ->
         {:ok,
          %{
            message: "Confirmation #{id}: #{record["status"]}.",
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            confirmation: Confirmations.redact_for_output(record),
            actions: [

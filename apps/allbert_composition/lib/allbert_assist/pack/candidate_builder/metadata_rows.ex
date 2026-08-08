@@ -20,7 +20,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
   @spec build(Closed.t(), AppSnapshot.t(), PluginSnapshot.t(), keyword()) ::
           {:ok, RowFamilies.t()} | {:error, [ValidationDiagnostic.t()]}
   def build(
-        %Closed{},
+        %Closed{} = closed,
         %AppSnapshot{schema_version: 1, entries: apps},
         %PluginSnapshot{schema_version: 1, entries: plugins},
         opts
@@ -28,7 +28,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
       when is_list(apps) and is_list(plugins) and is_list(opts) do
     with {:ok, owners} <- owner_index(apps, plugins),
          {:ok, settings, surfaces, skills, intents} <-
-           build_independent_families(apps, plugins, owners, opts),
+           build_independent_families(closed, apps, plugins, owners, opts),
          {:ok, bindings} <- binding_index(Keyword.get(opts, :action_bindings, [])),
          {:ok, app_rows} <-
            app_rows(
@@ -61,10 +61,10 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
 
   def build(_closed, _apps, _plugins, _opts), do: {:error, [diagnostic(:invalid_metadata_input)]}
 
-  defp build_independent_families(apps, plugins, owners, opts) do
+  defp build_independent_families(closed, apps, plugins, owners, opts) do
     [
       fn ->
-        with {:ok, fragments} <- settings_fragments(apps, plugins, opts),
+        with {:ok, fragments} <- settings_fragments(closed, apps, plugins, opts),
              do: settings_rows(fragments, owners)
       end,
       fn -> surface_rows(apps, owners) end,
@@ -102,10 +102,10 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
     end)
   end
 
-  defp settings_fragments(apps, plugins, opts) do
+  defp settings_fragments(closed, apps, plugins, opts) do
     case Keyword.fetch(opts, :settings_fragments) do
       {:ok, fragments} when is_list(fragments) -> {:ok, fragments}
-      :error -> SettingsFragments.candidate_fragments(apps, plugins)
+      :error -> SettingsFragments.candidate_fragments(closed, apps, plugins)
       _ -> {:error, [diagnostic(:invalid_settings_fragments)]}
     end
   end

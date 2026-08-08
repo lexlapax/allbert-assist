@@ -30,7 +30,10 @@ defmodule AllbertComposition.MixProject do
   end
 
   def application do
-    [mod: {AllbertComposition.Application, []}]
+    [
+      mod: {AllbertComposition.Application, []},
+      env: [allbert_gate_owner_manifests: [AllbertComposition.GateOwnerManifest]]
+    ]
   end
 
   defp deps do

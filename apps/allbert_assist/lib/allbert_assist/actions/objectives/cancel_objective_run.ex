@@ -26,19 +26,19 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.Cancel
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @tiers %{cooperative: 1, supervised: 2, os_kill: 3}
   @cancellable_statuses ~w[open running blocked]
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:objective_write, context)
+    decision = Security.authorize(:objective_write, context)
     objective_id = field(params, :objective_id)
     user_id = field(context, :user_id) || field(params, :user_id)
     reason = field(params, :reason)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          {:ok, objective} <- Objectives.get_objective(objective_id),
          true <- objective.user_id == user_id,
          true <- is_binary(reason) and String.trim(reason) != "" do

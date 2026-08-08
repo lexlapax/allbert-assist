@@ -29,15 +29,16 @@ defmodule AllbertAssist.Actions.Sandbox.BuildBundle do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Sandbox
   alias AllbertAssist.Sandbox.Bundle
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:sandbox_trial, context)
+    permission_decision = Security.authorize(:sandbox_trial, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, bundle} <- Sandbox.build_bundle(params, sandbox_opts(context)) do
       summary = Bundle.summary(bundle)
 
@@ -61,7 +62,7 @@ defmodule AllbertAssist.Actions.Sandbox.BuildBundle do
   defp denied(permission_decision) do
     %{
       message: "Sandbox bundle build is denied by Security Central.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, %{})]
     }

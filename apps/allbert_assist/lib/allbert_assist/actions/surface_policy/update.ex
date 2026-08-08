@@ -27,7 +27,7 @@ defmodule AllbertAssist.Actions.SurfacePolicy.Update do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.SurfacePolicy
 
@@ -35,13 +35,13 @@ defmodule AllbertAssist.Actions.SurfacePolicy.Update do
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     surface = normalize_segment(Maps.field(params, :surface))
     action = normalize_segment(Maps.field(params, :action))
     policy_field = Maps.field(params, :field)
     value = parse_value(policy_field, Maps.field(params, :value))
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          :ok <- validate_field(policy_field),
          key <- "surface_policy.surfaces.#{surface}.#{action}.#{policy_field}",
          {:ok, setting} <- Settings.put(key, value, action_context(context, permission_decision)),

@@ -439,7 +439,6 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
       Enum.all?([:owner_scope, :receiver_account_ref, :provider_thread_key], &(&1 in fields))
   end
 
-  defp read!(relative) do
-    @repo_root |> Path.join(relative) |> File.read!()
-  end
+  defp read!(relative),
+    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
 end

@@ -25,13 +25,13 @@ defmodule AllbertAssist.Actions.Resources.RevokeResourceGrant do
   alias AllbertAssist.Maps
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Grants
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{id: id} = params, context) do
-    permission_decision = PermissionGate.authorize(:confirmation_decide, context)
+    permission_decision = Security.authorize(:confirmation_decide, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       revoke(id, params, context, permission_decision)
     else
       denied(permission_decision, :permission_denied)

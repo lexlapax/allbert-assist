@@ -22,11 +22,12 @@ defmodule AllbertAssist.Actions.Confirmations.ListConfirmations do
 
   alias AllbertAssist.Actions.Confirmations.Context
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     confirmations =
       params
@@ -37,7 +38,7 @@ defmodule AllbertAssist.Actions.Confirmations.ListConfirmations do
     {:ok,
      %{
        message: "Found #{length(confirmations)} confirmation request(s).",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        confirmations: confirmations,
        actions: [

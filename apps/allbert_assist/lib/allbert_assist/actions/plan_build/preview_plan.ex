@@ -22,16 +22,16 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
     output_schema: []
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Workflows
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     workflow_id = field(params, :workflow_id)
     plan_text = field(params, :plan_text)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, expanded} <- preview(params, workflow_id, plan_text, context) do
       output_data = %{preview: expanded.preview}
 

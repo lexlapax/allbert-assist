@@ -8,7 +8,8 @@ defmodule AllbertAssist.Actions.Jobs.Control do
 
   alias AllbertAssist.Actions.Jobs.Identity
   alias AllbertAssist.Jobs
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @doc """
   `operation` receives the ownership-scoped `%Job{}` and returns
@@ -18,9 +19,9 @@ defmodule AllbertAssist.Actions.Jobs.Control do
                                          {:ok, String.t()} | {:error, term()})) ::
           {:ok, map()}
   def run(action_name, params, context, operation) when is_function(operation, 1) do
-    permission_decision = PermissionGate.authorize(:job_write, context)
+    permission_decision = Security.authorize(:job_write, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Identity.user_id(params, context),
          {:ok, id} <- job_id(params),
          {:ok, job} <- Jobs.get_job(user_id, id),
@@ -46,7 +47,7 @@ defmodule AllbertAssist.Actions.Jobs.Control do
         {:ok,
          %{
            message: permission_decision.reason,
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            actions: [
              %{

@@ -1,10 +1,10 @@
 defmodule Mix.Tasks.Allbert.TestTaskTest do
   use ExUnit.Case, async: false
-  @moduletag :app_env_serial
+  @moduletag :external_runtime_serial
 
   import ExUnit.CaptureIO
 
-  alias AllbertAssist.DevGates.PhaseRunner
+  alias AllbertAssist.DevGates.{GateBaseline, GateOwners, PhaseRunner}
   alias Mix.Tasks.Allbert.Test, as: AllbertTestTask
 
   @v13_fanout_fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
@@ -254,6 +254,195 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert AllbertTestTask.owner_path_contract_issues(Path.expand("../../../../..", __DIR__)) ==
              []
+  end
+
+  test "gate owners originate in application and Pack contributions with an independent census" do
+    root = repo_root()
+    records = GateOwners.load!(root)
+
+    assert length(records) == 14
+
+    assert MapSet.new(records, & &1.owner_id) ==
+             MapSet.new(
+               ~w[kernel composition web core stocksage telegram email discord slack matrix whatsapp signal notes_files artifacts]a
+             )
+
+    assert Enum.all?(records, fn owner ->
+             Map.keys(owner) |> Enum.sort() ==
+               ~w[aggregate_policy allowed_primary_lanes application cwd historical_metrics_aliases owner_id production_source_roots target_resolver test_roots test_support_roots]a
+               |> Enum.sort()
+           end)
+
+    independent = GateOwners.independent_test_files(root)
+    inventory = AllbertTestTask.inventory_records()
+    inventory_by_path = Map.new(inventory, &{&1.path, &1})
+    assert length(independent) == length(inventory)
+
+    assert Enum.all?(independent, fn path ->
+             GateOwners.owner_for_test_path!(records, path).owner_id ==
+               Map.fetch!(inventory_by_path, path).owner
+           end)
+
+    task_source =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+
+    refute task_source =~ "@owner_contract"
+    refute task_source =~ "@owner_order"
+    assert length(Regex.scan(~r/cwd = release_step_cwd\(step\)/, task_source)) == 42
+    assert length(Regex.scan(~r/resolve_release_step_args\(step, cwd\)/, task_source)) == 43
+  end
+
+  test "pre-M7 release definitions, target multiplicity, owners, and path dispositions are exact" do
+    definitions = AllbertTestTask.all_release_step_definitions()
+
+    assert map_size(definitions) == 42
+    assert :ok = GateBaseline.verify!(repo_root(), definitions)
+
+    fixture =
+      Path.join(repo_root(), "apps/allbert_assist/test/fixtures/v1.4/m7_gate_path_baseline.json")
+      |> File.read!()
+      |> Jason.decode!()
+
+    assert fixture["base_git_sha"] == "7ae566f59"
+    assert length(fixture["path_references"]) == 297
+    assert Enum.all?(fixture["path_references"], & &1["disposition"])
+  end
+
+  test "gate-owner projection loads without code-path mutation from every owner CWD" do
+    root = repo_root()
+    build = Path.join([root, "_build", "test", "lib"])
+
+    kernel_ebin = Path.join([build, "allbert_kernel", "ebin"])
+    core_ebin = Path.join([build, "allbert_assist", "ebin"])
+
+    expression = """
+    root = #{inspect(root)}
+    before = :code.get_path()
+    records = AllbertAssist.DevGates.GateOwners.load!(root)
+    source = AllbertAssist.DevGates.GateOwners.read_owned_path!(root, "apps/allbert_assist/lib/allbert_assist/security.ex")
+    true = length(records) == 14
+    true = String.contains?(source, "defmodule AllbertAssist.Security")
+    true = before == :code.get_path()
+    IO.puts("gate-owner-cwd-ok")
+    """
+
+    for cwd <-
+          ~w[apps/allbert_kernel apps/allbert_assist apps/allbert_composition apps/allbert_assist_web] do
+      {output, status} =
+        System.cmd("elixir", ["-pa", kernel_ebin, "-pa", core_ebin, "-e", expression],
+          cd: Path.join(root, cwd),
+          env: [{"MIX_ENV", "test"}],
+          stderr_to_stdout: true
+        )
+
+      assert status == 0, "#{cwd} failed:\n#{output}"
+      assert output =~ "gate-owner-cwd-ok"
+    end
+  end
+
+  test "independent production census owns every source file and rejects nested overlaps" do
+    root = repo_root()
+    applications = GateOwners.application_census!(root)
+    records = GateOwners.load!(root)
+    core = Enum.find(records, &(&1.owner_id == :core))
+
+    assert "plugins/allbert.browser/lib" in core.production_source_roots
+    assert "plugins/allbert.research/lib" in core.production_source_roots
+    assert "plugins/allbert.tui/lib" in core.production_source_roots
+
+    assert GateOwners.independent_production_files(root) != []
+
+    without_browser = %{
+      core
+      | production_source_roots:
+          Enum.reject(core.production_source_roots, &(&1 == "plugins/allbert.browser/lib"))
+    }
+
+    assert_raise ArgumentError,
+                 ~r/unowned production file: plugins\/allbert\.browser\/lib\//,
+                 fn ->
+                   GateOwners.validate!(
+                     [without_browser | List.delete(records, core)],
+                     root,
+                     applications
+                   )
+                 end
+
+    [other | _] = Enum.reject(records, &(&1.owner_id == :core))
+    overlapping = %{other | production_source_roots: ["apps/allbert_assist/lib/allbert_assist"]}
+
+    assert_raise ArgumentError, ~r/overlapping production source roots/, fn ->
+      GateOwners.validate!([overlapping | List.delete(records, other)], root, applications)
+    end
+  end
+
+  test "gate-owner validation fails closed on missing and duplicate owners" do
+    root = repo_root()
+    applications = GateOwners.application_census!(root)
+    records = GateOwners.load!(root)
+
+    without_artifacts = Enum.reject(records, &(&1.owner_id == :artifacts))
+
+    assert_raise ArgumentError, ~r/unowned test file: plugins\/allbert\.artifacts\/test\//, fn ->
+      GateOwners.validate!(without_artifacts, root, applications)
+    end
+
+    [first | _rest] = records
+
+    assert_raise ArgumentError, ~r/owner id artifacts is contributed 2 times/, fn ->
+      GateOwners.validate!([first | records], root, applications)
+    end
+  end
+
+  test "historical test targets follow a logical test into a new owner root" do
+    root = temp_path("gate-owner-move")
+    old_cwd = Path.join(root, "apps/old")
+    moved = Path.join(root, "apps/new/test/example/moved_test.exs")
+    File.mkdir_p!(Path.dirname(moved))
+    File.write!(moved, "defmodule Example.MovedTest do\nend\n")
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    owner = %{
+      owner_id: :new,
+      application: :new,
+      cwd: "apps/new",
+      production_source_roots: ["apps/new/lib"],
+      test_roots: ["apps/new/test"],
+      test_support_roots: [],
+      allowed_primary_lanes: [:pure_async],
+      aggregate_policy: :mix_test,
+      target_resolver: {AllbertAssist.DevGates.GateTargetResolver, :resolve},
+      historical_metrics_aliases: ["old", "new"]
+    }
+
+    assert %{
+             owner_id: :new,
+             path: "apps/new/test/example/moved_test.exs"
+           } =
+             GateOwners.resolve_test_target!(
+               [owner],
+               "test/example/moved_test.exs",
+               old_cwd,
+               root
+             )
+
+    File.mkdir_p!(Path.join(root, "apps/second/test/example"))
+    File.write!(Path.join(root, "apps/second/test/example/moved_test.exs"), "duplicate\n")
+    second = %{owner | owner_id: :second, cwd: "apps/second", test_roots: ["apps/second/test"]}
+
+    assert_raise ArgumentError, ~r/duplicate gate test target/, fn ->
+      GateOwners.resolve_test_target!(
+        [owner, second],
+        "test/example/moved_test.exs",
+        old_cwd,
+        root
+      )
+    end
+
+    assert_raise ArgumentError, ~r/unresolved gate test target/, fn ->
+      GateOwners.resolve_test_target!([owner], "test/example/missing_test.exs", old_cwd, root)
+    end
   end
 
   test "serial-owner rejects unknown owners and lanes outside the checked owner contract" do

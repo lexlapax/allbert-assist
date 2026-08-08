@@ -33,11 +33,11 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RollbackIntegration do
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.MetadataStore
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:dynamic_integration, context)
+    permission_decision = Security.authorize(:dynamic_integration, context)
     slug = Map.get(params, :slug) || Map.get(params, "slug")
     revision = Map.get(params, :revision) || Map.get(params, "revision")
 
@@ -57,7 +57,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RollbackIntegration do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:dynamic_integration, context)
+    permission_decision = Security.authorize(:dynamic_integration, context)
     denied(permission_decision, :invalid_params)
   end
 

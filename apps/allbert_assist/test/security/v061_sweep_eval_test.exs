@@ -134,5 +134,5 @@ defmodule AllbertAssist.Security.V061SweepEvalTest do
              )
   end
 
-  defp read!(rel), do: File.read!(Path.join(@repo_root, rel))
+  defp read!(rel), do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, rel)
 end

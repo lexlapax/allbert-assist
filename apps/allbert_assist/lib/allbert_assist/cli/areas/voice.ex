@@ -69,7 +69,7 @@ defmodule AllbertAssist.CLI.Areas.Voice do
   end
 
   # `ensure_token!` persists a fresh token on first use (a mutation), so it goes
-  # on-spine through the Runner (PermissionGate + audit) rather than a direct
+  # on-spine through the Runner (Security Central + audit) rather than a direct
   # `Auth.ensure_token!/0` call. The action returns the raw token under a
   # `token`-named field (redacted in logs/audit) for the CLI to print.
   defp route(["token"], ctx) do

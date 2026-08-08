@@ -35,7 +35,7 @@ defmodule AllbertAssist.Actions.Mcp.CallTool do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @permission :mcp_tool_call
 
@@ -47,7 +47,7 @@ defmodule AllbertAssist.Actions.Mcp.CallTool do
     do: run_tool(params, context)
 
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     {:ok,
      denied(
@@ -59,7 +59,7 @@ defmodule AllbertAssist.Actions.Mcp.CallTool do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     {:ok, denied(nil, nil, permission_decision, :invalid_params)}
   end
 
@@ -67,7 +67,7 @@ defmodule AllbertAssist.Actions.Mcp.CallTool do
     server_id = field(params, :server_id)
     tool_name = field(params, :tool_name)
     arguments = field(params, :arguments, %{})
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     with false <- permission_decision.decision == :denied,
          {:ok, config} <- ServerConfig.resolve(server_id),

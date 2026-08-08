@@ -20,13 +20,14 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctor do
     ]
 
   alias AllbertAssist.Channels.Email.Doctor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, result} <- Doctor.diagnose() do
       {:ok, completed(result, permission_decision)}
     else
@@ -57,7 +58,7 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctor do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       doctor: %{},
       diagnostics: [],
       permission_decision: permission_decision,

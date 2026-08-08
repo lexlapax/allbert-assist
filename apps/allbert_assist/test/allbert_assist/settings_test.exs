@@ -6,6 +6,7 @@ defmodule AllbertAssist.SettingsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.FragmentOwner
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.ProviderCatalog
@@ -49,6 +50,104 @@ defmodule AllbertAssist.SettingsTest do
         }
       ]
     end
+  end
+
+  defmodule MissingDefaultFragmentOwner do
+    @behaviour AllbertAssist.Settings.FragmentOwner
+
+    @impl true
+    def fragment do
+      AllbertAssist.Settings.Fragment.new!(%{
+        id: "core:missing_default_fixture",
+        owner: "missing_default_fixture",
+        source: :core,
+        schema: %{
+          "missing_default_fixture.enabled" => %{
+            type: :boolean,
+            writable?: true,
+            sensitive?: false
+          }
+        },
+        defaults: %{"missing_default_fixture" => %{"enabled" => false}},
+        safe_write_keys: []
+      })
+    end
+
+    @impl true
+    def safe_write_rows, do: []
+  end
+
+  defmodule MismatchedDefaultFragmentOwner do
+    @behaviour AllbertAssist.Settings.FragmentOwner
+
+    @impl true
+    def fragment do
+      AllbertAssist.Settings.Fragment.new!(%{
+        id: "core:mismatched_default_fixture",
+        owner: "mismatched_default_fixture",
+        source: :core,
+        schema: %{
+          "mismatched_default_fixture.enabled" => %{
+            type: :boolean,
+            default: false,
+            writable?: true,
+            sensitive?: false
+          }
+        },
+        defaults: %{"mismatched_default_fixture" => %{"enabled" => true}},
+        safe_write_keys: []
+      })
+    end
+
+    @impl true
+    def safe_write_rows, do: []
+  end
+
+  defmodule UndeclaredDynamicDefaultFragmentOwner do
+    @behaviour AllbertAssist.Settings.FragmentOwner
+
+    @impl true
+    def fragment do
+      AllbertAssist.Settings.Fragment.new!(%{
+        id: "core:undeclared_dynamic_fixture",
+        owner: "undeclared_dynamic_fixture",
+        source: :core,
+        schema: %{
+          "undeclared_dynamic_fixture.enabled" => %{
+            type: :boolean,
+            default: false,
+            writable?: true,
+            sensitive?: false
+          }
+        },
+        defaults: %{
+          "undeclared_dynamic_fixture" => %{"enabled" => false, "mode" => "extra"}
+        },
+        safe_write_keys: []
+      })
+    end
+
+    @impl true
+    def safe_write_rows, do: []
+  end
+
+  defmodule UndeclaredSupplementalWriteFragmentOwner do
+    @behaviour AllbertAssist.Settings.FragmentOwner
+
+    @impl true
+    def fragment do
+      AllbertAssist.Settings.Fragment.new!(%{
+        id: "core:undeclared_supplemental_write_fixture",
+        owner: "undeclared_supplemental_write_fixture",
+        source: :core,
+        schema: %{},
+        defaults: %{},
+        safe_write_keys: []
+      })
+    end
+
+    @impl true
+    def safe_write_rows, do: [{999, "undeclared_supplemental_write_fixture.*"}]
   end
 
   setup do
@@ -1777,6 +1876,172 @@ defmodule AllbertAssist.SettingsTest do
     assert get_in(workspace.defaults, ["workspace", "theme", "mode"]) == "system"
 
     assert {:ok, ^workspace} = Fragments.fragment_for_key("workspace.theme.mode")
+
+    provenance = Fragments.provenance()["workspace.theme.mode"]
+    assert provenance.fragment_id == "core:workspace"
+    assert provenance.owner == "workspace"
+    assert provenance.source == :core
+    assert provenance.pack_id == "allbert_assist"
+    assert provenance.application == :allbert_assist
+    assert provenance.owner_module == AllbertAssist.Settings.FragmentOwners.Workspace
+  end
+
+  test "pack-owned fragments preserve the complete M0 settings projection" do
+    frozen =
+      Path.expand("../fixtures/v1.4/m0_registry_ledger.json", __DIR__)
+      |> File.read!()
+      |> Jason.decode!()
+      |> get_in(["payload", "settings"])
+
+    current_fragments =
+      Fragments.registered_fragments()
+      |> Enum.with_index(1)
+      |> Enum.map(fn {fragment, index} ->
+        fragment
+        |> Map.from_struct()
+        |> Map.put(:index, index)
+      end)
+
+    assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(current_fragments) ==
+             AllbertAssist.DevGates.V14M0RegistryLedger.digest(frozen["fragments"])
+
+    assert Fragments.safe_write_keys() == frozen["safe_write_rows"]
+
+    assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(Fragments.schema()) ==
+             frozen["effective_schema_sha256"]
+
+    assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(Fragments.defaults()) ==
+             frozen["effective_defaults_sha256"]
+  end
+
+  test "owner provenance distinguishes dynamic defaults from safe-write patterns" do
+    provenance = Fragments.provenance()
+
+    assert %{
+             kind: :dynamic_default,
+             declaration: "providers.*.enabled",
+             owner_module: AllbertAssist.Settings.FragmentOwners.ModelPreferences
+           } = provenance["providers.local_ollama.enabled"]
+
+    assert %{
+             kind: :safe_write_pattern,
+             owner_module: AllbertAssist.Settings.FragmentOwners.ModelPreferences
+           } = provenance["providers.*.enabled"]
+
+    assert %{
+             kind: :dynamic_default,
+             declaration: "agents.primary_intent.*",
+             owner_module: AllbertAssist.Settings.FragmentOwners.Intent
+           } = provenance["agents.primary_intent.type"]
+
+    refute Map.has_key?(Fragments.schema(), "providers.*.enabled")
+  end
+
+  test "fragment owners reject schema rows without a complete contract" do
+    assert {:error,
+            {:invalid_settings_fragment_schema_entry, MissingDefaultFragmentOwner,
+             "missing_default_fixture.enabled", :missing_default}} =
+             FragmentOwner.validate_owner(
+               "fixture",
+               :allbert_assist,
+               MissingDefaultFragmentOwner
+             )
+  end
+
+  test "fragment owners reject defaults that disagree with their schema" do
+    assert {:error,
+            {:settings_fragment_default_mismatch, MismatchedDefaultFragmentOwner,
+             "mismatched_default_fixture.enabled"}} =
+             FragmentOwner.validate_owner(
+               "fixture",
+               :allbert_assist,
+               MismatchedDefaultFragmentOwner
+             )
+  end
+
+  test "fragment owners reject dynamic defaults without an explicit declaration" do
+    assert {:error,
+            {:undeclared_settings_dynamic_defaults, UndeclaredDynamicDefaultFragmentOwner,
+             ["undeclared_dynamic_fixture.mode"]}} =
+             FragmentOwner.validate_owner(
+               "fixture",
+               :allbert_assist,
+               UndeclaredDynamicDefaultFragmentOwner
+             )
+  end
+
+  test "fragment owners reject supplemental writes without an explicit declaration" do
+    assert {:error,
+            {:settings_safe_write_key_mismatch, UndeclaredSupplementalWriteFragmentOwner,
+             %{
+               missing: [],
+               unexpected: ["undeclared_supplemental_write_fixture.*"]
+             }}} =
+             FragmentOwner.validate_owner(
+               "fixture",
+               :allbert_assist,
+               UndeclaredSupplementalWriteFragmentOwner
+             )
+  end
+
+  test "fragment ownership rejects omitted owners and duplicate ids or keys" do
+    owner_modules = AllbertAssist.Pack.Residual.settings_fragments()
+    [omitted | incomplete] = owner_modules
+
+    assert {:error,
+            {:settings_fragment_owner_census_mismatch,
+             %{pack_id: "allbert_assist", missing: [^omitted], unexpected: []}}} =
+             AllbertAssist.Settings.FragmentOwner.resolve_pack(
+               "allbert_assist",
+               :allbert_assist,
+               incomplete
+             )
+
+    workspace = AllbertAssist.Settings.FragmentOwners.Workspace.fragment()
+
+    assert {:error, {:duplicate_settings_fragment_id, "core:workspace", claims}} =
+             Fragments.validate_ownership([workspace, workspace])
+
+    assert length(claims) == 2
+
+    competing = %{workspace | id: "core:competing", owner: "competing"}
+
+    assert {:error, {:duplicate_settings_key, _key, key_claims}} =
+             Fragments.validate_ownership([workspace, competing])
+
+    assert Enum.map(key_claims, & &1.id) == ["core:workspace", "core:competing"]
+  end
+
+  test "fragment ownership composition does not rewrite stored settings or bump versions", %{
+    home: home
+  } do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(
+               %{"operator" => %{"display_name" => "M5 parity"}},
+               [],
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
+    settings_path = Path.join([home, "settings", "settings.yml"])
+    stored_before = File.read!(settings_path)
+
+    versions_before =
+      AllbertAssist.Settings.VersionContract.inventory()
+      |> Enum.map(&{&1.fragment_id, &1.known_schema_version})
+
+    Fragments.clear_cache()
+    assert Fragments.provenance()["operator.display_name"].pack_id == "allbert_assist"
+    assert {:ok, "M5 parity"} = Settings.get("operator.display_name")
+
+    versions_after =
+      AllbertAssist.Settings.VersionContract.inventory()
+      |> Enum.map(&{&1.fragment_id, &1.known_schema_version})
+
+    assert File.read!(settings_path) == stored_before
+    assert versions_after == versions_before
+
+    assert {:ok, %{"operator" => %{"display_name" => "M5 parity"}}} =
+             Settings.read_user_settings()
   end
 
   test "memory review settings are writable and validate bounds" do

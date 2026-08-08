@@ -29,18 +29,19 @@ defmodule AllbertAssist.Actions.Intent.ReadRecentMemory do
     ]
 
   alias AllbertAssist.Memory
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
     query = Map.get(params, :query) || ""
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     {:ok, entries} = Memory.recent(query: query, limit: 5)
 
     {:ok,
      %{
        message: message(entries),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        memories: entries,
        actions: [

@@ -34,16 +34,17 @@ defmodule AllbertAssist.Actions.Channels.UnlinkChannelIdentity do
     ]
 
   alias AllbertAssist.Conversations.ChannelThread
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @attr_keys [:link_id, :channel, :receiver_account_ref, :external_user_id]
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     attrs = Map.take(params, @attr_keys)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, link} <- ChannelThread.unlink_identity(attrs) do
       {:ok,
        %{
@@ -72,7 +73,7 @@ defmodule AllbertAssist.Actions.Channels.UnlinkChannelIdentity do
   end
 
   defp denied_status(permission_decision, :permission_denied),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
   defp denied_status(_permission_decision, _reason), do: :denied
 

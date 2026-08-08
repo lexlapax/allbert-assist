@@ -1,11 +1,15 @@
 defmodule AllbertAssist.Actions.Intent.PlanShellCommand do
   @moduledoc """
+
   Plans shell work without executing it.
 
   This action is deliberately inert. It exists so the primary intent agent can
   handle command-shaped requests through an explicit capability instead of
   taking hidden side effects.
   """
+
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   use AllbertAssist.Action,
     registry_order: 7,
@@ -24,19 +28,17 @@ defmodule AllbertAssist.Actions.Intent.PlanShellCommand do
     ],
     output_schema: :legacy_standard_response
 
-  alias AllbertAssist.Security.PermissionGate
-
   @impl true
   def run(%{command: command} = params, context) do
     command = String.trim(command)
     destructive? = destructive_command?(command)
-    plan_decision = PermissionGate.authorize(:command_plan, context)
-    execute_decision = PermissionGate.authorize(:command_execute, context)
+    plan_decision = Security.authorize(:command_plan, context)
+    execute_decision = Security.authorize(:command_execute, context)
 
     {:ok,
      %{
        message: message(command, destructive?, execute_decision),
-       status: PermissionGate.response_status(execute_decision),
+       status: Response.permission_status(execute_decision),
        permission_decision: execute_decision,
        actions: [
          %{

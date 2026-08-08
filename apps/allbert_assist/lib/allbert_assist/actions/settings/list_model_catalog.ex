@@ -20,11 +20,12 @@ defmodule AllbertAssist.Actions.Settings.ListModelCatalog do
     ]
 
   alias AllbertAssist.Models.Catalog
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:read_only, context)
+    decision = Security.authorize(:read_only, context)
     {:ok, catalog} = Catalog.list(context: context)
     purpose = field(params, :purpose)
     entries = filter_purpose(catalog.entries, purpose)
@@ -35,7 +36,7 @@ defmodule AllbertAssist.Actions.Settings.ListModelCatalog do
        message: message,
        model_payload: "Model catalog listing.",
        surface_payload: render(catalog.version, catalog.roles, entries),
-       status: PermissionGate.response_status(decision),
+       status: Response.permission_status(decision),
        version: catalog.version,
        roles: catalog.roles,
        entries: entries,

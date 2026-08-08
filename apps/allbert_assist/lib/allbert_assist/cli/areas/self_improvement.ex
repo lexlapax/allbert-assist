@@ -11,7 +11,7 @@ defmodule AllbertAssist.CLI.Areas.SelfImprovement do
 
   These subcommands are bounded reads plus one inert-draft discard. The reads stay
   direct; the discard routes through `AllbertAssist.Actions.Runner.run/3` (via the
-  `discard_self_improvement_draft` action) so the mutation clears PermissionGate +
+  `discard_self_improvement_draft` action) so the mutation clears Security Central +
   audit on the one spine (v0.62 M8.15).
   """
 

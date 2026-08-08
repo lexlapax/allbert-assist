@@ -25,7 +25,8 @@ defmodule AllbertAssistWeb.MixProject do
   def application do
     [
       mod: {AllbertAssistWeb.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools],
+      env: [allbert_gate_owner_manifests: [AllbertAssistWeb.GateOwnerManifest]]
     ]
   end
 

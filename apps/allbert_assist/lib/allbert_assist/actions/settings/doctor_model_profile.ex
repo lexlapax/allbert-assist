@@ -22,16 +22,17 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.ModelDoctor
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     profile = profile(params)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, result} <- ModelDoctor.diagnose(profile, context) do
       {:ok, completed(result, permission_decision)}
     else
@@ -75,7 +76,7 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
   defp denied(profile, permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       diagnostics: [],
       actions: [

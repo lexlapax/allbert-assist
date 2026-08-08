@@ -1,6 +1,9 @@
 defmodule AllbertAssist.Actions.Integrations.OpenGithubPanel do
   @moduledoc false
 
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
+
   use AllbertAssist.Action,
     registry_order: 41,
     permission: :read_only,
@@ -21,8 +24,6 @@ defmodule AllbertAssist.Actions.Integrations.OpenGithubPanel do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
-
   @action_name "open_github_panel"
   @destination "workspace:github"
 
@@ -30,9 +31,9 @@ defmodule AllbertAssist.Actions.Integrations.OpenGithubPanel do
   def run(_params, context), do: respond(context)
 
   defp respond(context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       {:ok,
        %{
          message: "Open the GitHub workspace panel.",
@@ -44,7 +45,7 @@ defmodule AllbertAssist.Actions.Integrations.OpenGithubPanel do
       {:ok,
        %{
          message: "GitHub panel handoff was denied.",
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          destination: @destination,
          actions: [action(:denied, permission_decision)]
        }}

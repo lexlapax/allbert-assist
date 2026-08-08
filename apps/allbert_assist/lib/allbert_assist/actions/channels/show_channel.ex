@@ -20,13 +20,13 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     ]
 
   alias AllbertAssist.Channels
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{channel: channel}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, settings} <- Channels.channel_settings(channel),
          summary <- Enum.find(Channels.list_channels(), &(&1.channel == channel)) do
       detail = detail(channel, settings, summary)
@@ -48,7 +48,7 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     denied(nil, permission_decision, :invalid_params)
   end
 

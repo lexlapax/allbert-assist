@@ -32,13 +32,13 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.MetadataStore
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @gate_passed_statuses ~w[completed passed]
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:dynamic_integration, context)
+    permission_decision = Security.authorize(:dynamic_integration, context)
     slug = Map.get(params, :slug) || Map.get(params, "slug")
 
     cond do
@@ -57,7 +57,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:dynamic_integration, context)
+    permission_decision = Security.authorize(:dynamic_integration, context)
     denied(permission_decision, :invalid_params)
   end
 

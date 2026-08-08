@@ -27,16 +27,17 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Tools.Source.Local
   alias AllbertAssist.Tools.ToolCandidate
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     query = query(params)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
         Local.search_with_diagnostics(query, %{context: context, limit: limit(params)})
 
@@ -49,7 +50,7 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
   defp completed(query, candidates, diagnostics, permission_decision) do
     %{
       message: "Found #{length(candidates)} local tool candidate(s) for #{inspect(query)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       candidates: Enum.map(candidates, &ToolCandidate.to_map/1),
       diagnostics: diagnostics,
@@ -66,7 +67,7 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
   defp denied(query, permission_decision, reason) do
     %{
       message: "Local tool discovery denied for #{inspect(query)}: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       candidates: [],
       diagnostics: [],

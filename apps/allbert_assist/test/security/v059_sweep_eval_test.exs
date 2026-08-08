@@ -15,7 +15,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
   alias AllbertAssist.Actions.Workspace.RevertTileRevision
   alias AllbertAssist.Channels.Identity, as: ChannelIdentity
   alias AllbertAssist.PublicProtocol.ExposureFilter
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
@@ -99,8 +99,10 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
       resumable?: true
     )
 
-    assert PermissionGate.authorize(:mcp_server_connect, %{}).decision == :needs_confirmation
-    assert PermissionGate.authorize(:mcp_tool_call, %{}).decision == :needs_confirmation
+    assert Security.authorize(:mcp_server_connect, %{}).decision ==
+             :needs_confirmation
+
+    assert Security.authorize(:mcp_tool_call, %{}).decision == :needs_confirmation
 
     assert Policy.safety_floor(:browser_session_start) == :needs_confirmation
     assert Policy.safety_floor(:browser_navigate) == :needs_confirmation
@@ -125,8 +127,12 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
       resumable?: true
     )
 
-    assert PermissionGate.authorize(:channel_message_send, %{}).decision == :needs_confirmation
-    assert PermissionGate.authorize(:channel_message_inbound, %{}).decision == :needs_confirmation
+    assert Security.authorize(:channel_message_send, %{}).decision ==
+             :needs_confirmation
+
+    assert Security.authorize(:channel_message_inbound, %{}).decision ==
+             :needs_confirmation
+
     assert ChannelIdentity.resolve("slack", "U123", []) == {:error, :not_mapped}
 
     assert public_exposable?("send_channel_message")
@@ -160,7 +166,9 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     )
 
     assert Policy.safety_floor(:workflow_run_start) == :needs_confirmation
-    assert PermissionGate.authorize(:workflow_run_start, %{}).decision == :needs_confirmation
+
+    assert Security.authorize(:workflow_run_start, %{}).decision ==
+             :needs_confirmation
 
     refute public_exposable?("start_plan_run")
     refute public_exposable?("plan_step_confirm")
@@ -268,7 +276,10 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     )
 
     assert Policy.safety_floor(:microphone_capture) == :needs_confirmation
-    assert PermissionGate.authorize(:microphone_capture, %{}).decision == :needs_confirmation
+
+    assert Security.authorize(:microphone_capture, %{}).decision ==
+             :needs_confirmation
+
     refute public_exposable?("capture_workspace_voice")
     refute public_exposable?("transcribe_voice")
   end
@@ -353,8 +364,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
         "apps/allbert_assist/lib/allbert_assist/actions/runner.ex",
         "apps/allbert_assist/lib/allbert_assist/actions/param_contract.ex"
       ]
-      |> Enum.map(&Path.join(@repo_root, &1))
-      |> Enum.map(&File.read!/1)
+      |> Enum.map(&AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, &1))
       |> Enum.join("\n")
 
     refute source =~ "String.to_atom"

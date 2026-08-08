@@ -32,7 +32,7 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Mcp.ServerTrust
   alias AllbertAssist.Repo
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.Discovery.EvaluationReport
@@ -42,7 +42,7 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
   @impl true
   def run(params, context) when is_map(params) do
     candidate_id = field(params, :candidate_id)
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     with candidate_id when is_binary(candidate_id) and candidate_id != "" <- candidate_id,
          false <- permission_decision.decision == :denied,
@@ -65,7 +65,7 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     {:ok, denied(nil, nil, permission_decision, :invalid_params)}
   end
 

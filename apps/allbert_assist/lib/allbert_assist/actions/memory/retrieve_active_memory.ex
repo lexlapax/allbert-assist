@@ -32,19 +32,20 @@ defmodule AllbertAssist.Actions.Memory.RetrieveActiveMemory do
     ]
 
   alias AllbertAssist.Memory.ActiveMemory
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{query: query} = params, context), do: do_run(query, params, context)
   def run(%{"query" => query} = params, context), do: do_run(query, params, context)
 
   def run(_params, context),
-    do: error(PermissionGate.authorize(:read_only, context), :missing_query)
+    do: error(Security.authorize(:read_only, context), :missing_query)
 
   defp do_run(query, params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, active_memory} <- ActiveMemory.retrieve(query, retrieval_opts(params, context)) do
       {:ok,
        %{
@@ -124,7 +125,7 @@ defmodule AllbertAssist.Actions.Memory.RetrieveActiveMemory do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        active_memory: active_memory,
        chunks: [],

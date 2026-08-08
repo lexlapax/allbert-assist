@@ -26,14 +26,15 @@ defmodule AllbertAssist.Actions.Mcp.EvaluateServer do
     ]
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Tools.Discovery
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:tool_discovery, context)
+    permission_decision = Security.authorize(:tool_discovery, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, manifest, metadata} <- manifest(params),
          {:ok, report} <- evaluate(params, context, manifest, metadata),
          {:ok, report} <- maybe_persist_report(params, report) do
@@ -98,7 +99,7 @@ defmodule AllbertAssist.Actions.Mcp.EvaluateServer do
   defp completed(report, metadata, permission_decision) do
     %{
       message: "Evaluated MCP server metadata.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       evaluation_report: report,
       actions: [
@@ -110,7 +111,7 @@ defmodule AllbertAssist.Actions.Mcp.EvaluateServer do
   defp denied(params, permission_decision, reason) do
     %{
       message: "MCP server metadata could not be evaluated: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       evaluation_report: %{},
       error: reason,

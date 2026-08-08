@@ -25,13 +25,14 @@ defmodule AllbertAssist.Actions.Channels.SignalLinkDevice do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Signal.Client
   alias AllbertAssist.Channels.Signal.Daemon
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{account: account} = params, context) when is_binary(account) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, settings} <- Channels.channel_settings("signal"),
          device_name <- Map.get(params, :device_name, "Allbert"),
          {:ok, result} <-
@@ -44,7 +45,7 @@ defmodule AllbertAssist.Actions.Channels.SignalLinkDevice do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     {:ok, failed(permission_decision, :invalid_params)}
   end
 
@@ -67,7 +68,7 @@ defmodule AllbertAssist.Actions.Channels.SignalLinkDevice do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       link_data: nil,
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, %{error: :permission_denied})]

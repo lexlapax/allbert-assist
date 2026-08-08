@@ -37,7 +37,7 @@ defmodule AllbertAssist.Actions.Mcp.ReadResource do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @permission :mcp_resource_read
 
@@ -45,9 +45,9 @@ defmodule AllbertAssist.Actions.Mcp.ReadResource do
   def run(params, context) when is_map(params) do
     server_id = field(params, :server_id)
     uri = field(params, :uri)
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, config} <- ServerConfig.resolve(server_id),
          {:ok, ref} <- resource_ref(config, uri, params) do
       cond do
@@ -67,7 +67,7 @@ defmodule AllbertAssist.Actions.Mcp.ReadResource do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     {:ok, denied(nil, nil, permission_decision, :invalid_params)}
   end
 

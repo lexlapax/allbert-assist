@@ -866,7 +866,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   end
 
   # Gated-action seams: every channel store/secret mutation goes through the
-  # Runner (PermissionGate + audit), never a direct store call.
+  # Runner (Security Central + audit), never a direct store call.
   defp configure_setting(ctx, channel, key, value) do
     completed_action(
       "configure_channel_setting",

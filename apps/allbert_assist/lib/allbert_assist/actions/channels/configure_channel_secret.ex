@@ -38,7 +38,8 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSecret do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
 
@@ -61,7 +62,7 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSecret do
   @impl true
   def run(%{channel: channel, credential: credential, secret_value: secret_value}, context)
       when is_binary(channel) and is_binary(credential) and is_binary(secret_value) do
-    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+    permission_decision = Security.authorize(:settings_secret_write, context)
 
     case Map.fetch(@credentials, {channel, credential}) do
       {:ok, {secret_ref, ref_key}} ->
@@ -87,7 +88,7 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSecret do
   end
 
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_secret_write, context)
+    permission_decision = Security.authorize(:settings_secret_write, context)
 
     {:ok,
      denied(
@@ -101,7 +102,7 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSecret do
   defp store(channel, credential, secret_ref, ref_key, secret_value, permission_decision, context) do
     write_context = action_context(context, permission_decision)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, _secret} <- Secrets.put_secret(secret_ref, secret_value, write_context),
          {:ok, _setting} <- Settings.put(ref_key, secret_ref, write_context) do
       {:ok,
@@ -147,7 +148,7 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSecret do
   end
 
   defp denied_status(permission_decision, :permission_denied),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
   defp denied_status(_permission_decision, _reason), do: :denied
 

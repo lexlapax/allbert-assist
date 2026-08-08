@@ -28,16 +28,16 @@ defmodule AllbertAssist.Actions.Templates.ScaffoldTemplate do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Templates.Scaffold
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:skill_write, context)
+    permission_decision = Security.authorize(:skill_write, context)
 
     with :ok <- ensure_create_enabled(),
-         true <- PermissionGate.allowed?(permission_decision),
+         true <- Security.allowed?(permission_decision),
          {:ok, scaffold} <-
            Scaffold.write(pattern_id(params), template_params(params), opts(params)) do
       {:ok,
@@ -55,7 +55,7 @@ defmodule AllbertAssist.Actions.Templates.ScaffoldTemplate do
   end
 
   def run(_params, context) do
-    {:ok, denied(PermissionGate.authorize(:skill_write, context), :invalid_params)}
+    {:ok, denied(Security.authorize(:skill_write, context), :invalid_params)}
   end
 
   defp ensure_create_enabled do

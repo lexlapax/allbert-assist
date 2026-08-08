@@ -9,11 +9,12 @@ defmodule AllbertAssist.PlanBuild do
 
   alias AllbertAssist.{Confirmations, Maps, Objectives, Workflows}
   alias AllbertAssist.PlanBuild.Runtime
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @spec start_plan_run(map(), map()) :: {:ok, map()} | {:error, term()}
   def start_plan_run(params, context) do
-    permission_decision = PermissionGate.authorize(:workflow_run_start, context)
+    permission_decision = Security.authorize(:workflow_run_start, context)
 
     with {:ok, expanded} <- expand_from_params(params, context) do
       cond do
@@ -162,7 +163,7 @@ defmodule AllbertAssist.PlanBuild do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, %{error: :permission_denied})]
     }

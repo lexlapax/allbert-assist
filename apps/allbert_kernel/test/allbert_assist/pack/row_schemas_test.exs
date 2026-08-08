@@ -441,13 +441,8 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
       assert projection["kind"] == Atom.to_string(row.kind)
       assert projection["payload_schema"] == Atom.to_string(schema)
 
-      expected_identity =
-        if schema == :test_lane_v1, do: "<ALIAS_OWNER>", else: row.identity.value
-
-      expected_order = if schema == :test_lane_v1, do: "<ALIAS_OWNER>", else: row.order.value
-
-      assert projection["identity"]["value"] == expected_identity
-      assert projection["order_value"] == expected_order
+      assert projection["identity"]["value"] == row.identity.value
+      assert projection["order_value"] == row.order.value
 
       for field <- owner_fields(schema) do
         assert projection["authority"][field] == "<ALIAS_OWNER>"
@@ -1015,11 +1010,7 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
 
   defp input_for_contribution(:test_lane_v1, input, contribution) do
     input
-    |> update_payload(fn payload ->
-      payload
-      |> Map.put("owner_id", contribution.owner.id)
-      |> Map.put("application", Atom.to_string(contribution.owner.application))
-    end)
+    |> update_payload(&Map.put(&1, "application", Atom.to_string(contribution.owner.application)))
     |> with_recomputed_digest(:test_lane_v1)
   end
 
@@ -1041,7 +1032,7 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
   defp owner_fields(:app_descriptor_v1), do: []
   defp owner_fields(:settings_fragment_ref_v1), do: ["owner_id"]
   defp owner_fields(:release_asset_v1), do: ["component"]
-  defp owner_fields(:test_lane_v1), do: ["owner_id", "application"]
+  defp owner_fields(:test_lane_v1), do: ["application"]
 
   defp reference_digest_field(:app_descriptor_v1), do: "contract_sha256"
   defp reference_digest_field(:action_ref_v1), do: "binding_sha256"

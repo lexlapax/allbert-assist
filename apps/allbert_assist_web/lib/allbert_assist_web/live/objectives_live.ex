@@ -9,7 +9,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
   list through the catalog renderer.
 
   v0.61 M10.2 reads that list through the registered `list_objectives` action with a
-  server-derived `"local"` identity (PermissionGate-gated, redacted `objective_map`
+  server-derived `"local"` identity (Security Central-gated, redacted `objective_map`
   projection) rather than a direct store read with a URL-controllable user id. The
   index reads the operator's own objectives through the ADR-0073 read-through-action
   boundary and grants no authority.
@@ -102,7 +102,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
   end
 
   # Reads the operator's own objectives through the registered read-only action
-  # (server-derived identity precedence + PermissionGate), never a URL-supplied user.
+  # (server-derived identity precedence + Security Central), never a URL-supplied user.
   defp list_objectives(socket) do
     user_id = socket.assigns.user_id
 

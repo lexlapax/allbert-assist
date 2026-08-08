@@ -534,9 +534,8 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     end
   end
 
-  defp read!(relative) do
-    @repo_root |> Path.join(relative) |> File.read!()
-  end
+  defp read!(relative),
+    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
 
   defp restore_env(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore_env(key, value), do: Application.put_env(:allbert_assist, key, value)

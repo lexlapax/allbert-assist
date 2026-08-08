@@ -26,15 +26,16 @@ defmodule AllbertAssist.Actions.Mcp.DoctorServer do
   alias AllbertAssist.Mcp.Doctor
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     server_id = field(params, :server_id)
     include_discovery? = field(params, :include_discovery)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, doctor} <-
            Doctor.diagnose(server_id, context, include_discovery: include_discovery? != false) do
       audit(server_id, permission_decision, doctor)
@@ -74,7 +75,7 @@ defmodule AllbertAssist.Actions.Mcp.DoctorServer do
   defp denied(server_id, permission_decision, reason) do
     %{
       message: "MCP doctor failed for #{server_id || "unknown"}: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       server_id: server_id,
       doctor: %{},

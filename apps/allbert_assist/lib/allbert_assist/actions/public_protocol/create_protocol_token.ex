@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.CreateProtocolToken do
   Issue a public-protocol bearer token through the action spine (v0.62 M8.15).
 
   Token issuance mutates Settings-Secrets state, so it runs through the Runner
-  (PermissionGate + audit) instead of a direct `TokenAuth.create/3` call. The
+  (Security Central + audit) instead of a direct `TokenAuth.create/3` call. The
   raw token is carried back under a `token`-named field inside `token_result`
   so the CLI can print it once. That field name is redacted by
   `AllbertAssist.Security.Redactor` in every logged signal and audit record, so
@@ -36,15 +36,16 @@ defmodule AllbertAssist.Actions.PublicProtocol.CreateProtocolToken do
     ]
 
   alias AllbertAssist.PublicProtocol.TokenAuth
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :settings_secret_write
 
   @impl true
   def run(%{surface: surface, client: client}, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, result} <- TokenAuth.create(surface, client, context) do
       completed(result, permission_decision)
     else
@@ -72,7 +73,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.CreateProtocolToken do
      %{
        message:
          "Public protocol token issuance was denied for #{surface}/#{client}: #{inspect(reason)}",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        error: reason,
        actions: [action(:denied, permission_decision, %{surface: surface, client_id: client})]

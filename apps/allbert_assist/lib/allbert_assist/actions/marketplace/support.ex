@@ -4,7 +4,8 @@ defmodule AllbertAssist.Actions.Marketplace.Support do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Marketplace.Diagnostic
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @spec field(map(), atom(), term()) :: term()
@@ -19,9 +20,9 @@ defmodule AllbertAssist.Actions.Marketplace.Support do
   @spec read_only(String.t(), map(), (map() -> {:ok, map()} | {:error, map()})) :: {:ok, map()}
   def read_only(action_name, context, fun) do
     if marketplace_enabled?() do
-      decision = PermissionGate.authorize(:read_only, context)
+      decision = Security.authorize(:read_only, context)
 
-      if PermissionGate.allowed?(decision) do
+      if Security.allowed?(decision) do
         fun.(decision)
       else
         {:ok, denied(action_name, :read_only, decision, :permission_denied)}
@@ -35,7 +36,7 @@ defmodule AllbertAssist.Actions.Marketplace.Support do
           {:ok, map()}
   def gated_write(action_name, execution_mode, params, context, fun) do
     if marketplace_enabled?() do
-      decision = PermissionGate.authorize(:marketplace_install, context)
+      decision = Security.authorize(:marketplace_install, context)
 
       cond do
         decision.decision == :denied ->
@@ -108,7 +109,7 @@ defmodule AllbertAssist.Actions.Marketplace.Support do
   defp denied(action_name, permission, decision, reason) do
     %{
       message: "Marketplace action denied: #{inspect(reason)}.",
-      status: PermissionGate.response_status(decision),
+      status: Response.permission_status(decision),
       permission_decision: decision,
       error: reason,
       actions: [action(action_name, :denied, permission, decision, %{error: reason})]

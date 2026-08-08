@@ -38,7 +38,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
+  alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
 
   @online_action_names ~w[
@@ -131,10 +132,10 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
   @impl true
   def run(%{id: id} = params, context) do
-    permission_decision = PermissionGate.authorize(:confirmation_decide, context)
+    permission_decision = Security.authorize(:confirmation_decide, context)
     context = Map.put(context, :approval_params, params)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       approve(id, Map.get(params, :reason), context, permission_decision)
     else
       Context.denied(
@@ -163,7 +164,10 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp approve_pending(record, reason, context, permission_decision) do
     with :ok <- approval_surface_allowed(record, context) do
       target_decision =
-        PermissionGate.authorize(target_permission(record), target_context(record, context))
+        Security.authorize(
+          target_permission(record),
+          target_context(record, context)
+        )
 
       resolve_after_recheck(record, reason, context, permission_decision, target_decision)
     else
@@ -2481,9 +2485,13 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp target_permission(record) do
     target_permission = Map.get(record, "target_permission")
 
-    Enum.find(PermissionGate.permission_classes(), :unknown_permission, fn permission ->
-      Atom.to_string(permission) == target_permission
-    end)
+    Enum.find(
+      Policy.permission_classes(),
+      :unknown_permission,
+      fn permission ->
+        Atom.to_string(permission) == target_permission
+      end
+    )
   end
 
   defp target_action_name(record), do: get_in(record, ["target_action", "name"])

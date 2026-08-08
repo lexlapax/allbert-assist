@@ -27,16 +27,17 @@ defmodule AllbertAssist.Actions.Workspace.RotateSigningSecret do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Workspace.Fragment.SigningSecret
 
   @permission :settings_secret_write
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       rotate(permission_decision)
     else
       denied(permission_decision, :permission_denied)
@@ -65,11 +66,15 @@ defmodule AllbertAssist.Actions.Workspace.RotateSigningSecret do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        error: reason,
        actions: [
-         action(PermissionGate.response_status(permission_decision), permission_decision, %{})
+         action(
+           Response.permission_status(permission_decision),
+           permission_decision,
+           %{}
+         )
        ]
      }}
   end

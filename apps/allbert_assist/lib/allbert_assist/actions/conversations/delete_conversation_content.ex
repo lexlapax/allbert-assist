@@ -49,14 +49,15 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Conversations.Deletion
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @action_name "delete_conversation_content"
   @permission :conversation_write
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     with {:denied, false} <- {:denied, permission_decision.decision == :denied},
          {:ok, user_id} <- Identity.user_id(%{}, context),
@@ -81,7 +82,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
   end
 
   def run(_params, context),
-    do: {:ok, failed(PermissionGate.authorize(@permission, context), :invalid_params)}
+    do: {:ok, failed(Security.authorize(@permission, context), :invalid_params)}
 
   defp preview_and_confirm(
          user_id,
@@ -184,7 +185,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, nil, nil)]
     }

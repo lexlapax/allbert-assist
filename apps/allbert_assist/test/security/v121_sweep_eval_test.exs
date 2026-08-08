@@ -58,7 +58,11 @@ defmodule AllbertAssist.Security.V121SweepEvalTest do
 
   test "every v1.2.1 row has an exact AssertBinding call in its owning suite" do
     for row <- EvalInventory.rows_for_milestone(:v121) do
-      source = @repo_root |> Path.join(Map.fetch!(@owner_files, row.test_module)) |> File.read!()
+      source =
+        AllbertAssist.DevGates.GateOwners.read_owned_path!(
+          @repo_root,
+          Map.fetch!(@owner_files, row.test_module)
+        )
 
       assert source =~ ~s|AssertBinding.check!("#{row.id}"|,
              "row #{row.id} has no AssertBinding.check!/2 call in #{row.test_module}"

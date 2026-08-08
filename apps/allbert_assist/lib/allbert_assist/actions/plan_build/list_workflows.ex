@@ -15,14 +15,14 @@ defmodule AllbertAssist.Actions.PlanBuild.ListWorkflows do
     schema: [],
     output_schema: []
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Workflows
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, workflows, diagnostics} <- Workflows.list() do
       output_data = %{workflows: workflows, diagnostics: diagnostics}
 

@@ -5,7 +5,7 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceToken do
 
   `Auth.ensure_token!/0` is a mutation on first use: when no token file exists it
   generates a fresh token and persists it (`File.write!` + `chmod 0600`), so it
-  must run through the Runner (PermissionGate + audit) rather than a direct call.
+  must run through the Runner (Security Central + audit) rather than a direct call.
   On subsequent calls it is idempotent (returns the existing token). The raw
   token rides back under a `token`-named field so the CLI can print it; that
   field name is redacted by `AllbertAssist.Security.Redactor` in every logged
@@ -33,16 +33,17 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceToken do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Voice.LocalRuntime.Auth
 
   @permission :voice_local_runtime_manage
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       ensure(permission_decision)
     else
       denied(permission_decision, :permission_denied)
@@ -73,10 +74,15 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceToken do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        error: reason,
-       actions: [action(PermissionGate.response_status(permission_decision), permission_decision)]
+       actions: [
+         action(
+           Response.permission_status(permission_decision),
+           permission_decision
+         )
+       ]
      }}
   end
 

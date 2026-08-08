@@ -199,17 +199,12 @@ defmodule AllbertAssist.ConfirmationsTest do
     repo_root = Path.expand("../../../..", __DIR__)
 
     files =
-      Path.wildcard(
-        Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/actions/**/*.ex")
-      ) ++
-        Path.wildcard(Path.join(repo_root, "plugins/*/lib/**/*.ex")) ++
-        [
-          Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/plan_build.ex"),
-          Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/runtime.ex")
-        ] ++
-        Path.wildcard(
-          Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/plan_build/**/*.ex")
-        )
+      repo_root
+      |> AllbertAssist.DevGates.GateOwners.load!()
+      |> Enum.flat_map(& &1.production_source_roots)
+      |> Enum.flat_map(&Path.wildcard(Path.join(repo_root, Path.join(&1, "**/*.ex"))))
+      |> Enum.uniq()
+      |> Enum.sort()
 
     raw_sites =
       Enum.flat_map(files, fn path ->

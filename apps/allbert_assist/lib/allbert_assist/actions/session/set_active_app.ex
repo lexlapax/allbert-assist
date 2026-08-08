@@ -23,15 +23,15 @@ defmodule AllbertAssist.Actions.Session.SetActiveApp do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Session
 
   @impl true
   def run(%{user_id: user_id, session_id: session_id} = params, context) do
     app_id = Map.get(params, :app_id)
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, entry} <- Session.set_active_app(user_id, session_id, app_id) do
       summary = Session.summary(entry)
 
@@ -50,7 +50,7 @@ defmodule AllbertAssist.Actions.Session.SetActiveApp do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     denied(nil, nil, permission_decision, :invalid_params)
   end
 

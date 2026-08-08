@@ -1417,7 +1417,7 @@ defmodule AllbertAssistWeb.Workspace.Components.NotesPanel do
   Action-backed notes/files panel for the `workspace:notes` destination.
 
   Search and read route through the registered `search_notes` and `read_note`
-  actions, so the workspace destination uses the same Runner/PermissionGate,
+  actions, so the workspace destination uses the same Runner/Security Central,
   trace, and resource-ref seam as chat and CLI action dispatch.
   """
   use AllbertAssistWeb, :live_component

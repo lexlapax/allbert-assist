@@ -37,14 +37,15 @@ defmodule AllbertAssist.Actions.Skills.CreateSkill do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Skills.LocalHelper
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:skill_write, context)
+    permission_decision = Security.authorize(:skill_write, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       create(params, permission_decision)
     else
       {:ok, denied_response(params, permission_decision)}
@@ -80,12 +81,12 @@ defmodule AllbertAssist.Actions.Skills.CreateSkill do
   defp denied_response(params, permission_decision) do
     %{
       message: "Local skill creation is not allowed by current policy.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [
         %{
           name: "create_skill",
-          status: PermissionGate.response_status(permission_decision),
+          status: Response.permission_status(permission_decision),
           permission: :skill_write,
           permission_decision: permission_decision,
           input: safe_input(params)

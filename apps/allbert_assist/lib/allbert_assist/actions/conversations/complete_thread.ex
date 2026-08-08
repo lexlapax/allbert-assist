@@ -35,15 +35,16 @@ defmodule AllbertAssist.Actions.Conversations.CompleteThread do
 
   alias AllbertAssist.Actions.Jobs.Identity
   alias AllbertAssist.Conversations
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :conversation_write
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Identity.user_id(%{}, context),
          {:ok, thread_id} <- required_param(params, :thread_id, :missing_thread_id),
          {:ok, thread} <- Conversations.complete_thread(user_id, thread_id) do
@@ -76,7 +77,7 @@ defmodule AllbertAssist.Actions.Conversations.CompleteThread do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [
         %{

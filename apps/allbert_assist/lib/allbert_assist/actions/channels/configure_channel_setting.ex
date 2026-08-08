@@ -34,16 +34,17 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSetting do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(%{channel: channel, key: key, value: value}, context)
       when is_binary(channel) and is_binary(key) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
     setting_key = "channels.#{channel}.#{key}"
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, setting} <-
            Settings.put(setting_key, value, action_context(context, permission_decision)) do
       {:ok,
@@ -68,7 +69,7 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSetting do
   end
 
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
 
     {:ok,
      denied(
@@ -96,7 +97,7 @@ defmodule AllbertAssist.Actions.Channels.ConfigureChannelSetting do
   end
 
   defp denied_status(permission_decision, :permission_denied),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
   defp denied_status(_permission_decision, _reason), do: :denied
 

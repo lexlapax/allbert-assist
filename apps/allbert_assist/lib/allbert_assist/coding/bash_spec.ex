@@ -13,7 +13,7 @@ defmodule AllbertAssist.Coding.BashSpec do
   alias AllbertAssist.Execution.Policy
   alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security.Policy, as: SecurityPolicy
 
   @subagent_command_pattern ~r/(^|\s)(codex|claude|gemini|opencode|cursor|antigravity)(\s|$)/
   @subagent_executables ~w[codex claude gemini opencode cursor antigravity]
@@ -238,7 +238,7 @@ defmodule AllbertAssist.Coding.BashSpec do
       not Config.bash_allow_raw_shell?() ->
         {:error, :raw_shell_disabled}
 
-      PermissionGate.coding_tier(context) != :local_coding_operator ->
+      SecurityPolicy.coding_tier(context) != :local_coding_operator ->
         {:error, :raw_shell_requires_local_coding_tier}
 
       true ->

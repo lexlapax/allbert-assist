@@ -346,7 +346,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   # (the overflow menu lives in the sidebar footer on every shell now).
 
   # v0.61b M4 — inline thread rename through the registered action spine
-  # (Runner → PermissionGate(:conversation_write) → ownership-scoped rename).
+  # (Runner → Security Central(:conversation_write) → ownership-scoped rename).
   def handle_event("start_rename_thread", %{"thread-id" => thread_id}, socket)
       when is_binary(thread_id) and thread_id != "" do
     {:noreply, assign(socket, :renaming_thread_id, thread_id)}
@@ -1158,7 +1158,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   # v0.62 M0.1: the write rides the registered-action spine (Runner ->
-  # PermissionGate(:conversation_write) -> ownership-scoped get_thread ->
+  # Security Central(:conversation_write) -> ownership-scoped get_thread ->
   # append) instead of the former direct Conversations calls.
   defp persist_approval_media_response(socket, response, media_outputs) do
     _result =

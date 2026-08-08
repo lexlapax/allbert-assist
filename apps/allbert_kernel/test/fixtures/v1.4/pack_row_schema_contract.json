@@ -2678,8 +2678,8 @@
           "min_items": null,
           "name": "owner_id",
           "nullable": false,
-          "owner_reference": "packaging_owner",
-          "owner_reference_source": "owner.id",
+          "owner_reference": "none",
+          "owner_reference_source": null,
           "required": true,
           "type": "canonical_string",
           "values": []
@@ -2827,6 +2827,6 @@
       }
     }
   ],
-  "schema_contract_sha256": "21fb7b8e08faa4c9644f762500517ee0ec4a6d09b18914b801786495b93b3ec5",
+  "schema_contract_sha256": "4dff6bba45d08d3bcdc268caceb023ef43b12bd250cd9be4e6dee824fad73803",
   "schema_version": 1
 }

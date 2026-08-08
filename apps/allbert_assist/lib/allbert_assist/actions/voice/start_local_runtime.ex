@@ -20,7 +20,8 @@ defmodule AllbertAssist.Actions.Voice.StartLocalRuntime do
     ]
 
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Voice.LocalRuntime.Config
   alias AllbertAssist.Voice.LocalRuntime.Server
 
@@ -28,7 +29,7 @@ defmodule AllbertAssist.Actions.Voice.StartLocalRuntime do
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
     cond do
       permission_decision.decision == :denied ->
@@ -87,13 +88,13 @@ defmodule AllbertAssist.Actions.Voice.StartLocalRuntime do
   defp stopped(permission_decision, reason) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       error: reason,
       permission_decision: permission_decision,
       actions: [
         %{
           name: "voice_local_runtime_start",
-          status: PermissionGate.response_status(permission_decision),
+          status: Response.permission_status(permission_decision),
           permission: @permission,
           permission_decision: permission_decision
         }

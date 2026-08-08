@@ -22,14 +22,14 @@ defmodule AllbertAssist.Actions.Settings.UpdateSetting do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(%{key: key, value: value}, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = Security.authorize(:settings_write, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, setting} <- Settings.put(key, value, action_context(context, permission_decision)) do
       {:ok,
        %{

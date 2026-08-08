@@ -23,18 +23,19 @@ defmodule AllbertAssist.Actions.Intent.ListSkills do
       skills: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Skills
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     with {:ok, skills} <- Skills.list(context) do
       {:ok,
        %{
          message: message(skills),
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          permission_decision: permission_decision,
          skills: Enum.map(skills, &skill_summary/1),
          actions: [

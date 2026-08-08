@@ -98,6 +98,8 @@ defmodule Mix.Tasks.Allbert.Test do
   alias AllbertAssist.CLI.Commands, as: CLICommands
   alias AllbertAssist.DevGates.CompatibilityProbe
   alias AllbertAssist.DevGates.FixtureRegistry
+  alias AllbertAssist.DevGates.GateOwners
+  alias AllbertAssist.DevGates.GateBaseline
   alias AllbertAssist.DevGates.PartitionPacker
   alias AllbertAssist.DevGates.PhaseRunner
   alias AllbertAssist.DevGates.Preflight
@@ -126,129 +128,12 @@ defmodule Mix.Tasks.Allbert.Test do
     security_eval_serial
   ]a
 
-  @owner_order [
-    :kernel,
-    :composition,
-    :web,
-    :core,
-    :stocksage,
-    :telegram,
-    :email,
-    :discord,
-    :slack,
-    :matrix,
-    :whatsapp,
-    :signal,
-    :notes_files,
-    :artifacts
-  ]
-
-  @owner_contract %{
-    kernel: %{
-      prefix: "apps/allbert_kernel/",
-      test_root: "apps/allbert_kernel/test",
-      cwd: "apps/allbert_kernel",
-      test_task: "test",
-      lanes: [:pure_async, :app_env_serial, :home_fs_serial, :global_process_serial]
-    },
-    composition: %{
-      prefix: "apps/allbert_composition/",
-      test_root: "apps/allbert_composition/test",
-      cwd: "apps/allbert_composition",
-      lanes: [
-        :pure_async,
-        :app_env_serial,
-        :global_process_serial,
-        :external_runtime_serial
-      ]
-    },
-    web: %{
-      prefix: "apps/allbert_assist_web/",
-      test_root: "apps/allbert_assist_web/test",
-      cwd: "apps/allbert_assist_web",
-      lanes: @lanes
-    },
-    core: %{
-      prefix: "apps/allbert_assist/",
-      test_root: "apps/allbert_assist/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    stocksage: %{
-      prefix: "plugins/stocksage/",
-      test_root: "plugins/stocksage/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    telegram: %{
-      prefix: "plugins/allbert.telegram/",
-      test_root: "plugins/allbert.telegram/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    email: %{
-      prefix: "plugins/allbert.email/",
-      test_root: "plugins/allbert.email/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    discord: %{
-      prefix: "plugins/allbert.discord/",
-      test_root: "plugins/allbert.discord/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    slack: %{
-      prefix: "plugins/allbert.slack/",
-      test_root: "plugins/allbert.slack/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    matrix: %{
-      prefix: "plugins/allbert.matrix/",
-      test_root: "plugins/allbert.matrix/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    whatsapp: %{
-      prefix: "plugins/allbert.whatsapp/",
-      test_root: "plugins/allbert.whatsapp/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    signal: %{
-      prefix: "plugins/allbert.signal/",
-      test_root: "plugins/allbert.signal/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    notes_files: %{
-      prefix: "plugins/allbert.notes_files/",
-      test_root: "plugins/allbert.notes_files/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    },
-    artifacts: %{
-      prefix: "plugins/allbert.artifacts/",
-      test_root: "plugins/allbert.artifacts/test",
-      cwd: "apps/allbert_assist",
-      lanes: @lanes
-    }
-  }
-
-  @roots Enum.map(@owner_order, &get_in(@owner_contract, [&1, :test_root]))
-
   @template_defaults %{
     "AllbertAssist.DataCase" => :db_serial,
     "AllbertAssistWeb.ConnCase" => :liveview_serial,
     "AllbertAssist.SecurityEvalCase" => :security_eval_serial,
     "StockSage.DataCase" => :db_serial
   }
-
-  @owner_prefixes Enum.map(
-                    @owner_order,
-                    &{get_in(@owner_contract, [&1, :prefix]), &1}
-                  )
 
   @impl true
   def run(args) do
@@ -3811,10 +3696,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v054_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v054 #{step.id}", output)
@@ -3934,10 +3823,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v055_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v055 #{step.id}", output)
@@ -4047,10 +3940,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v0551_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v0551 #{step.id}", output)
@@ -4201,10 +4098,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v056_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v056 #{step.id}", output)
@@ -4325,10 +4226,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v057_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v057 #{step.id}", output)
@@ -4530,10 +4435,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v058_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v058 #{step.id}", output)
@@ -4753,10 +4662,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v059_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v059 #{step.id}", output)
@@ -4903,10 +4816,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v060_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v060 #{step.id}", output)
@@ -5055,10 +4972,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v060b_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v060b #{step.id}", output)
@@ -5231,10 +5152,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v061_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v061 #{step.id}", output)
@@ -5438,10 +5363,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v061b_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v061b #{step.id}", output)
@@ -5623,10 +5552,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v062_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v062 #{step.id}", output)
@@ -5793,10 +5726,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v063_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v063 #{step.id}", output)
@@ -5994,10 +5931,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v064_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v064 #{step.id}", output)
@@ -6206,10 +6147,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v065_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v065 #{step.id}", output)
@@ -6483,10 +6428,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v066_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v066 #{step.id}", output)
@@ -6647,10 +6596,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v1_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v1 #{step.id}", output)
@@ -6812,10 +6765,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v11_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v11 #{step.id}", output)
@@ -6944,10 +6901,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v12_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v12 #{step.id}", output)
@@ -7092,10 +7053,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v121_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v121 #{step.id}", output)
@@ -7284,10 +7249,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v13_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v13 #{step.id}", output)
@@ -7601,10 +7570,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v131_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v131 #{step.id}", output)
@@ -7676,10 +7649,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v132_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v132 #{step.id}", output)
@@ -8215,10 +8192,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v101_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v101 #{step.id}", output)
@@ -8410,10 +8391,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v102_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v102 #{step.id}", output)
@@ -8587,10 +8572,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v103_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v103 #{step.id}", output)
@@ -8737,10 +8726,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v104_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v104 #{step.id}", output)
@@ -8848,6 +8841,54 @@ defmodule Mix.Tasks.Allbert.Test do
 
   @release_v105_steps @release_v104_steps ++ @v105_focused_steps
 
+  @doc false
+  def all_release_step_definitions do
+    %{
+      "release.v042" => normalize_step_definitions(@release_v042_steps),
+      "release.v043" => normalize_step_definitions(@release_v043_steps),
+      "release.v044" => normalize_step_definitions(@release_v044_steps),
+      "release.v045" => normalize_step_definitions(@release_v045_steps),
+      "release.v046" => normalize_step_definitions(@release_v046_steps),
+      "release.v047" => normalize_step_definitions(@release_v047_steps),
+      "release.v047b" => normalize_step_definitions(@release_v047b_steps),
+      "release.v048" => normalize_step_definitions(@release_v048_steps),
+      "release.v049" => normalize_step_definitions(@release_v049_steps),
+      "release.v050" => normalize_step_definitions(@release_v050_steps),
+      "release.v050b" => normalize_step_definitions(@release_v050b_steps),
+      "release.v051" => normalize_step_definitions(@release_v051_steps),
+      "release.v052" => normalize_step_definitions(@release_v052_steps),
+      "release.v053" => normalize_step_definitions(@release_v053_steps),
+      "release.v054" => normalize_step_definitions(@release_v054_steps),
+      "release.v055" => normalize_step_definitions(@release_v055_steps),
+      "release.v0551" => normalize_step_definitions(@release_v0551_steps),
+      "release.v056" => normalize_step_definitions(@release_v056_steps),
+      "release.v057" => normalize_step_definitions(@release_v057_steps),
+      "release.v058" => normalize_step_definitions(@release_v058_steps),
+      "release.v059" => normalize_step_definitions(@release_v059_steps),
+      "release.v060" => normalize_step_definitions(@release_v060_steps),
+      "release.v060b" => normalize_step_definitions(@release_v060b_steps),
+      "release.v061" => normalize_step_definitions(@release_v061_steps),
+      "release.v061b" => normalize_step_definitions(@release_v061b_steps),
+      "release.v062" => normalize_step_definitions(@release_v062_steps),
+      "release.v063" => normalize_step_definitions(@release_v063_steps),
+      "release.v064" => normalize_step_definitions(@release_v064_steps),
+      "release.v065" => normalize_step_definitions(@release_v065_steps),
+      "release.v066" => normalize_step_definitions(@release_v066_steps),
+      "release.v1" => normalize_step_definitions(@release_v1_steps),
+      "release.v101" => normalize_step_definitions(@release_v101_steps),
+      "release.v102" => normalize_step_definitions(@release_v102_steps),
+      "release.v103" => normalize_step_definitions(@release_v103_steps),
+      "release.v104" => normalize_step_definitions(@release_v104_steps),
+      "release.v105" => normalize_step_definitions(@release_v105_steps),
+      "release.v11" => normalize_step_definitions(@release_v11_steps),
+      "release.v12" => normalize_step_definitions(@release_v12_steps),
+      "release.v121" => normalize_step_definitions(@release_v121_steps),
+      "release.v13" => normalize_step_definitions(@release_v13_steps),
+      "release.v131" => normalize_step_definitions(@release_v131_steps),
+      "release.v132" => normalize_step_definitions(@release_v132_steps)
+    }
+  end
+
   defp release_v105 do
     env = owned_env("release-v105", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -8886,10 +8927,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v105_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v105 #{step.id}", output)
@@ -8991,10 +9036,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v051_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9019,10 +9064,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v052_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9047,10 +9092,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v053_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9075,10 +9120,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v050b_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9103,10 +9148,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v050_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9131,10 +9176,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v049_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9159,10 +9204,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v048_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9187,10 +9232,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v047b_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9215,10 +9260,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v047_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9243,10 +9288,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v046_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9271,10 +9316,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v045_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9299,10 +9344,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v044_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9327,10 +9372,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v043_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9355,10 +9400,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_release_v042_step(step, env) do
     started = System.monotonic_time(:millisecond)
-    cwd = release_step_cwd(step.cwd)
+    cwd = release_step_cwd(step)
 
     {output, exit_status} =
-      System.cmd(step.executable, step.args,
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
         cd: cwd,
         env: env,
         stderr_to_stdout: true
@@ -9484,9 +9529,99 @@ defmodule Mix.Tasks.Allbert.Test do
     )
   end
 
-  defp release_step_cwd(:core), do: app_cwd(:core)
-  defp release_step_cwd(:web), do: app_cwd(:web)
-  defp release_step_cwd(:root), do: root()
+  defp release_step_cwd(step) do
+    case resolved_release_test_targets(step) do
+      [] -> legacy_release_step_cwd(step.cwd)
+      targets -> release_targets_cwd(targets)
+    end
+  end
+
+  defp resolve_release_step_args(step, cwd) do
+    resolved = Map.new(resolved_release_test_targets(step), &{&1.argument, &1.path})
+
+    Enum.map(step.args, fn argument ->
+      Enum.reduce(resolved, argument, fn {historical, repository_path}, current ->
+        replacement =
+          repository_path
+          |> then(&Path.join(root(), &1))
+          |> Path.relative_to(cwd)
+
+        String.replace(current, historical, replacement)
+      end)
+    end)
+  end
+
+  defp resolved_release_test_targets(%{executable: "mix", args: ["test" | arguments]} = step) do
+    historical_cwd = legacy_release_step_cwd(step.cwd)
+    resolve_test_targets(arguments, historical_cwd)
+  end
+
+  defp resolved_release_test_targets(%{executable: "sh", args: ["-c", script]} = step) do
+    arguments =
+      ~r{(?:apps/[^\s]+|plugins/[^\s]+|test/[^\s]+)_test\.exs}
+      |> Regex.scan(script)
+      |> Enum.map(&hd/1)
+      |> Enum.uniq()
+
+    resolve_test_targets(arguments, legacy_release_step_cwd(step.cwd))
+  end
+
+  defp resolved_release_test_targets(_step), do: []
+
+  defp release_test_target_argument?(argument) when is_binary(argument) do
+    String.starts_with?(argument, "test/") or
+      String.starts_with?(argument, "apps/") or
+      String.starts_with?(argument, "plugins/")
+  end
+
+  defp resolve_mix_test_command(cwd, "mix", ["test" | arguments] = args) do
+    case resolve_test_targets(arguments, cwd) do
+      [] ->
+        {cwd, args}
+
+      targets ->
+        resolved_cwd = release_targets_cwd(targets)
+        resolved = Map.new(targets, &{&1.argument, &1.path})
+
+        resolved_args =
+          Enum.map(args, fn argument ->
+            case Map.fetch(resolved, argument) do
+              {:ok, repository_path} ->
+                repository_path
+                |> then(&Path.join(root(), &1))
+                |> Path.relative_to(resolved_cwd)
+
+              :error ->
+                argument
+            end
+          end)
+
+        {resolved_cwd, resolved_args}
+    end
+  end
+
+  defp resolve_mix_test_command(cwd, _executable, args), do: {cwd, args}
+
+  defp resolve_test_targets(arguments, historical_cwd) do
+    arguments
+    |> Enum.filter(&release_test_target_argument?/1)
+    |> Enum.map(fn argument ->
+      owner_records()
+      |> GateOwners.resolve_test_target!(argument, historical_cwd, root())
+      |> Map.put(:argument, argument)
+    end)
+  end
+
+  defp release_targets_cwd(targets) do
+    case targets |> Enum.map(& &1.owner_id) |> Enum.uniq() do
+      [owner] -> app_cwd(owner)
+      _multiple_owners -> root()
+    end
+  end
+
+  defp legacy_release_step_cwd(:core), do: app_cwd(:core)
+  defp legacy_release_step_cwd(:web), do: app_cwd(:web)
+  defp legacy_release_step_cwd(:root), do: root()
 
   defp release_v042_secret_scan(home) do
     Enum.each(
@@ -10567,7 +10702,10 @@ defmodule Mix.Tasks.Allbert.Test do
   defp prepare_serial_owner(_owner, env), do: run_core_test_migration(env)
 
   defp serial_owner_test_task(owner) do
-    @owner_contract |> Map.fetch!(owner) |> Map.get(:test_task, "allbert.test.raw")
+    case Map.fetch!(owner_contract_records(), owner).aggregate_policy do
+      :mix_test -> "test"
+      :allbert_test_raw -> "allbert.test.raw"
+    end
   end
 
   defp run_core_test_migration(env) do
@@ -10615,7 +10753,20 @@ defmodule Mix.Tasks.Allbert.Test do
   @doc false
   def packed_lane_paths(owner, lane, partitions) do
     files = lane_packing_files(inventory_records(), owner, lane)
-    PartitionPacker.pack(files, partitions, TestMetrics.file_costs())
+
+    PartitionPacker.pack(
+      files,
+      partitions,
+      TestMetrics.file_costs(owner_aliases: historical_metrics_owner_aliases())
+    )
+  end
+
+  defp historical_metrics_owner_aliases do
+    Map.new(
+      for record <- owner_records(), alias_name <- record.historical_metrics_aliases do
+        {alias_name, Atom.to_string(record.owner_id)}
+      end
+    )
   end
 
   @doc false
@@ -10708,6 +10859,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_cmd!(label, cwd, executable, args, env, opts \\ []) do
     stream? = Keyword.get(opts, :stream?, false)
+    {cwd, args} = resolve_mix_test_command(cwd, executable, args)
 
     {output, status} =
       if stream? do
@@ -10776,7 +10928,8 @@ defmodule Mix.Tasks.Allbert.Test do
 
   @doc false
   def inventory_records do
-    @roots
+    owner_records()
+    |> Enum.flat_map(& &1.test_roots)
     |> Enum.flat_map(&Path.wildcard(Path.join(root(), Path.join(&1, "**/*_test.exs"))))
     |> Enum.map(&Path.relative_to(&1, root()))
     |> Enum.sort()
@@ -10785,8 +10938,13 @@ defmodule Mix.Tasks.Allbert.Test do
 
   @doc false
   def owner_contract do
-    Map.new(@owner_contract, fn {owner, contract} ->
-      {owner, Map.take(contract, [:test_root, :cwd, :lanes])}
+    Map.new(owner_records(), fn owner ->
+      {owner.owner_id,
+       %{
+         test_root: List.first(owner.test_roots),
+         cwd: owner.cwd,
+         lanes: owner.allowed_primary_lanes
+       }}
     end)
   end
 
@@ -10814,7 +10972,9 @@ defmodule Mix.Tasks.Allbert.Test do
   defp check_lane_tags!(records) do
     issues =
       lane_reconciliation_issues(records) ++
-        owner_lane_contract_issues(records) ++ owner_path_contract_issues(root())
+        owner_lane_contract_issues(records) ++
+        owner_path_contract_issues(root()) ++
+        GateBaseline.issues(root(), all_release_step_definitions())
 
     if issues != [] do
       Mix.raise("""
@@ -10840,12 +11000,12 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp owner_lane_contract_issue(record) do
-    case Map.fetch(@owner_contract, record.owner) do
+    case Map.fetch(owner_contract_records(), record.owner) do
       :error ->
         ["#{record.path}: owner #{inspect(record.owner)} is absent from the owner/CWD contract"]
 
       {:ok, contract} ->
-        undeclared_owner_lane_issues(record, contract.lanes)
+        undeclared_owner_lane_issues(record, contract.allowed_primary_lanes)
     end
   end
 
@@ -10866,25 +11026,21 @@ defmodule Mix.Tasks.Allbert.Test do
 
   @doc false
   def owner_path_contract_issues(base) when is_binary(base) do
-    Enum.flat_map(@owner_order, fn owner ->
-      owner_path_issues(owner, Map.fetch!(@owner_contract, owner), base)
+    Enum.flat_map(owner_records(), fn contract ->
+      owner_path_issues(contract.owner_id, contract, base)
     end)
   end
 
   defp owner_path_issues(owner, contract, base) do
-    structural =
-      if String.starts_with?(contract.test_root, contract.prefix) do
-        []
-      else
-        ["owner #{owner} test root is outside its owned prefix: #{contract.test_root}"]
-      end
-
     missing =
-      [cwd: contract.cwd, test_root: contract.test_root]
+      ([cwd: contract.cwd] ++
+         Enum.map(contract.production_source_roots, &{:production_source_root, &1}) ++
+         Enum.map(contract.test_roots, &{:test_root, &1}) ++
+         Enum.map(contract.test_support_roots, &{:test_support_root, &1}))
       |> Enum.reject(fn {_kind, path} -> File.dir?(Path.join(base, path)) end)
       |> Enum.map(fn {kind, path} -> "owner #{owner} #{kind} directory is missing: #{path}" end)
 
-    structural ++ missing
+    missing
   end
 
   defp lane_reconciliation_issue(
@@ -11175,7 +11331,10 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp adjudicated_lane(path) do
     Enum.find_value(@lane_adjudications, fn {adjudicated_path, lane} ->
-      if String.ends_with?(to_string(path), adjudicated_path), do: lane
+      resolution =
+        GateOwners.resolve_test_target!(owner_records(), adjudicated_path, root(), root())
+
+      if to_string(path) == resolution.path, do: lane
     end)
   end
 
@@ -11228,13 +11387,13 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp owner(path) do
-    Enum.find_value(@owner_prefixes, :unknown, fn {prefix, owner} ->
-      if String.starts_with?(path, prefix), do: owner
-    end)
+    owner_records()
+    |> GateOwners.owner_for_test_path!(path)
+    |> Map.fetch!(:owner_id)
   end
 
   defp app_cwd(owner) do
-    case Map.fetch(@owner_contract, owner) do
+    case Map.fetch(owner_contract_records(), owner) do
       {:ok, contract} -> Path.join(root(), contract.cwd)
       :error -> Mix.raise("unknown test owner #{inspect(owner)}")
     end
@@ -11301,9 +11460,9 @@ defmodule Mix.Tasks.Allbert.Test do
   defp parse_owner!(nil), do: Mix.raise("serial-owner requires --owner")
 
   defp parse_owner!(owner) do
-    case Enum.find(@owner_order, &(Atom.to_string(&1) == owner)) do
+    case Enum.find(owner_records(), &(Atom.to_string(&1.owner_id) == owner)) do
       nil -> Mix.raise("unknown serial owner #{owner}")
-      owner -> owner
+      owner -> owner.owner_id
     end
   end
 
@@ -11317,7 +11476,7 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp validate_owner_lane!(owner, lane) do
-    lanes = get_in(@owner_contract, [owner, :lanes])
+    lanes = Map.fetch!(owner_contract_records(), owner).allowed_primary_lanes
 
     unless lane in lanes do
       Mix.raise(
@@ -11327,7 +11486,7 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp validate_owner_paths!(owner) do
-    issues = owner_path_issues(owner, Map.fetch!(@owner_contract, owner), root())
+    issues = owner_path_issues(owner, Map.fetch!(owner_contract_records(), owner), root())
 
     if issues != [] do
       Mix.raise("serial owner contract invalid:\n#{Enum.map_join(issues, "\n", &"  - #{&1}")}")
@@ -11357,6 +11516,22 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp reject_separator(["--" | rest]), do: rest
   defp reject_separator(rest), do: rest
+
+  defp owner_records do
+    key = {__MODULE__, :gate_owner_records, root()}
+
+    case :persistent_term.get(key, :missing) do
+      :missing ->
+        records = GateOwners.load!(root())
+        :persistent_term.put(key, records)
+        records
+
+      records ->
+        records
+    end
+  end
+
+  defp owner_contract_records, do: Map.new(owner_records(), &{&1.owner_id, &1})
 
   defp root do
     Path.expand("../../../../..", __DIR__)

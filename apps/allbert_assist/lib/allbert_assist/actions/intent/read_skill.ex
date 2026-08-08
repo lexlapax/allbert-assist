@@ -19,19 +19,20 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
     ],
     output_schema: :legacy_standard_response
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Skills
 
   @impl true
   def run(%{name: name}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
     case Skills.read(name, context) do
       {:ok, skill_read} ->
         {:ok,
          %{
            message: skill_message(skill_read),
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            actions: [
              %{
@@ -49,7 +50,7 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
         {:ok,
          %{
            message: "I do not have a trusted enabled skill declaration named #{inspect(name)}.",
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission_decision: permission_decision,
            actions: [
              %{

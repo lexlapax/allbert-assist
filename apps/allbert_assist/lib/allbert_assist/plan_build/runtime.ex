@@ -12,7 +12,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.{Engine, Objective, Step}
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Serialization
 
   @default_step_limit 25
@@ -594,7 +594,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
 
   defp step_confirmation_decision(permission) do
     permission
-    |> PermissionGate.authorize(%{})
+    |> Security.authorize(%{})
     |> Map.merge(%{
       decision: :needs_confirmation,
       requires_confirmation: true,

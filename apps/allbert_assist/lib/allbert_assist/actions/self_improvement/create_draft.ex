@@ -41,14 +41,15 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
     ]
 
   alias AllbertAssist.Drafts.Store
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Tools.Discovery
 
   @impl true
   def run(%{suggestion_id: suggestion_id} = params, context) when is_binary(suggestion_id) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, suggestion} <- Discovery.get_suggestion(suggestion_id),
          :ok <- validate_suggestion(suggestion),
          {:ok, kind} <- draft_kind(suggestion, params),
@@ -62,7 +63,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
     {:ok, denied(permission_decision, :suggestion_id_required)}
   end
 
@@ -208,7 +209,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
   end
 
   defp denied_status(permission_decision, :permission_denied),
-    do: PermissionGate.response_status(permission_decision)
+    do: Response.permission_status(permission_decision)
 
   defp denied_status(_permission_decision, _reason), do: :denied
 

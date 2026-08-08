@@ -57,7 +57,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   alias AllbertAssist.Execution.SkillScriptRunner
   alias AllbertAssist.Execution.SkillScriptSpec
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
@@ -71,7 +71,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:skill_script_execute, context)
+    permission_decision = Security.authorize(:skill_script_execute, context)
 
     {:ok,
      %{
@@ -94,7 +94,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
 
   defp spec_response(spec, params, context) do
     permission_decision =
-      PermissionGate.authorize(:skill_script_execute, script_context(spec, context))
+      Security.authorize(:skill_script_execute, script_context(spec, context))
 
     cond do
       permission_decision.decision == :denied ->
@@ -110,7 +110,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
 
   defp denied_spec_response(spec, context) do
     permission_decision =
-      PermissionGate.authorize(:skill_script_execute, script_context(spec, context))
+      Security.authorize(:skill_script_execute, script_context(spec, context))
 
     denied_response(spec, permission_decision, spec.denial_reason)
   end

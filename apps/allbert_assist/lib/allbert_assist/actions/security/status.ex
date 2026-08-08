@@ -23,18 +23,18 @@ defmodule AllbertAssist.Actions.Security.Status do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security
-  alias AllbertAssist.Security.PermissionGate
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     status = Security.status(context)
 
     {:ok,
      %{
        message: message(status),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        security_status: status,
        actions: [

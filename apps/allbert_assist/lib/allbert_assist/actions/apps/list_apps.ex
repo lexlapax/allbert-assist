@@ -21,13 +21,13 @@ defmodule AllbertAssist.Actions.Apps.ListApps do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.RegistryContext
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       # v1.0.3 M1 (ADR 0086 contract 3 / ADR 0082): honor the internal
       # registry context riding the action context map under `:registry`.
       # Production call sites pass nothing and read the global default.

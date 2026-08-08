@@ -26,7 +26,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Ref
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Skills.Online.RegistryClient
   alias AllbertAssist.Skills.Online.Source
 
@@ -34,7 +34,7 @@ defmodule AllbertAssist.Actions.Skills.ShowOnlineSkill do
   def run(params, context) when is_map(params) do
     source_id = param(params, :source)
     id = params |> param(:id) |> to_string() |> String.trim()
-    permission_decision = PermissionGate.authorize(:external_network, context)
+    permission_decision = Security.authorize(:external_network, context)
 
     with {:ok, source} <- Source.load(source_id, context),
          :ok <- Source.validate_enabled(source) do

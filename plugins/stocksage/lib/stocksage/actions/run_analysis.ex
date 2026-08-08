@@ -87,7 +87,8 @@ defmodule StockSage.Actions.RunAnalysis do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Objectives
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Signals, as: AllbertSignals
   alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
@@ -186,11 +187,11 @@ defmodule StockSage.Actions.RunAnalysis do
       approval_resume?(context) ->
         run_after_approval(validated, context, permission_decision)
 
-      not PermissionGate.allowed?(permission_decision) and
+      not Security.allowed?(permission_decision) and
           permission_decision.requires_confirmation ->
         request_confirmation(validated, context, permission_decision)
 
-      PermissionGate.allowed?(permission_decision) ->
+      Security.allowed?(permission_decision) ->
         # The :stocksage_analyze floor is :needs_confirmation, so this branch
         # only fires if Security Central allows the call directly (e.g., in
         # internal/test contexts that already approved via context).
@@ -1225,12 +1226,12 @@ defmodule StockSage.Actions.RunAnalysis do
      %{
        message:
          "StockSage analysis is not permitted: #{Map.get(permission_decision, :reason, "denied by policy")}.",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [
          Actions.action(
            "run_analysis",
-           PermissionGate.response_status(permission_decision),
+           Response.permission_status(permission_decision),
            :stocksage_analyze,
            permission_decision,
            %{error: :permission_denied}

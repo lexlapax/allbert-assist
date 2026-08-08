@@ -31,13 +31,14 @@ defmodule AllbertAssist.Actions.Coding.Write do
   alias AllbertAssist.Coding.PathPolicy
   alias AllbertAssist.Coding.SessionGuard
   alias AllbertAssist.Maps
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
     with {:ok, context} <- SessionGuard.ensure_active(context) do
       permission_decision =
-        PermissionGate.authorize(:coding_file_write, action_context(params, context))
+        Security.authorize(:coding_file_write, action_context(params, context))
 
       if permission_decision.decision == :denied do
         blocked_response(permission_decision)
@@ -51,7 +52,7 @@ defmodule AllbertAssist.Actions.Coding.Write do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:coding_file_write, context)
+    permission_decision = Security.authorize(:coding_file_write, context)
     denied_response(:invalid_params, permission_decision)
   end
 
@@ -104,7 +105,7 @@ defmodule AllbertAssist.Actions.Coding.Write do
     else
       {:error, reason} ->
         permission_decision =
-          PermissionGate.authorize(:coding_file_write, action_context(params, context))
+          Security.authorize(:coding_file_write, action_context(params, context))
 
         {:error, reason, permission_decision}
     end
@@ -198,12 +199,12 @@ defmodule AllbertAssist.Actions.Coding.Write do
      %{
        message:
          "Coding write did not run: permission gate returned #{permission_decision.decision}.",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [
          %{
            name: "write",
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission: :coding_file_write,
            permission_decision: permission_decision,
            execution: :not_started

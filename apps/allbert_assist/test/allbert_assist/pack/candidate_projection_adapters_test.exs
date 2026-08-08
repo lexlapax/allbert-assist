@@ -39,6 +39,46 @@ defmodule AllbertAssist.Pack.CandidateProjectionAdaptersTest do
              Fragments.candidate_fragments([%{app_id: :broken, settings_schema: :not_a_list}], [])
   end
 
+  test "candidate settings fragments reject malformed App schema rows" do
+    assert {:error, [%{detail: %{reason: {:invalid_app_settings_schema_entry, 1}}}]} =
+             Fragments.candidate_fragments(
+               [
+                 %{
+                   app_id: :broken,
+                   settings_schema: [
+                     %{key: "apps.broken.enabled", type: "boolean", default: true}
+                   ]
+                 }
+               ],
+               []
+             )
+  end
+
+  test "candidate settings fragments reject duplicate Plugin schema keys" do
+    row = %{key: "candidate.settings.enabled", type: :boolean, default: true}
+
+    assert {:error,
+            [
+              %{
+                detail: %{
+                  reason: {:duplicate_plugin_settings_schema_key, "candidate.settings.enabled"}
+                }
+              }
+            ]} =
+             Fragments.candidate_fragments(
+               [],
+               [
+                 %{
+                   plugin_id: "candidate.settings",
+                   display_name: "Candidate Plugin Settings",
+                   source: :project,
+                   trust_status: :trusted,
+                   settings_schema: [row, row]
+                 }
+               ]
+             )
+  end
+
   test "candidate intent descriptors use the supplied action projection instead of live registries" do
     app_entries = [
       %{

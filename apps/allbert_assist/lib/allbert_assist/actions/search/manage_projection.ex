@@ -3,15 +3,16 @@ defmodule AllbertAssist.Actions.Search.ManageProjection do
 
   alias AllbertAssist.Actions.Jobs.Identity
   alias AllbertAssist.Jobs.Managed
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Search.Projection
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @continuation_seconds 5
 
   def run(operation, action_name, params, context) do
-    decision = PermissionGate.authorize(:search_manage, context)
+    decision = Security.authorize(:search_manage, context)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          false <- is_nil(Process.whereis(Projection)),
          {:ok, user_id} <- Identity.user_id(params, context) do
       execute(operation, action_name, user_id, decision)
@@ -98,7 +99,7 @@ defmodule AllbertAssist.Actions.Search.ManageProjection do
     {:ok,
      %{
        message: decision.reason,
-       status: PermissionGate.response_status(decision),
+       status: Response.permission_status(decision),
        permission_decision: decision,
        actions: [action(action_name, :denied, decision, %{})]
      }}

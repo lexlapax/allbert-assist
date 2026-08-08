@@ -34,20 +34,21 @@ defmodule AllbertAssist.Actions.Search.SearchConversations do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Search
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       execute(params, context, permission_decision)
     else
       {:ok,
        %{
          message: permission_decision.reason,
-         status: PermissionGate.response_status(permission_decision),
+         status: Response.permission_status(permission_decision),
          permission_decision: permission_decision,
          actions: [action(:denied, permission_decision, nil)]
        }}

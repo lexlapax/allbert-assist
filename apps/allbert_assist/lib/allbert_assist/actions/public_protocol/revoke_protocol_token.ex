@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.RevokeProtocolToken do
   Revoke a public-protocol bearer token through the action spine (v0.62 M8.15).
 
   Revocation mutates Settings-Secrets state (deletes the secret and disables the
-  client), so it runs through the Runner (PermissionGate + audit) instead of a
+  client), so it runs through the Runner (Security Central + audit) instead of a
   direct `TokenAuth.revoke/3` call. Revocation returns no raw token — only the
   reference, a `:revoked` status, and a redacted token placeholder — so nothing
   secret-bearing crosses this boundary.
@@ -33,15 +33,16 @@ defmodule AllbertAssist.Actions.PublicProtocol.RevokeProtocolToken do
     ]
 
   alias AllbertAssist.PublicProtocol.TokenAuth
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :settings_secret_write
 
   @impl true
   def run(%{surface: surface, client: client}, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, result} <- TokenAuth.revoke(surface, client, context) do
       completed(result, permission_decision)
     else
@@ -66,7 +67,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.RevokeProtocolToken do
      %{
        message:
          "Public protocol token revocation was denied for #{surface}/#{client}: #{inspect(reason)}",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        error: reason,
        actions: [action(:denied, permission_decision, %{surface: surface, client_id: client})]

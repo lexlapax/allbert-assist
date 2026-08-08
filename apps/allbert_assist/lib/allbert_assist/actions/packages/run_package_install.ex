@@ -41,7 +41,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   alias AllbertAssist.Packages.InstallSpec
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) when is_map(params) do
@@ -51,21 +51,21 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
 
       {:error, spec} ->
         permission_decision =
-          PermissionGate.authorize(:package_install, package_context(spec, context))
+          Security.authorize(:package_install, package_context(spec, context))
 
         denied_response(spec, permission_decision, spec.denial_reason)
     end
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:package_install, context)
+    permission_decision = Security.authorize(:package_install, context)
     spec = %InstallSpec{policy_decision: :denied, denial_reason: :invalid_params}
     denied_response(spec, permission_decision, :invalid_params)
   end
 
   defp run_allowed_spec(spec, params, context) do
     permission_decision =
-      PermissionGate.authorize(:package_install, package_context(spec, context))
+      Security.authorize(:package_install, package_context(spec, context))
 
     cond do
       permission_decision.decision == :denied ->

@@ -23,13 +23,13 @@ defmodule AllbertAssist.Actions.Objectives.SteerObjectiveRun do
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives.Steering
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:objective_write, context)
+    decision = Security.authorize(:objective_write, context)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          {:ok, result} <-
            Steering.steer(
              Maps.field(context, :user_id) || Maps.field(params, :user_id),

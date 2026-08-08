@@ -32,16 +32,17 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
   alias AllbertAssist.Actions.Artifacts.Support
   alias AllbertAssist.Artifacts
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :artifact_read
   @action_name "list_artifacts"
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, artifacts} <- Artifacts.list(list_opts(params, context)) do
       {:ok,
        %{
@@ -63,7 +64,7 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
   end
 
   def run(_params, context),
-    do: stopped(PermissionGate.authorize(@permission, context), :invalid_params)
+    do: stopped(Security.authorize(@permission, context), :invalid_params)
 
   defp list_opts(params, context) do
     [:mime, :origin, :retention, :lifecycle, :since, :thread_id, :user_id, :role, :limit]
@@ -81,7 +82,7 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
     status =
       if permission_decision.decision == :allowed,
         do: :error,
-        else: PermissionGate.response_status(permission_decision)
+        else: Response.permission_status(permission_decision)
 
     {:ok,
      %{

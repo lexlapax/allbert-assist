@@ -27,18 +27,19 @@ defmodule AllbertAssist.Actions.Database.RestoreBackup do
 
   alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.Database
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:command_execute, context)
+    permission_decision = Security.authorize(:command_execute, context)
     backup = Map.get(params, :backup, "latest")
 
     cond do
       Map.get(params, :dry_run, false) ->
         preview(backup, permission_decision)
 
-      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
+      not Security.allowed?(permission_decision) and not approval_resume?(context) ->
         request_or_deny(backup, permission_decision, context)
 
       true ->
@@ -124,7 +125,7 @@ defmodule AllbertAssist.Actions.Database.RestoreBackup do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, %{backup: backup, executed: false})]
      }}

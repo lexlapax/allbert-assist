@@ -25,12 +25,13 @@ defmodule AllbertAssist.Actions.Intent.ListIntentCandidates do
   alias AllbertAssist.Intent.Candidate
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.Ranker
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     request = request(params, context)
 
     candidates =
@@ -43,7 +44,7 @@ defmodule AllbertAssist.Actions.Intent.ListIntentCandidates do
     {:ok,
      %{
        message: message(candidates),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        candidates: candidates,
        actions: [action(:completed, permission_decision, candidates)]
      }}

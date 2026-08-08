@@ -156,5 +156,6 @@ defmodule AllbertAssist.Onboarding.FlowEvalTest do
     ])
   end
 
-  defp read!(relative), do: @repo_root |> Path.join(relative) |> File.read!()
+  defp read!(relative),
+    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
 end

@@ -22,13 +22,13 @@ defmodule AllbertAssist.Actions.Plugins.ListPlugins do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       plugins = PluginRegistry.registered_plugins() |> Enum.map(&Entry.summary/1)
       diagnostics = diagnostics()
 

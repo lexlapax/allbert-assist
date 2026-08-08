@@ -27,14 +27,15 @@ defmodule AllbertAssist.Actions.Mcp.ListTools do
   alias AllbertAssist.Mcp.Client
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     server_id = field(params, :server_id)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, config} <- ServerConfig.resolve(server_id),
          {:ok, result} <- Client.list_tools(config, context, cursor: field(params, :cursor)) do
       tools = result.tools |> Enum.take(limit(params)) |> Enum.map(&redact_tool/1)
@@ -64,7 +65,7 @@ defmodule AllbertAssist.Actions.Mcp.ListTools do
   defp denied(server_id, permission_decision, reason) do
     %{
       message: "MCP tools could not be listed for #{server_id || "unknown"}: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       server_id: server_id,
       tools: [],

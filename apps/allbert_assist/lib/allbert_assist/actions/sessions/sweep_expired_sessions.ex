@@ -32,16 +32,17 @@ defmodule AllbertAssist.Actions.Sessions.SweepExpiredSessions do
     ]
 
   alias AllbertAssist.Actions.Jobs.Identity
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Session
 
   @permission :conversation_write
 
   @impl true
   def run(_params, context) when is_map(context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, count} <- Session.sweep_expired() do
       {:ok, completed(permission_decision, context, count)}
     else
@@ -72,7 +73,7 @@ defmodule AllbertAssist.Actions.Sessions.SweepExpiredSessions do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [
         %{

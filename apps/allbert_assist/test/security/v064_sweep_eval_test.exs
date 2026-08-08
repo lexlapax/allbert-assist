@@ -244,9 +244,8 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
     System.put_env("OLLAMA_HOST", "https://example.invalid")
   end
 
-  defp read!(relative) do
-    @repo_root |> Path.join(relative) |> File.read!()
-  end
+  defp read!(relative),
+    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
 
   defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)

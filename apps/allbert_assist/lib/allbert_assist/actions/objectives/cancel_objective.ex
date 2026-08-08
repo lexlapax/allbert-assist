@@ -31,13 +31,14 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:objective_write, context)
+    permission_decision = Security.authorize(:objective_write, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- user_id(params, context),
          {:ok, objective_id} <- objective_id(params),
          {:ok, reason} <- reason(params),
@@ -98,7 +99,7 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, %{error: :permission_denied})]
     }

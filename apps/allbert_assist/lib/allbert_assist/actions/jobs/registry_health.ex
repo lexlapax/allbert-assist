@@ -24,19 +24,20 @@ defmodule AllbertAssist.Actions.Jobs.RegistryHealth do
     ]
 
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
 
   @impl true
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
     health = health(context)
 
     {:ok,
      %{
        message: message(health),
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        registry_health: health,
        actions: [

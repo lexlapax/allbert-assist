@@ -31,13 +31,14 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Memory.ProposalReview
   alias AllbertAssist.Memory.Proposals
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:memory_write, context)
+    decision = Security.authorize(:memory_write, context)
 
-    with true <- PermissionGate.allowed?(decision),
+    with true <- Security.allowed?(decision),
          false <- is_nil(Process.whereis(Projection)),
          {:ok, user_id} <- Context.user_id(params, context) do
       rebuild(decision, user_id)
@@ -104,7 +105,7 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
     {:ok,
      %{
        message: decision.reason,
-       status: PermissionGate.response_status(decision),
+       status: Response.permission_status(decision),
        permission_decision: decision,
        actions: [action(:denied, decision)]
      }}

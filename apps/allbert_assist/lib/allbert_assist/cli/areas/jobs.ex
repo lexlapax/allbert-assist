@@ -5,7 +5,7 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
   The single source of truth for `mix allbert.jobs` and `allbert admin jobs`:
   `dispatch/2` parses the sub-argv, reads through `AllbertAssist.Jobs`, and routes
   every mutation (create/pause/resume/run) through
-  `AllbertAssist.Actions.Runner.run/3` so each write clears PermissionGate + audit
+  `AllbertAssist.Actions.Runner.run/3` so each write clears Security Central + audit
   on the one spine (v0.62 M8.15). It returns `{rendered_output, exit_code}` — no
   `Mix.*` calls, so it runs inside the packaged release. `Mix.Tasks.Allbert.Jobs`
   is a thin wrapper that prints the output through `Mix.shell/0` (raising a

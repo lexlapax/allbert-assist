@@ -32,15 +32,16 @@ defmodule AllbertAssist.Actions.Jobs.CreateJob do
 
   alias AllbertAssist.Actions.Jobs.Identity
   alias AllbertAssist.Jobs
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @permission :job_write
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(@permission, context)
+    permission_decision = Security.authorize(@permission, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Identity.user_id(params, context),
          {:ok, attrs} <- job_attrs(params, user_id),
          {:ok, job} <- Jobs.create_job(attrs) do
@@ -86,7 +87,7 @@ defmodule AllbertAssist.Actions.Jobs.CreateJob do
   defp denied(permission_decision) do
     %{
       message: permission_decision.reason,
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       actions: [
         %{

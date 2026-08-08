@@ -36,7 +36,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Runtime.SafeTerm
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
   alias AllbertAssist.Workflows
@@ -2211,7 +2211,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
          {:ok, params} <-
            objective_frame_params(decision, request, Map.get(context, :allbert_pack_epoch)),
          permission_decision <- objective_write_decision(context, request),
-         true <- PermissionGate.allowed?(permission_decision),
+         true <- Security.allowed?(permission_decision),
          {:ok, %{objective: objective}} <- ObjectivesEngine.frame_objective(params),
          {:ok, %{steps: steps} = proposed} <-
            ObjectivesEngine.propose_steps(%{
@@ -2246,7 +2246,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp run_objective_route(text, %{request: request} = context, %Decision{} = decision) do
     permission_decision = objective_write_decision(context, request)
 
-    with true <- PermissionGate.allowed?(permission_decision),
+    with true <- Security.allowed?(permission_decision),
          {:ok, params} <-
            objective_frame_params(decision, request, Map.get(context, :allbert_pack_epoch)),
          {:ok, %{objective: objective}} <- ObjectivesEngine.frame_objective(params),
@@ -2298,7 +2298,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
            actions: [
              %{
                name: "frame_objective",
-               status: PermissionGate.response_status(permission_decision),
+               status: Response.permission_status(permission_decision),
                permission: :objective_write,
                permission_decision: permission_decision
              }
@@ -2446,7 +2446,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> Map.put(:operator_id, Map.get(request, :operator_id))
       |> Map.delete(:selected_action)
 
-    PermissionGate.authorize(:objective_write, context)
+    Security.authorize(:objective_write, context)
   end
 
   defp objective_action(objective, steps, context, permission_decision) do

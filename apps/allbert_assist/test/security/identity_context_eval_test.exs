@@ -5,7 +5,7 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
@@ -141,7 +141,7 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
       run_eval(
         Map.merge(fixture, %{
           run: fn fixture ->
-            decision = PermissionGate.authorize(:external_network, context)
+            decision = Security.authorize(:external_network, context)
 
             %{
               decision: decision.decision,

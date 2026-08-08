@@ -30,13 +30,13 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Runtime.Response
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:objective_write, context)
+    permission_decision = Security.authorize(:objective_write, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, agent_id} <- agent_id(params),
          {:ok, entry} <- AgentRegistry.lookup(agent_id),
          {:ok, command} <- command(params, entry),

@@ -28,13 +28,13 @@ defmodule AllbertAssist.Actions.Resources.RememberResourceGrant do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Resources.GrantHandoff
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security
 
   @impl true
   def run(%{id: id} = params, context) do
-    permission_decision = PermissionGate.authorize(:confirmation_decide, context)
+    permission_decision = Security.authorize(:confirmation_decide, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       remember(id, params, context, permission_decision)
     else
       denied(permission_decision, :permission_denied)

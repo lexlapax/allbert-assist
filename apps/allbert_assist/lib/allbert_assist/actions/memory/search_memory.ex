@@ -29,7 +29,8 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Memory.Retrieval
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
   alias AllbertAssist.Validation
 
@@ -38,12 +39,12 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
   def run(%{"query" => query} = params, context), do: do_run(query, params, context)
 
   def run(_params, context),
-    do: error(PermissionGate.authorize(:read_only, context), :missing_query)
+    do: error(Security.authorize(:read_only, context), :missing_query)
 
   defp do_run(query, params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, user_id} <- Context.user_id(params, context),
          {:ok, entries, source} <- search(query, params, user_id, context) do
       {:ok,
@@ -119,7 +120,7 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        entries: [],
        actions: [action(:denied, permission_decision, nil)]

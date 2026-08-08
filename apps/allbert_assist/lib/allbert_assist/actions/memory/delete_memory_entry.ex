@@ -33,15 +33,16 @@ defmodule AllbertAssist.Actions.Memory.DeleteMemoryEntry do
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory.ClaimLifecycle
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.Settings
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision = PermissionGate.authorize(:memory_write, context)
+    permission_decision = Security.authorize(:memory_write, context)
     path = value(params, :path)
 
-    with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
+    with {:allowed, true} <- {:allowed, Security.allowed?(permission_decision)},
          {:ok, path} <- required_path(path),
          {:ok, user_id} <- Context.user_id(params, context) do
       cond do
@@ -61,7 +62,7 @@ defmodule AllbertAssist.Actions.Memory.DeleteMemoryEntry do
   end
 
   def run(_params, context),
-    do: error(PermissionGate.authorize(:memory_write, context), :missing_path)
+    do: error(Security.authorize(:memory_write, context), :missing_path)
 
   defp archive_now(params, path, user_id, permission_decision, execution) do
     ids = lifecycle_ids(params)
@@ -188,7 +189,7 @@ defmodule AllbertAssist.Actions.Memory.DeleteMemoryEntry do
     {:ok,
      %{
        message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, nil)]
      }}

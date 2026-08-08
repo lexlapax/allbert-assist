@@ -27,14 +27,15 @@ defmodule AllbertAssist.Actions.SelfImprovement.DiscoverPatterns do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
   alias AllbertAssist.SelfImprovement.Discovery
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
+    permission_decision = Security.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(permission_decision) do
+    if Security.allowed?(permission_decision) do
       {:ok, result} = Discovery.discover(params, context)
       {:ok, completed(result, permission_decision)}
     else
@@ -48,7 +49,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.DiscoverPatterns do
 
     %{
       message: "Discovered #{length(suggestions)} self-improvement suggestion(s).",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       suggestions: suggestions,
       diagnostics: diagnostics,
@@ -66,7 +67,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.DiscoverPatterns do
   defp denied(params, permission_decision, reason) do
     %{
       message: "Self-improvement pattern discovery denied: #{inspect(reason)}.",
-      status: PermissionGate.response_status(permission_decision),
+      status: Response.permission_status(permission_decision),
       permission_decision: permission_decision,
       suggestions: [],
       diagnostics: [],

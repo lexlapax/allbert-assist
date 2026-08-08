@@ -35,7 +35,8 @@ defmodule AllbertAssist.Actions.Coding.Bash do
   alias AllbertAssist.Execution.LocalRunner
   alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Security
 
   @output_preview_bytes 4_000
 
@@ -43,7 +44,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
   def run(params, context) when is_map(params) do
     with {:ok, context} <- SessionGuard.ensure_active(context) do
       permission_decision =
-        PermissionGate.authorize(:coding_shell_execute, action_context(params, context))
+        Security.authorize(:coding_shell_execute, action_context(params, context))
 
       if permission_decision.decision == :denied do
         blocked_response(permission_decision)
@@ -60,7 +61,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:coding_shell_execute, context)
+    permission_decision = Security.authorize(:coding_shell_execute, context)
     denied_response(%{reason: :invalid_params}, permission_decision)
   end
 
@@ -82,7 +83,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
     else
       {:error, error} ->
         permission_decision =
-          PermissionGate.authorize(:coding_shell_execute, action_context(params, context))
+          Security.authorize(:coding_shell_execute, action_context(params, context))
 
         denied_response(error, permission_decision)
     end
@@ -206,12 +207,12 @@ defmodule AllbertAssist.Actions.Coding.Bash do
      %{
        message:
          "Coding bash did not run: permission gate returned #{permission_decision.decision}.",
-       status: PermissionGate.response_status(permission_decision),
+       status: Response.permission_status(permission_decision),
        permission_decision: permission_decision,
        actions: [
          %{
            name: "bash",
-           status: PermissionGate.response_status(permission_decision),
+           status: Response.permission_status(permission_decision),
            permission: :coding_shell_execute,
            permission_decision: permission_decision,
            execution: :not_started
