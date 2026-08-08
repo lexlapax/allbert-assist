@@ -11,6 +11,7 @@ defmodule AllbertAssist.Onboarding.ProviderStepTest do
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Onboarding.ProviderStep
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   describe "vault_tier_report/1 (injected)" do
     test "OS and encrypted tiers are writable; env tier is read-only" do
@@ -171,7 +172,7 @@ defmodule AllbertAssist.Onboarding.ProviderStepTest do
       assert {:ok, response} =
                SetProviderCredential.run(
                  %{provider: "openai", mode: :set_secret, api_key: "sk-secret-xyz"},
-                 %{actor: "local", channel: :test}
+                 ReadyEffectContext.attach(%{actor: "local", channel: :test})
                )
 
       assert response.status == :completed

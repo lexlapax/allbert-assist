@@ -4,10 +4,8 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Router.{DescriptorResolver, DescriptorStore}
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
 
@@ -58,8 +56,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
     System.delete_env("ALLBERT_HOME_DIR")
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
-    restore_shipped_plugins!()
-    restore_shipped_apps!()
     assert_required_routing_plugins!()
 
     on_exit(fn ->
@@ -79,8 +75,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
         do: Application.put_env(:allbert_assist, Settings, original_settings),
         else: Application.delete_env(:allbert_assist, Settings)
 
-      restore_shipped_plugins!()
-      restore_shipped_apps!()
       File.rm_rf!(home)
       File.rm_rf!(fixture_root)
     end)
@@ -233,30 +227,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
       channel: :test,
       request: %{operator_id: "local", channel: :test}
     }
-  end
-
-  defp restore_shipped_plugins! do
-    PluginRegistry.clear()
-
-    PluginDiscovery.shipped_modules()
-    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
-    |> Enum.each(fn {_plugin_id, module} ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_module(module)
-    end)
-  end
-
-  defp restore_shipped_apps! do
-    AppRegistry.clear()
-
-    plugin_apps =
-      PluginRegistry.registered_plugins()
-      |> Enum.flat_map(& &1.apps)
-
-    [AllbertAssist.App.CoreApp | plugin_apps]
-    |> Enum.uniq()
-    |> Enum.each(fn module ->
-      assert {:ok, _app_id} = AppRegistry.register(module)
-    end)
   end
 
   defp assert_required_routing_plugins! do
