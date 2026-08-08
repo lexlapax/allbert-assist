@@ -101,6 +101,37 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
                end)
     end
 
+    test "kernel test files are part of the closure, not just kernel sources" do
+      # M7.2 splits owning tests because a test that reaches a residual fixture
+      # breaks the invariant in the test dimension rather than the compile one.
+      # The gate has to see that dimension or the split cannot be verified.
+      kernel_tests =
+        Path.wildcard(Path.expand("apps/allbert_kernel/test/**/*.exs", repository_root()))
+
+      assert kernel_tests != []
+
+      for path <- kernel_tests do
+        relative = Path.relative_to(path, repository_root())
+        assert is_list(Ledger.references(relative))
+      end
+
+      assert {:ok, findings} = Ledger.findings()
+      refute Enum.any?(findings, &(&1.concern == :kernel_test))
+    end
+
+    test "a nested test stub resolves to its parent rather than a bare module" do
+      # `defmodule ReadyBarrier` inside a test module is auto-aliased by Elixir,
+      # so a resolver that missed it would report a module existing nowhere and
+      # the closure proof would be noise instead of signal.
+      references =
+        Ledger.references(
+          "apps/allbert_kernel/test/allbert_assist/pack/activation_guard_test.exs"
+        )
+
+      refute ReadyBarrier in references
+      assert Enum.any?(references, &(Atom.to_string(&1) =~ ~r/\.ReadyBarrier$/))
+    end
+
     test "the external dependencies the kernel will declare at M8 are named, not discovered" do
       assert Ledger.admitted_applications() == [:exqlite, :jason, :jido_action, :jido_signal]
 

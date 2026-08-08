@@ -31,6 +31,7 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   @repo_root Path.expand("../../../../..", __DIR__)
 
   @kernel_source_glob "apps/allbert_kernel/lib/**/*.ex"
+  @kernel_test_glob "apps/allbert_kernel/test/**/*.exs"
 
   # The M8 relocation roster, frozen at M7.1. Nineteen concern modules plus the
   # six companion-substrate modules admitted by closure.
@@ -93,6 +94,18 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
 
   # Elixir and OTP modules need no admission. Anything capitalized that is not
   # an Allbert module, an admitted library, or one of these is a finding.
+  # Test-framework modules a kernel test file may name. They are not capability
+  # edges; admitting them here keeps the kernel test closure honest about what
+  # else a split half is allowed to reach.
+  @test_framework MapSet.new([
+                    ExUnit,
+                    ExUnit.Assertions,
+                    ExUnit.Callbacks,
+                    ExUnit.Case,
+                    ExUnit.CaptureLog,
+                    ExUnit.CaptureIO
+                  ])
+
   @stdlib MapSet.new([
             Access,
             Application,
@@ -109,6 +122,7 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
             Function,
             GenServer,
             Integer,
+            IO,
             Kernel,
             KeyError,
             Keyword,
@@ -121,6 +135,7 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
             Path,
             Process,
             Regex,
+            Registry,
             Stream,
             String,
             String.Chars,
@@ -175,9 +190,45 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
         |> references()
         |> Enum.reject(&(MapSet.member?(allowed, &1) or admitted?(&1)))
         |> Enum.map(&%{path: path, concern: concern, module: &1, reason: classify_finding(&1)})
-      end)
+      end) ++ kernel_test_findings(allowed)
 
     {:ok, Enum.sort_by(findings, &{&1.path, Atom.to_string(&1.module)})}
+  end
+
+  # A test that reaches a residual fixture breaks the invariant in the test
+  # dimension rather than the compile one, which is exactly the failure M7.2
+  # exists to prevent. Checking kernel test files here means a split half that
+  # did not actually close fails now instead of at M8.
+  defp kernel_test_findings(allowed) do
+    @repo_root
+    |> Path.join(@kernel_test_glob)
+    |> Path.wildcard()
+    |> Enum.map(&Path.relative_to(&1, @repo_root))
+    |> Enum.sort()
+    |> Enum.flat_map(fn path ->
+      # A test file's own stubs, its test module, and anything nested under
+      # them are local scaffolding, not dependencies.
+      local = path |> quoted!() |> defined_modules()
+
+      path
+      |> references()
+      |> Enum.reject(
+        &(MapSet.member?(allowed, &1) or admitted?(&1) or
+            MapSet.member?(@test_framework, &1) or local?(&1, local))
+      )
+      |> Enum.map(&%{path: path, concern: :kernel_test, module: &1, reason: classify_finding(&1)})
+    end)
+  end
+
+  defp local?(module, local) do
+    name = Atom.to_string(module)
+
+    Enum.any?(local, fn defined ->
+      defined_name = Atom.to_string(defined)
+
+      module == defined or String.starts_with?(defined_name, name <> ".") or
+        String.starts_with?(name, defined_name <> ".")
+    end)
   end
 
   @doc "A stable ledger record for evidence, independent of source line numbers."
@@ -309,8 +360,16 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
       else: :unadmitted_library
   end
 
-  defp admitted?(module),
-    do: Map.has_key?(@admitted_libraries, module) or MapSet.member?(@stdlib, module)
+  # One deliberate negative fixture: the binder's rejection row needs a module
+  # that is guaranteed not to load, and a module that exists nowhere cannot be
+  # a residual dependency. Listing it keeps the exception greppable rather than
+  # letting unresolvable names pass generally, which would hide a typo.
+  @absent_fixtures MapSet.new([AllbertAssist.Kernel.NoSuchProvider])
+
+  defp admitted?(module) do
+    Map.has_key?(@admitted_libraries, module) or MapSet.member?(@stdlib, module) or
+      MapSet.member?(@absent_fixtures, module)
+  end
 
   defp kernel_modules do
     @repo_root
@@ -331,20 +390,28 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
 
   defp quoted_absolute!(path), do: path |> File.read!() |> Code.string_to_quoted!()
 
-  defp defined_modules(ast) do
-    {_ast, acc} =
-      Macro.prewalk(ast, [], fn
-        {:defmodule, _meta, [{:__aliases__, _alias_meta, parts} | _rest]} = node, acc ->
-          if Enum.all?(parts, &is_atom/1),
-            do: {node, [Module.concat(parts) | acc]},
-            else: {node, acc}
+  # A nested `defmodule Input` inside `AllbertAssist.Pack.RowSchemas` defines
+  # `AllbertAssist.Pack.RowSchemas.Input`, not `Input`. Carrying the enclosing
+  # prefix is what makes the kernel test closure recognize those as local.
+  defp defined_modules(ast), do: defined_modules(ast, [])
 
-        node, acc ->
-          {node, acc}
-      end)
-
-    acc
+  defp defined_modules({:defmodule, _meta, [{:__aliases__, _am, parts} | rest]}, prefix)
+       when is_list(parts) do
+    if Enum.all?(parts, &is_atom/1) do
+      nested = prefix ++ parts
+      [Module.concat(nested) | defined_modules(rest, nested)]
+    else
+      defined_modules(rest, prefix)
+    end
   end
+
+  defp defined_modules({_form, _meta, args}, prefix), do: defined_modules(args, prefix)
+  defp defined_modules({left, right}, prefix), do: defined_modules([left, right], prefix)
+
+  defp defined_modules(list, prefix) when is_list(list),
+    do: Enum.flat_map(list, &defined_modules(&1, prefix))
+
+  defp defined_modules(_other, _prefix), do: []
 
   # Collect every alias segment list in the file, expanding `A.{B, C}` so a
   # multi-alias contributes `A.B` and `A.C` rather than a bare `B` and `C` and a
@@ -383,13 +450,43 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   # reading as a different module than it is.
   defp alias_table(ast) do
     {_ast, table} =
-      Macro.prewalk(ast, %{}, fn
+      Macro.prewalk(ast, nested_module_aliases(ast), fn
         {:alias, _meta, args} = node, table -> {node, put_aliases(table, args)}
         node, table -> {node, table}
       end)
 
     table
   end
+
+  # Elixir auto-aliases a nested module inside its parent, so a test stub
+  # `defmodule ReadyBarrier` written inside `FooTest` is referenced as
+  # `ReadyBarrier` but is `FooTest.ReadyBarrier`. Without this the resolver
+  # reports a bare `Elixir.ReadyBarrier` that exists nowhere.
+  defp nested_module_aliases(ast) do
+    ast
+    |> defined_module_parts([])
+    |> Map.new(fn parts -> {List.last(parts), parts} end)
+  end
+
+  defp defined_module_parts({:defmodule, _meta, [{:__aliases__, _am, parts} | rest]}, prefix)
+       when is_list(parts) do
+    if Enum.all?(parts, &is_atom/1) do
+      nested = prefix ++ parts
+      [nested | defined_module_parts(rest, nested)]
+    else
+      defined_module_parts(rest, prefix)
+    end
+  end
+
+  defp defined_module_parts({_form, _meta, args}, prefix), do: defined_module_parts(args, prefix)
+
+  defp defined_module_parts({left, right}, prefix),
+    do: defined_module_parts([left, right], prefix)
+
+  defp defined_module_parts(list, prefix) when is_list(list),
+    do: Enum.flat_map(list, &defined_module_parts(&1, prefix))
+
+  defp defined_module_parts(_other, _prefix), do: []
 
   defp put_aliases(table, [{{:., _dot, [{:__aliases__, _bm, base}, :{}]}, _m, children} | _rest])
        when is_list(base) do
