@@ -598,28 +598,36 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
                      %{
                        id: "prepare_database",
                        cwd: core_cwd,
-                       args: ["ecto.migrate.allbert", "--quiet"]
+                       args: ["ecto.migrate.allbert", "--quiet"],
+                       env: prepare_env
                      }}
 
     assert core_cwd == Path.join(repo_root, "apps/allbert_assist")
+    assert {"MIX_BUILD_PATH", Path.join([repo_root, "_build", "test"])} in prepare_env
 
     assert_received {:composition_serial_command,
                      %{
                        id: "run_tests",
                        cwd: composition_cwd,
-                       args: [
-                         "allbert.test.raw",
-                         "--only",
-                         "global_process_serial",
-                         "--max-cases",
-                         "1",
-                         "--slowest",
-                         "25",
-                         "test/allbert_assist/pack/application_boundary_test.exs"
-                       ]
+                       env: test_env,
+                       args: test_args
                      }}
 
     assert composition_cwd == Path.join(repo_root, "apps/allbert_composition")
+    assert {"MIX_BUILD_PATH", Path.join([repo_root, "_build", "test"])} in test_env
+
+    assert [
+             "allbert.test.raw",
+             "--only",
+             "global_process_serial",
+             "--max-cases",
+             "1",
+             "--slowest",
+             "25"
+             | composition_test_paths
+           ] = test_args
+
+    assert "test/allbert_assist/pack/application_boundary_test.exs" in composition_test_paths
   end
 
   test "kernel serial-owner runs from kernel CWD without residual database preparation" do

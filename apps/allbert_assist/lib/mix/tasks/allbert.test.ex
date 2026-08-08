@@ -10642,7 +10642,13 @@ defmodule Mix.Tasks.Allbert.Test do
          partition: partition,
          test_paths: test_paths
        }) do
-    env = [{"MIX_TEST_PARTITION", to_string(partition)} | env]
+    env =
+      [
+        {"MIX_TEST_PARTITION", to_string(partition)},
+        {"MIX_BUILD_PATH", Path.join([root(), "_build", "test"])}
+        | env
+      ]
+
     validate_serial_lane_paths!(owner, test_paths)
     started = System.monotonic_time(:millisecond)
 
