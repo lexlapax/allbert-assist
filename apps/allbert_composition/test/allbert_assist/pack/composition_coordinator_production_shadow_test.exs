@@ -20,9 +20,8 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
-  @expected_behavior_digest "4a3661c3440dc21b58f91776b9d711cb14fd3343aa639384acdc3933d4d24b91"
-  @expected_bytes_sha256 "4464fcdf3eb31233d09f524ae9c5167b91980103e519fa21fe551807934913ae"
-  @expected_byte_size 837_405
+  @expected_behavior_digest "e3e5683e94ee5498da5d8a9aaa1401195ea5c9664262017c8784abb2fbfff9ea"
+  @expected_bytes_sha256 "41f1d4910a0b31ca90621d79b67a3aff806d24fb36765d70e9f34b054aedd593"
 
   defmodule AppMetadataSupervisor do
     use GenServer
@@ -204,7 +203,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
     bytes_sha256 = :crypto.hash(:sha256, coordinator_bytes) |> Base.encode16(case: :lower)
     assert behavior_digest == @expected_behavior_digest
     assert bytes_sha256 == @expected_bytes_sha256
-    assert byte_size(coordinator_bytes) == @expected_byte_size
 
     IO.puts(
       "v14-m2-production-shadow status=pass actions=281 behavior_digest=#{behavior_digest} " <>

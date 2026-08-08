@@ -48,17 +48,24 @@ defmodule AllbertAssist.Pack.ProjectionProvider do
   defp application_specs do
     @applications
     |> Enum.reduce_while({:ok, []}, fn application, {:ok, specs} ->
-      path = Application.app_dir(application, "ebin/#{application}.app")
-
-      case OTPMetadata.read_app(path) do
-        {:ok, spec} -> {:cont, {:ok, [spec | specs]}}
-        {:error, reason} -> {:halt, {:error, {:application_metadata, application, reason}}}
+      with {:ok, path} <- application_metadata_path(application),
+           {:ok, spec} <- OTPMetadata.read_app(path) do
+        {:cont, {:ok, [spec | specs]}}
+      else
+        {:error, reason} ->
+          {:halt, {:error, {:application_metadata, application, reason}}}
       end
     end)
     |> case do
       {:ok, specs} -> {:ok, Enum.reverse(specs)}
       error -> error
     end
+  end
+
+  defp application_metadata_path(application) do
+    {:ok, Application.app_dir(application, "ebin/#{application}.app")}
+  rescue
+    ArgumentError -> {:error, {:unknown_application, application}}
   end
 
   defp release_spec(applications) do

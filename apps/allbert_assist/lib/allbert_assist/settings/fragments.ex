@@ -410,34 +410,41 @@ defmodule AllbertAssist.Settings.Fragments do
     end
   end
 
-  # `allbert_assist` must boot and run its owner tests without adding an upward
-  # dependency on `allbert_composition`. In the complete release code path the
-  # composition module is present and the sealed projection remains mandatory.
-  # In the deliberately smaller core-owner code path, resolve the residual
-  # Pack's declaration against the independent compiled-module census instead;
-  # this is the same fail-closed owner contract, not a hand-maintained fragment
-  # fallback. Candidate assembly always supplies its already-sealed projection.
+  # An owner application must boot without adding upward dependencies merely to
+  # discover settings. Source/test owner CWDs can therefore lack one or more
+  # applications from the complete four-application release closure even when a
+  # shared build directory happens to make composition BEAMs visible. Only that
+  # typed source-closure absence selects the residual declaration. A packaged
+  # runtime and every other projection error remain fail-closed. Candidate
+  # assembly always supplies its already-sealed complete projection.
   defp default_pack_contributions do
-    if :code.which(AllbertAssist.Pack.CompositionCoordinator) == :non_existing do
-      FragmentOwner.resolve_pack(
-        "allbert_assist",
-        :allbert_assist,
-        Residual.settings_fragments()
-      )
-    else
-      projection!()
-      |> pack_contributions()
+    case ProjectionProvider.closed() do
+      {:ok, closed} ->
+        pack_contributions(closed)
+
+      {:error, {:application_metadata, _application, {:unknown_application, _missing}}} =
+          error ->
+        if source_owner_context?() do
+          residual_pack_contributions()
+        else
+          error
+        end
+
+      error ->
+        error
     end
   end
 
-  defp projection! do
-    case ProjectionProvider.closed() do
-      {:ok, closed} ->
-        closed
+  defp residual_pack_contributions do
+    FragmentOwner.resolve_pack(
+      "allbert_assist",
+      :allbert_assist,
+      Residual.settings_fragments()
+    )
+  end
 
-      {:error, reason} ->
-        raise ArgumentError, "Settings Pack projection unavailable: #{inspect(reason)}"
-    end
+  defp source_owner_context? do
+    is_nil(System.get_env("RELEASE_ROOT")) and is_nil(System.get_env("RELEASE_VSN"))
   end
 
   defp pack_contributions(%Projection.Closed{rows: rows}) do
