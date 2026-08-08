@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -282,6 +283,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert response.runner_metadata.action_name == "runner_plugin_echo"
     assert response.runner_metadata.action_capability.plugin_id == "example.runner_actions"
     assert response.actions == []
+    assert Response.canonical_action_response?(response)
   end
 
   test "blocks explicitly unreleased action refs without blocking undeclared actions" do
@@ -372,6 +374,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert response.message =~ "Action runner_plugin_failure failed"
     assert [%{status: :error, runner_metadata: metadata}] = response.actions
     assert metadata.action_name == "runner_plugin_failure"
+    assert Response.canonical_action_response?(response)
   end
 
   test "same-digest E1 replacement before action invocation returns product_not_ready without re-admission" do

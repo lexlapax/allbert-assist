@@ -51,6 +51,24 @@ defmodule AllbertAssist.Runtime.ResponseTest do
     assert invalid.message =~ "returned an invalid result"
   end
 
+  test "defines and validates the canonical internal action response" do
+    response =
+      Response.canonical_action_result({:ok, %{message: "done", status: "completed"}}, "demo")
+
+    assert Response.canonical_action_response?(response)
+    assert {:ok, ^response} = Response.validate_action_response(response)
+    assert response.status == :completed
+    assert response.model_payload == "done"
+    assert response.surface_payload == "done"
+
+    refute Response.canonical_action_response?(%{message: "missing fields"})
+
+    assert {:error, {:invalid_canonical_action_response, %{message: "missing fields"}}} =
+             Response.validate_action_response(%{message: "missing fields"})
+
+    assert Response.action_response_schema().status == :atom
+  end
+
   test "builds unknown action and permission status responses" do
     response = Response.unknown_action("nope", "nope")
 

@@ -72,6 +72,21 @@ defmodule AllbertAssist.ActionTest do
     assert OverrideAction.capability().resumable?
   end
 
+  test "provides overridable canonical response builders without changing capability metadata" do
+    assert DemoAction.response_completed("done").status == :completed
+    assert DemoAction.response_needs_confirmation("confirm").status == :needs_confirmation
+    assert DemoAction.response_denied("no").status == :denied
+    assert DemoAction.response_error("broken", :boom).error == :boom
+
+    assert DemoAction.response_action(:completed, result: %{kept?: true}) == %{
+             name: "demo_allbert_action",
+             status: :completed,
+             result: %{kept?: true}
+           }
+
+    assert DemoAction.response_schema() == AllbertAssist.Runtime.Response.action_response_schema()
+  end
+
   test "validates required capability metadata" do
     assert {:error, {:missing_capability_keys, [:confirmation]}} =
              Action.validate_capability(

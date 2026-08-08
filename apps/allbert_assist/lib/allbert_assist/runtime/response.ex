@@ -53,6 +53,24 @@ defmodule AllbertAssist.Runtime.Response do
           optional(atom()) => term()
         }
 
+  @type action_response :: t()
+
+  @action_response_schema %{
+    message: :string,
+    model_payload: :string,
+    surface_payload: :string,
+    status: :atom,
+    actions: :list,
+    decision: :map_or_nil,
+    resource_access: :list,
+    approval_handoff: :map_or_nil,
+    diagnostics: :list
+  }
+
+  @doc "Return the stable internal fields guaranteed for registered action responses."
+  @spec action_response_schema() :: %{required(atom()) => atom()}
+  def action_response_schema, do: @action_response_schema
+
   @doc "Build a completed response."
   @spec completed(String.t(), map() | keyword()) :: t()
   def completed(message, attrs \\ %{}), do: build(:completed, message, attrs)
@@ -127,6 +145,54 @@ defmodule AllbertAssist.Runtime.Response do
       ]
     )
   end
+
+  @doc "Normalize and validate a registered action result at the Runner boundary."
+  @spec canonical_action_result({:ok, map()} | {:error, term()} | term(), String.t()) ::
+          action_response()
+  def canonical_action_result(result, action_name) when is_binary(action_name) do
+    result
+    |> from_action_result(action_name)
+    |> ensure_canonical_action_response(action_name)
+  end
+
+  @doc "Return whether a response has every canonical internal action-response field."
+  @spec canonical_action_response?(term()) :: boolean()
+  def canonical_action_response?(%{
+        message: message,
+        model_payload: model_payload,
+        surface_payload: surface_payload,
+        status: status,
+        actions: actions,
+        decision: decision,
+        resource_access: resource_access,
+        approval_handoff: approval_handoff,
+        diagnostics: diagnostics
+      }) do
+    is_binary(message) and
+      is_binary(model_payload) and
+      is_binary(surface_payload) and
+      is_atom(status) and
+      is_list(actions) and
+      (is_nil(decision) or is_map(decision)) and
+      is_list(resource_access) and
+      (is_nil(approval_handoff) or is_map(approval_handoff)) and
+      is_list(diagnostics)
+  end
+
+  def canonical_action_response?(_response), do: false
+
+  @doc "Validate a canonical internal action response without changing its contents."
+  @spec validate_action_response(term()) :: {:ok, action_response()} | {:error, term()}
+  def validate_action_response(response) when is_map(response) do
+    if canonical_action_response?(response) do
+      {:ok, response}
+    else
+      {:error, {:invalid_canonical_action_response, response}}
+    end
+  end
+
+  def validate_action_response(response),
+    do: {:error, {:invalid_canonical_action_response, response}}
 
   @doc "Build the standard response for an unknown or unregistered action."
   @spec unknown_action(term(), String.t()) :: t()
@@ -241,6 +307,20 @@ defmodule AllbertAssist.Runtime.Response do
       diagnostics: diagnostics(attrs)
     })
     |> normalize(default_message: message, default_status: status)
+  end
+
+  defp ensure_canonical_action_response(response, action_name) do
+    case validate_action_response(response) do
+      {:ok, canonical_response} ->
+        canonical_response
+
+      {:error, reason} ->
+        error(
+          "Action #{action_name} returned an invalid canonical response: #{inspect(reason)}",
+          reason,
+          actions: [action(action_name, :error, error: inspect(reason))]
+        )
+    end
   end
 
   defp message(%{message: message}, _default) when is_binary(message), do: message

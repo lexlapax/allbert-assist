@@ -2,7 +2,97 @@ defmodule AllbertAssist.Surface.RendererTest do
   use ExUnit.Case, async: true
   @moduletag :home_fs_serial
 
+  alias AllbertAssist.PublicProtocol.Acp.Mapping, as: AcpMapping
+  alias AllbertAssist.PublicProtocol.OpenAI.Mapping, as: OpenAIMapping
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Surface.Renderer
+
+  test "canonical action responses retain each frozen surface payload preference" do
+    response =
+      Response.canonical_action_result(
+        {:ok,
+         %{
+           message: "channel and public-protocol text",
+           model_payload: "model-only text",
+           surface_payload: "CLI and TUI text",
+           status: :completed,
+           custom_edge: %{preserved: true}
+         }},
+        "compatibility_probe"
+      )
+
+    for {payload, expected} <- [
+          message: "channel and public-protocol text",
+          model_payload: "model-only text",
+          surface_payload: "CLI and TUI text"
+        ] do
+      assert {:ok, %{kind: :text, text: ^expected, chunks: [^expected]}} =
+               Renderer.render_response(response, %{payload: payload})
+    end
+
+    assert response.custom_edge == %{preserved: true}
+  end
+
+  test "canonical action responses retain frozen public-protocol terminal mapping" do
+    completed = canonical_public_response(:completed)
+
+    assert {:ok, completion} =
+             OpenAIMapping.chat_completion(
+               completed,
+               %{model: "local"},
+               %{client_id: "fixture-client"}
+             )
+
+    assert get_in(completion, ["choices", Access.at(0), "message", "content"]) ==
+             "public message"
+
+    assert {:ok, [update, terminal]} =
+             AcpMapping.prompt_outbound(
+               completed,
+               %{id: "acp_session_fixture", client_id: "fixture-client"},
+               41
+             )
+
+    assert get_in(update, ["params", "update", "content", "text"]) == "public message"
+
+    assert terminal == %{
+             "jsonrpc" => "2.0",
+             "id" => 41,
+             "result" => %{"stopReason" => "end_turn"}
+           }
+
+    for {status, openai_status, openai_code, acp_code} <- [
+          {:denied, 403, "authorization_error", "authorization_error"},
+          {:error, 400, "runtime_error", "runtime_error"},
+          {:failed, 400, "runtime_error", "runtime_error"},
+          {:unsupported, 400, "runtime_error", "runtime_error"},
+          {:unavailable, 400, "runtime_error", "runtime_error"}
+        ] do
+      response = canonical_public_response(status)
+
+      assert {:error, openai_error} =
+               OpenAIMapping.chat_completion(
+                 response,
+                 %{model: "local"},
+                 %{client_id: "fixture-client"}
+               )
+
+      assert openai_error.status == openai_status
+      assert openai_error.code == openai_code
+      assert openai_error.message == "#{status} edge"
+
+      assert {:error, acp_error} =
+               AcpMapping.prompt_outbound(
+                 response,
+                 %{id: "acp_session_fixture", client_id: "fixture-client"},
+                 42
+               )
+
+      assert acp_error.code == -32_000
+      assert acp_error.data == %{"code" => acp_code}
+      assert acp_error.message == "#{status} edge"
+    end
+  end
 
   test "renders the descriptor-selected surface payload without leaking model payload chrome" do
     assert {:ok, rendered} =
@@ -121,5 +211,18 @@ defmodule AllbertAssist.Surface.RendererTest do
     assert rendered.text =~ "surface summary"
     assert rendered.text =~ "ALLBERT:APPROVE:conf_stream"
     refute rendered.text =~ "model clean"
+  end
+
+  defp canonical_public_response(status) do
+    Response.canonical_action_result(
+      {:ok,
+       %{
+         message: if(status == :completed, do: "public message", else: "#{status} edge"),
+         model_payload: "model-only payload",
+         surface_payload: "surface-only payload",
+         status: status
+       }},
+      "compatibility_probe"
+    )
   end
 end

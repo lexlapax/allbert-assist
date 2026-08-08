@@ -77,7 +77,42 @@ defmodule AllbertAssist.Action do
       @doc false
       def registry_order, do: @allbert_action_registry_order
 
-      defoverridable capability: 0
+      @doc false
+      def response_completed(message, attrs \\ %{}),
+        do: AllbertAssist.Runtime.Response.completed(message, attrs)
+
+      @doc false
+      def response_needs_confirmation(message, attrs \\ %{}),
+        do: AllbertAssist.Runtime.Response.needs_confirmation(message, attrs)
+
+      @doc false
+      def response_denied(message, attrs \\ %{}),
+        do: AllbertAssist.Runtime.Response.denied(message, attrs)
+
+      @doc false
+      def response_error(message, reason \\ nil, attrs \\ %{}),
+        do: AllbertAssist.Runtime.Response.error(message, reason, attrs)
+
+      @doc false
+      def response_action(status, attrs \\ %{}),
+        do: AllbertAssist.Runtime.Response.action(name(), status, attrs)
+
+      @doc false
+      def response_schema, do: AllbertAssist.Runtime.Response.action_response_schema()
+
+      defoverridable capability: 0,
+                     response_completed: 1,
+                     response_completed: 2,
+                     response_needs_confirmation: 1,
+                     response_needs_confirmation: 2,
+                     response_denied: 1,
+                     response_denied: 2,
+                     response_error: 1,
+                     response_error: 2,
+                     response_error: 3,
+                     response_action: 1,
+                     response_action: 2,
+                     response_schema: 0
     end
   end
 

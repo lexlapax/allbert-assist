@@ -86,7 +86,7 @@ defmodule AllbertAssist.Actions.Runner do
         :ok -> app_scope_or_run(action_module, params, runner_context)
         {:denied, response} -> {:ok, response}
       end
-      |> Response.from_action_result(action_name)
+      |> Response.canonical_action_result(action_name)
 
     duration_ms = System.monotonic_time(:millisecond) - started_at
 
