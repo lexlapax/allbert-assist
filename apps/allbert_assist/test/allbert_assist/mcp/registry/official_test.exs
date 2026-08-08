@@ -6,6 +6,7 @@ defmodule AllbertAssist.Mcp.Registry.OfficialTest do
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -43,7 +44,8 @@ defmodule AllbertAssist.Mcp.Registry.OfficialTest do
 
     assert {:ok, [result]} =
              Official.search("weather", %{
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                limit: 5,
                max_pages: 1
              })
@@ -60,7 +62,8 @@ defmodule AllbertAssist.Mcp.Registry.OfficialTest do
   test "search fails closed when external policy denies registry egress" do
     assert {:error, {:http_policy_denied, :external_services_disabled}} =
              Official.search("weather", %{
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                limit: 5,
                max_pages: 1
              })

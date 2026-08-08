@@ -262,7 +262,8 @@ defmodule AllbertAssist.Resources.GrantHandoff do
       actor: actor(context),
       channel: channel(context),
       surface: surface(context),
-      metadata: metadata
+      metadata: metadata,
+      allbert_pack_epoch: field(context, :allbert_pack_epoch)
     }
     |> put_if_present(:id, field(attrs, :grant_id))
     |> put_if_present(:audit?, field(attrs, :audit?))

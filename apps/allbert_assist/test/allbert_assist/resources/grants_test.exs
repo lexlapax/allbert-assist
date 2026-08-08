@@ -7,8 +7,13 @@ defmodule AllbertAssist.Resources.GrantsTest do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
+  @ready_context_key {__MODULE__, :ready_effect_context}
 
   setup do
+    Process.put(@ready_context_key, ReadyEffectContext.context())
+
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
@@ -46,7 +51,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
                    "created_at" => DateTime.utc_now() |> DateTime.to_iso8601()
                  }
                ],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
   end
 
@@ -55,11 +60,14 @@ defmodule AllbertAssist.Resources.GrantsTest do
     sibling = Path.join([root, "workspace", "docs", "b.txt"])
 
     assert {:ok, grant} =
-             Grants.remember(read_file_ref(file),
-               reason: "remember exact file",
-               origin_channel: :cli,
-               resolver_channel: :cli,
-               audit?: false
+             Grants.remember(
+               read_file_ref(file),
+               grant_attrs(
+                 reason: "remember exact file",
+                 origin_channel: :cli,
+                 resolver_channel: :cli,
+                 audit?: false
+               )
              )
 
     assert grant["scope"]["kind"] == "exact_file"
@@ -96,7 +104,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
                  scope: Scope.directory_subtree(allowed),
                  downstream_consumer: :file_reader
                },
-               audit?: false
+               grant_attrs(audit?: false)
              )
 
     assert {:ok, ^grant} = find(read_file_ref(inside_file), :read_only)
@@ -111,7 +119,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     exact = external_ref("https://example.com/docs/a?x=1")
     other_path = external_ref("https://example.com/docs/b?x=1")
 
-    assert {:ok, grant} = Grants.remember(exact, audit?: false)
+    assert {:ok, grant} = Grants.remember(exact, grant_attrs(audit?: false))
 
     assert grant["scope"] == %{
              "kind" => "exact_url",
@@ -128,7 +136,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     canonical = external_ref("https://example.com/docs/a?token=secret")
     redacted = external_ref("https://example.com/docs/a?[REDACTED]")
 
-    assert {:ok, grant} = Grants.remember(canonical, audit?: false)
+    assert {:ok, grant} = Grants.remember(canonical, grant_attrs(audit?: false))
     assert grant["resource_uri"] == "https://example.com/docs/a?token=secret"
 
     assert {:ok, ^grant} = find(canonical, :external_network)
@@ -149,7 +157,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
                  scope: Scope.url_prefix("https://example.com/docs/"),
                  downstream_consumer: :summarizer
                },
-               audit?: false
+               grant_attrs(audit?: false)
              )
 
     assert {:ok, ^grant} = find(ref, :external_network)
@@ -175,7 +183,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
       |> Ref.online_skill_source(:online_skill_search, %{query: "memory"})
       |> List.first()
 
-    assert {:ok, grant} = Grants.remember(source_ref, audit?: false)
+    assert {:ok, grant} = Grants.remember(source_ref, grant_attrs(audit?: false))
 
     assert grant["metadata"]["source_fingerprint"] == %{
              "api_url" => "https://skills.sh/api",
@@ -208,10 +216,10 @@ defmodule AllbertAssist.Resources.GrantsTest do
              Settings.put(
                "permissions.online_skill_import",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
-    assert {:ok, _grant} = Grants.remember(summarize, audit?: false)
+    assert {:ok, _grant} = Grants.remember(summarize, grant_attrs(audit?: false))
     assert {:error, :no_matching_grant} = find(import, :online_skill_import)
   end
 
@@ -223,10 +231,10 @@ defmodule AllbertAssist.Resources.GrantsTest do
              Settings.put(
                "permissions.online_skill_import",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
-    assert {:ok, _grant} = Grants.remember(local, audit?: false)
+    assert {:ok, _grant} = Grants.remember(local, grant_attrs(audit?: false))
     assert {:error, :no_matching_grant} = find(remote, :online_skill_import)
   end
 
@@ -236,7 +244,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     other_server = mcp_resource_ref("other", "file:///demo.md")
     tool_ref = mcp_tool_ref("demo", "search")
 
-    assert {:ok, grant} = Grants.remember(read_ref, audit?: false)
+    assert {:ok, grant} = Grants.remember(read_ref, grant_attrs(audit?: false))
 
     assert grant["resource_uri"] == "mcp://demo/"
     assert grant["scope"] == %{"kind" => "mcp_server", "value" => "mcp://demo/"}
@@ -258,7 +266,7 @@ defmodule AllbertAssist.Resources.GrantsTest do
     tool_ref = mcp_tool_ref("demo", "search")
     other_tool_ref = mcp_tool_ref("demo", "read")
 
-    assert {:ok, grant} = Grants.remember(tool_ref, audit?: false)
+    assert {:ok, grant} = Grants.remember(tool_ref, grant_attrs(audit?: false))
 
     assert grant["resource_uri"] == ResourceURI.mcp!("demo", "tools/search")
     assert {:ok, ^grant} = find(tool_ref, :mcp_tool_call)
@@ -273,17 +281,22 @@ defmodule AllbertAssist.Resources.GrantsTest do
     revoked_url = external_ref("https://example.com/revoked")
 
     assert {:ok, expired} =
-             Grants.remember(expired_url,
-               id: "grant_expired",
-               expires_at: DateTime.add(DateTime.utc_now(), -60, :second),
-               audit?: false
+             Grants.remember(
+               expired_url,
+               grant_attrs(
+                 id: "grant_expired",
+                 expires_at: DateTime.add(DateTime.utc_now(), -60, :second),
+                 audit?: false
+               )
              )
 
     expired_id = expired["id"]
     assert {:error, {:grant_expired, ^expired_id}} = find(expired_url, :external_network)
 
-    assert {:ok, grant} = Grants.remember(revoked_url, id: "grant_revoked", audit?: false)
-    assert {:ok, revoked} = Grants.revoke(grant["id"], audit?: false)
+    assert {:ok, grant} =
+             Grants.remember(revoked_url, grant_attrs(id: "grant_revoked", audit?: false))
+
+    assert {:ok, revoked} = Grants.revoke(grant["id"], grant_attrs(audit?: false))
     assert revoked["revoked_at"]
     revoked_id = grant["id"]
     assert {:error, {:grant_revoked, ^revoked_id}} = find(revoked_url, :external_network)
@@ -292,14 +305,14 @@ defmodule AllbertAssist.Resources.GrantsTest do
   test "Security Central policy drift denies before grant use" do
     ref = external_ref("https://example.com/status")
 
-    assert {:ok, grant} = Grants.remember(ref, audit?: false)
+    assert {:ok, grant} = Grants.remember(ref, grant_attrs(audit?: false))
     assert {:ok, ^grant} = find(ref, :external_network)
 
     assert {:ok, _setting} =
              Settings.put(
                "permissions.external_network",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
     assert {:error, {:policy_denied, decision}} = find(ref, :external_network)
@@ -382,9 +395,17 @@ defmodule AllbertAssist.Resources.GrantsTest do
   end
 
   defp find(ref, permission, opts \\ []) do
-    opts = Keyword.put(opts, :permission, permission)
+    opts =
+      opts
+      |> Keyword.put(:permission, permission)
+      |> Keyword.put(:context, ready_context())
+
     Grants.find_applicable(ref, opts)
   end
+
+  defp grant_attrs(attrs), do: attrs |> Map.new() |> Map.merge(ready_context())
+  defp attach_ready(context), do: Map.merge(context, ready_context())
+  defp ready_context, do: Process.get(@ready_context_key)
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

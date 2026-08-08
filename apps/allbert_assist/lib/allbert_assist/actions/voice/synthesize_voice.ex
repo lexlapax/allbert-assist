@@ -361,10 +361,17 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   defp retryable_provider_error?(_reason), do: false
 
   defp adapter_opts(context) do
-    context
-    |> field(:voice_adapter_opts)
-    |> normalize_keyword()
-    |> maybe_put_keyword(:req_options, field(context, :req_options))
+    epoch = field(context, :allbert_pack_epoch)
+    opts = context |> field(:voice_adapter_opts) |> normalize_keyword()
+
+    req_options =
+      (field(context, :req_options) || Keyword.get(opts, :req_options, []))
+      |> normalize_keyword()
+      |> maybe_put_keyword(:allbert_pack_epoch, epoch)
+
+    opts
+    |> maybe_put_keyword(:allbert_pack_epoch, epoch)
+    |> Keyword.put(:req_options, req_options)
   end
 
   defp normalize_keyword(value) when is_list(value), do: value

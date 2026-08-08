@@ -8,8 +8,13 @@ defmodule AllbertAssist.Actions.ResourceGrantActionsTest do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
+  @ready_context_key {__MODULE__, :ready_effect_context}
 
   setup do
+    Process.put(@ready_context_key, ReadyEffectContext.context())
+
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
@@ -33,64 +38,76 @@ defmodule AllbertAssist.Actions.ResourceGrantActionsTest do
 
   test "list, show, and revoke remembered grants through registered actions" do
     assert {:ok, grant} =
-             Grants.remember(external_ref("https://example.com/status"),
-               id: "grant_action_smoke",
-               reason: "action smoke",
-               audit?: false
+             Grants.remember(
+               external_ref("https://example.com/status"),
+               grant_attrs(
+                 id: "grant_action_smoke",
+                 reason: "action smoke",
+                 audit?: false
+               )
              )
 
     assert {:ok, list_response} =
-             Runner.run("list_resource_grants", %{}, %{actor: "local", channel: :test})
+             Runner.run("list_resource_grants", %{}, context(channel: :test))
 
     assert list_response.status == :completed
     assert Enum.any?(list_response.grants, &(&1["id"] == grant["id"]))
     assert list_response.actions |> hd() |> get_in([:resource_grants, :count]) == 1
 
     assert {:ok, show_response} =
-             Runner.run("show_resource_grant", %{id: grant["id"]}, %{
-               actor: "local",
-               channel: :test
-             })
+             Runner.run(
+               "show_resource_grant",
+               %{id: grant["id"]},
+               context(channel: :test)
+             )
 
     assert show_response.status == :completed
     assert show_response.grant["id"] == grant["id"]
     assert show_response.grant["operation_class"] == "external_service_request"
 
     assert {:ok, revoke_response} =
-             Runner.run("revoke_resource_grant", %{id: grant["id"], reason: "done"}, %{
-               actor: "local",
-               channel: :cli
-             })
+             Runner.run(
+               "revoke_resource_grant",
+               %{id: grant["id"], reason: "done"},
+               context(channel: :cli)
+             )
 
     assert revoke_response.status == :completed
     assert revoke_response.grant["revoked_at"]
 
     assert {:error, {:grant_revoked, "grant_action_smoke"}} =
              Grants.find_applicable(external_ref("https://example.com/status"),
-               permission: :external_network
+               permission: :external_network,
+               context: ready_context()
              )
   end
 
   test "remember_resource_grant records approval memory from confirmation resource refs" do
     assert {:ok, confirmation} =
-             Confirmations.create(%{
-               id: "conf_remember_action",
-               origin: %{actor: "local", channel: :cli, surface: "mix allbert.external"},
-               target_action: %{name: "external_network_request"},
-               target_permission: :external_network,
-               target_execution_mode: :req_http,
-               security_decision: %{permission: :external_network, decision: :needs_confirmation},
-               params_summary: %{
-                 url: "https://example.com/status",
-                 resource_refs: [external_ref("https://example.com/status")]
-               }
-             })
+             Confirmations.create(
+               %{
+                 id: "conf_remember_action",
+                 origin: %{actor: "local", channel: :cli, surface: "mix allbert.external"},
+                 target_action: %{name: "external_network_request"},
+                 target_permission: :external_network,
+                 target_execution_mode: :req_http,
+                 security_decision: %{
+                   permission: :external_network,
+                   decision: :needs_confirmation
+                 },
+                 params_summary: %{
+                   url: "https://example.com/status",
+                   resource_refs: [external_ref("https://example.com/status")]
+                 }
+               },
+               context(channel: :cli, surface: "mix allbert.external")
+             )
 
     assert {:ok, remember_response} =
              Runner.run(
                "remember_resource_grant",
                %{id: confirmation["id"], remember_scope: "exact", reason: "remember exact"},
-               %{actor: "local", channel: :cli, surface: "mix allbert.resources"}
+               context(channel: :cli, surface: "mix allbert.resources")
              )
 
     assert remember_response.status == :completed
@@ -111,6 +128,16 @@ defmodule AllbertAssist.Actions.ResourceGrantActionsTest do
       downstream_consumer: :req_http
     }
   end
+
+  defp context(attrs) do
+    attrs
+    |> Map.new()
+    |> Map.put_new(:actor, "local")
+    |> Map.merge(ready_context())
+  end
+
+  defp grant_attrs(attrs), do: attrs |> Map.new() |> Map.merge(ready_context())
+  defp ready_context, do: Process.get(@ready_context_key)
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

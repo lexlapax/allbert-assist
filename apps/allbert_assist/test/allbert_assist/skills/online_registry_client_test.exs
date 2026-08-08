@@ -6,6 +6,7 @@ defmodule AllbertAssist.Skills.Online.RegistryClientTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.Online.RegistryClient
   alias AllbertAssist.Skills.Online.Source
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -50,7 +51,9 @@ defmodule AllbertAssist.Skills.Online.RegistryClientTest do
       )
     end)
 
-    assert {:ok, result} = RegistryClient.search(source, "find skills")
+    assert {:ok, result} =
+             RegistryClient.search(source, "find skills", ReadyEffectContext.context())
+
     assert [candidate] = result.results
     assert candidate.id == "vercel-labs/skills/find-skills"
     assert candidate.install_count == 1_000_000
@@ -65,7 +68,13 @@ defmodule AllbertAssist.Skills.Online.RegistryClientTest do
       |> Plug.Conn.send_resp(200, Jason.encode!(detail_json()))
     end)
 
-    assert {:ok, detail} = RegistryClient.show(source, "vercel-labs/skills/find-skills")
+    assert {:ok, detail} =
+             RegistryClient.show(
+               source,
+               "vercel-labs/skills/find-skills",
+               ReadyEffectContext.context()
+             )
+
     assert detail.skill_md =~ "name: find-skills"
     assert Map.has_key?(detail.files, "scripts/search.js")
   end

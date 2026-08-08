@@ -4,6 +4,7 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace.McpIntegrationPanels
 
   setup {Req.Test, :verify_on_exit!}
@@ -225,13 +226,13 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
   end
 
   defp refresh_context do
-    %{
+    ReadyEffectContext.attach(%{
       actor: "local",
       user_id: "local",
       operator_id: "local",
       mcp_panel_refresh?: true,
       mcp: %{req_plug: {Req.Test, __MODULE__}}
-    }
+    })
   end
 
   defp configure_server(server_id, tool_allowlist) do
@@ -331,12 +332,15 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
       })
 
     assert {:ok, _grant} =
-             Grants.remember(ref, %{
-               action_permission: :mcp_resource_read,
-               actor: "local",
-               channel: :test,
-               audit?: false
-             })
+             Grants.remember(
+               ref,
+               ReadyEffectContext.attach(%{
+                 action_permission: :mcp_resource_read,
+                 actor: "local",
+                 channel: :test,
+                 audit?: false
+               })
+             )
   end
 
   defp set_mcp_shape(resources, tools, text) do

@@ -7,6 +7,9 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
+  @ready_context_key {__MODULE__, :ready_effect_context}
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -18,6 +21,8 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
   ]
 
   setup do
+    Process.put(@ready_context_key, ReadyEffectContext.context())
+
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -75,9 +80,11 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
     use_openai_tts!()
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               attach_ready(%{audit?: false})
+             )
 
     Req.Test.expect(__MODULE__, fn %{request_path: "/v1/audio/speech"} = conn ->
       assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer sk-test-openai"]
@@ -113,9 +120,11 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
     use_openai_tts!()
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               attach_ready(%{audit?: false})
+             )
 
     assert {:ok, pending} =
              Runner.run(
@@ -167,9 +176,11 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
     use_openai_tts!()
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               attach_ready(%{audit?: false})
+             )
 
     assert {:ok, pending} =
              Runner.run(
@@ -228,7 +239,7 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
              Settings.put(
                "voice.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
   end
 
@@ -237,7 +248,7 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
              Settings.put(
                "model_preferences.capabilities.text_to_speech",
                ["voice_tts_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               attach_ready(%{
                  audit?: false
                })
              )
@@ -248,22 +259,28 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.text_to_speech",
                ["voice_tts_openai"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               attach_ready(%{
                  audit?: false
                })
              )
   end
 
   defp context do
-    %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
+    attach_ready(%{
+      actor: "local",
+      channel: :cli,
+      request: %{operator_id: "local", channel: :cli}
+    })
   end
+
+  defp attach_ready(context), do: Map.merge(context, Process.get(@ready_context_key))
 
   defp approved_context(extra) do
     context()

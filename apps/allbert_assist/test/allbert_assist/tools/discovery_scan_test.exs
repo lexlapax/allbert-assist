@@ -7,6 +7,7 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.Discovery.Scan
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -33,7 +34,7 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
   end
 
   test "enable creates a paused registered-action scan job and resume schedules it" do
-    assert {:ok, job} = Scan.enable()
+    assert {:ok, job} = Scan.enable(ReadyEffectContext.context())
     assert job.status == "paused"
     assert job.name == "mcp-discovery-scan"
     assert job.target_type == "registered_action"
@@ -47,7 +48,7 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert {:ok, resumed} = Scan.resume()
+    assert {:ok, resumed} = Scan.resume(ReadyEffectContext.context())
     assert resumed.status == "active"
     assert resumed.schedule == %{"kind" => "daily", "at" => "09:00"}
     assert %DateTime{} = resumed.next_due_at
@@ -57,11 +58,12 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
     configure_external()
     stub_registry()
 
-    assert {:ok, _job} = Scan.enable()
+    assert {:ok, _job} = Scan.enable(ReadyEffectContext.context())
 
     assert {:ok, %{job: job, run: run, response: response}} =
              Scan.run_once("weather",
-               action_context: %{mcp: %{req_plug: {Req.Test, __MODULE__}}}
+               action_context:
+                 ReadyEffectContext.attach(%{mcp: %{req_plug: {Req.Test, __MODULE__}}})
              )
 
     assert job.status == "paused"

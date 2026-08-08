@@ -9,6 +9,7 @@ defmodule AllbertAssist.Tools.McpRegistrySourceTest do
   alias AllbertAssist.Tools.Discovery.EvaluationReport
   alias AllbertAssist.Tools.Discovery.Suggestion
   alias AllbertAssist.Tools.Source.McpRegistry
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -37,7 +38,8 @@ defmodule AllbertAssist.Tools.McpRegistrySourceTest do
   test "disabled discovery returns no remote candidates and performs no egress" do
     assert {:ok, %{candidates: [], diagnostics: []}} =
              McpRegistry.search_with_diagnostics("weather", %{
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}}
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}})
              })
   end
 
@@ -48,7 +50,8 @@ defmodule AllbertAssist.Tools.McpRegistrySourceTest do
 
     assert {:ok, %{candidates: [candidate], diagnostics: []}} =
              McpRegistry.search_with_diagnostics("weather", %{
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                limit: 5
              })
 
@@ -73,7 +76,8 @@ defmodule AllbertAssist.Tools.McpRegistrySourceTest do
 
     assert {:ok, %{candidates: [candidate], diagnostics: diagnostics}} =
              McpRegistry.search_with_diagnostics("weather", %{
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                limit: 5
              })
 
@@ -89,7 +93,8 @@ defmodule AllbertAssist.Tools.McpRegistrySourceTest do
 
     assert {:ok, %{candidates: [], diagnostics: [diagnostic]}} =
              McpRegistry.search_with_diagnostics("weather", %{
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                limit: 5
              })
 

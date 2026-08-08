@@ -6,6 +6,7 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcpTest do
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -50,7 +51,8 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcpTest do
     assert {:ok, [result]} =
              PulseMcp.search("weather", %{
                require_configured_secrets?: false,
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                limit: 5
              })
 
@@ -87,7 +89,8 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcpTest do
 
     assert {:error, {:missing_secret, "secret://mcp/pulsemcp/api_key"}} =
              PulseMcp.search("weather", %{
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                limit: 5
              })
   end

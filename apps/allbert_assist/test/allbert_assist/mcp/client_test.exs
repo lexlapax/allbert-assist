@@ -7,6 +7,7 @@ defmodule AllbertAssist.Mcp.ClientTest do
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -41,18 +42,27 @@ defmodule AllbertAssist.Mcp.ClientTest do
     assert {:ok, config} = ServerConfig.resolve("demo")
 
     assert {:ok, tools} =
-             Client.list_tools(config, %{mcp: %{req_plug: {Req.Test, __MODULE__}}})
+             Client.list_tools(
+               config,
+               ReadyEffectContext.attach(%{mcp: %{req_plug: {Req.Test, __MODULE__}}})
+             )
 
     assert [%{"name" => "search"}] = tools.tools
     assert tools.protocol_version == "2025-03-26"
 
     assert {:ok, resources} =
-             Client.list_resources(config, %{mcp: %{req_plug: {Req.Test, __MODULE__}}})
+             Client.list_resources(
+               config,
+               ReadyEffectContext.attach(%{mcp: %{req_plug: {Req.Test, __MODULE__}}})
+             )
 
     assert [%{"uri" => "file:///demo.md"}] = resources.resources
 
     assert {:ok, doctor} =
-             Doctor.diagnose("demo", %{mcp: %{req_plug: {Req.Test, __MODULE__}}})
+             Doctor.diagnose(
+               "demo",
+               ReadyEffectContext.attach(%{mcp: %{req_plug: {Req.Test, __MODULE__}}})
+             )
 
     assert doctor.endpoint_ok
     assert doctor.tools_listable
@@ -95,7 +105,7 @@ defmodule AllbertAssist.Mcp.ClientTest do
     configure_stdio_server(script)
 
     assert {:ok, config} = ServerConfig.resolve("stdio_demo")
-    assert {:ok, resources} = Client.list_resources(config, %{})
+    assert {:ok, resources} = Client.list_resources(config, ReadyEffectContext.context())
 
     assert [%{"uri" => "file:///stdio.md"}] = resources.resources
   end

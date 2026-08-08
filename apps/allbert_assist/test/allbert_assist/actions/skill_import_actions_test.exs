@@ -8,10 +8,15 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
   alias AllbertAssist.Skills.DirectImport
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
+  @ready_context_key {__MODULE__, :ready_effect_context}
 
   setup {Req.Test, :verify_on_exit!}
 
   setup do
+    Process.put(@ready_context_key, ReadyEffectContext.context())
+
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_direct_import_config = Application.get_env(:allbert_assist, DirectImport)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -91,7 +96,11 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
              Runner.run(
                "approve_confirmation",
                %{id: pending_response.confirmation_id, reason: "remote import smoke"},
-               %{actor: "local", channel: :cli, surface: "mix allbert.confirmations"}
+               attach_ready(%{
+                 actor: "local",
+                 channel: :cli,
+                 surface: "mix allbert.confirmations"
+               })
              )
 
     assert approve_response.status == :completed
@@ -112,7 +121,7 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
              Settings.put(
                "permissions.online_skill_import",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -149,7 +158,7 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
                  reason: "remember direct remote import",
                  remember_scope: "exact"
                },
-               %{actor: "local", channel: :cli}
+               attach_ready(%{actor: "local", channel: :cli})
              )
 
     assert [remembered] =
@@ -200,7 +209,7 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
              Runner.run(
                "approve_confirmation",
                %{id: pending_response.confirmation_id, reason: "local import smoke"},
-               %{actor: "local", channel: :cli}
+               attach_ready(%{actor: "local", channel: :cli})
              )
 
     result = approve_response.confirmation["operator_resolution"]["target_result"]
@@ -222,10 +231,11 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
              Runner.run("import_local_skill", %{path: skill_root}, context())
 
     assert {:ok, approve_response} =
-             Runner.run("approve_confirmation", %{id: pending_response.confirmation_id}, %{
-               actor: "local",
-               channel: :cli
-             })
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending_response.confirmation_id},
+               attach_ready(%{actor: "local", channel: :cli})
+             )
 
     result = approve_response.confirmation["operator_resolution"]["target_result"]
     assert result["status"] == "failed"
@@ -233,12 +243,12 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
   end
 
   defp context do
-    %{
+    attach_ready(%{
       actor: "local",
       channel: :cli,
       surface: "mix allbert.skills",
       request: %{operator_id: "local", channel: :cli, input_signal_id: "sig-import"}
-    }
+    })
   end
 
   defp put_import_policy! do
@@ -261,8 +271,12 @@ defmodule AllbertAssist.Actions.SkillImportActionsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               attach_ready(%{})
              )
+  end
+
+  defp attach_ready(context) do
+    Map.merge(context, Process.get(@ready_context_key))
   end
 
   defp write_local_skill!(root, name) do

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.Discovery.EvaluationReport
   alias AllbertAssist.Tools.ToolCandidate
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -222,7 +223,8 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
     assert {:ok, report} =
              Discovery.evaluate_server(manifest, %{
                provider: "official",
-               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               context:
+                 ReadyEffectContext.attach(%{external: %{req_plug: {Req.Test, __MODULE__}}}),
                probe?: true
              })
 

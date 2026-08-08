@@ -8,6 +8,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
   alias AllbertAssist.PublicProtocol.RateLimiter
   alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -131,7 +132,8 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
              )
   end
 
-  defp context, do: %{actor: "test", channel: "test", audit?: false}
+  defp context,
+    do: ReadyEffectContext.attach(%{actor: "test", channel: "test", audit?: false})
 
   defp temp_root(prefix) do
     Path.join(

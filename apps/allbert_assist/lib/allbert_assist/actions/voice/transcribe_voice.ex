@@ -380,10 +380,17 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   defp retryable_provider_error?(_reason), do: false
 
   defp adapter_opts(context) do
-    context
-    |> field(:voice_adapter_opts)
-    |> normalize_keyword()
-    |> maybe_put_keyword(:req_options, field(context, :req_options))
+    epoch = field(context, :allbert_pack_epoch)
+    opts = context |> field(:voice_adapter_opts) |> normalize_keyword()
+
+    req_options =
+      (field(context, :req_options) || Keyword.get(opts, :req_options, []))
+      |> normalize_keyword()
+      |> maybe_put_keyword(:allbert_pack_epoch, epoch)
+
+    opts
+    |> maybe_put_keyword(:allbert_pack_epoch, epoch)
+    |> Keyword.put(:req_options, req_options)
     |> maybe_put_keyword(:transcode_runner, field(context, :transcode_runner))
   end
 

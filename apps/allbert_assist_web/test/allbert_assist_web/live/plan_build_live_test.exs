@@ -395,11 +395,13 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest.PreviewHostLive do
       module={PlanPreviewPanel}
       id="plan-preview"
       node={@node}
-      renderer_context={%{
-        user_id: "local",
-        channel: :live_view,
-        allbert_pack_epoch: @allbert_pack_epoch
-      }}
+      renderer_context={
+        %{
+          user_id: "local",
+          channel: :live_view,
+          allbert_pack_epoch: @allbert_pack_epoch
+        }
+      }
       workspace_state={%{}}
     />
     """

@@ -7,6 +7,9 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
+  @ready_context_key {__MODULE__, :ready_effect_context}
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -18,6 +21,8 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
   ]
 
   setup do
+    Process.put(@ready_context_key, ReadyEffectContext.context())
+
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -78,9 +83,11 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
     use_openai_stt!()
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               attach_ready(%{audit?: false})
+             )
 
     assert {:ok, pending} =
              Runner.run(
@@ -140,7 +147,7 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
              Settings.put(
                "voice.audio.max_bytes",
                4,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
     assert {:ok, too_large_response} = TranscribeVoice.run(%{audio_file: too_large}, context())
@@ -153,7 +160,7 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
              Settings.put(
                "voice.audio.max_bytes",
                10_485_760,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
     assert {:ok, unsupported_response} =
@@ -170,7 +177,7 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
              Settings.put(
                "voice.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
   end
 
@@ -179,7 +186,7 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               attach_ready(%{
                  audit?: false
                })
              )
@@ -190,21 +197,29 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               attach_ready(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_openai"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               attach_ready(%{
                  audit?: false
                })
              )
   end
 
   defp context do
-    %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
+    attach_ready(%{
+      actor: "local",
+      channel: :cli,
+      request: %{operator_id: "local", channel: :cli}
+    })
+  end
+
+  defp attach_ready(context) do
+    Map.merge(context, Process.get(@ready_context_key))
   end
 
   defp fixture_path(name) do
