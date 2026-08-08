@@ -8618,9 +8618,9 @@
       "source_file": "apps/allbert_assist/test/security/v1_sweep_eval_test.exs"
     },
     {
-      "disposition": "owner_manifest_resolved",
+      "disposition": "intentionally_fixed",
       "literal": "apps/allbert_assist/lib/allbert_assist/settings/schema.ex",
-      "reason": null,
+      "reason": "v1.4 M5 moved the frozen Settings proof from source placement to composed Settings schema/default behavior",
       "source_file": "apps/allbert_assist/test/security/v1_sweep_eval_test.exs"
     },
     {

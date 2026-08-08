@@ -35,10 +35,26 @@ defmodule AllbertAssist.External.HttpPolicyTest do
            {:metadata_host_denied, "metadata.google.internal"}},
           {"https://10.0.0.1/status", {:private_host_denied, "10.0.0.1"}},
           {"https://169.254.169.254/status", {:private_host_denied, "169.254.169.254"}},
-          {"https://localhost/status", {:private_host_denied, "localhost"}}
+          {"https://localhost/status", {:private_host_denied, "localhost"}},
+          {"https://[::ffff:127.0.0.1]/status", {:private_host_denied, "::ffff:127.0.0.1"}},
+          {"https://[::ffff:10.0.0.1]/status", {:private_host_denied, "::ffff:10.0.0.1"}},
+          {"https://[::ffff:169.254.169.254]/status",
+           {:private_host_denied, "::ffff:169.254.169.254"}},
+          {"https://[::ffff:0.0.0.0]/status", {:private_host_denied, "::ffff:0.0.0.0"}},
+          {"https://[::ffff:100.64.0.1]/status", {:private_host_denied, "::ffff:100.64.0.1"}},
+          {"https://[::ffff:240.0.0.1]/status", {:private_host_denied, "::ffff:240.0.0.1"}},
+          {"https://[::1]/status", {:private_host_denied, "::1"}},
+          {"https://[fc00::1]/status", {:private_host_denied, "fc00::1"}},
+          {"https://[fe80::1]/status", {:private_host_denied, "fe80::1"}},
+          {"https://[ff00::1]/status", {:private_host_denied, "ff00::1"}}
         ] do
       assert {:error, spec} = RequestSpec.normalize(%{url: url})
       assert spec.denial_reason == reason
+    end
+
+    for host <- ["::ffff:8.8.8.8", "2001:4860:4860::8888"] do
+      assert {:ok, spec} = RequestSpec.normalize(%{url: "https://[#{host}]/status"})
+      assert spec.host == host
     end
   end
 
@@ -91,7 +107,19 @@ defmodule AllbertAssist.External.HttpPolicyTest do
                  "metadata.google.internal",
                  "10.0.0.1",
                  "169.254.169.254",
-                 "localhost"
+                 "localhost",
+                 "::ffff:127.0.0.1",
+                 "::ffff:10.0.0.1",
+                 "::ffff:169.254.169.254",
+                 "::ffff:0.0.0.0",
+                 "::ffff:100.64.0.1",
+                 "::ffff:240.0.0.1",
+                 "::ffff:8.8.8.8",
+                 "::1",
+                 "fc00::1",
+                 "fe80::1",
+                 "ff00::1",
+                 "2001:4860:4860::8888"
                ],
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )

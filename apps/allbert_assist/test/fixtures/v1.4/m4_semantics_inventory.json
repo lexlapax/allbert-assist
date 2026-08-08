@@ -582,7 +582,7 @@
     },
     {
       "arity": 1,
-      "definition_sha256": "c1ca933415b2a3e0a914f5538573e477726b6cbb89f029b08d1538df308c908b",
+      "definition_sha256": "c5a17da5edac206f4290d3a1fa52cb26547d8948d5c854e91913437c541d1d94",
       "disposition": "retain_local",
       "function": "json_safe",
       "id": "AllbertAssist.PlanBuild.json_safe/1",
@@ -962,7 +962,7 @@
     },
     {
       "arity": 1,
-      "definition_sha256": "53fa6dbaa81b731d3863100fc08d8b9d65111620642cb2086f9fafb038a912a4",
+      "definition_sha256": "0dd185ef46b17a8a033b2a050b23f086cb2f5dda45a049bf2e43f43f90eb68d1",
       "disposition": "retain_local",
       "function": "json_safe",
       "id": "StockSage.Actions.RunAnalysis.json_safe/1",

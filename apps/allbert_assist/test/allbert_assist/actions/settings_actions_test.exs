@@ -19,6 +19,9 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
+  @ready_context_key {__MODULE__, :ready_effect_context}
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -45,6 +48,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     Application.put_env(:allbert_assist, Settings, root: root)
     Application.put_env(:allbert_assist, Paths, home: root)
+    Process.put(@ready_context_key, ReadyEffectContext.context())
 
     on_exit(fn ->
       restore_env(Settings, original_settings_config)
@@ -155,7 +159,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   end
 
   test "update setting writes safe key and rejects read-only key" do
-    context = %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+    context =
+      attach_ready(%{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}})
 
     assert {:ok, response} =
              UpdateSetting.run(%{key: "operator.communication_style", value: "balanced"}, context)
@@ -173,7 +178,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   end
 
   test "update setting writes Settings Central permission keys" do
-    context = %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+    context =
+      attach_ready(%{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}})
 
     assert {:ok, response} =
              UpdateSetting.run(%{key: "permissions.external_network", value: "denied"}, context)
@@ -298,7 +304,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, response} =
-             ModelDoctorAction.run(%{}, %{req_options: [plug: {Req.Test, __MODULE__}]})
+             ModelDoctorAction.run(
+               %{},
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     assert response.status == :completed
     assert response.message =~ "Model doctor checked"
@@ -335,9 +344,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     refute response.message =~ "http://"
 
     assert {:ok, report_response} =
-             ModelDoctorAction.run(operator_report_params(), %{
-               req_options: [plug: {Req.Test, __MODULE__}]
-             })
+             ModelDoctorAction.run(
+               operator_report_params(),
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     assert report_response.message =~ "model doctor ok="
     assert report_response.message =~ "intent_embedding status=ok"
@@ -375,9 +385,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, response} =
-             ModelDoctorAction.run(operator_report_params(), %{
-               req_options: [plug: {Req.Test, __MODULE__}]
-             })
+             ModelDoctorAction.run(
+               operator_report_params(),
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
 
@@ -464,7 +475,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, response} =
-             ModelDoctorAction.run(%{}, %{req_options: [plug: {Req.Test, __MODULE__}]})
+             ModelDoctorAction.run(
+               %{},
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
 
@@ -535,7 +549,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, response} =
-             ModelDoctorAction.run(%{}, %{req_options: [plug: {Req.Test, __MODULE__}]})
+             ModelDoctorAction.run(
+               %{},
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
 
@@ -584,10 +601,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   test "set active model profile writes safe settings and provider enablement" do
     assert {:ok, set_active} =
-             SetActiveModelProfile.run(%{profile: "local", enable_assist: true}, %{
-               actor: "local",
-               channel: :test
-             })
+             SetActiveModelProfile.run(
+               %{profile: "local", enable_assist: true},
+               attach_ready(%{actor: "local", channel: :test})
+             )
 
     assert set_active.status == :completed
     assert set_active.provider == "local_ollama"
@@ -616,10 +633,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              )
 
     assert {:ok, response} =
-             SetActiveModelProfile.run(%{profile: "local"}, %{
-               actor: "local",
-               channel: :cli
-             })
+             SetActiveModelProfile.run(
+               %{profile: "local"},
+               attach_ready(%{actor: "local", channel: :cli})
+             )
 
     assert response.status == :completed
 
@@ -645,10 +662,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              )
 
     assert {:ok, response} =
-             SetDirectAnswerModelProfile.run(%{profile: "fast"}, %{
-               actor: "local",
-               channel: :cli
-             })
+             SetDirectAnswerModelProfile.run(
+               %{profile: "fast"},
+               attach_ready(%{actor: "local", channel: :cli})
+             )
 
     assert response.status == :completed
     assert response.profile == "fast"
@@ -719,10 +736,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              )
 
     assert {:ok, response} =
-             SetActiveModelProfile.run(%{profile: "legacy_text"}, %{
-               actor: "local",
-               channel: :test
-             })
+             SetActiveModelProfile.run(
+               %{profile: "legacy_text"},
+               attach_ready(%{actor: "local", channel: :test})
+             )
 
     assert response.status == :completed
     assert response.message =~ "legacy_text"
@@ -751,10 +768,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              )
 
     assert {:ok, response} =
-             SetDirectAnswerModelProfile.run(%{profile: "legacy_text"}, %{
-               actor: "local",
-               channel: :cli
-             })
+             SetDirectAnswerModelProfile.run(
+               %{profile: "legacy_text"},
+               attach_ready(%{actor: "local", channel: :cli})
+             )
 
     assert response.status == :completed
     assert response.profile == "legacy_text"
@@ -776,7 +793,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
       )
     end)
 
-    context = %{req_options: [plug: {Req.Test, __MODULE__}]}
+    context = attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
 
     assert {:ok, missing} =
              DoctorModelProfile.run(%{profile: "direct_answer_local"}, context)
@@ -811,7 +828,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
       )
     end)
 
-    context = %{req_options: [plug: {Req.Test, __MODULE__}]}
+    context = attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
 
     assert {:ok, missing} = DoctorModelProfile.run(%{profile: "local"}, context)
     assert missing.status == :completed
@@ -866,9 +883,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, doctor} =
-             DoctorModelProfile.run(%{profile: "anthropic_fast"}, %{
-               req_options: [plug: {Req.Test, __MODULE__}]
-             })
+             DoctorModelProfile.run(
+               %{profile: "anthropic_fast"},
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     assert doctor.status == :completed
     assert doctor.doctor.endpoint_kind == :credentialed_remote
@@ -915,9 +933,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, doctor} =
-             DoctorModelProfile.run(%{profile: "anthropic_fast"}, %{
-               req_options: [plug: {Req.Test, __MODULE__}]
-             })
+             DoctorModelProfile.run(
+               %{profile: "anthropic_fast"},
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     assert doctor.doctor.model_available == true
     assert doctor.doctor.diagnostics == []
@@ -950,9 +969,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, doctor} =
-             DoctorModelProfile.run(%{profile: "coding"}, %{
-               req_options: [plug: {Req.Test, __MODULE__}]
-             })
+             DoctorModelProfile.run(
+               %{profile: "coding"},
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     assert doctor.status == :completed
     assert doctor.provider == "gemini"
@@ -1003,6 +1023,57 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert denied.status == :completed
     assert denied.doctor.endpoint_ok == false
     assert [%{code: :provider_host_denied}] = denied.doctor.diagnostics
+
+    for host <- [
+          "::ffff:127.0.0.1",
+          "::ffff:10.0.0.1",
+          "::ffff:169.254.169.254",
+          "::ffff:0.0.0.0",
+          "::ffff:100.64.0.1",
+          "::ffff:240.0.0.1"
+        ] do
+      bracketed_host = if String.contains?(host, ":"), do: "[#{host}]", else: host
+
+      assert {:ok, _setting} =
+               Settings.put(
+                 "providers.openai.base_url",
+                 "http://#{bracketed_host}:11434/v1",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   audit?: false
+                 })
+               )
+
+      assert {:ok, denied} = DoctorModelProfile.run(%{profile: "fast"}, %{})
+      assert denied.status == :completed
+      assert denied.doctor.endpoint_ok == false
+      assert [%{code: :provider_host_denied}] = denied.doctor.diagnostics
+    end
+
+    for host <- ["::ffff:8.8.8.8", "2001:4860:4860::8888"] do
+      assert {:ok, _setting} =
+               Settings.put(
+                 "providers.openai.base_url",
+                 "https://[#{host}]/v1",
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               )
+
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.host == host
+        assert conn.request_path == "/v1/models"
+        Req.Test.json(conn, %{"data" => []})
+      end)
+
+      assert {:ok, allowed} =
+               DoctorModelProfile.run(
+                 %{profile: "fast"},
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   req_options: [plug: {Req.Test, __MODULE__}]
+                 })
+               )
+
+      assert allowed.status == :completed
+      assert allowed.doctor.endpoint_ok
+    end
   end
 
   test "model doctor completes with redacted diagnostics for invalid OLLAMA_BASE_URL" do
@@ -1076,9 +1147,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     end)
 
     assert {:ok, doctor} =
-             DoctorModelProfile.run(%{profile: "fast"}, %{
-               req_options: [plug: {Req.Test, __MODULE__}]
-             })
+             DoctorModelProfile.run(
+               %{profile: "fast"},
+               attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
+             )
 
     assert doctor.status == :completed
     assert doctor.doctor.endpoint_kind == :credentialed_remote
@@ -1109,7 +1181,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   end
 
   test "provider credential action stores explicit secret values without echoing them" do
-    context = %{actor: "local", channel: :test}
+    context = attach_ready(%{actor: "local", channel: :test})
 
     assert {:ok, response} =
              SetProviderCredential.run(
@@ -1145,7 +1217,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert {:ok, response} =
              SetProviderCredential.run(
                %{provider: "openai", mode: :set_secret, api_key: "test-key"},
-               %{actor: "local", channel: :cli}
+               attach_ready(%{actor: "local", channel: :cli})
              )
 
     assert response.status == :completed
@@ -1156,6 +1228,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp attach_ready(context) do
+    Map.merge(context, Process.get(@ready_context_key) || raise("missing ready effect context"))
+  end
 
   defp operator_report_params do
     %{render_mode: "operator_report", surface: "cli", surface_policy_affordance: true}
