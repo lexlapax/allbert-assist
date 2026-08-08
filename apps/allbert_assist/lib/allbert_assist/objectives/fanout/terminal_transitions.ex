@@ -45,7 +45,11 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
           frozen: Report.frozen(),
           deadline_unix_ms: integer() | nil,
           budget: map(),
-          context: map()
+          context: map(),
+          effect_context: %{
+            required(:allbert_pack_epoch) => EffectGuard.epoch(),
+            optional(atom()) => term()
+          }
         }
 
   @doc """
@@ -162,7 +166,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   def claim_next_composition, do: {:error, :product_not_ready}
 
   @doc "Select one bounded report and open its existing delivery outbox."
-  @spec select_composition(composition_claim(), String.t(), String.t(), map(), keyword()) ::
+  @spec select_composition(composition_claim(), String.t(), String.t(), map(), list()) ::
           {:ok, Objective.t()} | {:error, term()}
   def select_composition(
         %{parent: parent, frozen: frozen} = claim,
@@ -694,6 +698,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end)
   end
 
+  @spec composition_claim(Objective.t(), Report.frozen(), list()) :: composition_claim()
   defp composition_claim(parent, frozen, opts) do
     plan = frozen.snapshot.plan
 
@@ -853,6 +858,11 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
 
   defp recover_composition_parent(_parent, _opts), do: :queued
 
+  @spec rebind_composing_input(
+          Objective.t(),
+          %{frozen: Report.frozen(), rebind_from: String.t() | nil},
+          list()
+        ) :: {:ok, Objective.t(), Report.frozen()} | {:error, term()}
   defp rebind_composing_input(parent, %{frozen: frozen, rebind_from: nil}, _opts),
     do: {:ok, parent, frozen}
 

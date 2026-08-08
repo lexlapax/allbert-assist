@@ -54,6 +54,17 @@ defmodule AllbertAssist.Runtime.Response do
         }
 
   @type action_response :: t()
+  @type action_response_schema :: %{
+          message: :string,
+          model_payload: :string,
+          surface_payload: :string,
+          status: :atom,
+          actions: :list,
+          decision: :map_or_nil,
+          resource_access: :list,
+          approval_handoff: :map_or_nil,
+          diagnostics: :list
+        }
 
   @action_response_schema %{
     message: :string,
@@ -68,7 +79,7 @@ defmodule AllbertAssist.Runtime.Response do
   }
 
   @doc "Return the stable internal fields guaranteed for registered action responses."
-  @spec action_response_schema() :: %{required(atom()) => atom()}
+  @spec action_response_schema() :: action_response_schema()
   def action_response_schema, do: @action_response_schema
 
   @doc "Build a completed response."

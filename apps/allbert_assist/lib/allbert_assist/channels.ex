@@ -43,7 +43,7 @@ defmodule AllbertAssist.Channels do
     :receipt_outcome
   ]
 
-  @spec create_event(map()) :: {:error, :product_not_ready}
+  @spec create_event(map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
   def create_event(attrs) when is_map(attrs), do: create_event(attrs, %{})
 
   @spec create_event(map(), map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
@@ -67,7 +67,8 @@ defmodule AllbertAssist.Channels do
 
   def create_event(_attrs, _context), do: {:error, :product_not_ready}
 
-  @spec update_event(Event.t(), map()) :: {:error, :product_not_ready}
+  @spec update_event(Event.t(), map()) ::
+          {:ok, Event.t()} | {:error, Ecto.Changeset.t() | atom()}
   def update_event(%Event{} = event, attrs) when is_map(attrs),
     do: update_event(event, attrs, %{})
 

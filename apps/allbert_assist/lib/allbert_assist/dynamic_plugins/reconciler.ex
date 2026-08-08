@@ -69,8 +69,6 @@ defmodule AllbertAssist.DynamicPlugins.Reconciler do
     %{state | retry_timer: Process.send_after(self(), :reconcile, @retry_delay_ms)}
   end
 
-  defp schedule_retry(state), do: state
-
   defp admit_ready_epoch(state), do: effect_guard_call(state.effect_guard, :admit_ready, [])
 
   defp validate_epoch(epoch, state), do: effect_guard_call(state.effect_guard, :validate, [epoch])

@@ -33,7 +33,7 @@ defmodule AllbertAssistWeb.PackReadiness do
   def validate_conn(conn), do: validate(conn.private[:allbert_pack_epoch])
 
   @doc false
-  @spec disconnect() :: :ok
+  @spec disconnect() :: :ok | {:error, term()}
   def disconnect do
     Phoenix.Channel.Server.broadcast(
       AllbertAssist.PubSub,

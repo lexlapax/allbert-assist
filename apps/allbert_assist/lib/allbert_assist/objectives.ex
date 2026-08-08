@@ -180,7 +180,7 @@ defmodule AllbertAssist.Objectives do
     end
   end
 
-  @spec cancel(String.t(), String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec cancel(String.t(), String.t(), String.t()) :: {:error, :product_not_ready}
   def cancel(user_id, objective_id, reason)
       when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) do
     {:error, :product_not_ready}
@@ -280,7 +280,7 @@ defmodule AllbertAssist.Objectives do
     end
   end
 
-  @spec continue(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec continue(String.t(), String.t()) :: {:error, :product_not_ready}
   def continue(user_id, objective_id) when is_binary(user_id) and is_binary(objective_id),
     do: {:error, :product_not_ready}
 

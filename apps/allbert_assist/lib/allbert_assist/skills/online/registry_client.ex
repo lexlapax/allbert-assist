@@ -97,8 +97,6 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
     end
   end
 
-  defp carried_epoch(_opts), do: {:error, :product_not_ready}
-
   defp search_url(source), do: source.api_url <> "/search"
 
   defp detail_api_url(source, id) do

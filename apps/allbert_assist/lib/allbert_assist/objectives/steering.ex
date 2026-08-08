@@ -45,7 +45,7 @@ defmodule AllbertAssist.Objectives.Steering do
 
   defp ensure_fanout_child(_objective), do: {:error, :not_fanout_child}
 
-  @spec apply_pending(String.t()) :: {:ok, map()} | {:error, term()}
+  @spec apply_pending(String.t()) :: {:error, :product_not_ready}
   def apply_pending(objective_id) when is_binary(objective_id), do: {:error, :product_not_ready}
 
   @spec apply_pending(String.t(), map()) :: {:ok, map()} | {:error, term()}

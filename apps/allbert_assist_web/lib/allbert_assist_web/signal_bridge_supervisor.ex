@@ -10,7 +10,7 @@ defmodule AllbertAssistWeb.SignalBridgeSupervisor do
     DynamicSupervisor.start_link(__MODULE__, :ok, name: Keyword.get(opts, :name, __MODULE__))
   end
 
-  @spec open(map(), DynamicSupervisor.supervisor(), GenServer.server()) ::
+  @spec open(map(), GenServer.server(), GenServer.server()) ::
           {:ok, pid()} | {:error, term()}
   def open(epoch, supervisor \\ __MODULE__, readiness_server \\ PackReadiness)
       when is_map(epoch) do

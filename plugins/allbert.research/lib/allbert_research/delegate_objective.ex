@@ -219,8 +219,6 @@ defmodule AllbertResearch.DelegateObjective do
     end
   end
 
-  defp carried_epoch(_opts), do: {:error, :product_not_ready}
-
   defp validate_epoch(epoch) do
     case EffectGuard.validate(epoch) do
       :ok -> :ok

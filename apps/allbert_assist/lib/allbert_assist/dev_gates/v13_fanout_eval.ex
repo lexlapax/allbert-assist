@@ -842,7 +842,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
           worker: map(),
           manager: map(),
           synthesis: map(),
-          bindings: map()
+          bindings: map(),
+          allbert_pack_epoch: EffectGuard.epoch()
         }
   def configure_profiles!(profile_name, opts \\ []) do
     {:ok, epoch} = EffectGuard.admit_ready()

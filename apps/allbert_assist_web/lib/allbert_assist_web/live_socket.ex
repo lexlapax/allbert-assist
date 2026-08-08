@@ -14,7 +14,6 @@ defmodule AllbertAssistWeb.LiveSocket do
       {:ok, put_in(socket.private[:connect_info], info)}
     else
       {:error, :product_not_ready} -> :error
-      :error -> :error
     end
   end
 

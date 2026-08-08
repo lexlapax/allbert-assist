@@ -31,6 +31,22 @@ defmodule AllbertAssist.Pack.CandidateBuilder.RowFamilies do
   @enforce_keys @families
   defstruct @enforce_keys
 
+  @type family ::
+          :apps
+          | :actions
+          | :settings_fragments
+          | :settings_migrations
+          | :channels
+          | :surfaces
+          | :skill_roots
+          | :home_roots
+          | :jobs
+          | :stores
+          | :prompt_rules
+          | :intent_descriptors
+          | :cli_groups
+          | :release_assets
+          | :test_lanes
   @type rows_by_owner :: %{required(String.t()) => [Row.t()]}
   @type t :: %__MODULE__{
           apps: rows_by_owner(),
@@ -50,7 +66,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.RowFamilies do
           test_lanes: rows_by_owner()
         }
 
-  @spec families() :: [atom()]
+  @spec families() :: [family(), ...]
   def families, do: @families
 
   @spec empty() :: t()

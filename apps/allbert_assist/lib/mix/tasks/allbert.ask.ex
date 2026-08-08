@@ -101,7 +101,7 @@ defmodule Mix.Tasks.Allbert.Ask do
         print_speech_result(speech_result)
 
       {:error, reason} ->
-        print_result({:error, reason})
+        Mix.raise("Allbert request failed: #{inspect(reason)}")
     end
   end
 
@@ -217,11 +217,8 @@ defmodule Mix.Tasks.Allbert.Ask do
     })
   end
 
-  defp print_result({:error, reason}, _epoch), do: print_result({:error, reason})
-
-  defp print_result({:error, reason}) do
-    Mix.raise("Allbert request failed: #{inspect(reason)}")
-  end
+  defp print_result({:error, reason}, _epoch),
+    do: Mix.raise("Allbert request failed: #{inspect(reason)}")
 
   defp ensure_current_epoch!(epoch) do
     case EffectGuard.validate(epoch) do

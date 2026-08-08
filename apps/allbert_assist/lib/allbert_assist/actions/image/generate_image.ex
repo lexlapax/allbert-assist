@@ -467,8 +467,6 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     end
   end
 
-  defp carried_epoch(_opts), do: {:error, :product_not_ready}
-
   defp image_bytes(response, output_format) do
     image = safe_image(response)
     bytes = safe_image_data(response)
