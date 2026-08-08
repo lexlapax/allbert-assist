@@ -2,6 +2,7 @@ defmodule AllbertAssist.Execution.ProcessGroupCancelTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Execution.ProcessOwner
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
 
   test "normal spawns pin the Settings Central grace while explicit overrides win" do
@@ -79,7 +80,8 @@ defmodule AllbertAssist.Execution.ProcessGroupCancelTest do
       env: [],
       timeout_ms: timeout_ms,
       kill_grace_ms: 100,
-      max_output_bytes: 4_096
+      max_output_bytes: 4_096,
+      allbert_pack_epoch: pack_epoch!()
     )
   end
 
@@ -92,9 +94,15 @@ defmodule AllbertAssist.Execution.ProcessGroupCancelTest do
         cd: System.tmp_dir!(),
         env: [],
         timeout_ms: 30_000,
-        max_output_bytes: 4_096
+        max_output_bytes: 4_096,
+        allbert_pack_epoch: pack_epoch!()
       ] ++ extra_opts
     )
+  end
+
+  defp pack_epoch! do
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    epoch
   end
 
   defp await_owner(id) do

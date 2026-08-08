@@ -6,7 +6,6 @@ defmodule AllbertAssist.MemoryTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Namespaces
   alias AllbertAssist.Memory.SystemNamespaces
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
@@ -54,8 +53,6 @@ defmodule AllbertAssist.MemoryTest do
   end
 
   test "combined namespace facade merges app and system declarations" do
-    ensure_stocksage_registered()
-
     namespaces = Namespaces.all()
 
     assert Enum.any?(
@@ -93,8 +90,6 @@ defmodule AllbertAssist.MemoryTest do
   end
 
   test "upserts namespaced app memory entries idempotently", %{root: root} do
-    ensure_stocksage_registered()
-
     attrs = %{
       category: :notes,
       app_id: :stocksage,
@@ -197,8 +192,6 @@ defmodule AllbertAssist.MemoryTest do
   end
 
   test "namespaced app memory requires a writable registered namespace" do
-    ensure_stocksage_registered()
-
     assert {:error, {:unknown_memory_namespace, :unknown_namespace}} =
              Memory.upsert_app_entry(%{
                app_id: :stocksage,
@@ -275,19 +268,5 @@ defmodule AllbertAssist.MemoryTest do
              Memory.recent(query: "milestone handoffs", categories: [:traces])
 
     assert [%{category: :traces}] = trace_entries
-  end
-
-  defp ensure_stocksage_registered do
-    assert PluginRegistry.register_module(StockSage.Plugin) in [
-             {:ok, "stocksage"},
-             {:error, {:plugin_id_taken, "stocksage"}}
-           ]
-
-    unless AppRegistry.known_app_id?(:stocksage) do
-      assert AppRegistry.register(StockSage.App) in [
-               {:ok, :stocksage},
-               {:error, {:app_id_taken, :stocksage}}
-             ]
-    end
   end
 end

@@ -15,13 +15,11 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.Actions.Memory.SyncAppLesson
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
 
   setup do
@@ -263,7 +261,6 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   end
 
   test "sync_app_lesson requires confirmation before writing namespaced app memory" do
-    ensure_stocksage_registered()
     params = app_lesson_params()
 
     assert {:ok, pending} = Runner.run("sync_app_lesson", params, app_lesson_context())
@@ -315,8 +312,6 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   end
 
   test "sync_app_lesson rejects undeclared app namespaces even after approval" do
-    ensure_stocksage_registered()
-
     assert {:ok, response} =
              SyncAppLesson.run(
                %{app_lesson_params() | namespace: "unclaimed"},
@@ -328,8 +323,6 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   end
 
   test "sync_app_lesson caps and redacts oversized lesson text before writing" do
-    ensure_stocksage_registered()
-
     long_lesson =
       String.duplicate("A", 4_500) <>
         " TAIL_SHOULD_NOT_BE_WRITTEN secret://stocksage-token"
@@ -466,20 +459,6 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
       active_app: :stocksage,
       request: %{user_id: "alice", operator_id: "alice", channel: :test, active_app: :stocksage}
     }
-  end
-
-  defp ensure_stocksage_registered do
-    assert PluginRegistry.register_module(StockSage.Plugin) in [
-             {:ok, "stocksage"},
-             {:error, {:plugin_id_taken, "stocksage"}}
-           ]
-
-    unless AppRegistry.known_app_id?(:stocksage) do
-      assert AppRegistry.register(StockSage.App) in [
-               {:ok, :stocksage},
-               {:error, {:app_id_taken, :stocksage}}
-             ]
-    end
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

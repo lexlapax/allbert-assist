@@ -4,13 +4,10 @@ defmodule AllbertAssist.Settings.StoreTuiIdentityBootstrapTest do
   @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Store
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @identity_key "channels.tui.identity_map"
   @enabled_key "channels.tui.enabled"
@@ -48,15 +45,12 @@ defmodule AllbertAssist.Settings.StoreTuiIdentityBootstrapTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
     Fragments.clear_cache()
 
     on_exit(fn ->
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
       restore_env(Audit, original_audit)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

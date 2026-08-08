@@ -5,11 +5,8 @@ defmodule Mix.Tasks.Allbert.IntentTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.Intent, as: IntentTask
 
@@ -30,8 +27,6 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     System.delete_env("ALLBERT_HOME_DIR")
     Application.delete_env(:allbert_assist, Paths)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
-    restore_shipped_plugins!()
-    restore_shipped_apps!()
 
     on_exit(fn ->
       if original_home,
@@ -50,8 +45,6 @@ defmodule Mix.Tasks.Allbert.IntentTest do
         do: Application.put_env(:allbert_assist, Settings, original_settings),
         else: Application.delete_env(:allbert_assist, Settings)
 
-      restore_shipped_plugins!()
-      restore_shipped_apps!()
       Mix.Task.reenable("allbert.intent")
       File.rm_rf!(home)
     end)
@@ -257,28 +250,4 @@ defmodule Mix.Tasks.Allbert.IntentTest do
   end
 
   defp clean_output(output), do: String.trim_trailing(output)
-
-  defp restore_shipped_plugins! do
-    PluginRegistry.clear()
-
-    PluginDiscovery.shipped_modules()
-    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
-    |> Enum.each(fn {_plugin_id, module} ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_module(module)
-    end)
-  end
-
-  defp restore_shipped_apps! do
-    AppRegistry.clear()
-
-    plugin_apps =
-      PluginRegistry.registered_plugins()
-      |> Enum.flat_map(& &1.apps)
-
-    [AllbertAssist.App.CoreApp | plugin_apps]
-    |> Enum.uniq()
-    |> Enum.each(fn module ->
-      assert {:ok, _app_id} = AppRegistry.register(module)
-    end)
-  end
 end

@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Surface.Node
   alias AllbertAssistWeb.Workspace.Components.{PlanPreviewPanel, PlanRunProgressPanel}
 
@@ -48,7 +49,11 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
             preview: preview_packet()
           }
         },
-        renderer_context: %{user_id: "local", channel: :live_view},
+        renderer_context: %{
+          user_id: "local",
+          channel: :live_view,
+          allbert_pack_epoch: pack_epoch!()
+        },
         workspace_state: %{}
       )
 
@@ -349,18 +354,27 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
   defp restore_env(key, value), do: System.put_env(key, value)
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp pack_epoch! do
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    epoch
+  end
 end
 
 defmodule AllbertAssistWeb.PlanBuildLiveTest.PreviewHostLive do
   use AllbertAssistWeb, :live_view
 
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssistWeb.Workspace.Components.PlanPreviewPanel
 
   @impl true
   def mount(_params, _session, socket) do
+    {:ok, epoch} = EffectGuard.admit_ready()
+
     {:ok,
      assign(socket,
+       allbert_pack_epoch: epoch,
        node: %Node{
          id: "plan-preview",
          component: :plan_preview_panel,
@@ -381,7 +395,11 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest.PreviewHostLive do
       module={PlanPreviewPanel}
       id="plan-preview"
       node={@node}
-      renderer_context={%{user_id: "local", channel: :live_view}}
+      renderer_context={%{
+        user_id: "local",
+        channel: :live_view,
+        allbert_pack_epoch: @allbert_pack_epoch
+      }}
       workspace_state={%{}}
     />
     """

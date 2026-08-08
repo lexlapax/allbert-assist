@@ -5,15 +5,12 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
   import ExUnit.CaptureLog
 
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
 
   setup do
     original_logger_level = Logger.level()
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    stocksage_registered? = AppRegistry.known_app_id?(:stocksage)
     Logger.configure(level: :info)
 
     user = "session-action-#{System.unique_integer([:positive])}"
@@ -25,33 +22,17 @@ defmodule AllbertAssist.Actions.SessionActionsTest do
       )
 
     Application.put_env(:allbert_assist, Settings, root: settings_root)
-    ensure_stocksage_plugin!()
-
-    unless stocksage_registered? do
-      AppRegistry.register(StockSage.App)
-    end
 
     on_exit(fn ->
       Logger.configure(level: original_logger_level)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(settings_root)
-      unless stocksage_registered?, do: AppRegistry.unregister(:stocksage)
       Session.clear(user, "sess-1")
       Session.clear(user, "sess-keys")
       Session.clear(user, "sess-none")
     end)
 
     {:ok, user: user}
-  end
-
-  defp ensure_stocksage_plugin! do
-    case PluginRegistry.lookup("stocksage") do
-      {:ok, _entry} ->
-        :ok
-
-      {:error, :not_found} ->
-        assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
-    end
   end
 
   test "registered actions set, show, and clear active app through the runner", %{user: user} do

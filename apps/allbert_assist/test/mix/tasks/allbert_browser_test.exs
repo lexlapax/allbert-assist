@@ -7,9 +7,7 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Mix.Tasks.Allbert.Browser, as: BrowserTask
 
   setup do
@@ -29,8 +27,6 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Stub)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
     ensure_browser_supervisor()
     close_all_sessions()
 
@@ -43,7 +39,6 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
 
     on_exit(fn ->
       close_all_sessions()
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
