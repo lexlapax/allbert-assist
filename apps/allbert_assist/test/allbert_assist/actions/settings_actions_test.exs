@@ -1038,9 +1038,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
                Settings.put(
                  "providers.openai.base_url",
                  "http://#{bracketed_host}:11434/v1",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
-                   audit?: false
-                 })
+                 attach_ready(%{audit?: false})
                )
 
       assert {:ok, denied} = DoctorModelProfile.run(%{profile: "fast"}, %{})
@@ -1054,7 +1052,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
                Settings.put(
                  "providers.openai.base_url",
                  "https://[#{host}]/v1",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 attach_ready(%{audit?: false})
                )
 
       Req.Test.expect(__MODULE__, fn conn ->
@@ -1066,9 +1064,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
       assert {:ok, allowed} =
                DoctorModelProfile.run(
                  %{profile: "fast"},
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
-                   req_options: [plug: {Req.Test, __MODULE__}]
-                 })
+                 attach_ready(%{req_options: [plug: {Req.Test, __MODULE__}]})
                )
 
       assert allowed.status == :completed
