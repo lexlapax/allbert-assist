@@ -6,7 +6,6 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
-  alias AllbertAssist.Channels.TUI.InputReceipt
   alias AllbertAssist.Health
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Paths
@@ -18,6 +17,26 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
+  alias __MODULE__.ReadyInputReceipt, as: InputReceipt
+
+  defmodule ReadyInputReceipt do
+    @moduledoc false
+
+    alias AllbertAssist.Channels.TUI.InputReceipt
+    alias AllbertAssist.TestSupport.ReadyEffectContext
+
+    def gate(attrs, opts),
+      do: InputReceipt.gate(ReadyEffectContext.attach(attrs), opts)
+
+    def mark_admitted(event, refs),
+      do: InputReceipt.mark_admitted(event, refs, ReadyEffectContext.context())
+
+    def mark_in_progress(event),
+      do: InputReceipt.mark_in_progress(event, ReadyEffectContext.context())
+
+    def mark_terminal(event, outcome, refs),
+      do: InputReceipt.mark_terminal(event, outcome, refs, ReadyEffectContext.context())
+  end
 
   defmodule ControllableAdapter do
     @moduledoc false
