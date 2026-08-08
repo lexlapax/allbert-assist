@@ -31,7 +31,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
       {:error, {status, code, message, data}} ->
         rpc_error(conn, status, id, code, message, data)
 
-      {:error, :product_not_ready} ->
+      {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
         HTTPGate.unavailable(conn)
     end
   end
@@ -80,8 +80,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
          }
        }}
     else
-      {:error, :product_not_ready} ->
-        {:error, :product_not_ready}
+      {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
+        {:error, reason}
 
       {:error, error} ->
         {:error, {400, -32_602, error.message, error.data}}
@@ -113,8 +113,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
            Runtime.call_tool(name, arguments, runtime_context(conn), @surface) do
       {:ok, tool_result(payload)}
     else
-      {:error, :product_not_ready} ->
-        {:error, :product_not_ready}
+      {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
+        {:error, reason}
 
       {:error, reason} ->
         {:error, {400, -32_602, "MCP tool call failed.", %{reason: inspect(reason)}}}
@@ -154,8 +154,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
          ]
        }}
     else
-      {:error, :product_not_ready} ->
-        {:error, :product_not_ready}
+      {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
+        {:error, reason}
 
       {:error, reason} ->
         {:error, {404, -32_002, "MCP resource was not found.", %{reason: inspect(reason)}}}

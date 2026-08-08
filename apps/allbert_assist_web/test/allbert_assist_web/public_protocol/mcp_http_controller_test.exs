@@ -381,7 +381,13 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              )
   end
 
-  defp context, do: %{actor: "test", channel: "test", audit?: false}
+  defp context do
+    AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      actor: "test",
+      channel: "test",
+      audit?: false
+    })
+  end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

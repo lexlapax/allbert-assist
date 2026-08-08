@@ -623,7 +623,13 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     |> get_in(["choices", Access.at(0), "delta", "content"])
   end
 
-  defp context, do: %{actor: "test", channel: "test", audit?: false}
+  defp context do
+    AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      actor: "test",
+      channel: "test",
+      audit?: false
+    })
+  end
 
   defp latest_openai_event! do
     AllbertAssist.Repo.one!(
