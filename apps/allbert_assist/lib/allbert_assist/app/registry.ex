@@ -156,12 +156,6 @@ defmodule AllbertAssist.App.Registry do
     call(opts, :registered_apps, [])
   end
 
-  @doc "Return a read-only snapshot of all normalized entries in registration order."
-  @spec ordered_entries(keyword()) :: {:ok, [app_entry()]} | {:error, :unavailable}
-  def ordered_entries(opts \\ []) do
-    call(opts, :ordered_entries, {:error, :unavailable})
-  end
-
   @doc false
   @spec snapshot_and_subscribe(pid(), keyword()) ::
           {:ok, MetadataSnapshot.t(), reference()} | {:error, :unavailable}
@@ -467,9 +461,6 @@ defmodule AllbertAssist.App.Registry do
       _other -> {:reply, {:error, :product_not_ready}, state}
     end
   end
-
-  def handle_call(:ordered_entries, _from, state),
-    do: {:reply, {:ok, entries_in_order(state)}, state}
 
   def handle_call({:snapshot_and_subscribe, subscriber}, _from, state) do
     subscription_ref = make_ref()

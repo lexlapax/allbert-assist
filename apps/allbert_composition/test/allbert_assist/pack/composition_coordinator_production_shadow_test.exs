@@ -11,7 +11,6 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
     Canonical,
     CandidateBuilder,
     CompositionCoordinator,
-    LegacyAdapter,
     ProjectionProvider,
     Readiness
   }
@@ -20,6 +19,10 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   alias AllbertAssist.Pack.Supervisor, as: PackSupervisor
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
+
+  @expected_behavior_digest "4a3661c3440dc21b58f91776b9d711cb14fd3343aa639384acdc3933d4d24b91"
+  @expected_bytes_sha256 "4464fcdf3eb31233d09f524ae9c5167b91980103e519fa21fe551807934913ae"
+  @expected_byte_size 837_405
 
   defmodule AppMetadataSupervisor do
     use GenServer
@@ -185,16 +188,23 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
     assert coordinator_snapshot.publication == :authoritative
     assert {:ok, coordinator_bytes} = Canonical.snapshot_bytes(coordinator_snapshot)
 
-    assert {:ok, legacy_candidate} = LegacyAdapter.capture(pack_projection: closed)
-    assert :ok = ShadowParity.verify_m0_bindings!(legacy_candidate, ShadowParity.prepare_m0!())
-    assert {:ok, legacy_snapshot} = Canonical.build_snapshot(legacy_candidate, :shadow)
-    assert {:ok, legacy_bytes} = Canonical.snapshot_bytes(legacy_snapshot)
+    assert {:ok, builder_candidate} =
+             CandidateBuilder.build(closed, app_snapshot, plugin_snapshot)
 
-    assert coordinator_bytes == legacy_bytes
-    assert behavior_digest == legacy_snapshot.behavior_digest
-    assert Enum.map(legacy_candidate.action_bindings, & &1.registry_order) == Enum.to_list(1..281)
+    assert :ok = ShadowParity.verify_m0_bindings!(builder_candidate, ShadowParity.prepare_m0!())
+    assert {:ok, builder_snapshot} = Canonical.build_snapshot(builder_candidate, :shadow)
+    assert {:ok, builder_bytes} = Canonical.snapshot_bytes(builder_snapshot)
+
+    assert coordinator_bytes == builder_bytes
+    assert behavior_digest == builder_snapshot.behavior_digest
+
+    assert Enum.map(builder_candidate.action_bindings, & &1.registry_order) ==
+             Enum.to_list(1..281)
 
     bytes_sha256 = :crypto.hash(:sha256, coordinator_bytes) |> Base.encode16(case: :lower)
+    assert behavior_digest == @expected_behavior_digest
+    assert bytes_sha256 == @expected_bytes_sha256
+    assert byte_size(coordinator_bytes) == @expected_byte_size
 
     IO.puts(
       "v14-m2-production-shadow status=pass actions=281 behavior_digest=#{behavior_digest} " <>

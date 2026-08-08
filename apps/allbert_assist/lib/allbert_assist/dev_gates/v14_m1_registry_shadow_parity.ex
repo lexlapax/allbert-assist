@@ -2,32 +2,21 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
   @moduledoc """
   Deterministic evidence helpers for the v1.4 M1.a2 shadow Pack checkpoint.
 
-  This module owns generated test fixtures and frozen-ledger comparison. The
-  production LegacyAdapter never reads either fixture.
+  This module owns generated test fixtures and frozen-ledger comparison.
   """
 
-  alias AllbertAssist.Actions.Capability
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DevGates.V14M0RegistryLedger
-  alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Licenses
   alias AllbertAssist.Objectives.CanonicalJSON
 
   alias AllbertAssist.Pack.{
-    Canonical,
     OTPMetadata,
     Projection,
-    Registry,
     RowSchemas
   }
 
   alias AllbertAssist.Pack.OTPMetadata.{ReleaseApplication, ReleaseSpec}
-  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
-  alias AllbertAssist.Plugin.Entry, as: PluginEntry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Settings.Fragment, as: SettingsFragment
-  alias AllbertAssist.Settings.Fragments, as: SettingsFragments
+  alias AllbertAssist.Pack.Registry.Candidate
 
   @schema_version 1
   @normalization "v14_pack_row_schema_contract_v1"
@@ -39,25 +28,6 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
     :allbert_composition,
     :allbert_assist_web
   ]
-
-  @type registry_process :: pid() | {atom(), node()} | nil
-  @type dynamic_child ::
-          {:undefined, pid() | :restarting, :worker | :supervisor, [module()] | :dynamic}
-  @type legacy_observation :: %{
-          action_capabilities: [Capability.t()],
-          action_modules: nonempty_list(module()),
-          app_children: [dynamic_child()],
-          app_diagnostics: map(),
-          app_registry_pid: registry_process(),
-          apps: [AppRegistry.app_entry()],
-          extensions: ExtensionsRegistry.contribution_summary(),
-          plugin_children: [dynamic_child()],
-          plugin_diagnostics: map(),
-          plugin_registry_pid: registry_process(),
-          plugins: [PluginEntry.t()],
-          settings_cache: term(),
-          settings_fragments: [SettingsFragment.t()]
-        }
 
   @type row_schema_contract_field :: %{
           required(String.t()) => boolean() | nil | String.t() | non_neg_integer() | [String.t()]
@@ -169,97 +139,6 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
     raise "invalid v1.4 M1.a2 prepared M0 binding evidence"
   end
 
-  @doc "Capture the observable legacy state used by the zero-mutation assertion."
-  @spec legacy_observation(keyword()) :: legacy_observation()
-  def legacy_observation(context) when is_list(context) do
-    app_opts = Keyword.fetch!(context, :app)
-    plugin_opts = Keyword.fetch!(context, :plugin)
-    {:ok, plugin_entries} = PluginRegistry.ordered_entries(plugin_opts)
-
-    %{
-      app_registry_pid: GenServer.whereis(Keyword.fetch!(app_opts, :server)),
-      plugin_registry_pid: GenServer.whereis(Keyword.fetch!(plugin_opts, :server)),
-      apps: AppRegistry.registered_apps(app_opts),
-      app_diagnostics: AppRegistry.diagnostics(app_opts),
-      plugins: plugin_entries,
-      plugin_diagnostics: PluginRegistry.diagnostics(plugin_opts),
-      action_modules: ActionsRegistry.modules(context),
-      action_capabilities: ActionsRegistry.capabilities(context),
-      extensions: ExtensionsRegistry.contributions(app: app_opts, plugin: plugin_opts),
-      settings_fragments: SettingsFragments.registered_fragments(context),
-      settings_cache:
-        :persistent_term.get({SettingsFragments, :default_composition}, :not_cached),
-      app_children: DynamicSupervisor.which_children(AllbertAssist.App.DynamicSupervisor),
-      plugin_children: DynamicSupervisor.which_children(AllbertAssist.Plugin.ChildSupervisor)
-    }
-  end
-
-  @doc "Finalize equal source/private/overlay candidates and return the mandatory shadow identities."
-  @spec verify_shadow!(
-          Projection.Closed.t(),
-          Candidate.t(),
-          Candidate.t(),
-          Candidate.t(),
-          map(),
-          GenServer.server()
-        ) :: map()
-  def verify_shadow!(
-        %Projection.Closed{} = closed,
-        %Candidate{} = source_candidate,
-        %Candidate{} = private_candidate,
-        %Candidate{} = overlay_candidate,
-        prepared_m0,
-        registry_server
-      ) do
-    :ok = Projection.validate_closed(closed)
-
-    unless source_candidate == private_candidate do
-      raise "v1.4 M1.a2 source/private candidate mismatch"
-    end
-
-    unless private_candidate == overlay_candidate do
-      raise "v1.4 M1.a2 populated overlay changed the captured candidate"
-    end
-
-    :ok = verify_m0_bindings!(source_candidate, prepared_m0)
-
-    {:ok, %{phase: :collecting, publication: :shadow, behavior_digest: nil}} =
-      Registry.status(server: registry_server)
-
-    {:ok, %Snapshot{} = snapshot} = Registry.finalize(source_candidate, server: registry_server)
-    {:ok, ^snapshot} = Registry.finalize(private_candidate, server: registry_server)
-    {:ok, ^snapshot} = Registry.finalize(overlay_candidate, server: registry_server)
-    {:ok, ^snapshot} = Registry.snapshot(server: registry_server)
-    behavior_digest = snapshot.behavior_digest
-
-    {:ok,
-     %{
-       phase: :finalized,
-       publication: :shadow,
-       behavior_digest: ^behavior_digest
-     }} = Registry.status(server: registry_server)
-
-    {:ok, snapshot_bytes} = Canonical.snapshot_bytes(snapshot)
-    fixture = load_row_schema_contract_fixture!()
-
-    %{
-      pack_projection_sha256: closed.projection_sha256,
-      pack_closure_sha256: closed.closure_sha256,
-      snapshot_bytes_sha256: sha256(snapshot_bytes),
-      behavior_digest: snapshot.behavior_digest,
-      candidate_counts: candidate_counts(source_candidate),
-      m0_registry_payload_sha256: prepared_m0.payload_sha256,
-      row_schema_fixture_sha256: row_schema_contract_fixture_path() |> File.read!() |> sha256(),
-      row_schema_contract_sha256: Map.fetch!(fixture, "schema_contract_sha256"),
-      private_registry_parity: :pass,
-      overlay_exclusion_and_precedence: :pass
-    }
-  end
-
-  def verify_shadow!(_closed, _source, _private, _overlay, _prepared_m0, _registry_server) do
-    raise "invalid v1.4 M1.a2 shadow evidence input"
-  end
-
   @doc "Return the repository-owned row-schema contract fixture path."
   @spec row_schema_contract_fixture_path() :: Path.t()
   def row_schema_contract_fixture_path do
@@ -357,24 +236,6 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
     end
   end
 
-  defp candidate_counts(candidate) do
-    rows =
-      Enum.reduce(candidate.contributions, 0, fn contribution, count ->
-        count +
-          Enum.reduce(contribution.callbacks, 0, fn {_callback, values}, n ->
-            n + length(values)
-          end)
-      end)
-
-    %{
-      contributions: length(candidate.contributions),
-      rows: rows,
-      action_bindings: length(candidate.action_bindings),
-      aliases: length(candidate.compatibility_aliases),
-      compatibility_diagnostics: length(candidate.compatibility_diagnostics)
-    }
-  end
-
   defp module_name(module) when is_atom(module) do
     module
     |> Atom.to_string()
@@ -383,12 +244,6 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
 
   defp m0_source_bucket(:native_static), do: "static"
   defp m0_source_bucket(:legacy_plugin), do: "plugin_append"
-
-  defp sha256(bytes) do
-    bytes
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
-  end
 
   defp read_source_application!(application) do
     build_lib =

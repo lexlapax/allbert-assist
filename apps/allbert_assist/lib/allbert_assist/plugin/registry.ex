@@ -145,12 +145,6 @@ defmodule AllbertAssist.Plugin.Registry do
     |> Enum.filter(&(&1.status == :enabled))
   end
 
-  @doc "Return a read-only snapshot of all normalized entries in registration order."
-  @spec ordered_entries(keyword()) :: {:ok, [Entry.t()]} | {:error, :unavailable}
-  def ordered_entries(opts \\ []) do
-    call(opts, :ordered_entries, {:error, :unavailable})
-  end
-
   @doc false
   @spec snapshot_and_subscribe(pid(), keyword()) ::
           {:ok, MetadataSnapshot.t(), reference()} | {:error, :unavailable}
@@ -303,10 +297,6 @@ defmodule AllbertAssist.Plugin.Registry do
 
   def handle_call(:registered_plugins, _from, state) do
     {:reply, entries_in_order(state), state}
-  end
-
-  def handle_call(:ordered_entries, _from, state) do
-    {:reply, {:ok, entries_in_order(state)}, state}
   end
 
   def handle_call({:snapshot_and_subscribe, subscriber}, _from, state) do

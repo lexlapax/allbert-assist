@@ -1,624 +1,28 @@
 defmodule AllbertAssist.Actions.Registry do
   @moduledoc """
-  Canonical registry for Allbert runtime-facing Jido actions.
+  Public action-resolution facade over the finalized authoritative Pack.
 
-  Pure domain modules can remain plain Elixir behind these actions. Runtime
-  callers should resolve action names or modules through this registry before
-  invoking work.
+  Dynamic-plugin actions remain a final overlay because their confirmed loader
+  lifecycle is outside static Pack composition. App and Plugin metadata do not
+  independently grant action authority after Pack finalization.
   """
 
   alias AllbertAssist.Action
-  alias AllbertAssist.Actions.Registry.CandidateProjection
-  alias AllbertAssist.Actions.SnapshotCatalog
-  alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Pack.{ActionCatalog, PathSegment, ValidationDiagnostic}
-  alias AllbertAssist.Pack.Registry, as: PackRegistry
-
-  alias AllbertAssist.Actions.Apps.ListApps
-  alias AllbertAssist.Actions.Apps.ShowApp
-  alias AllbertAssist.Actions.Artifacts.ArtifactDoctor
-  alias AllbertAssist.Actions.Artifacts.ArtifactThreads
-  alias AllbertAssist.Actions.Artifacts.DeleteArtifact
-  alias AllbertAssist.Actions.Artifacts.GetArtifact
-  alias AllbertAssist.Actions.Artifacts.ListArtifacts
-  alias AllbertAssist.Actions.Artifacts.PutArtifact
-  alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
-  alias AllbertAssist.Actions.Capability
-  alias AllbertAssist.Actions.Channels.ConfigureChannelSecret
-  alias AllbertAssist.Actions.Channels.ConfigureChannelSetting
-  alias AllbertAssist.Actions.Channels.LinkChannelIdentity
-  alias AllbertAssist.Actions.Channels.ListChannels
-  alias AllbertAssist.Actions.Channels.SendChannelMessage
-  alias AllbertAssist.Actions.Channels.SetupCheck
-  alias AllbertAssist.Actions.Channels.ShowChannel
-  alias AllbertAssist.Actions.Channels.SignalDoctor
-  alias AllbertAssist.Actions.Channels.SignalLinkDevice
-  alias AllbertAssist.Actions.Channels.UnlinkChannelIdentity
-  alias AllbertAssist.Actions.Channels.WhatsAppDoctor
-  alias AllbertAssist.Actions.Coding.Bash, as: CodingBash
-  alias AllbertAssist.Actions.Coding.Edit, as: CodingEdit
-  alias AllbertAssist.Actions.Coding.Glob, as: CodingGlob
-  alias AllbertAssist.Actions.Coding.Grep, as: CodingGrep
-  alias AllbertAssist.Actions.Coding.Read, as: CodingRead
-  alias AllbertAssist.Actions.Coding.Write, as: CodingWrite
-  alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
-  alias AllbertAssist.Actions.Confirmations.DenyConfirmation
-  alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
-  alias AllbertAssist.Actions.Confirmations.ListConfirmations
-  alias AllbertAssist.Actions.Confirmations.ShowConfirmation
-  alias AllbertAssist.Actions.Conversations.CompleteThread
-  alias AllbertAssist.Actions.Conversations.DeleteConversationContent
-  alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
-  alias AllbertAssist.Actions.Conversations.PersistAttachedFanoutReport
-  alias AllbertAssist.Actions.Conversations.RenameThread
-  alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
-  alias AllbertAssist.Actions.Database.RestoreBackup, as: RestoreDatabaseBackup
-  alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
-  alias AllbertAssist.Actions.DynamicPlugins.DiscardDraft, as: DiscardDynamicDraft
-  alias AllbertAssist.Actions.DynamicPlugins.IntegrateDraft, as: IntegrateDynamicDraft
-  alias AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts
-  alias AllbertAssist.Actions.DynamicPlugins.RequestDraft, as: RequestDynamicDraft
-  alias AllbertAssist.Actions.DynamicPlugins.RollbackIntegration, as: RollbackDynamicIntegration
-  alias AllbertAssist.Actions.DynamicPlugins.RunDraftGate, as: RunDynamicDraftGate
-  alias AllbertAssist.Actions.DynamicPlugins.RunDraftTrial, as: RunDynamicDraftTrial
-  alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
-  alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
-  alias AllbertAssist.Actions.Email.SendEmail
-  alias AllbertAssist.Actions.FirstModel.Detect, as: FirstModelDetect
-  alias AllbertAssist.Actions.FirstModel.InstallOllama
-  alias AllbertAssist.Actions.FirstModel.PullModel
-  alias AllbertAssist.Actions.Image.GenerateImage
-  alias AllbertAssist.Actions.Integrations.OpenCalendarPanel
-  alias AllbertAssist.Actions.Integrations.OpenGithubPanel
-  alias AllbertAssist.Actions.Integrations.OpenMailPanel
-  alias AllbertAssist.Actions.Intent.ActivateSkill
-  alias AllbertAssist.Actions.Intent.AppendMemory
-  alias AllbertAssist.Actions.Intent.Coverage, as: IntentCoverage
-  alias AllbertAssist.Actions.Intent.DirectAnswer
-  alias AllbertAssist.Actions.Intent.DisableDescriptor, as: DisableIntentDescriptor
-  alias AllbertAssist.Actions.Intent.Doctor, as: IntentDoctor
-  alias AllbertAssist.Actions.Intent.EditDescriptor, as: EditIntentDescriptor
-  alias AllbertAssist.Actions.Intent.EnableDescriptor, as: EnableIntentDescriptor
-  alias AllbertAssist.Actions.Intent.EvalAdd, as: IntentEvalAdd
-  alias AllbertAssist.Actions.Intent.EvalBaseline, as: IntentEvalBaseline
-  alias AllbertAssist.Actions.Intent.EvalCapture, as: IntentEvalCapture
-  alias AllbertAssist.Actions.Intent.EvalRun, as: IntentEvalRun
-  alias AllbertAssist.Actions.Intent.ExplainIntent
-  alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
-  alias AllbertAssist.Actions.Intent.ListDescriptors, as: IntentListDescriptors
-  alias AllbertAssist.Actions.Intent.ListIntentCandidates
-  alias AllbertAssist.Actions.Intent.ListReview, as: IntentListReview
-  alias AllbertAssist.Actions.Intent.ListSkills
-  alias AllbertAssist.Actions.Intent.OptimizeDescriptors, as: OptimizeIntentDescriptors
-  alias AllbertAssist.Actions.Intent.PlanShellCommand
-  alias AllbertAssist.Actions.Intent.PromoteDescriptor, as: PromoteIntentDescriptor
-  alias AllbertAssist.Actions.Intent.ReadRecentMemory
-  alias AllbertAssist.Actions.Intent.ReadSkill
-  alias AllbertAssist.Actions.Intent.ReindexDescriptors, as: ReindexIntentDescriptors
-  alias AllbertAssist.Actions.Intent.RunShellCommand
-  alias AllbertAssist.Actions.Intent.ShowDescriptor, as: IntentShowDescriptor
-  alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
-  alias AllbertAssist.Actions.Jobs.CreateJob
-  alias AllbertAssist.Actions.Jobs.ListJobs
-  alias AllbertAssist.Actions.Jobs.PauseJob
-  alias AllbertAssist.Actions.Jobs.RegistryHealth
-  alias AllbertAssist.Actions.Jobs.ResumeJob
-  alias AllbertAssist.Actions.Jobs.RunJob
-  alias AllbertAssist.Actions.Jobs.TraceSummary
-  alias AllbertAssist.Actions.Marketplace.Doctor, as: MarketplaceDoctor
-  alias AllbertAssist.Actions.Marketplace.InspectEntry, as: InspectMarketplaceEntry
-  alias AllbertAssist.Actions.Marketplace.InstallBundle, as: InstallMarketplaceBundle
-  alias AllbertAssist.Actions.Marketplace.ListEntries, as: ListMarketplaceEntries
-  alias AllbertAssist.Actions.Marketplace.ListInstalled, as: ListInstalledMarketplaceBundles
-  alias AllbertAssist.Actions.Marketplace.RollbackInstall, as: RollbackMarketplaceInstall
-  alias AllbertAssist.Actions.Marketplace.VerifyBundleHash, as: VerifyMarketplaceBundleHash
-  alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
-  alias AllbertAssist.Actions.Mcp.ConnectServer, as: McpConnectServer
-  alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
-  alias AllbertAssist.Actions.Mcp.EvaluateServer, as: McpEvaluateServer
-  alias AllbertAssist.Actions.Mcp.FetchServerManifest, as: McpFetchServerManifest
-  alias AllbertAssist.Actions.Mcp.FindTools, as: McpFindTools
-  alias AllbertAssist.Actions.Mcp.ListResources, as: McpListResources
-  alias AllbertAssist.Actions.Mcp.ListTools, as: McpListTools
-  alias AllbertAssist.Actions.Mcp.ReadResource, as: McpReadResource
-  alias AllbertAssist.Actions.Mcp.ScanEnable, as: McpScanEnable
-  alias AllbertAssist.Actions.Mcp.ScanPause, as: McpScanPause
-  alias AllbertAssist.Actions.Mcp.ScanResume, as: McpScanResume
-  alias AllbertAssist.Actions.Mcp.ScanRunOnce, as: McpScanRunOnce
-  alias AllbertAssist.Actions.Memory.CompileMemoryIndex
-  alias AllbertAssist.Actions.Memory.ConfirmDestinationMemoryChain
-  alias AllbertAssist.Actions.Memory.ConfirmManualMemoryRevision
-  alias AllbertAssist.Actions.Memory.ConsolidateMemory
-  alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
-  alias AllbertAssist.Actions.Memory.ForgetMemoryClaim
-  alias AllbertAssist.Actions.Memory.ListMemoryCategorySummary
-  alias AllbertAssist.Actions.Memory.ListMemoryEntries
-  alias AllbertAssist.Actions.Memory.ListMemoryProposals
-  alias AllbertAssist.Actions.Memory.PromoteConversationTurn
-  alias AllbertAssist.Actions.Memory.PruneMemoryEntries
-  alias AllbertAssist.Actions.Memory.ReadMemoryEntry
-  alias AllbertAssist.Actions.Memory.RebuildMemoryProjection
-  alias AllbertAssist.Actions.Memory.RestoreMemoryClaim
-  alias AllbertAssist.Actions.Memory.RetrieveActiveMemory
-  alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
-  alias AllbertAssist.Actions.Memory.ReviewMemoryProposal
-  alias AllbertAssist.Actions.Memory.ReviewMemoryProposalBatch
-  alias AllbertAssist.Actions.Memory.SearchMemory
-  alias AllbertAssist.Actions.Memory.ShowMemoryProposal
-  alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
-  alias AllbertAssist.Actions.Memory.SyncAppLesson
-  alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
-  alias AllbertAssist.Actions.Objectives.CancelObjective
-  alias AllbertAssist.Actions.Objectives.CancelObjectiveRun
-  alias AllbertAssist.Actions.Objectives.ContinueObjective
-  alias AllbertAssist.Actions.Objectives.DelegateAgent
-  alias AllbertAssist.Actions.Objectives.ListObjectives
-  alias AllbertAssist.Actions.Objectives.ShowObjective
-  alias AllbertAssist.Actions.Objectives.StartFanout
-  alias AllbertAssist.Actions.Objectives.SteerObjectiveRun
-  alias AllbertAssist.Actions.Operator.Channels, as: OperatorChannels
-  alias AllbertAssist.Actions.Operator.Confirmations, as: OperatorConfirmations
-  alias AllbertAssist.Actions.Operator.Events, as: OperatorEvents
-  alias AllbertAssist.Actions.Operator.SettingGet, as: OperatorSettingGet
-  alias AllbertAssist.Actions.Operator.Status, as: OperatorStatus
-  alias AllbertAssist.Actions.Packages.PlanPackageInstall
-  alias AllbertAssist.Actions.Packages.RunPackageInstall
-  alias AllbertAssist.Actions.PlanBuild.CancelPlanRun
-  alias AllbertAssist.Actions.PlanBuild.ConfirmPlanStep
-  alias AllbertAssist.Actions.PlanBuild.ExpandWorkflow
-  alias AllbertAssist.Actions.PlanBuild.InspectWorkflow
-  alias AllbertAssist.Actions.PlanBuild.ListPlanRuns
-  alias AllbertAssist.Actions.PlanBuild.ListWorkflows
-  alias AllbertAssist.Actions.PlanBuild.PreviewPlan
-  alias AllbertAssist.Actions.PlanBuild.StartPlanRun
-  alias AllbertAssist.Actions.Plugins.ListPlugins
-  alias AllbertAssist.Actions.Plugins.ShowPlugin
-  alias AllbertAssist.Actions.PublicProtocol.CreateProtocolToken
-  alias AllbertAssist.Actions.PublicProtocol.GetPublicCallResult
-  alias AllbertAssist.Actions.PublicProtocol.RevokeProtocolToken
-  alias AllbertAssist.Actions.PublicProtocol.RotateProtocolToken
-  alias AllbertAssist.Actions.Resources.ListResourceGrants
-  alias AllbertAssist.Actions.Resources.RememberResourceGrant
-  alias AllbertAssist.Actions.Resources.RevokeResourceGrant
-  alias AllbertAssist.Actions.Resources.ShowResourceGrant
-  alias AllbertAssist.Actions.Sandbox.BuildBundle, as: BuildSandboxBundle
-  alias AllbertAssist.Actions.Sandbox.DiscardBundle, as: DiscardSandboxBundle
-  alias AllbertAssist.Actions.Sandbox.Doctor, as: SandboxDoctor
-  alias AllbertAssist.Actions.Sandbox.RunCommand, as: RunSandboxCommand
-  alias AllbertAssist.Actions.Sandbox.RunGate, as: RunSandboxGate
-  alias AllbertAssist.Actions.Search.AuthorizeSearchQueryScope
-  alias AllbertAssist.Actions.Search.IngestSearchIndex
-  alias AllbertAssist.Actions.Search.MaintainSearchIndex
-  alias AllbertAssist.Actions.Search.PurgeSearchProjection
-  alias AllbertAssist.Actions.Search.RebuildSearchIndex
-  alias AllbertAssist.Actions.Search.SearchConversations
-  alias AllbertAssist.Actions.Security.Review, as: SecurityReview
-  alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
-  alias AllbertAssist.Actions.SelfImprovement.CreateDraft, as: CreateSelfImprovementDraft
-  alias AllbertAssist.Actions.SelfImprovement.DiscardDraft, as: DiscardSelfImprovementDraft
-  alias AllbertAssist.Actions.SelfImprovement.DiscoverPatterns
-  alias AllbertAssist.Actions.SelfImprovement.PromoteCapabilityGapDraft
-  alias AllbertAssist.Actions.SelfImprovement.PromoteMemoryDraft
-  alias AllbertAssist.Actions.SelfImprovement.PromoteObjectiveDraft
-  alias AllbertAssist.Actions.SelfImprovement.PromoteSkillDraft
-  alias AllbertAssist.Actions.SelfImprovement.PromoteTemplateDraft
-  alias AllbertAssist.Actions.SelfImprovement.PromoteWorkflowDraft
-  alias AllbertAssist.Actions.Serve.ServeHealth
-  alias AllbertAssist.Actions.Serve.ServiceControl
-  alias AllbertAssist.Actions.Session.ClearActiveApp
-  alias AllbertAssist.Actions.Session.SetActiveApp
-  alias AllbertAssist.Actions.Session.ShowSessionScratchpad
-  alias AllbertAssist.Actions.Sessions.ClearSession
-  alias AllbertAssist.Actions.Sessions.SweepExpiredSessions
-  alias AllbertAssist.Actions.Settings.ApplyPersonaProfile
-  alias AllbertAssist.Actions.Settings.Doctor, as: SettingsDoctor
-  alias AllbertAssist.Actions.Settings.DoctorModelProfile
-  alias AllbertAssist.Actions.Settings.DoctorVoiceProvider
-  alias AllbertAssist.Actions.Settings.ExplainSetting
-  alias AllbertAssist.Actions.Settings.ListModelCatalog
-  alias AllbertAssist.Actions.Settings.ListModelProfiles
-  alias AllbertAssist.Actions.Settings.ListProviderProfiles
-  alias AllbertAssist.Actions.Settings.ListSettings
-  alias AllbertAssist.Actions.Settings.MigrateSecrets
-  alias AllbertAssist.Actions.Settings.ModelDoctor, as: SettingsModelDoctor
-  alias AllbertAssist.Actions.Settings.ReadSetting
-  alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
-  alias AllbertAssist.Actions.Settings.SetActiveModelProfile
-  alias AllbertAssist.Actions.Settings.SetDirectAnswerModelProfile
-  alias AllbertAssist.Actions.Settings.SetNotesRoot
-  alias AllbertAssist.Actions.Settings.SetProviderCredential
-  alias AllbertAssist.Actions.Settings.UpdateSetting
-  alias AllbertAssist.Actions.Settings.VaultStatus
-  alias AllbertAssist.Actions.Skills.AuditOnlineSkill
-  alias AllbertAssist.Actions.Skills.CreateSkill
-  alias AllbertAssist.Actions.Skills.ImportLocalSkill
-  alias AllbertAssist.Actions.Skills.ImportOnlineSkill
-  alias AllbertAssist.Actions.Skills.ImportRemoteSkill
-  alias AllbertAssist.Actions.Skills.RunSkillScript
-  alias AllbertAssist.Actions.Skills.SearchOnlineSkills
-  alias AllbertAssist.Actions.Skills.ShowOnlineSkill
-  alias AllbertAssist.Actions.Skills.ValidateSkill
-  alias AllbertAssist.Actions.SurfacePolicy.Read, as: ReadSurfacePolicy
-  alias AllbertAssist.Actions.SurfacePolicy.Update, as: UpdateSurfacePolicy
-  alias AllbertAssist.Actions.Templates.CreateFromTemplate
-  alias AllbertAssist.Actions.Templates.RenderTemplate
-  alias AllbertAssist.Actions.Templates.ScaffoldTemplate
-  alias AllbertAssist.Actions.Templates.ValidateTemplate
-  alias AllbertAssist.Actions.Tools.FindLocalTools
-  alias AllbertAssist.Actions.Tools.FindTools
-  alias AllbertAssist.Actions.Trace.RecordTrace
-  alias AllbertAssist.Actions.Voice.CaptureWorkspaceVoice
-  alias AllbertAssist.Actions.Voice.EnsureVoiceToken
-  alias AllbertAssist.Actions.Voice.LocalRuntimeDoctor
-  alias AllbertAssist.Actions.Voice.StartLocalRuntime
-  alias AllbertAssist.Actions.Voice.SynthesizeVoice
-  alias AllbertAssist.Actions.Voice.TranscribeVoice
-  alias AllbertAssist.Actions.Workspace.DismissEphemeral
-  alias AllbertAssist.Actions.Workspace.ManageTile
-  alias AllbertAssist.Actions.Workspace.RecordOfflineUpdate
-  alias AllbertAssist.Actions.Workspace.RevertTileRevision
-  alias AllbertAssist.Actions.Workspace.RotateSigningSecret
-  alias AllbertAssist.Actions.Workspace.SetTheme
+  alias AllbertAssist.Actions.{Capability, SnapshotCatalog}
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
+  alias AllbertAssist.Pack.Registry, as: PackRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Signals
 
-  @agent_actions [
-    DirectAnswer,
-    AppendMemory,
-    ReadRecentMemory,
-    ListSkills,
-    ReadSkill,
-    ActivateSkill,
-    PlanShellCommand,
-    RunShellCommand,
-    UnsupportedResourceWorkflow,
-    ExternalNetworkRequest,
-    PlanPackageInstall,
-    SearchOnlineSkills,
-    ShowOnlineSkill,
-    ListSettings,
-    ReadSetting,
-    UpdateSetting,
-    SetNotesRoot,
-    ExplainSetting,
-    ListProviderProfiles,
-    ListModelCatalog,
-    ListModelProfiles,
-    SetProviderCredential,
-    DoctorModelProfile,
-    DoctorVoiceProvider,
-    SetActiveModelProfile,
-    SetDirectAnswerModelProfile,
-    GenerateImage,
-    SynthesizeVoice,
-    ListChannels,
-    ShowChannel,
-    SetupCheck,
-    ResumeThreadOnChannel,
-    ListApps,
-    ShowApp,
-    ListPlugins,
-    ShowPlugin,
-    GetPublicCallResult,
-    PreviewPlan,
-    OpenCalendarPanel,
-    OpenMailPanel,
-    OpenGithubPanel,
-    # v0.54 M9.1: read-only verbs promoted from :internal to :agent so the router
-    # can route to them (capability exposure also flipped to :agent). Effectful
-    # internal verbs stay internal pending a confirmation-gate decision.
-    ListMarketplaceEntries,
-    ListObjectives,
-    McpFindTools,
-    # v0.54 M10 outbound compose actions (ADR 0063)
-    SendEmail,
-    SendChannelMessage,
-    CreateCalendarEvent,
-    # v0.54 M10 effectful-verb promotions (gated; cancel_objective stays not_required)
-    InstallMarketplaceBundle,
-    CreateSkill,
-    ContinueObjective,
-    CancelObjective,
-    CancelObjectiveRun,
-    SteerObjectiveRun
-  ]
-
-  @internal_actions [
-    # Coding actions are session-only Pi-mode tools. Keep them registered for
-    # Runner.run/3 but out of the general intent-agent surface.
-    CodingRead,
-    CodingGrep,
-    CodingGlob,
-    CodingWrite,
-    CodingEdit,
-    CodingBash,
-    SearchConversations,
-    AuthorizeSearchQueryScope,
-    IngestSearchIndex,
-    MaintainSearchIndex,
-    PurgeSearchProjection,
-    RebuildSearchIndex,
-    DeleteConversationContent,
-    StartFanout,
-    # Channel doctors declare exposure: :internal; keep them out of the agent set
-    # so agent_modules/0 agrees with capability exposure (v0.54 M9.1 reconcile).
-    WhatsAppDoctor,
-    SignalDoctor,
-    McpDoctorServer,
-    McpListTools,
-    McpListResources,
-    McpReadResource,
-    McpCallTool,
-    McpFetchServerManifest,
-    McpEvaluateServer,
-    McpConnectServer,
-    McpScanEnable,
-    McpScanPause,
-    McpScanResume,
-    McpScanRunOnce,
-    FindLocalTools,
-    FindTools,
-    DiscoverPatterns,
-    CreateSelfImprovementDraft,
-    DiscardSelfImprovementDraft,
-    PromoteSkillDraft,
-    PromoteWorkflowDraft,
-    PromoteMemoryDraft,
-    PromoteTemplateDraft,
-    PromoteObjectiveDraft,
-    PromoteCapabilityGapDraft,
-    ValidateSkill,
-    RunSkillScript,
-    RunPackageInstall,
-    AuditOnlineSkill,
-    ImportOnlineSkill,
-    ImportRemoteSkill,
-    ImportLocalSkill,
-    MarketplaceDoctor,
-    InspectMarketplaceEntry,
-    RollbackMarketplaceInstall,
-    ListInstalledMarketplaceBundles,
-    VerifyMarketplaceBundleHash,
-    PutArtifact,
-    GetArtifact,
-    ListArtifacts,
-    ArtifactThreads,
-    DeleteArtifact,
-    ArtifactDoctor,
-    SecurityStatus,
-    SecurityReview,
-    SandboxDoctor,
-    BuildSandboxBundle,
-    RunSandboxCommand,
-    RunSandboxGate,
-    DiscardSandboxBundle,
-    OperatorStatus,
-    OperatorConfirmations,
-    OperatorEvents,
-    OperatorChannels,
-    OperatorSettingGet,
-    ReadSurfacePolicy,
-    UpdateSurfacePolicy,
-    SettingsDoctor,
-    SettingsModelDoctor,
-    ResolvedSettingsSnapshot,
-    ListConfirmations,
-    ShowConfirmation,
-    ApproveConfirmation,
-    DenyConfirmation,
-    ExpireConfirmations,
-    ListResourceGrants,
-    ShowResourceGrant,
-    RevokeResourceGrant,
-    RememberResourceGrant,
-    SetActiveApp,
-    ClearActiveApp,
-    ShowSessionScratchpad,
-    CaptureWorkspaceVoice,
-    TranscribeVoice,
-    LocalRuntimeDoctor,
-    StartLocalRuntime,
-    RecordTrace,
-    ExplainIntent,
-    ListIntentCandidates,
-    IntentDoctor,
-    IntentListDescriptors,
-    IntentShowDescriptor,
-    IntentCoverage,
-    IntentEvalRun,
-    IntentListReview,
-    OptimizeIntentDescriptors,
-    PromoteIntentDescriptor,
-    ReindexIntentDescriptors,
-    EditIntentDescriptor,
-    DisableIntentDescriptor,
-    EnableIntentDescriptor,
-    IntentEvalBaseline,
-    IntentEvalCapture,
-    IntentEvalAdd,
-    ConfirmDestinationMemoryChain,
-    ConfirmManualMemoryRevision,
-    ConsolidateMemory,
-    ForgetMemoryClaim,
-    ListMemoryProposals,
-    ShowMemoryProposal,
-    ReviewMemoryProposal,
-    ReviewMemoryProposalBatch,
-    ListMemoryEntries,
-    ReadMemoryEntry,
-    ReviewMemoryEntry,
-    UpdateMemoryEntry,
-    DeleteMemoryEntry,
-    PruneMemoryEntries,
-    RebuildMemoryProjection,
-    SearchMemory,
-    CompileMemoryIndex,
-    SummarizeMemoryCategory,
-    ListMemoryCategorySummary,
-    RetrieveActiveMemory,
-    RestoreMemoryClaim,
-    PromoteConversationTurn,
-    SyncAppLesson,
-    ShowObjective,
-    DelegateAgent,
-    ListWorkflows,
-    InspectWorkflow,
-    ExpandWorkflow,
-    StartPlanRun,
-    ConfirmPlanStep,
-    CancelPlanRun,
-    ListPlanRuns,
-    RegistryHealth,
-    TraceSummary,
-    ListJobs,
-    PauseJob,
-    ResumeJob,
-    RunJob,
-    # v0.62 M8.15 one-spine: job create routed off the CLI area's direct
-    # Jobs.create_job onto the :job_write gate.
-    CreateJob,
-    # v0.61b M4: operator-surface thread rename; internal like the job controls —
-    # the UI calls it via Runner; the intent router does not route to it.
-    RenameThread,
-    # v1.1 M12.21: canonical attached-Web fan-in report persistence. Internal,
-    # idempotent, and receipt acknowledgement remains browser-owned.
-    PersistAttachedFanoutReport,
-    # v0.62 M0.1: the approval-media assistant-message write, off the LiveView
-    # direct-write path and onto the spine (internal, Runner-only).
-    PersistApprovalMediaResponse,
-    # v0.62 M4: First-Model-Path — detect (read-only), install (command_execute,
-    # confirmed), pull (external_network, confirmed). Internal; not agent-routable.
-    FirstModelDetect,
-    InstallOllama,
-    PullModel,
-    # v0.62 M5: serve health (read-only) + per-user service install/uninstall
-    # (command_execute, confirmed). Named internal actions, not off-spine shell.
-    ServeHealth,
-    ServiceControl,
-    RestoreDatabaseBackup,
-    # v0.62 M7: three-tier secret vault — vault status (read-only) + migrate
-    # secrets into the OS vault (settings_write, confirmed). Named internal
-    # actions in the packaging-no-authority-change allowance.
-    VaultStatus,
-    MigrateSecrets,
-    # v0.63 M4: apply a reviewed persona preset (settings_write, confirmed).
-    # Setup-time internal action; kept off the general agent surface.
-    ApplyPersonaProfile,
-    ManageTile,
-    RevertTileRevision,
-    RecordOfflineUpdate,
-    DismissEphemeral,
-    RotateSigningSecret,
-    SetTheme,
-    RequestDynamicDraft,
-    DiscardDynamicDraft,
-    IntegrateDynamicDraft,
-    RollbackDynamicIntegration,
-    DisableDynamicLiveLoader,
-    RunDynamicDraftTrial,
-    RunDynamicDraftGate,
-    ListDynamicDrafts,
-    ShowDynamicDraft,
-    ShowDynamicIntegration,
-    RenderTemplate,
-    ValidateTemplate,
-    ScaffoldTemplate,
-    CreateFromTemplate,
-    SignalLinkDevice,
-    # v0.62 M8.15 one-spine: the operator-CLI config areas (channels, sessions,
-    # threads, public_protocol, voice) previously wrote to stores/services
-    # directly. These internal, Runner-only actions carry those writes through
-    # PermissionGate + audit; each reuses an existing permission class.
-    ConfigureChannelSecret,
-    ConfigureChannelSetting,
-    LinkChannelIdentity,
-    UnlinkChannelIdentity,
-    ClearSession,
-    SweepExpiredSessions,
-    CompleteThread,
-    CreateProtocolToken,
-    RotateProtocolToken,
-    RevokeProtocolToken,
-    EnsureVoiceToken
-  ]
-
-  @actions @agent_actions ++ @internal_actions
-
-  @typedoc """
-  A pure effective action projection built from the sealed static catalog and
-  supplied App/Plugin metadata entries.
-
-  `effective` is the runtime-visible order. `plugin_declarations` preserves
-  every enabled Plugin declaration in metadata order. `alias_sources` is the
-  ordered subset displaced by one of the static/Plugin precedence rules.
-  """
-  @type candidate_projection :: CandidateProjection.t()
-
-  @doc """
-  Project the compile-constant action catalog without consulting a registry.
-
-  This is deliberately separate from `capabilities/1`: it does not read App,
-  Plugin, or dynamic-overlay state.
-  """
-  @spec static_projection() :: {:ok, [map()]} | {:error, [ValidationDiagnostic.t()]}
-  def static_projection do
-    case ActionCatalog.residual_modules() do
-      {:ok, modules} when modules == @actions ->
-        modules
-        |> Enum.with_index(1)
-        |> Enum.reduce_while({:ok, []}, fn {module, legacy_index}, {:ok, projections} ->
-          case project_module(module, legacy_index, nil, nil) do
-            {:ok, projection} -> {:cont, {:ok, [projection | projections]}}
-            {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
-          end
-        end)
-        |> then(fn
-          {:ok, projections} -> {:ok, Enum.reverse(projections)}
-          error -> error
-        end)
-
-      {:ok, _modules} ->
-        {:error, [projection_diagnostic(:compiled_action_inventory_mismatch)]}
-
-      {:error, reason} ->
-        {:error, [projection_diagnostic(reason)]}
-    end
-  end
-
-  @doc """
-  Apply the legacy static-first Plugin precedence rules to supplied metadata.
-
-  No process, registry, overlay, or runtime state is read. Invalid or
-  ambiguous membership is rejected instead of selecting an arbitrary owner.
-  """
-  @spec candidate_projection([map()], [map()], [map()]) ::
-          {:ok, candidate_projection()} | {:error, [ValidationDiagnostic.t()]}
-  def candidate_projection(static, app_entries, plugin_entries)
-      when is_list(static) and is_list(app_entries) and is_list(plugin_entries) do
-    with {:ok, static} <- validate_static_projection(static),
-         {:ok, app_memberships} <- action_memberships(app_entries, :app),
-         {:ok, plugin_memberships} <- action_memberships(enabled_plugins(plugin_entries), :plugin),
-         {:ok, effective_static} <- enrich_static(static, app_memberships, plugin_memberships),
-         {:ok, declarations} <-
-           plugin_declarations(plugin_entries, app_memberships, plugin_memberships),
-         {:ok, candidate} <- assemble_candidate(effective_static, declarations) do
-      {:ok, candidate}
-    end
-  end
-
-  def candidate_projection(_static, _app_entries, _plugin_entries),
-    do: {:error, [projection_diagnostic(:invalid_candidate_projection)]}
-
   @doc "Return registered runtime action modules in stable display order."
-  @spec modules(keyword()) :: nonempty_list(module())
+  @spec modules(keyword()) :: [module()]
   def modules(opts \\ []),
     do: SnapshotCatalog.modules(pack_snapshot(opts)) ++ dynamic_actions(opts)
 
   @doc "Return action modules that can be exposed to the intent agent."
-  @spec agent_modules(keyword()) :: nonempty_list(module())
+  @spec agent_modules(keyword()) :: [module()]
   def agent_modules(opts \\ []) do
     SnapshotCatalog.agent_modules(pack_snapshot(opts)) ++
       ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
@@ -647,13 +51,16 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Return canonical capability metadata for internal-only actions."
   @spec internal_capabilities(keyword()) :: [Capability.t()]
   def internal_capabilities(opts \\ []) do
-    dynamic_internal_actions =
-      Enum.reject(dynamic_actions(opts), fn module ->
-        module in ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
-      end)
+    overlay_server = RegistryContext.overlay_server(opts)
+    overlay_agent_modules = ActionsOverlay.agent_modules(overlay_server)
 
-    SnapshotCatalog.internal_capabilities(pack_snapshot(opts)) ++
-      Enum.map(dynamic_internal_actions, &capability_for_module!(&1, opts))
+    dynamic_internal =
+      opts
+      |> dynamic_actions()
+      |> Enum.reject(&(&1 in overlay_agent_modules))
+      |> Enum.map(&capability_for_module!(&1, opts))
+
+    SnapshotCatalog.internal_capabilities(pack_snapshot(opts)) ++ dynamic_internal
   end
 
   @doc "Return action capabilities contributed by one registered app."
@@ -672,23 +79,12 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Resolve a registered action by module, string name, or atom name."
   @spec resolve(module() | String.t() | atom(), keyword()) ::
           {:ok, module()} | {:error, {:unknown_action, term()}}
-  def resolve(action, opts \\ [])
-
-  def resolve(action, opts) when is_atom(action) do
+  def resolve(action, opts \\ []) do
     case SnapshotCatalog.resolve(pack_snapshot(opts), action) do
       {:ok, module} -> {:ok, module}
       {:error, _reason} -> resolve_dynamic(action, opts)
     end
   end
-
-  def resolve(action, opts) when is_binary(action) do
-    case SnapshotCatalog.resolve(pack_snapshot(opts), action) do
-      {:ok, module} -> {:ok, module}
-      {:error, _reason} -> resolve_dynamic(action, opts)
-    end
-  end
-
-  def resolve(action, _opts), do: {:error, {:unknown_action, action}}
 
   @doc "Resolve canonical capability metadata by registered action name or module."
   @spec capability(module() | String.t() | atom(), keyword()) ::
@@ -721,17 +117,17 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Return duplicate registered names. This should always be empty."
   @spec duplicate_names(keyword()) :: [String.t()]
   def duplicate_names(opts \\ []) do
-    names(opts)
+    opts
+    |> names()
     |> Enum.frequencies()
     |> Enum.filter(fn {_name, count} -> count > 1 end)
-    |> Enum.map(fn {name, _count} -> name end)
+    |> Enum.map(&elem(&1, 0))
   end
 
-  @doc "Return action registry diagnostics, including plugin action collisions."
+  @doc "Return action-registry diagnostics from the confirmed dynamic overlay."
   @spec diagnostics(keyword()) :: [map()]
-  def diagnostics(opts \\ []) do
-    ActionsOverlay.diagnostics(RegistryContext.overlay_server(opts))
-  end
+  def diagnostics(opts \\ []),
+    do: ActionsOverlay.diagnostics(RegistryContext.overlay_server(opts))
 
   @doc "Emit an advisory action-registry-changed signal for index subscribers."
   @spec emit_registry_changed(atom(), map()) :: :ok
@@ -745,38 +141,6 @@ defmodule AllbertAssist.Actions.Registry do
     Signals.emit_registration(:action_registry_changed, metadata)
   end
 
-  defp capability_for_module!(module, opts) do
-    attrs = capability_attrs!(module)
-    app_id = AppRegistry.app_id_for_action(module, RegistryContext.app_opts(opts))
-    plugin_id = PluginRegistry.plugin_id_for_action(module, RegistryContext.plugin_opts(opts))
-
-    module
-    |> Capability.new(attrs)
-    |> maybe_put_app_id(app_id)
-    |> maybe_put_plugin_id(plugin_id)
-  end
-
-  defp capability_attrs!(module) do
-    case module_capability_attrs(module) do
-      {:ok, attrs} ->
-        attrs
-
-      {:error, reason} ->
-        raise KeyError, key: module, term: reason
-    end
-  end
-
-  defp module_capability_attrs(module) do
-    with true <- Code.ensure_loaded?(module),
-         true <- function_exported?(module, :capability, 0) do
-      module
-      |> apply(:capability, [])
-      |> Action.validate_capability()
-    else
-      false -> {:error, :missing_action_capability}
-    end
-  end
-
   defp pack_snapshot(opts) do
     case PackRegistry.snapshot(RegistryContext.pack_opts(opts)) do
       {:ok, snapshot} -> snapshot
@@ -784,9 +148,10 @@ defmodule AllbertAssist.Actions.Registry do
     end
   end
 
-  defp dynamic_capabilities(opts) do
-    Enum.map(dynamic_actions(opts), &capability_for_module!(&1, opts))
-  end
+  defp dynamic_actions(opts), do: ActionsOverlay.modules(RegistryContext.overlay_server(opts))
+
+  defp dynamic_capabilities(opts),
+    do: Enum.map(dynamic_actions(opts), &capability_for_module!(&1, opts))
 
   defp resolve_dynamic(action, opts) do
     modules = dynamic_actions(opts)
@@ -818,358 +183,34 @@ defmodule AllbertAssist.Actions.Registry do
     end
   end
 
-  defp dynamic_actions(opts), do: ActionsOverlay.modules(RegistryContext.overlay_server(opts))
+  defp capability_for_module!(module, opts) do
+    attrs = capability_attrs!(module)
+    app_id = AppRegistry.app_id_for_action(module, RegistryContext.app_opts(opts))
+    plugin_id = PluginRegistry.plugin_id_for_action(module, RegistryContext.plugin_opts(opts))
 
-  # Candidate projection helpers intentionally take only values captured by the
-  # Pack barrier. They must stay independent from the live registry helpers
-  # above: even a harmless-looking registry lookup would make a sealed capture
-  # depend on a concurrent registration mutation.
-  defp validate_static_projection(static) do
-    static
-    |> Enum.with_index(1)
-    |> Enum.reduce_while({:ok, []}, fn {projection, expected_index}, {:ok, acc} ->
-      with %{
-             legacy_index: ^expected_index,
-             registry_order: ^expected_index,
-             module: module,
-             name: name
-           } <- projection,
-           true <- is_atom(module) and is_binary(name) and name == normalize_name(name),
-           true <- is_map(Map.get(projection, :normalized_capability)),
-           true <- sha256?(Map.get(projection, :input_schema_sha256)),
-           true <- sha256?(Map.get(projection, :output_schema_sha256)) do
-        {:cont, {:ok, [projection | acc]}}
-      else
-        _ -> {:halt, {:error, [projection_diagnostic(:invalid_static_projection)]}}
-      end
-    end)
-    |> then(fn
-      {:ok, projections} -> {:ok, Enum.reverse(projections)}
-      error -> error
-    end)
+    module
+    |> Capability.new(attrs)
+    |> maybe_put(:app_id, app_id)
+    |> maybe_put(:plugin_id, plugin_id)
   end
 
-  defp action_memberships(entries, :app) do
-    membership_index(entries, :app_id, :actions, :ambiguous_app_action_membership)
-  end
-
-  defp action_memberships(entries, :plugin) do
-    membership_index(entries, :plugin_id, :actions, :ambiguous_plugin_action_membership)
-  end
-
-  defp membership_index(entries, id_key, actions_key, ambiguity_code) do
-    entries
-    |> Enum.reduce_while({:ok, %{}}, fn entry, {:ok, memberships} ->
-      id = entry_value(entry, id_key)
-      actions = entry_value(entry, actions_key, [])
-
-      if valid_owner_id?(id) and is_list(actions) and Enum.all?(actions, &is_atom/1) do
-        memberships =
-          Enum.reduce(actions, memberships, fn module, acc ->
-            Map.update(acc, module, [id], &[id | &1])
-          end)
-
-        {:cont, {:ok, memberships}}
-      else
-        {:halt, {:error, [projection_diagnostic(:invalid_metadata_entry)]}}
-      end
-    end)
-    |> then(fn
-      {:ok, memberships} ->
-        if Enum.any?(memberships, fn {_module, owners} ->
-             owners |> Enum.uniq() |> length() > 1
-           end) do
-          {:error, [projection_diagnostic(ambiguity_code)]}
-        else
-          {:ok, Map.new(memberships, fn {module, [owner | _]} -> {module, owner} end)}
-        end
-
-      error ->
-        error
-    end)
-  end
-
-  defp enabled_plugins(entries) do
-    Enum.filter(entries, &(entry_value(&1, :status) == :enabled))
-  end
-
-  defp enrich_static(static, app_memberships, plugin_memberships) do
-    static_modules = MapSet.new(Enum.map(static, & &1.module))
-
-    dangling_modules =
-      (Map.keys(app_memberships) ++ Map.keys(plugin_memberships))
-      |> Enum.uniq()
-      |> Enum.reject(&MapSet.member?(static_modules, &1))
-
-    # Non-static membership is allowed only when it is an enabled Plugin
-    # declaration, which is checked when declarations are projected below.
-    if Enum.any?(dangling_modules, fn module -> not Map.has_key?(plugin_memberships, module) end) do
-      {:error, [projection_diagnostic(:dangling_app_action_membership)]}
-    else
-      {:ok,
-       Enum.map(static, fn projection ->
-         app_id = Map.get(app_memberships, projection.module)
-         plugin_id = Map.get(plugin_memberships, projection.module)
-
-         projection
-         |> Map.put(:app_id, app_id)
-         |> Map.put(:plugin_id, plugin_id)
-         |> Map.update!(:normalized_capability, fn capability ->
-           capability
-           |> Map.put(:app_id, app_id)
-           |> Map.put(:plugin_id, plugin_id)
-         end)
-       end)}
-    end
-  end
-
-  defp plugin_declarations(plugin_entries, app_memberships, plugin_memberships) do
-    plugin_entries
-    |> Enum.reduce_while({:ok, []}, fn plugin, {:ok, declarations} ->
-      plugin_id = entry_value(plugin, :plugin_id)
-      actions = entry_value(plugin, :actions, [])
-
-      cond do
-        not valid_owner_id?(plugin_id) or not is_list(actions) or
-            not Enum.all?(actions, &is_atom/1) ->
-          {:halt, {:error, [projection_diagnostic(:invalid_metadata_entry)]}}
-
-        entry_value(plugin, :status) != :enabled ->
-          {:cont, {:ok, declarations}}
-
-        true ->
-          result =
-            Enum.reduce_while(actions, {:ok, declarations}, fn module, {:ok, acc} ->
-              with ^plugin_id <- Map.get(plugin_memberships, module),
-                   {:ok, projection} <-
-                     project_module(module, nil, Map.get(app_memberships, module), plugin_id) do
-                {:cont, {:ok, [projection | acc]}}
-              else
-                nil ->
-                  {:halt, {:error, [projection_diagnostic(:dangling_plugin_action_membership)]}}
-
-                {:error, diagnostic} ->
-                  {:halt, {:error, [diagnostic]}}
-
-                _ ->
-                  {:halt, {:error, [projection_diagnostic(:ambiguous_plugin_action_membership)]}}
-              end
-            end)
-
-          case result do
-            {:ok, next} -> {:cont, {:ok, next}}
-            error -> {:halt, error}
-          end
-      end
-    end)
-    |> then(fn
-      {:ok, declarations} -> {:ok, Enum.reverse(declarations)}
-      error -> error
-    end)
-  end
-
-  defp assemble_candidate(effective_static, declarations) do
-    static_modules = MapSet.new(Enum.map(effective_static, & &1.module))
-    static_names = MapSet.new(Enum.map(effective_static, & &1.name))
-
-    name_counts = declarations |> Enum.map(& &1.name) |> Enum.frequencies()
-
-    declarations =
-      Enum.map(declarations, fn declaration ->
-        disposition =
-          cond do
-            MapSet.member?(static_modules, declaration.module) -> :static_module
-            MapSet.member?(static_names, declaration.name) -> :static_name
-            Map.fetch!(name_counts, declaration.name) > 1 -> :duplicate_plugin_name
-            true -> :effective
-          end
-
-        Map.put(declaration, :disposition, disposition)
-      end)
-
-    effective_plugins =
-      declarations
-      |> Enum.filter(&(&1.disposition == :effective))
-      |> Enum.with_index(length(effective_static) + 1)
-      |> Enum.map(fn {projection, legacy_index} ->
-        Map.put(projection, :legacy_index, legacy_index)
-      end)
-
-    effective = effective_static ++ effective_plugins
-    expected_orders = if effective == [], do: [], else: Enum.to_list(1..length(effective))
-
-    if Enum.map(effective, & &1.registry_order) == expected_orders do
-      {:ok,
-       %CandidateProjection{
-         effective: effective,
-         plugin_declarations: declarations,
-         alias_sources: Enum.reject(declarations, &(&1.disposition == :effective))
-       }}
-    else
-      {:error, [projection_diagnostic(:invalid_registry_order)]}
-    end
-  end
-
-  defp project_module(module, legacy_index, app_id, plugin_id) when is_atom(module) do
+  defp capability_attrs!(module) do
     with true <- Code.ensure_loaded?(module),
-         true <- function_exported?(module, :name, 0),
-         registry_order <- module_registry_order(module),
-         true <-
-           (is_integer(registry_order) and registry_order >= 0) or
-             (is_nil(legacy_index) and is_nil(registry_order)),
-         {:ok, attrs} <- module_capability_attrs(module) do
-      name = module.name()
-
-      if is_binary(name) and name == normalize_name(name) do
-        capability =
-          module
-          |> Capability.new(attrs)
-          |> Map.from_struct()
-          |> Map.take([
-            :app_id,
-            :confirmation,
-            :execution_mode,
-            :exposure,
-            :notes,
-            :permission,
-            :plugin_id,
-            :resumable?,
-            :retry_safety,
-            :skill_backed?
-          ])
-          |> Map.put(:app_id, app_id)
-          |> Map.put(:plugin_id, plugin_id)
-
-        {:ok,
-         %{
-           legacy_index: legacy_index,
-           registry_order: registry_order,
-           module: module,
-           name: name,
-           normalized_capability: capability,
-           input_schema_sha256: schema_sha256(module, :schema),
-           output_schema_sha256: schema_sha256(module, :output_schema),
-           app_id: app_id,
-           plugin_id: plugin_id
-         }}
-      else
-        {:error, projection_diagnostic(:invalid_action_name)}
-      end
+         true <- function_exported?(module, :capability, 0),
+         {:ok, attrs} <- module |> apply(:capability, []) |> Action.validate_capability() do
+      attrs
     else
-      _ -> {:error, projection_diagnostic(:invalid_action_module)}
+      reason -> raise KeyError, key: module, term: reason
     end
-  rescue
-    _exception -> {:error, projection_diagnostic(:invalid_action_module)}
-  catch
-    :exit, _reason -> {:error, projection_diagnostic(:invalid_action_module)}
   end
 
-  defp project_module(_module, _legacy_index, _app_id, _plugin_id),
-    do: {:error, projection_diagnostic(:invalid_action_module)}
+  defp maybe_put(value, _field, nil), do: value
+  defp maybe_put(value, field, owner), do: Map.put(value, field, owner)
 
-  defp module_registry_order(module) do
-    if function_exported?(module, :registry_order, 0), do: module.registry_order(), else: nil
-  end
-
-  defp schema_sha256(module, function) do
-    value = if function_exported?(module, function, 0), do: apply(module, function, []), else: nil
-
-    value
-    |> m0_normalize()
-    |> CanonicalJSON.encode()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
-  end
-
-  defp m0_normalize(nil), do: nil
-
-  defp m0_normalize(value)
-       when is_boolean(value) or is_integer(value) or is_float(value) or is_binary(value),
-       do: value
-
-  defp m0_normalize(%Regex{} = regex),
-    do: %{"$regex" => Regex.source(regex), "opts" => regex.opts}
-
-  defp m0_normalize(%MapSet{} = set),
-    do: set |> MapSet.to_list() |> Enum.map(&m0_normalize/1) |> Enum.sort()
-
-  defp m0_normalize(%_{} = struct),
-    do:
-      struct
-      |> Map.from_struct()
-      |> m0_normalize()
-      |> Map.put("$struct", module_name(struct.__struct__))
-
-  defp m0_normalize(value) when is_map(value),
-    do: Map.new(value, fn {key, nested} -> {normalize_m0_key(key), m0_normalize(nested)} end)
-
-  defp m0_normalize(value) when is_list(value), do: Enum.map(value, &m0_normalize/1)
-
-  defp m0_normalize(value) when is_tuple(value),
-    do: %{"$tuple" => value |> Tuple.to_list() |> m0_normalize()}
-
-  defp m0_normalize(value) when is_function(value),
-    do: %{
-      "$function" => module_name(elem(:erlang.fun_info(value, :module), 1)),
-      "name" => value |> :erlang.fun_info(:name) |> elem(1) |> Atom.to_string(),
-      "arity" => value |> :erlang.fun_info(:arity) |> elem(1)
-    }
-
-  defp m0_normalize(value) when is_pid(value), do: "<PID>"
-  defp m0_normalize(value) when is_reference(value), do: "<REFERENCE>"
-  defp m0_normalize(value) when is_port(value), do: "<PORT>"
-  defp m0_normalize(value) when is_atom(value), do: module_name(value)
-  defp m0_normalize(value), do: inspect(value)
-
-  defp normalize_m0_key(key) when is_binary(key), do: key
-  defp normalize_m0_key(key) when is_atom(key), do: module_name(key)
-  defp normalize_m0_key(key), do: key |> m0_normalize() |> inspect()
-
-  defp module_name(value) when is_atom(value),
-    do: value |> Atom.to_string() |> String.replace_prefix("Elixir.", "")
-
-  defp entry_value(entry, key, default \\ nil)
-  defp entry_value(entry, key, default) when is_map(entry), do: Map.get(entry, key, default)
-  defp entry_value(_entry, _key, default), do: default
-  defp valid_owner_id?(value) when is_atom(value), do: value not in [nil, true, false]
-  defp valid_owner_id?(value) when is_binary(value), do: value != ""
-  defp valid_owner_id?(_value), do: false
-  defp sha256?(value), do: is_binary(value) and value =~ ~r/^[0-9a-f]{64}$/
-
-  defp projection_diagnostic(code) do
-    %ValidationDiagnostic{
-      schema_version: 1,
-      code: :invalid_value,
-      path: [%PathSegment{schema_version: 1, kind: :field, value: "actions"}],
-      owner: nil,
-      detail: %{reason: code}
-    }
-  end
-
-  defp maybe_put_app_id(capability, nil), do: capability
-  defp maybe_put_app_id(capability, app_id), do: %{capability | app_id: app_id}
-
-  defp maybe_put_plugin_id(capability, nil), do: capability
-  defp maybe_put_plugin_id(capability, plugin_id), do: %{capability | plugin_id: plugin_id}
-
-  # v1.0.3 M7: 5,416 calls inside one `Engine.decide` (3,293 from
-  # `plugin_action_entries/1`, which re-derives and re-normalizes the whole
-  # plugin action list per lookup, 2,123 from `resolve_name/3`), each running
-  # a Unicode downcase plus a `Regex.replace/4`. Single byte walk, byte-
-  # identical on the domain it accepts.
-  #
-  # Equivalence argument. The fast path accepts ONLY all-ASCII binaries
-  # (every byte < 0x80); anything else falls through to the original
-  # pipeline, so Unicode case folding is never approximated. On ASCII,
-  # `String.downcase/1` is byte-wise `A-Z` -> `a-z`, `[^a-z0-9]+ -> "_"`
-  # collapses each maximal run of non-alphanumeric bytes to one underscore,
-  # and `String.trim("_")` drops the leading/trailing one — which the walk
-  # achieves by never emitting a separator before the first kept byte and
-  # never flushing a trailing one.
   defp normalize_name(name) do
     binary = to_string(name)
 
-    case normalize_name_ascii(binary, <<>>, false) do
+    case normalize_ascii(binary, <<>>, false) do
       :non_ascii ->
         binary
         |> String.downcase()
@@ -1181,17 +222,17 @@ defmodule AllbertAssist.Actions.Registry do
     end
   end
 
-  defp normalize_name_ascii(<<c, rest::binary>>, acc, pending?) when c < 0x80 do
-    c = if c >= ?A and c <= ?Z, do: c + 32, else: c
+  defp normalize_ascii(<<char, rest::binary>>, acc, pending?) when char < 0x80 do
+    char = if char >= ?A and char <= ?Z, do: char + 32, else: char
 
-    if (c >= ?a and c <= ?z) or (c >= ?0 and c <= ?9) do
+    if (char >= ?a and char <= ?z) or (char >= ?0 and char <= ?9) do
       acc = if pending?, do: <<acc::binary, ?_>>, else: acc
-      normalize_name_ascii(rest, <<acc::binary, c>>, false)
+      normalize_ascii(rest, <<acc::binary, char>>, false)
     else
-      normalize_name_ascii(rest, acc, acc != <<>>)
+      normalize_ascii(rest, acc, acc != <<>>)
     end
   end
 
-  defp normalize_name_ascii(<<>>, acc, _pending?), do: acc
-  defp normalize_name_ascii(_binary, _acc, _pending?), do: :non_ascii
+  defp normalize_ascii(<<>>, acc, _pending?), do: acc
+  defp normalize_ascii(_binary, _acc, _pending?), do: :non_ascii
 end

@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Pack.ActionProjection
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
@@ -1346,7 +1347,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   end
 
   test "projects the static catalog without live registry provenance" do
-    assert {:ok, static} = Registry.static_projection()
+    assert {:ok, static} = ActionProjection.static()
     assert length(static) == 244
 
     assert %{
@@ -1367,7 +1368,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   end
 
   test "projects effective actions, every plugin declaration, and precedence aliases from supplied entries" do
-    assert {:ok, static} = Registry.static_projection()
+    assert {:ok, static} = ActionProjection.static()
 
     app_entries = [%{app_id: :candidate_app, actions: [DirectAnswer]}]
 
@@ -1378,7 +1379,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
       %{plugin_id: "candidate.two", status: :enabled, actions: [DuplicatePluginEcho]}
     ]
 
-    assert {:ok, projection} = Registry.candidate_projection(static, app_entries, plugin_entries)
+    assert {:ok, projection} = ActionProjection.build(static, app_entries, plugin_entries)
     assert length(projection.effective) == 244
     assert length(projection.plugin_declarations) == 4
 
@@ -1393,17 +1394,17 @@ defmodule AllbertAssist.Actions.RegistryTest do
   end
 
   test "rejects dangling and ambiguous supplied action membership" do
-    assert {:ok, static} = Registry.static_projection()
+    assert {:ok, static} = ActionProjection.static()
 
     assert {:error, [%{detail: %{reason: :dangling_app_action_membership}}]} =
-             Registry.candidate_projection(
+             ActionProjection.build(
                static,
                [%{app_id: :candidate_app, actions: [__MODULE__]}],
                []
              )
 
     assert {:error, [%{detail: %{reason: :ambiguous_app_action_membership}}]} =
-             Registry.candidate_projection(
+             ActionProjection.build(
                static,
                [
                  %{app_id: :candidate_one, actions: [DirectAnswer]},

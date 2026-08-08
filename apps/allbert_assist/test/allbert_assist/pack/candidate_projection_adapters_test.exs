@@ -3,8 +3,8 @@ defmodule AllbertAssist.Pack.CandidateProjectionAdaptersTest do
 
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
+  alias AllbertAssist.Pack.ActionProjection
   alias AllbertAssist.Settings.Fragments
 
   test "candidate settings fragments use supplied entry order after core fragments" do
@@ -62,9 +62,7 @@ defmodule AllbertAssist.Pack.CandidateProjectionAdaptersTest do
 
     assert [%{app_id: :stocksage, action_name: "run_analysis"} | _] = descriptors
 
-    assert {:ok, static} = ActionsRegistry.static_projection()
-
     assert {:error, [%{detail: %{reason: :dangling_app_action_membership}}]} =
-             ActionsRegistry.candidate_projection(static, app_entries, [])
+             ActionProjection.metadata(app_entries, [])
   end
 end

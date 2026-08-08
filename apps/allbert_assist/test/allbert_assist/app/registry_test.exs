@@ -413,24 +413,6 @@ defmodule AllbertAssist.App.RegistryTest do
     assert DynamicSupervisor.which_children(dynamic_supervisor) == []
   end
 
-  test "ordered entry snapshots preserve registration order without mutation", %{opts: opts} do
-    assert {:ok, :empty_app} =
-             Registry.register(EmptyApp, Keyword.put(opts, :side_effects, false))
-
-    assert {:ok, entry} = Registry.lookup(:empty_app, opts)
-    before = :sys.get_state(Keyword.fetch!(opts, :server))
-
-    assert {:ok, [^entry]} = Registry.ordered_entries(opts)
-    assert :sys.get_state(Keyword.fetch!(opts, :server)) == before
-  end
-
-  test "ordered entry snapshots report an unavailable selected registry" do
-    assert Process.whereis(:app_registry_missing_snapshot_server) == nil
-
-    assert {:error, :unavailable} =
-             Registry.ordered_entries(server: :app_registry_missing_snapshot_server)
-  end
-
   test "generation snapshots contain only structural metadata and notify stale captures", %{
     opts: opts
   } do

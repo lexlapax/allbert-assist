@@ -98,9 +98,7 @@ defmodule AllbertAssist.Extensions.Registry do
           {:ok, [Descriptor.t()]} | {:error, [ValidationDiagnostic.t()]}
   def intent_descriptors_from_entries(app_entries, plugin_entries)
       when is_list(app_entries) and is_list(plugin_entries) do
-    with {:ok, static} <- ActionProjection.static(),
-         {:ok, action_projection} <-
-           ActionProjection.build(static, app_entries, plugin_entries),
+    with {:ok, action_projection} <- ActionProjection.metadata(app_entries, plugin_entries),
          {:ok, sources} <- descriptor_sources_from_entries(app_entries, plugin_entries),
          {:ok, descriptors} <- normalize_descriptor_sources(sources, action_projection) do
       {:ok, Enum.uniq_by(descriptors, &{&1.app_id, &1.action_name})}

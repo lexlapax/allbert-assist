@@ -4,15 +4,25 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
   @moduletag :global_process_serial
   @moduletag timeout: 120_000
 
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.App.Registry.MetadataSnapshot, as: AppSnapshot
-  alias AllbertAssist.Pack.{CandidateBuilder, Canonical, LegacyAdapter, ProjectionProvider}
+  alias AllbertAssist.DevGates.V14M1RegistryShadowParity, as: ShadowParity
+
+  alias AllbertAssist.Pack.{
+    ActionProjection,
+    CandidateBuilder,
+    Canonical,
+    ProjectionProvider
+  }
+
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugin.Registry.MetadataEntry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry.MetadataSnapshot, as: PluginSnapshot
   alias AllbertAssist.Settings.Fragments, as: SettingsFragments
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
+
+  @expected_behavior_digest "4a3661c3440dc21b58f91776b9d711cb14fd3343aa639384acdc3933d4d24b91"
+  @expected_bytes_sha256 "4464fcdf3eb31233d09f524ae9c5167b91980103e519fa21fe551807934913ae"
 
   setup context do
     if context[:parity] do
@@ -26,25 +36,25 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
       assert {:ok, plugins, _plugin_subscription} =
                PluginRegistry.snapshot_and_subscribe(self(), registry_context[:plugin])
 
-      %{closed: closed, apps: apps, plugins: plugins, registry_context: registry_context}
+      %{closed: closed, apps: apps, plugins: plugins}
     else
       :ok
     end
   end
 
   @tag :parity
-  test "independently assembled candidate has exact legacy canonical bytes and digest", context do
+  test "complete candidate matches accepted M1.b identity and every frozen M0 binding", context do
     assert {:ok, builder_candidate} =
              CandidateBuilder.build(context.closed, context.apps, context.plugins)
 
-    assert {:ok, legacy_candidate} =
-             LegacyAdapter.capture([pack_projection: context.closed] ++ context.registry_context)
-
     assert {builder_bytes, builder_digest} = canonical_identity(builder_candidate)
-    assert {legacy_bytes, legacy_digest} = canonical_identity(legacy_candidate)
+    assert builder_digest == @expected_behavior_digest
 
-    assert builder_bytes == legacy_bytes
-    assert builder_digest == legacy_digest
+    assert :crypto.hash(:sha256, builder_bytes) |> Base.encode16(case: :lower) ==
+             @expected_bytes_sha256
+
+    assert :ok =
+             ShadowParity.verify_m0_bindings!(builder_candidate, ShadowParity.prepare_m0!())
 
     assert Enum.map(builder_candidate.action_bindings, & &1.registry_order) ==
              Enum.to_list(1..281)
@@ -57,7 +67,7 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
 
   @tag :parity
   test "static-action and core-settings inputs each affect independently built bytes", context do
-    assert {:ok, static} = ActionsRegistry.static_projection()
+    assert {:ok, static} = ActionProjection.static()
     assert {:ok, baseline} = CandidateBuilder.build(context.closed, context.apps, context.plugins)
 
     [first | rest] = static
@@ -127,7 +137,7 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
 
     refute canonical_identity(legacy_plugin) == canonical_identity(legacy_child)
 
-    assert {:ok, [static_action | _]} = ActionsRegistry.static_projection()
+    assert {:ok, [static_action | _]} = ActionProjection.static()
 
     static_baseline =
       candidate_for(context.closed, plugin_entry(module: __MODULE__),

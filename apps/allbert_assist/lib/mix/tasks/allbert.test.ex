@@ -11127,6 +11127,10 @@ defmodule Mix.Tasks.Allbert.Test do
     # names are the binding resource, so this suite must remain globally serial.
     "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m0_registry_ledger_test.exs" =>
       :global_process_serial,
+    # Post-M1.b this file reads immutable fixtures and compiled descriptor
+    # values only; the former live shadow/LegacyAdapter process test was retired.
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m1_registry_shadow_parity_test.exs" =>
+      :pure_async,
     # v1.4 M1.a3 source/AST contract fixtures only read committed files. Names
     # such as Registry, Agent, GenServer, and Supervisor are inert scan targets,
     # not live global resources owned by these tests.

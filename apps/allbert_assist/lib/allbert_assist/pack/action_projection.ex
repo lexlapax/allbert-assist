@@ -1,3 +1,29 @@
+defmodule AllbertAssist.Pack.ActionProjection.Candidate do
+  @moduledoc false
+
+  @enforce_keys [:effective, :plugin_declarations, :alias_sources]
+  defstruct @enforce_keys
+
+  @type projection :: %{
+          required(:legacy_index) => pos_integer() | nil,
+          required(:module) => module(),
+          required(:name) => String.t(),
+          required(:normalized_capability) => map(),
+          required(:input_schema_sha256) => String.t(),
+          required(:output_schema_sha256) => String.t(),
+          required(:app_id) => atom() | nil,
+          required(:plugin_id) => String.t() | nil,
+          optional(:disposition) =>
+            :effective | :static_module | :static_name | :duplicate_plugin_name
+        }
+
+  @type t :: %__MODULE__{
+          effective: [projection()],
+          plugin_declarations: [projection()],
+          alias_sources: [projection()]
+        }
+end
+
 defmodule AllbertAssist.Pack.ActionProjection do
   @moduledoc """
   Pure projection of compiled action declarations and captured owner metadata.
@@ -8,9 +34,9 @@ defmodule AllbertAssist.Pack.ActionProjection do
 
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.Capability
-  alias AllbertAssist.Actions.Registry.CandidateProjection
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Pack.{ActionCatalog, PathSegment, ValidationDiagnostic}
+  alias AllbertAssist.Pack.ActionProjection.Candidate
 
   @spec static() :: {:ok, [map()]} | {:error, [ValidationDiagnostic.t()]}
   def static do
@@ -30,7 +56,7 @@ defmodule AllbertAssist.Pack.ActionProjection do
   end
 
   @spec build([map()], [map()]) ::
-          {:ok, CandidateProjection.t()} | {:error, [ValidationDiagnostic.t()]}
+          {:ok, Candidate.t()} | {:error, [ValidationDiagnostic.t()]}
   def build(app_entries, plugin_entries)
       when is_list(app_entries) and is_list(plugin_entries) do
     with {:ok, static} <- static() do
@@ -41,21 +67,37 @@ defmodule AllbertAssist.Pack.ActionProjection do
   def build(_app_entries, _plugin_entries), do: invalid(:invalid_candidate_projection)
 
   @spec build([map()], [map()], [map()]) ::
-          {:ok, CandidateProjection.t()} | {:error, [ValidationDiagnostic.t()]}
+          {:ok, Candidate.t()} | {:error, [ValidationDiagnostic.t()]}
   def build(static, app_entries, plugin_entries)
       when is_list(static) and is_list(app_entries) and is_list(plugin_entries) do
+    do_build(static, app_entries, plugin_entries, :complete)
+  end
+
+  def build(_static, _app_entries, _plugin_entries),
+    do: invalid(:invalid_candidate_projection)
+
+  @doc "Project a captured metadata subset without requiring the complete production token sequence."
+  @spec metadata([map()], [map()]) ::
+          {:ok, Candidate.t()} | {:error, [ValidationDiagnostic.t()]}
+  def metadata(app_entries, plugin_entries)
+      when is_list(app_entries) and is_list(plugin_entries) do
+    with {:ok, static} <- static() do
+      do_build(static, app_entries, plugin_entries, :metadata_subset)
+    end
+  end
+
+  def metadata(_app_entries, _plugin_entries), do: invalid(:invalid_candidate_projection)
+
+  defp do_build(static, app_entries, plugin_entries, mode) do
     with {:ok, static} <- validate_static(static),
          {:ok, app_memberships} <- memberships(app_entries, :app),
          {:ok, plugin_memberships} <- memberships(enabled_plugins(plugin_entries), :plugin),
          {:ok, effective_static} <- enrich_static(static, app_memberships, plugin_memberships),
          {:ok, declarations} <-
            plugin_declarations(plugin_entries, app_memberships, plugin_memberships) do
-      assemble(effective_static, declarations)
+      assemble(effective_static, declarations, mode)
     end
   end
-
-  def build(_static, _app_entries, _plugin_entries),
-    do: invalid(:invalid_candidate_projection)
 
   defp validate_static(static) do
     static
@@ -185,7 +227,7 @@ defmodule AllbertAssist.Pack.ActionProjection do
     |> reverse_projections()
   end
 
-  defp assemble(effective_static, declarations) do
+  defp assemble(effective_static, declarations, mode) do
     static_modules = MapSet.new(Enum.map(effective_static, & &1.module))
     static_names = MapSet.new(Enum.map(effective_static, & &1.name))
     name_counts = declarations |> Enum.map(& &1.name) |> Enum.frequencies()
@@ -214,9 +256,9 @@ defmodule AllbertAssist.Pack.ActionProjection do
     effective = effective_static ++ effective_plugins
     expected_orders = if effective == [], do: [], else: Enum.to_list(1..length(effective))
 
-    if Enum.map(effective, & &1.registry_order) == expected_orders do
+    if mode == :metadata_subset or Enum.map(effective, & &1.registry_order) == expected_orders do
       {:ok,
-       %CandidateProjection{
+       %Candidate{
          effective: effective,
          plugin_declarations: declarations,
          alias_sources: Enum.reject(declarations, &(&1.disposition == :effective))

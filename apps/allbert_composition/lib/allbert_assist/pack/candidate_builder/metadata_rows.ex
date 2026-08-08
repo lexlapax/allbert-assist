@@ -4,7 +4,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
 
   This adapter deliberately receives immutable Registry snapshots and uses only
   the supplied-entry projections for settings and intents. It never observes a
-  registry and never delegates assembly to `LegacyAdapter`.
+  registry and never delegates assembly to a residual compatibility adapter.
   """
 
   alias AllbertAssist.App.Registry.MetadataSnapshot, as: AppSnapshot

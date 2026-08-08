@@ -126,33 +126,6 @@ defmodule AllbertAssist.Plugin.RegistryTest do
     assert entry.source == :shipped
   end
 
-  test "ordered entry snapshots preserve disabled entries and registration order without mutation",
-       %{
-         registry: registry
-       } do
-    disabled = plugin_entry("example.disabled", :disabled)
-    enabled = plugin_entry("example.enabled", :enabled)
-
-    assert {:ok, "example.disabled"} =
-             Registry.register_entry(disabled, server: registry, side_effects: false)
-
-    assert {:ok, "example.enabled"} =
-             Registry.register_entry(enabled, server: registry, side_effects: false)
-
-    before = :sys.get_state(registry)
-
-    assert {:ok, [^disabled, ^enabled]} = Registry.ordered_entries(server: registry)
-    assert [%Entry{plugin_id: "example.enabled"}] = Registry.registered_plugins(server: registry)
-    assert :sys.get_state(registry) == before
-  end
-
-  test "ordered entry snapshots report an unavailable selected registry" do
-    assert Process.whereis(:plugin_registry_missing_snapshot_server) == nil
-
-    assert {:error, :unavailable} =
-             Registry.ordered_entries(server: :plugin_registry_missing_snapshot_server)
-  end
-
   test "generation snapshots exclude presentation fields and diagnostics-only writes", %{
     registry: registry
   } do
