@@ -490,20 +490,16 @@ defmodule AllbertAssist.Actions.Runner do
   defp app_scope_denied(action_module, expected_app, active_app, reason \\ :app_scope_mismatch) do
     action_name = action_module.name()
 
-    %{
-      message:
-        "Action #{action_name} is scoped to #{inspect(expected_app)} and cannot run from #{inspect(active_app)}.",
-      status: :denied,
+    Response.denied(
+      "Action #{action_name} is scoped to #{inspect(expected_app)} and cannot run from #{inspect(active_app)}.",
       error: {:app_scope_denied, reason},
       actions: [
-        %{
-          name: action_name,
-          status: :denied,
+        Response.action(action_name, :denied,
           error: {:app_scope_denied, reason},
           app_scope: %{expected_app: expected_app, active_app: active_app}
-        }
+        )
       ]
-    }
+    )
   end
 
   defp log_signal({:ok, %Signal{} = signal}) do
