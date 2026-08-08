@@ -158,9 +158,7 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
           path
           |> references()
           |> Enum.reject(&(MapSet.member?(allowed, &1) or admitted?(&1)))
-          |> Enum.map(
-            &%{path: path, concern: concern, module: &1, reason: classify_finding(&1)}
-          )
+          |> Enum.map(&%{path: path, concern: concern, module: &1, reason: classify_finding(&1)})
         end)
 
       {:ok, Enum.sort_by(findings, &{&1.path, Atom.to_string(&1.module)})}
@@ -241,7 +239,9 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     {_ast, acc} =
       Macro.prewalk(ast, [], fn
         {:defmodule, _meta, [{:__aliases__, _alias_meta, parts} | _rest]} = node, acc ->
-          if Enum.all?(parts, &is_atom/1), do: {node, [Module.concat(parts) | acc]}, else: {node, acc}
+          if Enum.all?(parts, &is_atom/1),
+            do: {node, [Module.concat(parts) | acc]},
+            else: {node, acc}
 
         node, acc ->
           {node, acc}
