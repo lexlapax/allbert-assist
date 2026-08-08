@@ -461,11 +461,11 @@ defmodule AllbertAssist.Settings.Fragments do
         false ->
           {:halt, {:error, {:missing_settings_fragment_callback, row.id, module}}}
 
-        value when not is_list(value) ->
-          {:halt, {:error, {:invalid_settings_fragment_callback, row.id, value}}}
-
         {:error, reason} ->
           {:halt, {:error, reason}}
+
+        value when not is_list(value) ->
+          {:halt, {:error, {:invalid_settings_fragment_callback, row.id, value}}}
       end
     end)
   rescue
