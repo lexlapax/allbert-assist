@@ -4,8 +4,7 @@ defmodule AllbertAssist.Security.Policy do
   """
 
   alias AllbertAssist.Maps
-  alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.Kernel.Contract.Settings
 
   @permission_settings %{
     memory_propose: "permissions.memory_propose",
@@ -610,7 +609,7 @@ defmodule AllbertAssist.Security.Policy do
     setting_key = Map.get(@permission_settings, permission)
 
     with key when is_binary(key) <- setting_key,
-         value when not is_nil(value) <- Schema.get_dotted(settings, key) do
+         value when not is_nil(value) <- Settings.get_dotted(settings, key) do
       %{
         value: value,
         decision: normalize_setting_value(value, default_decision(permission)),

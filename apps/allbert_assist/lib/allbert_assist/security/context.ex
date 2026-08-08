@@ -4,12 +4,12 @@ defmodule AllbertAssist.Security.Context do
   """
 
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.Coding.CommandGrants
+  alias AllbertAssist.Kernel.Contract.Grants, as: CommandGrants
   alias AllbertAssist.Maps
   alias AllbertAssist.RegistryContext
-  alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Runtime.SafeTerm
-  alias AllbertAssist.Skills
+  alias AllbertAssist.Kernel.Contract.Skills
 
   @doc "Normalize runtime context into the categories Security Central needs."
   @spec normalize(atom(), map()) :: map()

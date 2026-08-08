@@ -3,13 +3,9 @@ defmodule AllbertAssist.Security.Status do
   Read-only Security Central status summaries for operator surfaces.
   """
 
-  alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Security.Policy
-  alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.Schema
-  alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.Settings.Store
-  alias AllbertAssist.Settings.VersionContract
+  alias AllbertAssist.Kernel.Contract.Settings
 
   @future_boundaries [
     %{name: :confirmation_queue, milestone: "v0.07", status: :implemented},
@@ -22,7 +18,7 @@ defmodule AllbertAssist.Security.Status do
   @spec summary(map()) :: map()
   def summary(context \\ %{}) when is_map(context) do
     status =
-      case Store.resolved_settings() do
+      case Settings.resolved_settings() do
         {:ok, settings, _user_settings} ->
           summary_from_settings(context, settings)
 
@@ -40,7 +36,7 @@ defmodule AllbertAssist.Security.Status do
       skill_trust: skill_trust_summary(settings),
       capability_boundaries: capability_boundaries_summary(settings),
       secret_status: secret_status_summary(settings),
-      settings_version_contract: VersionContract.status_from_store(),
+      settings_version_contract: Settings.version_contract_status(),
       redaction_posture: Redactor.posture(),
       future_boundaries: @future_boundaries
     }
@@ -55,7 +51,7 @@ defmodule AllbertAssist.Security.Status do
       skill_trust: %{error: settings_error},
       capability_boundaries: capability_boundaries_summary(Settings.defaults()),
       secret_status: %{error: settings_error},
-      settings_version_contract: VersionContract.status_from_store(),
+      settings_version_contract: Settings.version_contract_status(),
       redaction_posture: Redactor.posture(),
       future_boundaries: @future_boundaries
     }
@@ -162,14 +158,14 @@ defmodule AllbertAssist.Security.Status do
   end
 
   defp setting(settings, key, default) do
-    case Schema.get_dotted(settings, key) do
+    case Settings.get_dotted(settings, key) do
       nil -> default
       value -> value
     end
   end
 
   defp secret_status(nil), do: :missing
-  defp secret_status(secret_ref), do: Secrets.status(secret_ref)
+  defp secret_status(secret_ref), do: Settings.secret_status(secret_ref)
 
   defp settings_entries(settings, namespace) do
     settings

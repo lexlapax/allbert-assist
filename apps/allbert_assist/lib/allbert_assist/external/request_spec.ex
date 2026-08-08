@@ -4,8 +4,8 @@ defmodule AllbertAssist.External.RequestSpec do
   """
 
   alias AllbertAssist.External.HttpPolicy
-  alias AllbertAssist.Resources.Ref
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Kernel.Contract.ResourceRefs, as: Ref
+  alias AllbertAssist.Kernel.Contract.Settings
 
   @methods ~w(GET HEAD POST PUT PATCH DELETE)
 

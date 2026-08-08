@@ -5,11 +5,12 @@ defmodule AllbertAssist.Security.Audit do
   v0.05 records audit-shaped metadata with decisions. Durable security audit
   persistence can build on this shape later.
 
-  v0.31 keeps this module as the compatibility implementation. New
-  runtime-facing code should call `AllbertAssist.Runtime.Audit`.
+  v0.31 kept this module as the compatibility implementation behind a
+  runtime-facing facade. v1.4 M7.1 relocates it into the kernel with Security
+  Central, so kernel callers use it directly and the facade forwards here.
   """
 
-  alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Security.Redactor
 
   @doc "Build a redacted audit event map from a Security Central decision."
   @spec event(map()) :: map()

@@ -3,10 +3,10 @@ defmodule AllbertAssist.Security.Review do
   Read-only operator review surface for recent security decisions.
   """
 
-  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Kernel.Contract.Confirmations
   alias AllbertAssist.Maps
-  alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.Kernel.Contract.Settings
   alias AllbertAssist.Validation
 
   @default_limit 10

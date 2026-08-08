@@ -10,11 +10,20 @@ defmodule AllbertAssist.Paths do
   v0.31 adds `AllbertAssist.Runtime.Paths` as the runtime-facing facade for
   new code. This module remains callable for compatibility and owns the
   existing path-resolution behavior until the facade fully absorbs it.
+
+  v1.4 M7.1: the five subsystem-root overrides are asked of their owning
+  component through `AllbertAssist.Kernel.Contract.HomeRoots` rather than read
+  from application environment keyed by the owner's module name. No function
+  was ever called on those modules — the name was only a configuration key —
+  but a kernel module may not name a pack, and the owner is the right authority
+  for its own root either way. The read stays live; with no owner bound there is
+  no override and the rest of each precedence chain runs unchanged.
   """
 
   @app :allbert_assist
 
   alias AllbertAssist.ConfigContext
+  alias AllbertAssist.Kernel.Contract.HomeRoots
 
   @doc """
   Return the canonical Allbert Home.
@@ -124,7 +133,7 @@ defmodule AllbertAssist.Paths do
     first_path(
       [
         ConfigContext.settings_root(),
-        app_root(AllbertAssist.Settings),
+        HomeRoots.override(:settings),
         configured(:settings_root),
         env_path("ALLBERT_SETTINGS_ROOT")
       ],
@@ -137,7 +146,7 @@ defmodule AllbertAssist.Paths do
   def memory_root do
     first_path(
       [
-        app_root(AllbertAssist.Memory),
+        HomeRoots.override(:memory),
         configured(:memory_root),
         env_path("ALLBERT_MEMORY_ROOT")
       ],
@@ -172,7 +181,7 @@ defmodule AllbertAssist.Paths do
   def artifacts_root do
     first_path(
       [
-        app_root(AllbertAssist.Artifacts),
+        HomeRoots.override(:artifacts),
         configured(:artifacts_root),
         env_path("ALLBERT_ARTIFACTS_ROOT")
       ],
@@ -202,7 +211,7 @@ defmodule AllbertAssist.Paths do
   @spec confirmations_root() :: String.t()
   def confirmations_root do
     first_path(
-      [app_root(AllbertAssist.Confirmations), configured(:confirmations_root)],
+      [HomeRoots.override(:confirmations), configured(:confirmations_root)],
       Path.join(home(), "confirmations")
     )
   end
@@ -210,7 +219,7 @@ defmodule AllbertAssist.Paths do
   @doc "Return the local execution runtime root."
   @spec execution_root() :: String.t()
   def execution_root do
-    first_path([app_root(AllbertAssist.Execution.Audit)], Path.join(home(), "execution"))
+    first_path([HomeRoots.override(:execution_audit)], Path.join(home(), "execution"))
   end
 
   @doc "Return the package installation execution root."
@@ -382,13 +391,6 @@ defmodule AllbertAssist.Paths do
     @app
     |> Application.get_env(__MODULE__, [])
     |> Keyword.get(key)
-    |> expand_if_present()
-  end
-
-  defp app_root(module) do
-    @app
-    |> Application.get_env(module, [])
-    |> Keyword.get(:root)
     |> expand_if_present()
   end
 

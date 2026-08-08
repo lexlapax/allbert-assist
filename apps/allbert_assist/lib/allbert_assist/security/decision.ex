@@ -3,9 +3,9 @@ defmodule AllbertAssist.Security.Decision do
   Canonical Security Central decision construction.
   """
 
-  alias AllbertAssist.Coding.CommandGrants
-  alias AllbertAssist.Runtime.Audit
-  alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Kernel.Contract.Grants, as: CommandGrants
+  alias AllbertAssist.Security.Audit
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Security.Policy
 
   @doc "Build a canonical decision map with compatibility fields."
@@ -33,7 +33,7 @@ defmodule AllbertAssist.Security.Decision do
     }
 
     base
-    |> Map.put(:audit, Audit.security_event(base))
+    |> Map.put(:audit, Audit.event(base))
     |> Redactor.redact()
   end
 
