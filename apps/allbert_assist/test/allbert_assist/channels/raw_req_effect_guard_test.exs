@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
   use ExUnit.Case, async: false
 
+  @moduletag :external_runtime_serial
+
   alias AllbertAssist.Channels.{Discord, Matrix, Signal, Slack, Telegram, WhatsApp}
   alias AllbertAssist.TestSupport.ReadyEffectContext
 

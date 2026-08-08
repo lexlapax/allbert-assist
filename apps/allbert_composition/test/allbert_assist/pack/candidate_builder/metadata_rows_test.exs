@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRowsTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   alias AllbertAssist.App.Registry.MetadataEntry, as: AppEntry
   alias AllbertAssist.App.Registry.MetadataSnapshot, as: AppSnapshot
   alias AllbertAssist.Intent.Descriptor

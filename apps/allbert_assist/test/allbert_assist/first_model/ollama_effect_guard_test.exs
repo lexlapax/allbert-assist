@@ -1,6 +1,8 @@
 defmodule AllbertAssist.FirstModel.OllamaEffectGuardTest do
   use ExUnit.Case, async: false
 
+  @moduletag :external_runtime_serial
+
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.TestSupport.ReadyEffectContext
 

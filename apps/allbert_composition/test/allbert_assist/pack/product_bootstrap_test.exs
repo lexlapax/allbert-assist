@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Pack.ProductBootstrapTest do
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   alias AllbertAssist.Pack.ProductBootstrap
 
   test "public bootstrap uses the production seam map and returns the current epoch" do

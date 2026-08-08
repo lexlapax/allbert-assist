@@ -124,6 +124,8 @@ end
 defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
+  @moduletag :db_serial
+
   import Ecto.Query
 
   alias AllbertAssist.Confirmations

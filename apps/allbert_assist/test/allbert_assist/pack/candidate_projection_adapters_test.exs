@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Pack.CandidateProjectionAdaptersTest do
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Settings.Fragments

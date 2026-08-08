@@ -1,8 +1,6 @@
 defmodule AllbertAssist.Confirmations.EffectGuardPersistenceTest do
   use AllbertAssist.DataCase, async: false
 
-  @moduletag :app_env_serial
-
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Store
   alias AllbertAssist.Confirmations.Store.Agent, as: StoreAgent

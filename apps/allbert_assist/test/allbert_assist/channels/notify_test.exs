@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Channels.NotifyTest do
-  use AllbertAssist.DataCase, async: false, lane: :db_serial
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   import Ecto.Query
 

@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Plugin.SupervisorRestartTest do
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   alias AllbertAssist.Plugin.Registry
   alias AllbertAssist.Plugin.Bootstrap
 

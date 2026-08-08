@@ -1,5 +1,7 @@
 defmodule AllbertAssist.DevGates.V14M1A3ReleaseEvalInventoryTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+
+  @moduletag :external_runtime_serial
 
   @fixture Path.expand("../../fixtures/v1.4/m1a3_release_eval_inventory.json", __DIR__)
 

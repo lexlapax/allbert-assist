@@ -1,6 +1,8 @@
 defmodule AllbertArtifactsWeb.ArtifactLiveReadinessTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   test "artifact action context carries the mounted pack epoch" do
     source = File.read!(Path.expand("../../lib/allbert_artifacts_web/artifact_live.ex", __DIR__))
 

@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Pack.ProductCLIReqBootTest do
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   alias AllbertAssist.Pack.ProductCLI
 
   defmodule CLI do

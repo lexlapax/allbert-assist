@@ -11124,6 +11124,30 @@ defmodule Mix.Tasks.Allbert.Test do
     # names are the binding resource, so this suite must remain globally serial.
     "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m0_registry_ledger_test.exs" =>
       :global_process_serial,
+    # v1.4 M1.a3 source/AST contract fixtures only read committed files. Names
+    # such as Registry, Agent, GenServer, and Supervisor are inert scan targets,
+    # not live global resources owned by these tests.
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m1a3_effect_boundary_roster_test.exs" =>
+      :pure_async,
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m1a3_mutation_replacement_table_test.exs" =>
+      :pure_async,
+    # Every BootWorker fixture process is unnamed or uniquely named and owned
+    # by the individual test; the GenServer/Supervisor tokens are not shared
+    # process ownership.
+    "apps/allbert_assist/test/allbert_assist/first_run/enablement/boot_worker_test.exs" =>
+      :pure_async,
+    # Metadata rows use /tmp only as inert descriptor values. The full builder
+    # suite also uses private registries, but its parity path crosses the live
+    # composition/application registry spine and must not overlap another
+    # composition module.
+    "apps/allbert_composition/test/allbert_assist/pack/candidate_builder/metadata_rows_test.exs" =>
+      :pure_async,
+    "apps/allbert_composition/test/allbert_assist/pack/candidate_builder_test.exs" =>
+      :global_process_serial,
+    # BridgeSupervisorStub never opens an external runtime. The suite's fixed
+    # persistent_term keys are the binding shared resource.
+    "apps/allbert_assist_web/test/allbert_assist_web/pack_readiness_test.exs" =>
+      :global_process_serial,
     # v1.0.2 M4 split remainder: every test drops the fixture agent_runner and
     # drives the LIVE default Runtime singleton (real agent runtime + the
     # provider/tool supervision it owns) — a shared runtime resource the

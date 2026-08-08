@@ -1,6 +1,8 @@
 defmodule AllbertAssistWeb.PackReadinessHooksTest do
   use ExUnit.Case, async: false
 
+  @moduletag :liveview_serial
+
   import Plug.Conn
   import Plug.Test
 

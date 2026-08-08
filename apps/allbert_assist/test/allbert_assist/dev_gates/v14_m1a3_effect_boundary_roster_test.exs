@@ -1,6 +1,8 @@
 defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   @fixture Path.expand("../../fixtures/v1.4/m1a3_effect_boundaries.json", __DIR__)
   @registry_ledger Path.expand("../../fixtures/v1.4/m0_registry_ledger.json", __DIR__)
   @source_roots [

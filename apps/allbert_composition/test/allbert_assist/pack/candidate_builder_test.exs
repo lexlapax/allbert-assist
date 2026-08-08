@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Pack.CandidateBuilderTest do
   use ExUnit.Case, async: false
 
-  @moduletag :home_fs_serial
+  @moduletag :global_process_serial
   @moduletag timeout: 120_000
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry

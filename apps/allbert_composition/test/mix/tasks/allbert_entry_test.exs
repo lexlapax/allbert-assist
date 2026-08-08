@@ -1,6 +1,8 @@
 defmodule Mix.Tasks.AllbertEntryTest do
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   import ExUnit.CaptureIO
 
   test "source top-level help resolves through the composition-owned ProductCLI entry" do

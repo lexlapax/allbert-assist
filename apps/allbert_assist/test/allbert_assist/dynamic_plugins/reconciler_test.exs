@@ -1,6 +1,8 @@
 defmodule AllbertAssist.DynamicPlugins.ReconcilerTest do
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   alias AllbertAssist.DynamicPlugins.Reconciler
 
   defmodule EpochGuard do

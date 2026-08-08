@@ -1,6 +1,8 @@
 defmodule StockSageWeb.AnalysisLiveReadinessTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   test "every Runner context carries the mounted pack epoch" do
     source = File.read!(Path.expand("../../lib/stocksage_web/analysis_live.ex", __DIR__))
 

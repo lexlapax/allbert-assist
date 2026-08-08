@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   alias AllbertAssist.App.Registry.MetadataSnapshot, as: AppSnapshot
   alias AllbertAssist.Pack.CompositionCoordinator
   alias AllbertAssist.Pack.Projection.Closed

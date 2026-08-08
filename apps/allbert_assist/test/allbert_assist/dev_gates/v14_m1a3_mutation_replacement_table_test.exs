@@ -1,6 +1,8 @@
 defmodule AllbertAssist.DevGates.V14M1A3MutationReplacementTableTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   @fixture Path.expand("../../fixtures/v1.4/m1a3_mutation_replacement_table.json", __DIR__)
   @required_fields ~w[
     id owner surface visibility candidate_effect admission success_result validation_result
