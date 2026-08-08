@@ -90,15 +90,16 @@ defmodule AllbertAssist.Actions.Search.PurgeSearchProjection do
       confirmation_id = confirmation["id"] || confirmation[:id]
 
       {:ok,
-       %{
-         message: disclosure(preview, confirmation_id),
-         status: :needs_confirmation,
-         permission_decision: decision,
-         confirmation: confirmation,
-         confirmation_id: confirmation_id,
-         preview: public_preview(preview),
-         actions: [action(:needs_confirmation, decision, nil, confirmation_id)]
-       }}
+       response_needs_confirmation(
+         disclosure(preview, confirmation_id),
+         %{
+           permission_decision: decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation_id,
+           preview: public_preview(preview),
+           actions: [action(:needs_confirmation, decision, nil, confirmation_id)]
+         }
+       )}
     else
       {:error, reason} -> failed(decision, reason)
     end

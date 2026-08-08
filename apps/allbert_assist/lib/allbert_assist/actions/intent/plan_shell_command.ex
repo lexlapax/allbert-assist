@@ -22,12 +22,7 @@ defmodule AllbertAssist.Actions.Intent.PlanShellCommand do
       command: [type: :string, required: true, doc: "The requested shell command or task."],
       source_text: [type: :string, required: false, doc: "The original user prompt."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Security.PermissionGate
 

@@ -122,21 +122,21 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
         )
 
       {:ok,
-       %{
-         message:
-           "Secret migration is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing was moved.",
-         status: :needs_confirmation,
-         permission_decision: permission_decision,
-         confirmation: confirmation,
-         confirmation_id: confirmation["id"],
-         migration: %{executed: false, target_tier: resolution.tier},
-         actions: [
-           action(:needs_confirmation, permission_decision, %{
-             executed: false,
-             confirmation_id: confirmation["id"]
-           })
-         ]
-       }}
+       response_needs_confirmation(
+         "Secret migration is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing was moved.",
+         %{
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           migration: %{executed: false, target_tier: resolution.tier},
+           actions: [
+             action(:needs_confirmation, permission_decision, %{
+               executed: false,
+               confirmation_id: confirmation["id"]
+             })
+           ]
+         }
+       )}
     else
       migrate_or_error(permission_decision, resolution, context)
     end
@@ -192,15 +192,8 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
   end
 
   defp action(status, permission_decision, metadata) do
-    Map.merge(
-      %{
-        name: name(),
-        status: status,
-        permission: :settings_write,
-        permission_decision: permission_decision
-      },
-      metadata
-    )
+    response_action(status, permission: :settings_write, permission_decision: permission_decision)
+    |> Map.merge(metadata)
   end
 
   defp approval_resume?(context) do

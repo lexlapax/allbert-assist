@@ -170,26 +170,27 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
           })
 
         {:ok,
-         %{
-           message: confirmation_message(spec, permission_decision, confirmation),
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           script: SkillScriptSpec.summary(spec),
-           confirmation: confirmation,
-           confirmation_id: confirmation_id(confirmation),
-           actions: [
-             %{
-               name: "run_skill_script",
-               status: :needs_confirmation,
-               permission: :skill_script_execute,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               script: SkillScriptSpec.summary(spec),
-               confirmation_id: confirmation_id(confirmation),
-               confirmation_metadata: confirmation_metadata(confirmation)
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           confirmation_message(spec, permission_decision, confirmation),
+           %{
+             permission_decision: permission_decision,
+             script: SkillScriptSpec.summary(spec),
+             confirmation: confirmation,
+             confirmation_id: confirmation_id(confirmation),
+             actions: [
+               %{
+                 name: "run_skill_script",
+                 status: :needs_confirmation,
+                 permission: :skill_script_execute,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 script: SkillScriptSpec.summary(spec),
+                 confirmation_id: confirmation_id(confirmation),
+                 confirmation_metadata: confirmation_metadata(confirmation)
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok,

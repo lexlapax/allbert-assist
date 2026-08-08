@@ -58,15 +58,13 @@ defmodule AllbertAssist.Actions.PlanBuild.ExpandWorkflow do
     }
   end
 
-  defp action(status, permission_decision, metadata),
-    do:
-      %{
-        name: "expand_workflow",
-        status: status,
-        permission: :workflow_read,
-        permission_decision: permission_decision
-      }
-      |> Map.merge(metadata)
+  defp action(status, permission_decision, metadata) do
+    response_action(status,
+      permission: :workflow_read,
+      permission_decision: permission_decision
+    )
+    |> Map.merge(metadata)
+  end
 
   defp field(map, key), do: Maps.field_truthy(map, key)
 end

@@ -152,25 +152,25 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
          ) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message:
-             "App lesson sync requires confirmation. Confirmation request: #{confirmation["id"]}. No Allbert markdown memory was written.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               execution: :pending_confirmation,
-               confirmation_id: confirmation["id"],
-               app_id: attrs.app_id,
-               namespace: attrs.namespace,
-               kind: @kind,
-               idempotency_key: attrs.idempotency_key,
-               source_ref: attrs.source_ref
-             })
-           ]
-         }}
+         response_needs_confirmation(
+           "App lesson sync requires confirmation. Confirmation request: #{confirmation["id"]}. No Allbert markdown memory was written.",
+           %{
+             permission_decision: permission_decision,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 execution: :pending_confirmation,
+                 confirmation_id: confirmation["id"],
+                 app_id: attrs.app_id,
+                 namespace: attrs.namespace,
+                 kind: @kind,
+                 idempotency_key: attrs.idempotency_key,
+                 source_ref: attrs.source_ref
+               })
+             ]
+           }
+         )}
 
       {:error, reason} ->
         error(permission_decision, reason)

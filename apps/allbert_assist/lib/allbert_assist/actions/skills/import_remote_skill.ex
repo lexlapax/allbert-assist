@@ -20,12 +20,7 @@ defmodule AllbertAssist.Actions.Skills.ImportRemoteSkill do
     schema: [
       url: [type: :string, required: true, doc: "Direct HTTPS URL for SKILL.md or a files JSON."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
@@ -117,26 +112,26 @@ defmodule AllbertAssist.Actions.Skills.ImportRemoteSkill do
     case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message:
-             "Remote skill URL import is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing has fetched or written yet.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           skill_import_request: request_summary(spec),
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             %{
-               name: @action_name,
-               status: :needs_confirmation,
-               permission: @permission,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               confirmation_id: confirmation["id"],
-               skill_import: request_summary(spec)
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           "Remote skill URL import is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing has fetched or written yet.",
+           %{
+             permission_decision: permission_decision,
+             skill_import_request: request_summary(spec),
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               %{
+                 name: @action_name,
+                 status: :needs_confirmation,
+                 permission: @permission,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 confirmation_id: confirmation["id"],
+                 skill_import: request_summary(spec)
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         denied_response(spec, permission_decision, reason)

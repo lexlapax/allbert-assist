@@ -15,12 +15,7 @@ defmodule AllbertAssist.Actions.Sandbox.DiscardBundle do
     category: "sandbox",
     tags: ["sandbox", "cleanup", "internal"],
     schema: [root: [type: :string, required: true]],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Sandbox
   alias AllbertAssist.Security.PermissionGate

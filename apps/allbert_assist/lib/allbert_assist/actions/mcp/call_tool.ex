@@ -181,25 +181,26 @@ defmodule AllbertAssist.Actions.Mcp.CallTool do
           })
 
         {:ok,
-         %{
-           message: "MCP tool #{tool_name} for #{config.server_id} needs confirmation.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           server_id: config.server_id,
-           tool_call: summary,
-           confirmation: confirmation,
-           confirmation_id: confirmation_id(confirmation),
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               server_id: config.server_id,
-               tool_name: tool_name,
-               resource_uri: ref.resource_uri,
-               confirmation_id: confirmation_id(confirmation),
-               argument_keys: argument_keys(arguments)
-             })
-             |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
-           ]
-         }}
+         response_needs_confirmation(
+           "MCP tool #{tool_name} for #{config.server_id} needs confirmation.",
+           %{
+             permission_decision: permission_decision,
+             server_id: config.server_id,
+             tool_call: summary,
+             confirmation: confirmation,
+             confirmation_id: confirmation_id(confirmation),
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 server_id: config.server_id,
+                 tool_name: tool_name,
+                 resource_uri: ref.resource_uri,
+                 confirmation_id: confirmation_id(confirmation),
+                 argument_keys: argument_keys(arguments)
+               })
+               |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok, denied(config.server_id, tool_name, permission_decision, reason)}

@@ -11,6 +11,9 @@ defmodule AllbertAssist.Actions.ApplyPersonaProfileTest do
   alias AllbertAssist.Actions.Settings.ApplyPersonaProfile
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
+  @ready_context_key {__MODULE__, :ready_effect_context}
 
   @env_vars [
     "ALLBERT_HOME",
@@ -20,6 +23,8 @@ defmodule AllbertAssist.Actions.ApplyPersonaProfileTest do
   ]
 
   setup do
+    Process.put(@ready_context_key, ReadyEffectContext.context())
+
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -38,6 +43,7 @@ defmodule AllbertAssist.Actions.ApplyPersonaProfileTest do
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->
+      Process.delete(@ready_context_key)
       File.rm_rf!(home)
       restore_env(original_env)
       restore_app_env(Paths, original_paths)
@@ -133,7 +139,10 @@ defmodule AllbertAssist.Actions.ApplyPersonaProfileTest do
   end
 
   defp context do
-    %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
+    Map.merge(
+      %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}},
+      Process.get(@ready_context_key)
+    )
   end
 
   defp restore_env(original_env) do

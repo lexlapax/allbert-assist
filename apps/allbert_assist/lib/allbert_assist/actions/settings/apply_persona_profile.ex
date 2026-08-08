@@ -215,22 +215,22 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
       )
 
     {:ok,
-     %{
-       message:
-         "Persona '#{persona["label"]}' is ready for review. Confirmation request: #{confirmation["id"]}. Nothing was written.",
-       status: :needs_confirmation,
-       permission_decision: permission_decision,
-       review: Map.put(review, :executed, false),
-       confirmation: confirmation,
-       confirmation_id: confirmation["id"],
-       actions: [
-         action(:needs_confirmation, permission_decision, %{
-           persona_id: persona["persona_id"],
-           executed: false,
-           confirmation_id: confirmation["id"]
-         })
-       ]
-     }}
+     response_needs_confirmation(
+       "Persona '#{persona["label"]}' is ready for review. Confirmation request: #{confirmation["id"]}. Nothing was written.",
+       %{
+         permission_decision: permission_decision,
+         review: Map.put(review, :executed, false),
+         confirmation: confirmation,
+         confirmation_id: confirmation["id"],
+         actions: [
+           action(:needs_confirmation, permission_decision, %{
+             persona_id: persona["persona_id"],
+             executed: false,
+             confirmation_id: confirmation["id"]
+           })
+         ]
+       }
+     )}
   end
 
   # -- rendering helpers ------------------------------------------------------
@@ -273,15 +273,8 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
   end
 
   defp action(status, permission_decision, metadata) do
-    Map.merge(
-      %{
-        name: name(),
-        status: status,
-        permission: :settings_write,
-        permission_decision: permission_decision
-      },
-      metadata
-    )
+    response_action(status, permission: :settings_write, permission_decision: permission_decision)
+    |> Map.merge(metadata)
   end
 
   defp origin(context) do

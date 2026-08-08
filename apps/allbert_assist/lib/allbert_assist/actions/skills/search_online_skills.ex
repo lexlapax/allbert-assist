@@ -20,12 +20,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
       query: [type: :string, required: true, doc: "Search query."],
       source: [type: :string, required: false, doc: "Configured online skill source."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
@@ -120,24 +115,25 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
     case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message: confirmation_message("Online skill search", confirmation, source, query),
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             %{
-               name: "search_online_skills",
-               status: :needs_confirmation,
-               permission: :external_network,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               confirmation_id: confirmation["id"],
-               online_skill: request_summary(source, :online_skill_search, %{query: query})
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           confirmation_message("Online skill search", confirmation, source, query),
+           %{
+             permission_decision: permission_decision,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               %{
+                 name: "search_online_skills",
+                 status: :needs_confirmation,
+                 permission: :external_network,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 confirmation_id: confirmation["id"],
+                 online_skill: request_summary(source, :online_skill_search, %{query: query})
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         denied_response(query, source, permission_decision, reason)

@@ -24,12 +24,7 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
       source_text: [type: :string, required: false, doc: "Original user request."],
       resource: [type: :string, required: false, doc: "Optional URI or resource hint."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Security.PermissionGate
 

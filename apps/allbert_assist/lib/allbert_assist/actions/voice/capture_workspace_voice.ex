@@ -78,22 +78,23 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
     case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message: "Workspace microphone capture needs confirmation.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           capture: capture_summary(capture),
-           confirmation: confirmation,
-           confirmation_id: confirmation_id(confirmation),
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               capture_id: capture.id,
-               resource_uri: capture.resource_uri,
-               confirmation_id: confirmation_id(confirmation)
-             })
-             |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
-           ]
-         }}
+         response_needs_confirmation(
+           "Workspace microphone capture needs confirmation.",
+           %{
+             permission_decision: permission_decision,
+             capture: capture_summary(capture),
+             confirmation: confirmation,
+             confirmation_id: confirmation_id(confirmation),
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 capture_id: capture.id,
+                 resource_uri: capture.resource_uri,
+                 confirmation_id: confirmation_id(confirmation)
+               })
+               |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok, denied(reason, permission_decision)}

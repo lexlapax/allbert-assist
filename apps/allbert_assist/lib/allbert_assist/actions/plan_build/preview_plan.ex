@@ -70,15 +70,13 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
       actions: [action(status, permission_decision, output_data)]
     }
 
-  defp action(status, permission_decision, metadata),
-    do:
-      %{
-        name: "preview_plan",
-        status: status,
-        permission: :read_only,
-        permission_decision: permission_decision
-      }
-      |> Map.merge(metadata)
+  defp action(status, permission_decision, metadata) do
+    response_action(status,
+      permission: :read_only,
+      permission_decision: permission_decision
+    )
+    |> Map.merge(metadata)
+  end
 
   defp field(map, key), do: Maps.field_truthy(map, key)
 end

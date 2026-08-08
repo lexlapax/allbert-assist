@@ -23,12 +23,7 @@ defmodule AllbertAssist.Actions.Database.RestoreBackup do
       dry_run: [type: :boolean, required: false],
       user_id: [type: :string, required: false]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.Database
@@ -73,22 +68,22 @@ defmodule AllbertAssist.Actions.Database.RestoreBackup do
     case ConfirmationRequest.resolve(permission_decision, attrs, context) do
       {:needs_confirmation, confirmation} ->
         {:ok,
-         %{
-           message:
-             "Database restore is ready for approval. Confirmation request: " <>
-               "#{confirmation["id"]}. Nothing was restored.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               backup: backup,
-               executed: false,
-               confirmation_id: confirmation["id"]
-             })
-           ]
-         }}
+         response_needs_confirmation(
+           "Database restore is ready for approval. Confirmation request: " <>
+             "#{confirmation["id"]}. Nothing was restored.",
+           %{
+             permission_decision: permission_decision,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 backup: backup,
+                 executed: false,
+                 confirmation_id: confirmation["id"]
+               })
+             ]
+           }
+         )}
 
       _denied ->
         denied(permission_decision, backup)
@@ -141,14 +136,10 @@ defmodule AllbertAssist.Actions.Database.RestoreBackup do
   end
 
   defp action(status, permission_decision, metadata) do
-    Map.merge(
-      %{
-        name: name(),
-        status: status,
-        permission: :command_execute,
-        permission_decision: permission_decision
-      },
-      metadata
+    response_action(status,
+      permission: :command_execute,
+      permission_decision: permission_decision
     )
+    |> Map.merge(metadata)
   end
 end

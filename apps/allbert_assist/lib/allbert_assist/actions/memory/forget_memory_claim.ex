@@ -65,17 +65,17 @@ defmodule AllbertAssist.Actions.Memory.ForgetMemoryClaim do
          {:ok, confirmation} <-
            create_confirmation(preview, user_id, actor, reason_code, context, decision) do
       {:ok,
-       %{
-         message:
-           "Memory Forget requires explicit approval: #{confirmation["id"]}. #{preview.disclosure}",
-         status: :needs_confirmation,
-         permission_decision: decision,
-         preview: preview.current,
-         disclosure: preview.disclosure,
-         confirmation: confirmation,
-         confirmation_id: confirmation["id"],
-         actions: [action(:needs_confirmation, decision, claim_id, confirmation["id"])]
-       }}
+       response_needs_confirmation(
+         "Memory Forget requires explicit approval: #{confirmation["id"]}. #{preview.disclosure}",
+         %{
+           permission_decision: decision,
+           preview: preview.current,
+           disclosure: preview.disclosure,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           actions: [action(:needs_confirmation, decision, claim_id, confirmation["id"])]
+         }
+       )}
     else
       {:error, reason} -> error(decision, reason)
     end

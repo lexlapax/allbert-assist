@@ -245,12 +245,10 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   end
 
   defp action(status, permission_decision, metadata) do
-    %{
-      name: "show_objective",
-      status: status,
+    response_action(status,
       permission: :read_only,
       permission_decision: permission_decision
-    }
+    )
     |> Map.merge(metadata)
   end
 

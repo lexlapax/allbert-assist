@@ -42,12 +42,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       postprocess: [type: :string, required: false, doc: "Post-fetch consumer workflow."],
       source_text: [type: :string, required: false, doc: "The original user prompt."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
@@ -190,26 +185,27 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
           })
 
         {:ok,
-         %{
-           message: confirmation_message(spec, params, permission_decision, confirmation),
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           request: summary,
-           confirmation: confirmation,
-           confirmation_id: confirmation_id(confirmation),
-           actions: [
-             %{
-               name: "external_network_request",
-               status: :needs_confirmation,
-               permission: :external_network,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               request: summary,
-               confirmation_id: confirmation_id(confirmation),
-               confirmation_metadata: confirmation_metadata(confirmation)
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           confirmation_message(spec, params, permission_decision, confirmation),
+           %{
+             permission_decision: permission_decision,
+             request: summary,
+             confirmation: confirmation,
+             confirmation_id: confirmation_id(confirmation),
+             actions: [
+               %{
+                 name: "external_network_request",
+                 status: :needs_confirmation,
+                 permission: :external_network,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 request: summary,
+                 confirmation_id: confirmation_id(confirmation),
+                 confirmation_metadata: confirmation_metadata(confirmation)
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok,

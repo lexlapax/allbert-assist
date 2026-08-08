@@ -5,7 +5,10 @@ defmodule AllbertAssist.Action do
   Runtime-facing capability actions use this wrapper instead of calling
   `Jido.Action` directly. The wrapper keeps Jido as the action substrate while
   pinning Allbert-specific capability metadata on the module that owns the
-  action. Metadata is descriptive only; Security Central remains the authority.
+  action. `output_schema: :legacy_standard_response` expands to the frozen
+  four-key 1.x compatibility schema; Runner expands action results to the
+  canonical internal response contract. Metadata is descriptive only; Security
+  Central remains the authority.
   """
 
   @capability_keys [
@@ -26,6 +29,12 @@ defmodule AllbertAssist.Action do
     :execution_mode,
     :skill_backed?,
     :confirmation
+  ]
+  @legacy_standard_response_schema [
+    message: [type: :string, required: true],
+    status: [type: :atom, required: true],
+    permission_decision: [type: :map, required: true],
+    actions: [type: {:list, :map}, required: true]
   ]
 
   @type capability_attrs :: %{
@@ -57,6 +66,7 @@ defmodule AllbertAssist.Action do
     registry_order = validate_registry_order!(registry_order)
     {capability_opts, jido_opts} = Keyword.split(opts, @capability_keys)
     capability_attrs = validate_capability!(capability_opts)
+    jido_opts = expand_output_schema!(jido_opts)
 
     quote bind_quoted: [
             capability_attrs: Macro.escape(capability_attrs),
@@ -198,6 +208,25 @@ defmodule AllbertAssist.Action do
 
   defp validate_registry_order!(value) do
     raise ArgumentError, "invalid Allbert action registry_order: #{inspect(value)}"
+  end
+
+  defp expand_output_schema!(opts) do
+    case Keyword.fetch(opts, :output_schema) do
+      {:ok, :legacy_standard_response} ->
+        Keyword.put(opts, :output_schema, @legacy_standard_response_schema)
+
+      {:ok, schema} when is_list(schema) ->
+        opts
+
+      {:ok, value} ->
+        raise ArgumentError,
+              "invalid Allbert action output_schema: expected :legacy_standard_response " <>
+                "or a keyword list, " <>
+                "got: #{inspect(value)}"
+
+      :error ->
+        opts
+    end
   end
 
   defp atom?(value), do: is_atom(value) and not is_nil(value)

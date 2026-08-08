@@ -86,17 +86,18 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
            Confirmations.create(confirmation_attrs(draft, context, permission_decision), context),
          {:ok, draft} <- cache_confirmation(draft, confirmation) do
       {:ok,
-       %{
-         message: confirmation_message(draft, permission_decision, confirmation),
-         status: :needs_confirmation,
-         permission_decision: permission_decision,
-         confirmation: confirmation,
-         confirmation_id: confirmation_id(confirmation),
-         draft: Draft.summary(draft),
-         actions: [
-           action(:needs_confirmation, permission_decision, %{confirmation: confirmation})
-         ]
-       }}
+       response_needs_confirmation(
+         confirmation_message(draft, permission_decision, confirmation),
+         %{
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation_id(confirmation),
+           draft: Draft.summary(draft),
+           actions: [
+             action(:needs_confirmation, permission_decision, %{confirmation: confirmation})
+           ]
+         }
+       )}
     else
       {:error, reason} ->
         failed(permission_decision, reason)

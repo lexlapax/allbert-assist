@@ -118,27 +118,27 @@ defmodule AllbertAssist.Actions.Memory.PromoteConversationTurn do
          ) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message:
-             "Conversation turn promotion is ready for approval. Confirmation request: #{confirmation["id"]}. No memory was written.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             %{
-               name: "promote_conversation_turn",
-               status: :needs_confirmation,
-               permission: :memory_write,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               confirmation_id: confirmation["id"],
-               thread_id: thread_id,
-               message_id: message_id,
-               user_id: user_id
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           "Conversation turn promotion is ready for approval. Confirmation request: #{confirmation["id"]}. No memory was written.",
+           %{
+             permission_decision: permission_decision,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               %{
+                 name: "promote_conversation_turn",
+                 status: :needs_confirmation,
+                 permission: :memory_write,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 confirmation_id: confirmation["id"],
+                 thread_id: thread_id,
+                 message_id: message_id,
+                 user_id: user_id
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         error(permission_decision, reason)

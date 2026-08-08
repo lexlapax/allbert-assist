@@ -93,14 +93,14 @@ defmodule AllbertAssist.Actions.Search.AuthorizeSearchQueryScope do
       confirmation_id = confirmation["id"]
 
       {:ok,
-       %{
-         message:
-           "Cross-surface Search requires approval #{confirmation_id}; approval will require exact query resubmission.",
-         status: :needs_confirmation,
-         permission_decision: decision,
-         confirmation_id: confirmation_id,
-         actions: [action(:needs_confirmation, decision, confirmation_id)]
-       }}
+       response_needs_confirmation(
+         "Cross-surface Search requires approval #{confirmation_id}; approval will require exact query resubmission.",
+         %{
+           permission_decision: decision,
+           confirmation_id: confirmation_id,
+           actions: [action(:needs_confirmation, decision, confirmation_id)]
+         }
+       )}
     else
       {:error, reason} -> failed(decision, reason)
     end

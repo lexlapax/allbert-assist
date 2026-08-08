@@ -125,27 +125,27 @@ defmodule AllbertAssist.Actions.Memory.DeleteMemoryEntry do
              context
            ) do
       {:ok,
-       %{
-         message:
-           "Memory archive is ready for approval. Confirmation request: #{confirmation["id"]}. The claim remains active until approval.",
-         status: :needs_confirmation,
-         permission_decision: permission_decision,
-         confirmation: confirmation,
-         confirmation_id: confirmation["id"],
-         actions: [
-           %{
-             name: "delete_memory_entry",
-             status: :needs_confirmation,
-             permission: :memory_write,
-             permission_decision: permission_decision,
-             execution: :pending_confirmation,
-             confirmation_id: confirmation["id"],
-             memory_path: preview.path,
-             claim_id: preview.claim_id,
-             user_id: user_id
-           }
-         ]
-       }}
+       response_needs_confirmation(
+         "Memory archive is ready for approval. Confirmation request: #{confirmation["id"]}. The claim remains active until approval.",
+         %{
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           actions: [
+             %{
+               name: "delete_memory_entry",
+               status: :needs_confirmation,
+               permission: :memory_write,
+               permission_decision: permission_decision,
+               execution: :pending_confirmation,
+               confirmation_id: confirmation["id"],
+               memory_path: preview.path,
+               claim_id: preview.claim_id,
+               user_id: user_id
+             }
+           ]
+         }
+       )}
     else
       {:error, reason} -> error(permission_decision, reason)
     end

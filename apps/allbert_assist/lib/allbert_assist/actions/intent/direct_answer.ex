@@ -19,12 +19,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     schema: [
       text: [type: :string, required: true, doc: "User prompt to answer."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Coding.Config, as: CodingConfig

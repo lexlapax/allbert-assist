@@ -15,12 +15,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader do
     category: "dynamic_plugins",
     tags: ["dynamic-plugins", "loader", "disable", "internal"],
     schema: [],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.Security.PermissionGate

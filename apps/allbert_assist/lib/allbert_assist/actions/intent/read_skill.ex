@@ -17,12 +17,7 @@ defmodule AllbertAssist.Actions.Intent.ReadSkill do
     schema: [
       name: [type: :string, required: true, doc: "Skill name or title."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Skills

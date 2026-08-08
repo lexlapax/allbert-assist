@@ -128,23 +128,24 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
     case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message: "MCP server #{spec.server_id} needs connection confirmation.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           server_id: spec.server_id,
-           connection: summary,
-           confirmation: confirmation,
-           confirmation_id: confirmation_id(confirmation),
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               server_id: spec.server_id,
-               candidate_id: spec.candidate_id,
-               confirmation_id: confirmation_id(confirmation)
-             })
-             |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
-           ]
-         }}
+         response_needs_confirmation(
+           "MCP server #{spec.server_id} needs connection confirmation.",
+           %{
+             permission_decision: permission_decision,
+             server_id: spec.server_id,
+             connection: summary,
+             confirmation: confirmation,
+             confirmation_id: confirmation_id(confirmation),
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 server_id: spec.server_id,
+                 candidate_id: spec.candidate_id,
+                 confirmation_id: confirmation_id(confirmation)
+               })
+               |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok, denied(spec.candidate_id, spec.server_id, permission_decision, reason)}

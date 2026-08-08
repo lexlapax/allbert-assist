@@ -31,12 +31,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
       max_output_bytes: [type: :integer, required: false, doc: "Requested output cap."],
       source_text: [type: :string, required: false, doc: "Original operator prompt."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
@@ -149,26 +144,27 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
           })
 
         {:ok,
-         %{
-           message: confirmation_message(spec, permission_decision, confirmation),
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           command: CommandSpec.summary(spec),
-           confirmation: confirmation,
-           confirmation_id: confirmation_id(confirmation),
-           actions: [
-             %{
-               name: "run_shell_command",
-               status: :needs_confirmation,
-               permission: :command_execute,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               command: CommandSpec.summary(spec),
-               confirmation_id: confirmation_id(confirmation),
-               confirmation_metadata: confirmation_metadata(confirmation)
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           confirmation_message(spec, permission_decision, confirmation),
+           %{
+             permission_decision: permission_decision,
+             command: CommandSpec.summary(spec),
+             confirmation: confirmation,
+             confirmation_id: confirmation_id(confirmation),
+             actions: [
+               %{
+                 name: "run_shell_command",
+                 status: :needs_confirmation,
+                 permission: :command_execute,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 command: CommandSpec.summary(spec),
+                 confirmation_id: confirmation_id(confirmation),
+                 confirmation_metadata: confirmation_metadata(confirmation)
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok,

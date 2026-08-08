@@ -244,12 +244,10 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
   end
 
   defp action(status, permission_decision, metadata) do
-    %{
-      name: "continue_objective",
-      status: status,
+    response_action(status,
       permission: :objective_write,
       permission_decision: permission_decision
-    }
+    )
     |> Map.merge(metadata)
   end
 

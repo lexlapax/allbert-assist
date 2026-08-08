@@ -25,12 +25,7 @@ defmodule AllbertAssist.Actions.Packages.PlanPackageInstall do
       save_mode: [type: :string, required: false, doc: "prod, dev, optional, peer, or no-save."],
       source_text: [type: :string, required: false, doc: "The original user prompt."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Packages.InstallSpec
   alias AllbertAssist.Security.PermissionGate

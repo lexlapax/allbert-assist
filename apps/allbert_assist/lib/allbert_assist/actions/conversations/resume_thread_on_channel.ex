@@ -109,25 +109,25 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
          ) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message:
-             "Resuming this thread would expose E2EE-origin content on #{downgrade.target_channel}. Confirmation request: #{confirmation["id"]}.",
-           status: :needs_confirmation,
-           permission_decision: confirmation_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             %{
-               name: "resume_thread_on_channel",
-               status: :needs_confirmation,
-               permission: @permission,
-               permission_decision: confirmation_decision,
-               execution: :pending_confirmation,
-               confirmation_id: confirmation["id"],
-               trust_downgrade: downgrade
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           "Resuming this thread would expose E2EE-origin content on #{downgrade.target_channel}. Confirmation request: #{confirmation["id"]}.",
+           %{
+             permission_decision: confirmation_decision,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               %{
+                 name: "resume_thread_on_channel",
+                 status: :needs_confirmation,
+                 permission: @permission,
+                 permission_decision: confirmation_decision,
+                 execution: :pending_confirmation,
+                 confirmation_id: confirmation["id"],
+                 trust_downgrade: downgrade
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         denied(params, permission_decision, reason)

@@ -216,23 +216,24 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
         confirmation_id = confirmation_id(confirmation)
 
         {:ok,
-         %{
-           message: "Voice transcription needs confirmation.",
-           status: :needs_confirmation,
-           error: :permission_denied,
-           voice_metadata: summary,
-           permission_decision: permission_decision,
-           confirmation: Confirmations.redact_for_output(confirmation),
-           confirmation_id: confirmation_id,
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               provider_profile: resolution.profile_name,
-               confirmation_id: confirmation_id,
-               voice_metadata: summary
-             })
-             |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
-           ]
-         }}
+         response_needs_confirmation(
+           "Voice transcription needs confirmation.",
+           %{
+             error: :permission_denied,
+             voice_metadata: summary,
+             permission_decision: permission_decision,
+             confirmation: Confirmations.redact_for_output(confirmation),
+             confirmation_id: confirmation_id,
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 provider_profile: resolution.profile_name,
+                 confirmation_id: confirmation_id,
+                 voice_metadata: summary
+               })
+               |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok, failed(reason, permission_decision, %{adapter_attempts: Enum.reverse(attempts)})}

@@ -104,25 +104,26 @@ defmodule AllbertAssist.Actions.Artifacts.DeleteArtifact do
       confirmation_id = confirmation["id"] || confirmation[:id]
 
       {:ok,
-       %{
-         message: "Artifact deletion needs confirmation.",
-         status: :needs_confirmation,
-         artifact: Map.take(artifact, [:sha256, :artifact_uri, :metadata]),
-         confirmation: confirmation,
-         confirmation_id: confirmation_id,
-         permission_decision: permission_decision,
-         actions: [
-           Support.action(
-             @action_name,
-             :needs_confirmation,
-             @permission,
-             permission_decision,
-             artifact.metadata
-           )
-           |> Map.put(:execution, :pending_confirmation)
-           |> Map.put(:confirmation_id, confirmation_id)
-         ]
-       }}
+       response_needs_confirmation(
+         "Artifact deletion needs confirmation.",
+         %{
+           artifact: Map.take(artifact, [:sha256, :artifact_uri, :metadata]),
+           confirmation: confirmation,
+           confirmation_id: confirmation_id,
+           permission_decision: permission_decision,
+           actions: [
+             Support.action(
+               @action_name,
+               :needs_confirmation,
+               @permission,
+               permission_decision,
+               artifact.metadata
+             )
+             |> Map.put(:execution, :pending_confirmation)
+             |> Map.put(:confirmation_id, confirmation_id)
+           ]
+         }
+       )}
     else
       {:error, reason} -> stopped(permission_decision, reason, :error)
     end

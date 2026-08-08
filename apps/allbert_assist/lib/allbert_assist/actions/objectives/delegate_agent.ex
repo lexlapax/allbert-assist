@@ -188,12 +188,10 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
   end
 
   defp action(status, permission_decision, metadata) do
-    %{
-      name: "delegate_agent",
-      status: status,
+    response_action(status,
       permission: :objective_write,
       permission_decision: permission_decision
-    }
+    )
     |> Map.merge(metadata)
   end
 

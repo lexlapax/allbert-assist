@@ -77,15 +77,8 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryProposals do
   end
 
   defp action(status, decision, extra \\ %{}) do
-    Map.merge(
-      %{
-        name: "list_memory_proposals",
-        status: status,
-        permission: :read_only,
-        permission_decision: decision
-      },
-      extra
-    )
+    response_action(status, permission: :read_only, permission_decision: decision)
+    |> Map.merge(extra)
   end
 
   defp value(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))

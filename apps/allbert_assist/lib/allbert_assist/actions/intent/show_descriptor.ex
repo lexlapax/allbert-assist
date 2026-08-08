@@ -13,12 +13,7 @@ defmodule AllbertAssist.Actions.Intent.ShowDescriptor do
     category: "intent",
     tags: ["intent", "descriptors", "operator", "read_only"],
     schema: [action: [type: :string, required: true]],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Actions.Intent.OperatorSupport
   alias AllbertAssist.Actions.Operator.Support

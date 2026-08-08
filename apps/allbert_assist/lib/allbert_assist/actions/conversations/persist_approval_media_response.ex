@@ -31,12 +31,7 @@ defmodule AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse do
       metadata: [type: :map, required: false],
       user_id: [type: :string, required: false]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Actions.Jobs.Identity
   alias AllbertAssist.Conversations

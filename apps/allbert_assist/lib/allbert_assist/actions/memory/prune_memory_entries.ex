@@ -184,27 +184,27 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
          ) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message:
-             "Memory prune is ready for approval. Confirmation request: #{confirmation["id"]}. No files were moved.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           candidates: candidates,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             %{
-               name: "prune_memory_entries",
-               status: :needs_confirmation,
-               permission: :memory_write,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               confirmation_id: confirmation["id"],
-               user_id: user_id,
-               candidate_count: length(candidates)
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           "Memory prune is ready for approval. Confirmation request: #{confirmation["id"]}. No files were moved.",
+           %{
+             permission_decision: permission_decision,
+             candidates: candidates,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               %{
+                 name: "prune_memory_entries",
+                 status: :needs_confirmation,
+                 permission: :memory_write,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 confirmation_id: confirmation["id"],
+                 user_id: user_id,
+                 candidate_count: length(candidates)
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         error(permission_decision, reason)

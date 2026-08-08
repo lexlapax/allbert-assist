@@ -97,15 +97,16 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
       confirmation_id = confirmation["id"] || confirmation[:id]
 
       {:ok,
-       %{
-         message: disclosure_message(preview, confirmation_id),
-         status: :needs_confirmation,
-         permission_decision: permission_decision,
-         confirmation: confirmation,
-         confirmation_id: confirmation_id,
-         preview: preview,
-         actions: [action(:needs_confirmation, permission_decision, preview, confirmation_id)]
-       }}
+       response_needs_confirmation(
+         disclosure_message(preview, confirmation_id),
+         %{
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation_id,
+           preview: preview,
+           actions: [action(:needs_confirmation, permission_decision, preview, confirmation_id)]
+         }
+       )}
     else
       {:error, reason} -> {:ok, failed(permission_decision, reason)}
     end

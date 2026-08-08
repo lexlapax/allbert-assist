@@ -369,23 +369,24 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
           confirmation_id = confirmation_id(confirmation)
 
           {:ok,
-           %{
-             message: "Image generation needs confirmation.",
-             status: :needs_confirmation,
-             error: :permission_denied,
-             image_metadata: summary,
-             permission_decision: permission_decision,
-             confirmation: Confirmations.redact_for_output(confirmation),
-             confirmation_id: confirmation_id,
-             actions: [
-               action(:needs_confirmation, permission_decision, %{
-                 provider_profile: resolution.profile_name,
-                 confirmation_id: confirmation_id,
-                 image_metadata: summary
-               })
-               |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
-             ]
-           }}
+           response_needs_confirmation(
+             "Image generation needs confirmation.",
+             %{
+               error: :permission_denied,
+               image_metadata: summary,
+               permission_decision: permission_decision,
+               confirmation: Confirmations.redact_for_output(confirmation),
+               confirmation_id: confirmation_id,
+               actions: [
+                 action(:needs_confirmation, permission_decision, %{
+                   provider_profile: resolution.profile_name,
+                   confirmation_id: confirmation_id,
+                   image_metadata: summary
+                 })
+                 |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+               ]
+             }
+           )}
 
         {:error, reason} ->
           {:ok, failed(reason, permission_decision, %{provider_attempts: Enum.reverse(attempts)})}

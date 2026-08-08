@@ -96,21 +96,21 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
     case ConfirmationRequest.resolve(permission_decision, attrs, context) do
       {:needs_confirmation, confirmation} ->
         {:ok,
-         %{
-           message:
-             "Model pull is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing was pulled.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               model: model,
-               executed: false,
-               confirmation_id: confirmation["id"]
-             })
-           ]
-         }}
+         response_needs_confirmation(
+           "Model pull is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing was pulled.",
+           %{
+             permission_decision: permission_decision,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 model: model,
+                 executed: false,
+                 confirmation_id: confirmation["id"]
+               })
+             ]
+           }
+         )}
 
       _denied ->
         denied(permission_decision, model)
@@ -492,14 +492,10 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   defp percent(_completed, _total), do: nil
 
   defp action(status, permission_decision, metadata) do
-    Map.merge(
-      %{
-        name: name(),
-        status: status,
-        permission: :external_network,
-        permission_decision: permission_decision
-      },
-      metadata
+    response_action(status,
+      permission: :external_network,
+      permission_decision: permission_decision
     )
+    |> Map.merge(metadata)
   end
 end

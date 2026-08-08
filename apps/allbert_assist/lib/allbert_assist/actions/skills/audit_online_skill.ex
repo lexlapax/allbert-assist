@@ -20,12 +20,7 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
       source: [type: :string, required: true, doc: "Configured online skill source."],
       id: [type: :string, required: true, doc: "Source-local skill identifier."]
     ],
-    output_schema: [
-      message: [type: :string, required: true],
-      status: [type: :atom, required: true],
-      permission_decision: [type: :map, required: true],
-      actions: [type: {:list, :map}, required: true]
-    ]
+    output_schema: :legacy_standard_response
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
@@ -117,25 +112,25 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
     case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
-         %{
-           message:
-             "Online skill audit is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing has fetched yet.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             %{
-               name: "audit_online_skill",
-               status: :needs_confirmation,
-               permission: :external_network,
-               permission_decision: permission_decision,
-               execution: :pending_confirmation,
-               confirmation_id: confirmation["id"],
-               online_skill: request_summary(source, :online_skill_audit, %{id: id})
-             }
-           ]
-         }}
+         response_needs_confirmation(
+           "Online skill audit is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing has fetched yet.",
+           %{
+             permission_decision: permission_decision,
+             confirmation: confirmation,
+             confirmation_id: confirmation["id"],
+             actions: [
+               %{
+                 name: "audit_online_skill",
+                 status: :needs_confirmation,
+                 permission: :external_network,
+                 permission_decision: permission_decision,
+                 execution: :pending_confirmation,
+                 confirmation_id: confirmation["id"],
+                 online_skill: request_summary(source, :online_skill_audit, %{id: id})
+               }
+             ]
+           }
+         )}
 
       {:error, reason} ->
         denied_response(id, source, permission_decision, reason)

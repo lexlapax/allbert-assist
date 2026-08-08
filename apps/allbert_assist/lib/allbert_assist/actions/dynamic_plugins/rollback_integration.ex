@@ -89,17 +89,18 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RollbackIntegration do
          {:ok, integration} <- cache_confirmation(integration, confirmation),
          {:ok, _draft} <- cache_draft_confirmation(integration, confirmation) do
       {:ok,
-       %{
-         message: confirmation_message(integration, permission_decision, confirmation),
-         status: :needs_confirmation,
-         permission_decision: permission_decision,
-         confirmation: confirmation,
-         confirmation_id: confirmation_id(confirmation),
-         integration: Draft.summary(integration),
-         actions: [
-           action(:needs_confirmation, permission_decision, %{confirmation: confirmation})
-         ]
-       }}
+       response_needs_confirmation(
+         confirmation_message(integration, permission_decision, confirmation),
+         %{
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation_id(confirmation),
+           integration: Draft.summary(integration),
+           actions: [
+             action(:needs_confirmation, permission_decision, %{confirmation: confirmation})
+           ]
+         }
+       )}
     else
       {:error, reason} ->
         failed(permission_decision, reason)

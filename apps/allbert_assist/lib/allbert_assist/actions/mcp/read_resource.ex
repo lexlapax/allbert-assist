@@ -154,23 +154,24 @@ defmodule AllbertAssist.Actions.Mcp.ReadResource do
           })
 
         {:ok,
-         %{
-           message: "MCP resource read for #{config.server_id} needs Resource Access approval.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           server_id: config.server_id,
-           resource: summary,
-           confirmation: confirmation,
-           confirmation_id: confirmation_id(confirmation),
-           actions: [
-             action(:needs_confirmation, permission_decision, %{
-               server_id: config.server_id,
-               resource_uri: ref.resource_uri,
-               confirmation_id: confirmation_id(confirmation)
-             })
-             |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
-           ]
-         }}
+         response_needs_confirmation(
+           "MCP resource read for #{config.server_id} needs Resource Access approval.",
+           %{
+             permission_decision: permission_decision,
+             server_id: config.server_id,
+             resource: summary,
+             confirmation: confirmation,
+             confirmation_id: confirmation_id(confirmation),
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 server_id: config.server_id,
+                 resource_uri: ref.resource_uri,
+                 confirmation_id: confirmation_id(confirmation)
+               })
+               |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+             ]
+           }
+         )}
 
       {:error, reason} ->
         {:ok, denied(config.server_id, uri, permission_decision, reason)}

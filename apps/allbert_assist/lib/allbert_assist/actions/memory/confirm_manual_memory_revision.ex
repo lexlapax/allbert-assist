@@ -61,16 +61,16 @@ defmodule AllbertAssist.Actions.Memory.ConfirmManualMemoryRevision do
          {:ok, confirmation} <-
            create_confirmation(claim_id, user_id, prepared.binding, context, decision) do
       {:ok,
-       %{
-         message:
-           "Review the exact manual revision, then approve confirmation #{confirmation["id"]}. The revision remains quarantined until approval.",
-         status: :needs_confirmation,
-         permission_decision: decision,
-         preview: prepared.preview,
-         confirmation: confirmation,
-         confirmation_id: confirmation["id"],
-         actions: [action(:needs_confirmation, decision, claim_id, confirmation["id"])]
-       }}
+       response_needs_confirmation(
+         "Review the exact manual revision, then approve confirmation #{confirmation["id"]}. The revision remains quarantined until approval.",
+         %{
+           permission_decision: decision,
+           preview: prepared.preview,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           actions: [action(:needs_confirmation, decision, claim_id, confirmation["id"])]
+         }
+       )}
     else
       {:error, reason} -> error(decision, reason)
     end

@@ -68,16 +68,16 @@ defmodule AllbertAssist.Actions.Memory.ConfirmDestinationMemoryChain do
              decision
            ) do
       {:ok,
-       %{
-         message:
-           "Review the exact foreign chain, then approve confirmation #{confirmation["id"]}. It remains quarantined until approval.",
-         status: :needs_confirmation,
-         permission_decision: decision,
-         preview: prepared.preview,
-         confirmation: confirmation,
-         confirmation_id: confirmation["id"],
-         actions: [action(:needs_confirmation, decision, claim_id, confirmation["id"])]
-       }}
+       response_needs_confirmation(
+         "Review the exact foreign chain, then approve confirmation #{confirmation["id"]}. It remains quarantined until approval.",
+         %{
+           permission_decision: decision,
+           preview: prepared.preview,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           actions: [action(:needs_confirmation, decision, claim_id, confirmation["id"])]
+         }
+       )}
     else
       {:error, reason} -> error(decision, reason)
     end
