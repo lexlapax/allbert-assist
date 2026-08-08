@@ -89,7 +89,8 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     Jason => :jason,
     Jido.Action => :jido_action,
     Jido.Action.Schema => :jido_action,
-    Jido.Signal => :jido_signal
+    Jido.Signal => :jido_signal,
+    Jido.Signal.Bus => :jido_signal
   }
 
   # Elixir and OTP modules need no admission. Anything capitalized that is not
@@ -127,6 +128,7 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
             KeyError,
             Keyword,
             List,
+            Logger,
             Macro,
             Map,
             MapSet,
@@ -160,7 +162,12 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
 
   @typedoc "A library module a relocation target is admitted to reference."
   @type admitted_library ::
-          Exqlite.Sqlite3 | Jason | Jido.Action | Jido.Action.Schema | Jido.Signal
+          Exqlite.Sqlite3
+          | Jason
+          | Jido.Action
+          | Jido.Action.Schema
+          | Jido.Signal
+          | Jido.Signal.Bus
 
   @typedoc "An OTP application the relocated kernel will declare."
   @type admitted_application :: :exqlite | :jason | :jido_action | :jido_signal
@@ -193,6 +200,42 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
       end) ++ kernel_test_findings(allowed)
 
     {:ok, Enum.sort_by(findings, &{&1.path, Atom.to_string(&1.module)})}
+  end
+
+  # M7.2 splits owning tests in place, because a kernel-destined half cannot
+  # live under `apps/allbert_kernel/test` until M8 moves the modules it
+  # exercises — the kernel does not depend on the pack, so it could not compile
+  # there. The half that will move therefore keeps the original path and is
+  # checked here; the half that stays becomes a separate residual file that
+  # this gate does not constrain.
+  @doc """
+  The M7.2 split backlog: owning tests that do not yet close.
+
+  This is deliberately not part of `findings/0` while the split is in progress,
+  so the closure gate stays an assertion about finished work rather than a
+  standing red. When the backlog reaches zero these rows fold into `findings/0`
+  and the two checks become one.
+  """
+  @spec split_backlog() :: {:ok, [finding()]}
+  def split_backlog do
+    allowed = MapSet.union(kernel_modules(), roster_modules())
+    {:ok, Enum.sort_by(relocating_test_findings(allowed), &{&1.path, Atom.to_string(&1.module)})}
+  end
+
+  defp relocating_test_findings(allowed) do
+    Enum.flat_map(relocating_tests(), fn path ->
+      local = path |> quoted!() |> defined_modules()
+
+      path
+      |> references()
+      |> Enum.reject(
+        &(MapSet.member?(allowed, &1) or admitted?(&1) or
+            MapSet.member?(@test_framework, &1) or local?(&1, local))
+      )
+      |> Enum.map(
+        &%{path: path, concern: :relocating_test, module: &1, reason: classify_finding(&1)}
+      )
+    end)
   end
 
   # A test that reaches a residual fixture breaks the invariant in the test

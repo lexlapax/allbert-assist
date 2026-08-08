@@ -132,6 +132,27 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
       assert Enum.any?(references, &(Atom.to_string(&1) =~ ~r/\.ReadyBarrier$/))
     end
 
+    test "the M7.2 split backlog only ever names residual reaches in owning tests" do
+      assert {:ok, backlog} = Ledger.split_backlog()
+
+      relocating = Ledger.relocating_tests()
+
+      for row <- backlog do
+        assert row.concern == :relocating_test
+        assert row.reason == :residual_dependency
+        assert row.path in relocating
+      end
+
+      # These two already close, so they can never appear. If they do, a split
+      # regressed a test that was already kernel-pure.
+      closed = [
+        "apps/allbert_assist/test/allbert_assist/runtime/writer_lock_test.exs",
+        "apps/allbert_assist/test/allbert_assist/runtime/safe_term_test.exs"
+      ]
+
+      for path <- closed, do: refute(Enum.any?(backlog, &(&1.path == path)))
+    end
+
     test "the external dependencies the kernel will declare at M8 are named, not discovered" do
       assert Ledger.admitted_applications() == [:exqlite, :jason, :jido_action, :jido_signal]
 
