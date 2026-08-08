@@ -4,7 +4,7 @@ defmodule AllbertAssist.Actions.ParamContract do
   """
 
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Security.Redactor
   alias Jido.Action.Schema
 
   @type validation_result :: {:ok, map()} | {:error, term()}

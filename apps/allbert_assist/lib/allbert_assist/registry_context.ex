@@ -8,6 +8,10 @@ defmodule AllbertAssist.RegistryContext do
   #     plugin: [server: pid_or_name],
   #     actions_overlay: server
   #
+  # v1.4 M7.1: the `:actions_overlay` key is still carried here, but resolving
+  # its default server moved to the residual overlay provider. The default
+  # names a residual GenServer, and this module relocates into the kernel.
+  #
   # Omission means the current global defaults, so production call sites pass
   # nothing and behave identically. The context only selects WHERE registrations
   # are read from — it never bypasses registration, permission, confirmation, or
@@ -16,23 +20,17 @@ defmodule AllbertAssist.RegistryContext do
 
   @context_keys [:app, :plugin, :pack, :actions_overlay]
 
-  @doc "Return the `AllbertAssist.App.Registry` option list carried in `opts`."
+  @doc "Return the app-registry option list carried in `opts`."
   @spec app_opts(keyword()) :: keyword()
   def app_opts(opts) when is_list(opts), do: Keyword.get(opts, :app, [])
 
-  @doc "Return the `AllbertAssist.Plugin.Registry` option list carried in `opts`."
+  @doc "Return the plugin-registry option list carried in `opts`."
   @spec plugin_opts(keyword()) :: keyword()
   def plugin_opts(opts) when is_list(opts), do: Keyword.get(opts, :plugin, [])
 
   @doc "Return the `AllbertAssist.Pack.Registry` option list carried in `opts`."
   @spec pack_opts(keyword()) :: keyword()
   def pack_opts(opts) when is_list(opts), do: Keyword.get(opts, :pack, [])
-
-  @doc "Return the `DynamicPlugins.ActionsOverlay` server carried in `opts`."
-  @spec overlay_server(keyword()) :: GenServer.server()
-  def overlay_server(opts) when is_list(opts) do
-    Keyword.get(opts, :actions_overlay, AllbertAssist.DynamicPlugins.ActionsOverlay)
-  end
 
   @doc "Take only the registry-context keys for forwarding through layers."
   @spec take(keyword()) :: keyword()

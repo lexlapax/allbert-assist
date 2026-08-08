@@ -6,14 +6,14 @@ defmodule AllbertAssist.Actions.Runner do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.ParamContract
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Capabilities.ReleaseAvailability
+  alias AllbertAssist.Kernel.Contract
+  alias AllbertAssist.Kernel.Contract.Membership
+  alias AllbertAssist.Kernel.Contract.ReleaseAvailability
+  alias AllbertAssist.Kernel.Contract.Signals
   alias AllbertAssist.Pack.EffectGuard
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.RegistryContext
-  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
-  alias AllbertAssist.Signals
+  alias AllbertAssist.Security.Redactor
   alias Jido.Signal
 
   @type result :: {:ok, map()}
@@ -52,17 +52,32 @@ defmodule AllbertAssist.Actions.Runner do
     do: {:error, :product_not_ready}
 
   defp admit_ready_context(%{allbert_pack_epoch: epoch} = context) do
-    case EffectGuard.validate(epoch) do
-      :ok -> {:ok, context}
-      {:error, reason} -> {:error, reason}
+    with :ok <- EffectGuard.validate(epoch),
+         :ok <- admit_bound_contracts() do
+      {:ok, context}
     end
   end
 
   defp admit_ready_context(context) do
     with {:ok, epoch} <- EffectGuard.admit_ready(),
-         :ok <- EffectGuard.validate(epoch) do
+         :ok <- EffectGuard.validate(epoch),
+         :ok <- admit_bound_contracts() do
       {:ok, Map.put(context, :allbert_pack_epoch, epoch)}
     end
+  end
+
+  # An action cannot run against an unbound kernel: every relocated concern
+  # would fall to its fail-closed value while the caller believed the product
+  # was ready. Refusing here returns the existing product-not-ready response.
+  #
+  # This asserts a binding exists, not that it matches the admitted epoch's
+  # digest. Providers are process-independent module references, so a
+  # test-scoped or replacement readiness barrier is still correctly served by
+  # the bound set. Epoch identity is enforced where it belongs — by
+  # `EffectGuard.validate/1` at the final boundary, and by the contract owner,
+  # which releases the whole set when the barrier it was bound against dies.
+  defp admit_bound_contracts do
+    with {:ok, _implementation} <- Contract.fetch(:signals), do: :ok
   end
 
   defp product_not_ready_response do
@@ -356,7 +371,7 @@ defmodule AllbertAssist.Actions.Runner do
 
   defp release_availability_check(action_name, action_module, registry) do
     release_opts = [
-      plugin_entries: PluginRegistry.registered_plugins(RegistryContext.plugin_opts(registry))
+      plugin_entries: Membership.registered_plugins(RegistryContext.plugin_opts(registry))
     ]
 
     action_module
@@ -427,7 +442,7 @@ defmodule AllbertAssist.Actions.Runner do
   defp check_app_membership(action_module, expected_app, context) do
     app_opts = context |> registry_opts() |> RegistryContext.app_opts()
 
-    if AppRegistry.known_app_id?(expected_app, app_opts) do
+    if Membership.known_app_id?(expected_app, app_opts) do
       :ok
     else
       {:denied,

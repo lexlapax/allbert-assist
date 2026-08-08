@@ -9,12 +9,11 @@ defmodule AllbertAssist.Actions.Registry do
 
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.{Capability, SnapshotCatalog}
-  alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.DynamicPlugins.ActionsOverlay
+  alias AllbertAssist.Kernel.Contract.ActionsOverlay
+  alias AllbertAssist.Kernel.Contract.Membership
+  alias AllbertAssist.Kernel.Contract.Signals
   alias AllbertAssist.Pack.Registry, as: PackRegistry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.RegistryContext
-  alias AllbertAssist.Signals
 
   @doc "Return registered runtime action modules in stable display order."
   @spec modules(keyword()) :: [module()]
@@ -25,7 +24,7 @@ defmodule AllbertAssist.Actions.Registry do
   @spec agent_modules(keyword()) :: [module()]
   def agent_modules(opts \\ []) do
     SnapshotCatalog.agent_modules(pack_snapshot(opts)) ++
-      ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
+      ActionsOverlay.agent_modules(opts)
   end
 
   @doc "Return registered action names in stable display order."
@@ -42,7 +41,7 @@ defmodule AllbertAssist.Actions.Registry do
   @spec agent_capabilities(keyword()) :: [Capability.t()]
   def agent_capabilities(opts \\ []) do
     snapshot = pack_snapshot(opts)
-    overlay_agent_modules = ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
+    overlay_agent_modules = ActionsOverlay.agent_modules(opts)
 
     SnapshotCatalog.agent_capabilities(snapshot) ++
       Enum.map(overlay_agent_modules, &capability_for_module!(&1, opts))
@@ -51,8 +50,7 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Return canonical capability metadata for internal-only actions."
   @spec internal_capabilities(keyword()) :: [Capability.t()]
   def internal_capabilities(opts \\ []) do
-    overlay_server = RegistryContext.overlay_server(opts)
-    overlay_agent_modules = ActionsOverlay.agent_modules(overlay_server)
+    overlay_agent_modules = ActionsOverlay.agent_modules(opts)
 
     dynamic_internal =
       opts
@@ -70,7 +68,7 @@ defmodule AllbertAssist.Actions.Registry do
   def capabilities_for_app(app_id, opts) when is_atom(app_id) do
     SnapshotCatalog.capabilities_for_app(pack_snapshot(opts), app_id) ++
       (app_id
-       |> ActionsOverlay.actions_for_app(RegistryContext.overlay_server(opts))
+       |> ActionsOverlay.actions_for_app(opts)
        |> Enum.map(&capability_for_module!(&1, opts)))
   end
 
@@ -127,7 +125,7 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Return action-registry diagnostics from the confirmed dynamic overlay."
   @spec diagnostics(keyword()) :: [map()]
   def diagnostics(opts \\ []),
-    do: ActionsOverlay.diagnostics(RegistryContext.overlay_server(opts))
+    do: ActionsOverlay.diagnostics(opts)
 
   @doc "Emit an advisory action-registry-changed signal for index subscribers."
   @spec emit_registry_changed(atom(), map()) :: :ok
@@ -148,7 +146,7 @@ defmodule AllbertAssist.Actions.Registry do
     end
   end
 
-  defp dynamic_actions(opts), do: ActionsOverlay.modules(RegistryContext.overlay_server(opts))
+  defp dynamic_actions(opts), do: ActionsOverlay.modules(opts)
 
   defp dynamic_capabilities(opts),
     do: Enum.map(dynamic_actions(opts), &capability_for_module!(&1, opts))
@@ -185,8 +183,8 @@ defmodule AllbertAssist.Actions.Registry do
 
   defp capability_for_module!(module, opts) do
     attrs = capability_attrs!(module)
-    app_id = AppRegistry.app_id_for_action(module, RegistryContext.app_opts(opts))
-    plugin_id = PluginRegistry.plugin_id_for_action(module, RegistryContext.plugin_opts(opts))
+    app_id = Membership.app_id_for_action(module, RegistryContext.app_opts(opts))
+    plugin_id = Membership.plugin_id_for_action(module, RegistryContext.plugin_opts(opts))
 
     module
     |> Capability.new(attrs)

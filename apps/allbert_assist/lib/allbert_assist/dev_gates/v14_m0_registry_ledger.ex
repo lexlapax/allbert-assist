@@ -19,6 +19,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Pack.{ActionCatalog, ActionProjection}
+  alias AllbertAssist.Pack.Contracts.ActionsOverlay, as: OverlayContract
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings.Fragments
 
@@ -631,7 +632,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
 
   defp legacy_action_modules(opts) do
     static = ActionCatalog.residual_modules() |> value!(:compiled_static_actions)
-    dynamic = ActionsOverlay.modules(RegistryContext.overlay_server(opts))
+    dynamic = ActionsOverlay.modules(OverlayContract.overlay_server(opts))
     static ++ legacy_plugin_modules(opts, static) ++ dynamic
   end
 

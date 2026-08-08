@@ -7,10 +7,8 @@ defmodule AllbertAssist.Runtime.Response do
   richer intent structs into transport-safe maps.
   """
 
-  alias AllbertAssist.Intent.ApprovalHandoff
-  alias AllbertAssist.Intent.Decision
-  alias AllbertAssist.Intent.ResourceAccess
-  alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Kernel.Contract.ResponseValues
+  alias AllbertAssist.Security.Redactor
 
   @action_statuses [
     :completed,
@@ -423,7 +421,13 @@ defmodule AllbertAssist.Runtime.Response do
   @spec diagnostics(map()) :: list()
   def diagnostics(%{diagnostics: diagnostics}) when is_list(diagnostics), do: diagnostics
   def diagnostics(%{"diagnostics" => diagnostics}) when is_list(diagnostics), do: diagnostics
-  def diagnostics(%{decision: %Decision{} = decision}), do: decision.diagnostics
+
+  def diagnostics(%{decision: decision}) when is_map(decision) do
+    if ResponseValues.decision?(decision),
+      do: ResponseValues.decision_diagnostics(decision),
+      else: []
+  end
+
   def diagnostics(_response), do: []
 
   defp build(status, message, attrs) when is_binary(message) do
@@ -533,40 +537,44 @@ defmodule AllbertAssist.Runtime.Response do
   defp actions(%{"actions" => actions}) when is_list(actions), do: actions
   defp actions(_response), do: []
 
-  defp decision(%{decision: %Decision{} = decision}), do: Decision.to_map(decision)
-  defp decision(%{decision: decision}) when is_map(decision), do: Decision.to_map(decision)
-  defp decision(%{"decision" => decision}) when is_map(decision), do: Decision.to_map(decision)
+  defp decision(%{decision: decision}) when is_map(decision),
+    do: ResponseValues.decision_to_map(decision)
+
+  defp decision(%{"decision" => decision}) when is_map(decision),
+    do: ResponseValues.decision_to_map(decision)
+
   defp decision(_response), do: nil
 
   defp resource_access(%{resource_access: entries}) when is_list(entries),
-    do: ResourceAccess.to_maps(entries)
+    do: ResponseValues.resource_access_to_maps(entries)
 
   defp resource_access(%{"resource_access" => entries}) when is_list(entries),
-    do: ResourceAccess.to_maps(entries)
-
-  defp resource_access(%{decision: %Decision{} = decision}),
-    do: ResourceAccess.to_maps(decision.resource_access)
+    do: ResponseValues.resource_access_to_maps(entries)
 
   defp resource_access(%{decision: decision}) when is_map(decision) do
-    decision
-    |> Decision.to_map()
-    |> Map.get(:resource_access, [])
-    |> ResourceAccess.to_maps()
+    if ResponseValues.decision?(decision) do
+      ResponseValues.decision_resource_access_maps(decision)
+    else
+      decision
+      |> ResponseValues.decision_to_map()
+      |> Map.get(:resource_access, [])
+      |> ResponseValues.resource_access_to_maps()
+    end
   end
 
   defp resource_access(_response), do: []
 
-  defp approval_handoff(%{approval_handoff: %ApprovalHandoff{} = handoff}),
-    do: ApprovalHandoff.to_map(handoff)
-
   defp approval_handoff(%{approval_handoff: handoff}) when is_map(handoff),
-    do: ApprovalHandoff.to_map(handoff)
+    do: ResponseValues.approval_handoff_to_map(handoff)
 
   defp approval_handoff(%{"approval_handoff" => handoff}) when is_map(handoff),
-    do: ApprovalHandoff.to_map(handoff)
+    do: ResponseValues.approval_handoff_to_map(handoff)
 
-  defp approval_handoff(%{decision: %Decision{} = decision}),
-    do: ApprovalHandoff.to_map(decision.approval_handoff)
+  defp approval_handoff(%{decision: decision}) when is_map(decision) do
+    if ResponseValues.decision?(decision),
+      do: ResponseValues.decision_approval_handoff_map(decision),
+      else: nil
+  end
 
   defp approval_handoff(_response), do: nil
 
