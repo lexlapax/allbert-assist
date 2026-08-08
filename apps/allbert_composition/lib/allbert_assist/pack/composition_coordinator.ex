@@ -11,6 +11,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.MetadataSupervisor, as: AppMetadataSupervisor
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Kernel.Contract.Owner, as: ContractOwner
   alias AllbertAssist.Pack.{CandidateBuilder, ProjectionProvider, Readiness}
   alias AllbertAssist.Pack.Registry, as: PackRegistry
   alias AllbertAssist.Pack.Supervisor, as: PackSupervisor
@@ -121,6 +122,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
     pack_registry = Keyword.get(opts, :pack_registry, PackRegistry)
     pack_supervisor = Keyword.get(opts, :pack_supervisor, PackSupervisor)
     readiness = Keyword.get(opts, :readiness, Readiness)
+    contract_owner = Keyword.get(opts, :contract_owner, ContractOwner)
 
     with {:ok, bootstrap_completions} <- await_bootstrap(app_bootstrap, plugin_bootstrap),
          {:ok, %{barrier_pid: barrier_pid}} <- readiness.status(),
@@ -162,6 +164,14 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
            {monitored_pid(monitored, plugin_registry), plugin_snapshot.generation, plugin_ref}
          ],
          :ok <- validate_source_roster(metadata_sources),
+         {:ok, contract_providers} <- contract_providers(closed),
+         {:ok, _binding} <-
+           contract_owner.bind(
+             contract_owner,
+             contract_providers,
+             snapshot.behavior_digest,
+             barrier_pid
+           ),
          {:ok, epoch} <-
            readiness.open(snapshot.behavior_digest, effectful_ids,
              server: barrier_pid,
@@ -209,6 +219,44 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
        do: :ok
 
   defp valid_bootstrap_completion(_completion), do: {:error, :metadata_bootstrap_unavailable}
+
+  # Kernel concern-contract providers are collected from the same reconciled
+  # projection that names the descriptor modules, so a provider is always
+  # compiled code from a validated pack rather than a module atom built from a
+  # manifest string. Binding happens after the snapshot is finalized and before
+  # the readiness barrier opens, so no effect runs against an unbound kernel.
+  defp contract_providers(closed) do
+    Enum.reduce_while(closed.rows, {:ok, []}, fn row, {:ok, acc} ->
+      case owner_contracts(row) do
+        {:ok, rows} -> {:cont, {:ok, acc ++ rows}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp owner_contracts(%{descriptor_module: module, application: application}) do
+    if function_exported?(module, :kernel_contracts, 0) do
+      normalize_contracts(module.kernel_contracts(), module, application)
+    else
+      {:ok, []}
+    end
+  rescue
+    _exception -> {:error, {:kernel_contracts_unavailable, module}}
+  end
+
+  defp normalize_contracts(rows, module, application) when is_list(rows) do
+    Enum.reduce_while(rows, {:ok, []}, fn
+      {contract, implementation}, {:ok, acc}
+      when is_atom(contract) and is_atom(implementation) ->
+        {:cont, {:ok, acc ++ [{contract, implementation, application}]}}
+
+      _row, _acc ->
+        {:halt, {:error, {:invalid_kernel_contracts, module}}}
+    end)
+  end
+
+  defp normalize_contracts(_rows, module, _application),
+    do: {:error, {:invalid_kernel_contracts, module}}
 
   defp effectful_ids(closed) do
     closed.rows
@@ -318,6 +366,15 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
 
   defp redact_reason(reason) when is_atom(reason), do: reason
   defp redact_reason({tag, value}) when is_atom(tag) and is_atom(value), do: {tag, value}
+
+  # A list of atoms carries no operator data and is the shape the kernel
+  # contract binder rejects with — `{:missing_contracts, [:settings]}`,
+  # `{:duplicate_providers, [...]}`. Collapsing those to `:composition_rejected`
+  # would hide which contract failed at exactly the moment an operator needs to
+  # know. Anything else still collapses.
+  defp redact_reason({tag, values}) when is_atom(tag) and is_list(values) do
+    if Enum.all?(values, &is_atom/1), do: {tag, values}, else: :composition_rejected
+  end
 
   defp redact_reason(%{schema_version: 1, code: code}) when is_atom(code),
     do: {:readiness_rejected, code}

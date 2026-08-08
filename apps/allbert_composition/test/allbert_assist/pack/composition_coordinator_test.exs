@@ -127,6 +127,19 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
     end
   end
 
+  defmodule ContractOwnerStub do
+    @key {__MODULE__, :state}
+
+    def put(state), do: :persistent_term.put(@key, state)
+    def clear, do: :persistent_term.erase(@key)
+
+    def bind(__MODULE__, providers, generation, barrier_pid) do
+      state = :persistent_term.get(@key)
+      send(state.parent, {:contract_bind, providers, generation, barrier_pid})
+      state.result
+    end
+  end
+
   defmodule CandidateBuilderStub do
     @key {__MODULE__, :candidate}
 
@@ -184,6 +197,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
     CandidateBuilderStub.put(:candidate)
     PackRegistryStub.put_parent(self())
     ReadinessStub.put(%{parent: self(), barrier: barrier})
+    ContractOwnerStub.put(%{parent: self(), result: {:ok, :bound}})
 
     pack_supervisor = start_supervised!(PackSupervisorStub)
     app_metadata_supervisor = start_supervised!(AppMetadataSupervisorStub)
@@ -212,6 +226,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
       CandidateBuilderStub.clear()
       PackRegistryStub.clear()
       ReadinessStub.clear()
+      ContractOwnerStub.clear()
       if Process.alive?(barrier), do: Process.exit(barrier, :kill)
       Process.flag(:trap_exit, previous_trap_exit)
     end)
@@ -259,6 +274,56 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
            } = CompositionCoordinator.status(coordinator)
 
     assert projection_sha == String.duplicate("a", 64)
+  end
+
+  test "M7.1 binds the kernel contract set to the finalized generation before effects open",
+       context do
+    %{barrier: barrier} = context
+    _coordinator = start_coordinator()
+
+    # Order matters: the snapshot is finalized, then the contract set is bound
+    # against its digest, and only then does the readiness barrier open. An
+    # effect must never run against an unbound kernel.
+    assert_receive {:finalize, :candidate, []}
+    assert_receive {:contract_bind, providers, digest, ^barrier}
+    assert_receive {:open, ^digest, [], _sources}
+
+    assert digest == String.duplicate("c", 64)
+    # The stub projection carries no descriptor rows, so no provider is
+    # invented on the way through.
+    assert providers == []
+  end
+
+  test "a rejected contract set fails composition before the barrier opens", context do
+    %{barrier: _barrier} = context
+    ContractOwnerStub.put(%{parent: self(), result: {:error, {:missing_contracts, [:settings]}}})
+
+    {coordinator, ref} = monitored_coordinator()
+
+    assert_receive {:DOWN, ^ref, :process, ^coordinator,
+                    {:composition_failed, {:missing_contracts, [:settings]}}}
+
+    assert_receive {:contract_bind, _providers, _digest, _barrier}
+    refute_receive {:open, _, _, _}
+  end
+
+  test "the shipped residual pack supplies every contract in the closed set" do
+    # The binder rejects an incomplete set, so a contract added to the kernel
+    # without an owner supplying it would fail composition at boot. Assert the
+    # pairing here rather than discovering it as a startup failure.
+    declared = AllbertAssist.Pack.Residual.kernel_contracts()
+
+    assert Enum.map(declared, &elem(&1, 0)) |> Enum.sort() ==
+             AllbertAssist.Kernel.Contract.ids()
+
+    for {contract, implementation} <- declared do
+      assert Code.ensure_loaded?(implementation)
+
+      for {fun, arity} <- AllbertAssist.Kernel.Contract.required_callbacks(contract) do
+        assert function_exported?(implementation, fun, arity),
+               "#{inspect(implementation)} does not export #{fun}/#{arity} for #{contract}"
+      end
+    end
   end
 
   test "builder rejection fails closed before finalization or epoch open" do
@@ -357,7 +422,8 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorTest do
         plugin_registry: PluginRegistryStub,
         candidate_builder: CandidateBuilderStub,
         pack_registry: PackRegistryStub,
-        readiness: ReadinessStub
+        readiness: ReadinessStub,
+        contract_owner: ContractOwnerStub
       )
 
     on_exit(fn ->

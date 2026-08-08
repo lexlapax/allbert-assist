@@ -67,8 +67,11 @@ if Mix.env() == :test do
     def from_external_request_summary(_summary), do: []
 
     # response_values
+    def decision?(_term), do: false
     def decision_to_map(_decision), do: %{}
     def decision_diagnostics(_decision), do: []
+    def decision_resource_access_maps(_decision), do: []
+    def decision_approval_handoff_map(_decision), do: nil
     def resource_access_to_maps(_entries), do: []
     def approval_handoff_to_map(_handoff), do: nil
 

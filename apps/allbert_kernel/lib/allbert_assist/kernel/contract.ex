@@ -66,8 +66,11 @@ defmodule AllbertAssist.Kernel.Contract do
     release_availability: [ensure_live_use_allowed: 2],
     resource_refs: [from_external_request_summary: 1],
     response_values: [
+      decision?: 1,
       decision_to_map: 1,
       decision_diagnostics: 1,
+      decision_resource_access_maps: 1,
+      decision_approval_handoff_map: 1,
       resource_access_to_maps: 1,
       approval_handoff_to_map: 1
     ],

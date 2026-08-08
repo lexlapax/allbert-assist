@@ -94,6 +94,28 @@ defmodule AllbertAssist.Pack.Residual do
   @impl true
   def settings_fragments, do: @settings_fragment_modules
 
+  # The kernel concerns relocating at M8 read facts and perform effects that
+  # still live here. Each row names the residual adapter that answers for one
+  # sealed contract; composition pairs them with this pack's own application and
+  # the binder validates the complete set before readiness opens. A row leaves
+  # this list when its subsystem extracts into a pack that answers for itself.
+  @impl true
+  def kernel_contracts do
+    [
+      {:actions_overlay, AllbertAssist.Pack.Contracts.ActionsOverlay},
+      {:confirmations, AllbertAssist.Pack.Contracts.Confirmations},
+      {:grants, AllbertAssist.Pack.Contracts.Grants},
+      {:home_roots, AllbertAssist.Pack.Contracts.HomeRoots},
+      {:membership, AllbertAssist.Pack.Contracts.Membership},
+      {:release_availability, AllbertAssist.Pack.Contracts.ReleaseAvailability},
+      {:resource_refs, AllbertAssist.Pack.Contracts.ResourceRefs},
+      {:response_values, AllbertAssist.Pack.Contracts.ResponseValues},
+      {:settings, AllbertAssist.Pack.Contracts.Settings},
+      {:signals, AllbertAssist.Pack.Contracts.Signals},
+      {:skills, AllbertAssist.Pack.Contracts.Skills}
+    ]
+  end
+
   @impl true
   def test_lanes do
     [
