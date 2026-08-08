@@ -3,6 +3,8 @@ defmodule AllbertAssist.Kernel.ContractTest do
   # duration rather than sharing it with a concurrent test.
   use ExUnit.Case, async: false
 
+  @moduletag :global_process_serial
+
   alias AllbertAssist.Kernel.Contract
   alias AllbertAssist.Kernel.Contract.Binding
   alias AllbertAssist.Kernel.Contract.TestProviders

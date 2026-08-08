@@ -1,6 +1,8 @@
 defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   alias AllbertAssist.DevGates.V14M71ClosureLedger, as: Ledger
 
   @registry "apps/allbert_assist/lib/allbert_assist/actions/registry.ex"
