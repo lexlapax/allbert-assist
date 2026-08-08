@@ -2,8 +2,8 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
   use ExUnit.Case, async: false
 
   # v1.0.2 M1 lane reconciliation: this file previously carried NO primary lane
-  # tag. It reads (and, since M1, seeds) the global Plugin registry — a fixed
-  # named process — so its lane is :global_process_serial. The checker's
+  # tag. It reads the global Plugin registry — a fixed named process — so its
+  # lane is :global_process_serial. The checker's
   # :external_runtime_serial suggestion is a heuristic miss: nothing here uses
   # Docker, browsers, stdio ports, providers, or other OS resources.
   @moduletag :global_process_serial
@@ -11,7 +11,6 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Intent.Eval.Corpus
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   # v1.0.2 M1 residue (d): the committed 295-case corpus and its pinned release
   # baseline predate two static registry additions that never received corpus
@@ -47,31 +46,18 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
                                    ])
 
   setup do
-    # v1.0.2 M1 residue (d): `Registry.agent_modules/0` and
-    # `internal_capabilities/0` fold in actions from the GLOBAL plugin
-    # registry, so solo-vs-batch registry contents flipped the action-coverage
-    # assertions. Seed the deterministic baseline the committed corpus is
-    # baselined against (stocksage + notes_files + browser, mirroring
-    # intent/engine_test.exs); restore prior registrations after.
-    original_diagnostics = PluginRegistry.diagnostics()
+    # M1.a3: the corpus reads the shipped global catalog but must not mutate it.
+    # A registry write invalidates the exact active epoch and makes later
+    # historical fixture effects correctly fail closed.
+    shipped_ids =
+      PluginRegistry.registered_plugins()
+      |> Enum.map(& &1.plugin_id)
+      |> MapSet.new()
 
-    PluginRegistry.clear()
-    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
-
-    assert {:ok, "allbert.notes_files"} =
-             PluginRegistry.register_module(AllbertNotesFiles.Plugin)
-
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-
-    on_exit(fn ->
-      # v1.0.2 M8 drift-fix: shipped-baseline convergence (a snapshot restore
-      # re-applies earlier damage — M2 sweep class; out-of-scope straggler).
-      ShippedRegistries.restore!()
-
-      Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
-        PluginRegistry.put_diagnostics(plugin_id, diagnostics)
-      end)
-    end)
+    assert MapSet.subset?(
+             MapSet.new(["stocksage", "allbert.notes_files", "allbert.browser"]),
+             shipped_ids
+           )
 
     :ok
   end

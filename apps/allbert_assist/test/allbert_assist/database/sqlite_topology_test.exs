@@ -23,7 +23,9 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
   ]
 
   @approved_transaction_calls %{
-    "apps/allbert_assist/lib/allbert_assist/conversations.ex" => 4,
+    # v1.4 M1.a3 adds the immediate inbound-admission transaction so exact E1
+    # validation and the message/thread mutation share one rollback boundary.
+    "apps/allbert_assist/lib/allbert_assist/conversations.ex" => 5,
     "apps/allbert_assist/lib/allbert_assist/conversations/channel_thread.ex" => 2,
     "apps/allbert_assist/lib/allbert_assist/conversations/corpus.ex" => 3,
     "apps/allbert_assist/lib/allbert_assist/conversations/deletion.ex" => 1,
@@ -31,7 +33,9 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
     "apps/allbert_assist/lib/allbert_assist/jobs/managed.ex" => 2,
     "apps/allbert_assist/lib/allbert_assist/memory/proposal_review.ex" => 4,
     "apps/allbert_assist/lib/allbert_assist/memory/proposals.ex" => 4,
-    "apps/allbert_assist/lib/allbert_assist/objectives.ex" => 1,
+    # v1.4 M1.a3 validates the carried epoch again before committing stale
+    # objective abandonment, inside the same immediate transaction.
+    "apps/allbert_assist/lib/allbert_assist/objectives.ex" => 2,
     "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex" => 7,
     "apps/allbert_assist/lib/allbert_assist/objectives/fanout.ex" => 2,
     # v1.3 M9.b.12.c. Raised 3 -> 7 after review, not to make the census pass.

@@ -23,7 +23,6 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
 
   defmodule InvalidDescriptorPlugin do
@@ -129,18 +128,20 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
       end
     )
 
-    PluginRegistry.clear()
+    # M1.a3: consume the shipped channel catalog without mutating global
+    # metadata; a setup-time registry rebuild would revoke the request epoch.
+    shipped_ids =
+      PluginRegistry.registered_plugins()
+      |> Enum.map(& &1.plugin_id)
+      |> MapSet.new()
 
-    assert {:ok, "allbert.telegram"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    assert MapSet.subset?(
+             MapSet.new(
+               ~w[allbert.telegram allbert.email allbert.matrix allbert.whatsapp allbert.signal]
+             ),
+             shipped_ids
+           )
 
-    assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    assert {:ok, "allbert.matrix"} = PluginRegistry.register_module(AllbertAssist.Plugins.Matrix)
-
-    assert {:ok, "allbert.whatsapp"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.WhatsApp)
-
-    assert {:ok, "allbert.signal"} = PluginRegistry.register_module(AllbertAssist.Plugins.Signal)
     Fragments.clear_cache()
     RateLimiter.reset_for_test()
 
@@ -152,7 +153,6 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       RateLimiter.reset_for_test()
       File.rm_rf!(root)

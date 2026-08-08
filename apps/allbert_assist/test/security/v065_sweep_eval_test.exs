@@ -29,7 +29,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertNotesFiles.Actions.WriteNote
 
   @now "2026-05-28T12:00:00Z"
@@ -65,7 +64,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     original_memory = Application.get_env(:allbert_assist, Memory)
     original_settings = Application.get_env(:allbert_assist, Settings)
     original_confirmations = Application.get_env(:allbert_assist, Confirmations)
-    notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     home =
       Path.join(
@@ -80,12 +78,15 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(home, "confirmations"))
     {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root())
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
+    # M1.a3: historical eval setup is read-only against the shipped catalog.
+    # Repairing the global registries here invalidates the active exact epoch
+    # before the projection rebuild that this sentinel is meant to exercise.
+    assert Enum.any?(
+             PluginRegistry.registered_plugins(),
+             &(&1.plugin_id == "allbert.notes_files")
+           )
 
-    unless notes_app_registered? do
-      assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
-    end
+    assert AppRegistry.known_app_id?(:notes_files)
 
     notes_root = Path.join(home, "launch-notes")
     File.mkdir_p!(notes_root)
@@ -96,7 +97,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
       restore_env(Memory, original_memory)
       restore_env(Settings, original_settings)
       restore_env(Confirmations, original_confirmations)
-      ShippedRegistries.restore!()
       File.rm_rf!(home)
     end)
 
