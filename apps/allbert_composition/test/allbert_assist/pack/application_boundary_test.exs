@@ -9,7 +9,7 @@ defmodule AllbertAssist.Pack.ApplicationBoundaryTest do
 
   alias AllbertAssist.Umbrella.MixProject
 
-  test "composition is a descriptorless host with only downward Allbert dependencies" do
+  test "composition is a descriptorless Pack host with an OTP owner and only downward dependencies" do
     spec = Application.spec(:allbert_composition)
     applications = Keyword.fetch!(spec, :applications)
     env = Keyword.get(spec, :env, [])
@@ -18,7 +18,7 @@ defmodule AllbertAssist.Pack.ApplicationBoundaryTest do
     assert :allbert_assist in applications
     refute :allbert_assist_web in applications
     refute Keyword.has_key?(env, :allbert_pack)
-    assert Keyword.get(spec, :mod) in [nil, []]
+    assert Keyword.fetch!(spec, :mod) == {AllbertComposition.Application, []}
   end
 
   test "release starts kernel, residual, composition, then Web" do
