@@ -110,7 +110,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   test "returns the canonical runtime action names in stable order", %{
     registry_context: context
   } do
-    assert Registry.names(context) == [
+    assert Enum.take(Registry.names(context), 244) == [
              "direct_answer",
              "append_memory",
              "read_recent_memory",
@@ -357,6 +357,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "ensure_voice_token"
            ]
 
+    assert length(Registry.names(context)) == 281
     assert Registry.duplicate_names(context) == []
   end
 
@@ -427,7 +428,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Enum.map(Registry.agent_capabilities(context), & &1.name) ==
              Enum.map(Registry.agent_modules(context), & &1.name())
 
-    assert Enum.map(Registry.internal_capabilities(context), & &1.name) == [
+    assert Registry.internal_capabilities(context)
+           |> Enum.map(& &1.name)
+           |> Enum.take(191) == [
              "read",
              "grep",
              "glob",
@@ -1232,21 +1235,15 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute Registry.registered_module?(Multiply)
   end
 
-  test "stamps app ids onto capabilities for registered app actions", %{
+  test "metadata registration cannot mutate finalized action ownership", %{
     registry_context: context
   } do
     assert :action_tagging_app = Fixtures.register_app!(context, ActionTaggingApp)
 
     assert {:ok, direct_answer} = Registry.capability("direct_answer", context)
-    assert direct_answer.app_id == :action_tagging_app
-
-    assert %{app_id: :action_tagging_app} = Capability.summary(direct_answer)
-
-    assert [%{name: "direct_answer", app_id: :action_tagging_app}] =
-             Enum.map(
-               Registry.capabilities_for_app(:action_tagging_app, context),
-               &Capability.summary/1
-             )
+    assert direct_answer.app_id == nil
+    refute Map.has_key?(Capability.summary(direct_answer), :app_id)
+    assert Registry.capabilities_for_app(:action_tagging_app, context) == []
 
     assert Registry.capabilities_for_app(:missing_app, context) == []
   end
@@ -1305,7 +1302,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert plugin_action_signal.data.plugin_id == "example.signals"
   end
 
-  test "merges plugin-contributed actions with capability provenance", %{
+  test "Plugin metadata cannot bypass finalized action authority", %{
     registry_context: context
   } do
     assert "example.actions" =
@@ -1320,20 +1317,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
                actions: [PluginEcho]
              })
 
-    assert "plugin_echo" in Registry.names(context)
-    assert {:ok, PluginEcho} = Registry.resolve("plugin_echo", context)
-    assert Registry.registered_module?(PluginEcho, context)
-    assert PluginEcho in Registry.agent_modules(context)
-
-    assert {:ok, capability} = Registry.capability("plugin_echo", context)
-    assert capability.permission == :read_only
-    assert capability.exposure == :agent
-    assert capability.plugin_id == "example.actions"
-
-    assert %{plugin_id: "example.actions"} = Capability.summary(capability)
+    refute "plugin_echo" in Registry.names(context)
+    assert {:error, {:unknown_action, "plugin_echo"}} = Registry.resolve("plugin_echo", context)
+    refute Registry.registered_module?(PluginEcho, context)
+    refute PluginEcho in Registry.agent_modules(context)
   end
 
-  test "rejects duplicate plugin action names with diagnostics", %{
+  test "duplicate Plugin metadata cannot alter finalized resolution", %{
     registry_context: context
   } do
     assert "example.duplicate_action" =
@@ -1352,14 +1342,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute Registry.registered_module?(DuplicateDirectAnswer, context)
     assert Registry.duplicate_names(context) == []
 
-    assert [
-             %{
-               plugin_id: "example.duplicate_action",
-               kind: :duplicate_action_name,
-               action_name: "direct_answer",
-               action_module: DuplicateDirectAnswer
-             }
-           ] = Registry.diagnostics(context)
+    assert Registry.diagnostics(context) == []
   end
 
   test "projects the static catalog without live registry provenance" do

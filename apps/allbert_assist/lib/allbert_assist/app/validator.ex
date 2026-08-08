@@ -1,9 +1,8 @@
 defmodule AllbertAssist.App.Validator do
   @moduledoc false
 
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Maps
-  alias AllbertAssist.Pack.CompiledInventory
+  alias AllbertAssist.Pack.{ActionCatalog, CompiledInventory}
 
   @required_exports [
     app_id: 0,
@@ -194,9 +193,12 @@ defmodule AllbertAssist.App.Validator do
   end
 
   defp validate_action_module(action) when is_atom(action) do
-    case ActionsRegistry.resolve(action) do
-      {:ok, ^action} -> :ok
-      _error -> {:error, {:unknown_action_module, action}}
+    case ActionCatalog.compiled_modules() do
+      {:ok, modules} ->
+        if action in modules, do: :ok, else: {:error, {:unknown_action_module, action}}
+
+      _error ->
+        {:error, {:unknown_action_module, action}}
     end
   end
 

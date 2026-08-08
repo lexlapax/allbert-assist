@@ -241,19 +241,17 @@ defmodule AllbertAssist.RegistryContextTest do
       refute AppRegistry.known_app_id?(:registry_context_app_b, context_a[:app])
       refute AppRegistry.known_app_id?(:registry_context_app_b)
 
-      # Plugin-contributed action modules and names stay context-local.
-      assert "registry_context_probe_a" in ActionsRegistry.names(context_a)
+      # Metadata-only registrations cannot mutate finalized action authority.
+      refute "registry_context_probe_a" in ActionsRegistry.names(context_a)
       refute "registry_context_probe_b" in ActionsRegistry.names(context_a)
-      assert "registry_context_probe_b" in ActionsRegistry.names(context_b)
+      refute "registry_context_probe_b" in ActionsRegistry.names(context_b)
       refute "registry_context_probe_a" in ActionsRegistry.names(context_b)
       refute "registry_context_probe_a" in ActionsRegistry.names()
       refute "registry_context_probe_b" in ActionsRegistry.names()
 
-      # Capability resolution and plugin provenance stay context-local.
-      assert {:ok, capability_a} =
+      # Unfinalized metadata never creates a resolvable capability.
+      assert {:error, {:unknown_action, _}} =
                ActionsRegistry.capability("registry_context_probe_a", context_a)
-
-      assert capability_a.plugin_id == "registry_context.plugin_a"
 
       assert {:error, {:unknown_action, _}} =
                ActionsRegistry.capability("registry_context_probe_a", context_b)
@@ -261,13 +259,12 @@ defmodule AllbertAssist.RegistryContextTest do
       assert {:error, {:unknown_action, _}} =
                ActionsRegistry.capability("registry_context_probe_a")
 
-      # App provenance: the same static action resolves to each context's app.
+      # App metadata cannot restamp ownership after Pack finalization.
       assert {:ok, direct_answer_a} = ActionsRegistry.capability(DirectAnswer, context_a)
-      assert direct_answer_a.app_id == :registry_context_app_a
       assert {:ok, direct_answer_b} = ActionsRegistry.capability(DirectAnswer, context_b)
-      assert direct_answer_b.app_id == :registry_context_app_b
       assert {:ok, direct_answer_global} = ActionsRegistry.capability(DirectAnswer)
-      refute direct_answer_global.app_id in [:registry_context_app_a, :registry_context_app_b]
+      assert direct_answer_a.app_id == direct_answer_global.app_id
+      assert direct_answer_b.app_id == direct_answer_global.app_id
 
       # Descriptors from the app modules stay context-local.
       descriptors_a = ExtensionsRegistry.registered_intent_descriptors(context_a)
@@ -295,15 +292,14 @@ defmodule AllbertAssist.RegistryContextTest do
       refute Enum.any?(candidates_global, &match?(%{action_name: "registry_context_probe_a"}, &1))
       refute Enum.any?(candidates_global, &match?(%{action_name: "registry_context_probe_b"}, &1))
 
-      # Diagnostics stay context-local: a plugin action colliding with a static
-      # action name is diagnosed only inside the context that registered it.
+      # A metadata-only collision does not alter finalized action diagnostics.
       Fixtures.register_plugin!(
         context_a,
         plugin_entry("registry_context.collision_a", [ContextProbeA])
       )
 
       diagnostics_a = ActionsRegistry.diagnostics(context_a)
-      assert Enum.any?(diagnostics_a, &(&1[:plugin_id] == "registry_context.collision_a"))
+      refute Enum.any?(diagnostics_a, &(&1[:plugin_id] == "registry_context.collision_a"))
 
       refute Enum.any?(
                ActionsRegistry.diagnostics(context_b),

@@ -1,11 +1,11 @@
 defmodule AllbertAssist.Pack.CandidateBuilder.ActionAssembly do
   @moduledoc false
 
-  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Objectives.CanonicalJSON
 
   alias AllbertAssist.Pack.{
     ActionBinding,
+    ActionProjection,
     CompatibilityAlias,
     PathSegment,
     Row,
@@ -32,7 +32,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ActionAssembly do
 
   def build(apps, plugins, opts) when is_list(apps) and is_list(plugins) and is_list(opts) do
     with {:ok, static} <- static_projection(opts),
-         {:ok, projection} <- Registry.candidate_projection(static, apps, plugins),
+         {:ok, projection} <- ActionProjection.build(static, apps, plugins),
          {:ok, bindings} <- bindings(projection.effective, length(static)),
          {:ok, rows, aliases} <- rows_and_aliases(projection.plugin_declarations, bindings) do
       families = %{RowFamilies.empty() | actions: rows}
@@ -48,7 +48,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ActionAssembly do
   defp static_projection(opts) do
     case Keyword.fetch(opts, :static_projection) do
       {:ok, projection} when is_list(projection) -> {:ok, projection}
-      :error -> Registry.static_projection()
+      :error -> ActionProjection.static()
       _ -> invalid(:invalid_static_projection)
     end
   end

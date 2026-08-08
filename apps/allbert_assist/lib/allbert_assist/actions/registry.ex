@@ -9,8 +9,10 @@ defmodule AllbertAssist.Actions.Registry do
 
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.Registry.CandidateProjection
+  alias AllbertAssist.Actions.SnapshotCatalog
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Pack.{ActionCatalog, PathSegment, ValidationDiagnostic}
+  alias AllbertAssist.Pack.Registry, as: PackRegistry
 
   alias AllbertAssist.Actions.Apps.ListApps
   alias AllbertAssist.Actions.Apps.ShowApp
@@ -564,7 +566,7 @@ defmodule AllbertAssist.Actions.Registry do
   @spec static_projection() :: {:ok, [map()]} | {:error, [ValidationDiagnostic.t()]}
   def static_projection do
     case ActionCatalog.residual_modules() do
-      {:ok, modules} ->
+      {:ok, modules} when modules == @actions ->
         modules
         |> Enum.with_index(1)
         |> Enum.reduce_while({:ok, []}, fn {module, legacy_index}, {:ok, projections} ->
@@ -577,6 +579,9 @@ defmodule AllbertAssist.Actions.Registry do
           {:ok, projections} -> {:ok, Enum.reverse(projections)}
           error -> error
         end)
+
+      {:ok, _modules} ->
+        {:error, [projection_diagnostic(:compiled_action_inventory_mismatch)]}
 
       {:error, reason} ->
         {:error, [projection_diagnostic(reason)]}
@@ -609,20 +614,14 @@ defmodule AllbertAssist.Actions.Registry do
 
   @doc "Return registered runtime action modules in stable display order."
   @spec modules(keyword()) :: nonempty_list(module())
-  def modules(opts \\ []), do: @actions ++ plugin_actions(opts) ++ dynamic_actions(opts)
+  def modules(opts \\ []),
+    do: SnapshotCatalog.modules(pack_snapshot(opts)) ++ dynamic_actions(opts)
 
   @doc "Return action modules that can be exposed to the intent agent."
   @spec agent_modules(keyword()) :: nonempty_list(module())
   def agent_modules(opts \\ []) do
-    @agent_actions ++
-      Enum.filter(plugin_actions(opts), fn module ->
-        module
-        |> module_capability_attrs()
-        |> case do
-          {:ok, attrs} -> attrs.exposure == :agent
-          {:error, _reason} -> false
-        end
-      end) ++ ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
+    SnapshotCatalog.agent_modules(pack_snapshot(opts)) ++
+      ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
   end
 
   @doc "Return registered action names in stable display order."
@@ -631,30 +630,30 @@ defmodule AllbertAssist.Actions.Registry do
 
   @doc "Return canonical capability metadata for all registered actions."
   @spec capabilities(keyword()) :: [Capability.t()]
-  def capabilities(opts \\ []), do: Enum.map(modules(opts), &capability_for_module!(&1, opts))
+  def capabilities(opts \\ []) do
+    SnapshotCatalog.capabilities(pack_snapshot(opts)) ++ dynamic_capabilities(opts)
+  end
 
   @doc "Return canonical capability metadata for intent-agent actions."
   @spec agent_capabilities(keyword()) :: [Capability.t()]
-  def agent_capabilities(opts \\ []),
-    do: Enum.map(agent_modules(opts), &capability_for_module!(&1, opts))
+  def agent_capabilities(opts \\ []) do
+    snapshot = pack_snapshot(opts)
+    overlay_agent_modules = ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
+
+    SnapshotCatalog.agent_capabilities(snapshot) ++
+      Enum.map(overlay_agent_modules, &capability_for_module!(&1, opts))
+  end
 
   @doc "Return canonical capability metadata for internal-only actions."
   @spec internal_capabilities(keyword()) :: [Capability.t()]
   def internal_capabilities(opts \\ []) do
-    internal_plugin_actions =
-      Enum.reject(plugin_actions(opts), fn module ->
-        module in agent_modules(opts)
-      end)
-
     dynamic_internal_actions =
       Enum.reject(dynamic_actions(opts), fn module ->
         module in ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
       end)
 
-    Enum.map(
-      @internal_actions ++ internal_plugin_actions ++ dynamic_internal_actions,
-      &capability_for_module!(&1, opts)
-    )
+    SnapshotCatalog.internal_capabilities(pack_snapshot(opts)) ++
+      Enum.map(dynamic_internal_actions, &capability_for_module!(&1, opts))
   end
 
   @doc "Return action capabilities contributed by one registered app."
@@ -662,10 +661,10 @@ defmodule AllbertAssist.Actions.Registry do
   def capabilities_for_app(app_id, opts \\ [])
 
   def capabilities_for_app(app_id, opts) when is_atom(app_id) do
-    app_id
-    |> AppRegistry.actions_for(RegistryContext.app_opts(opts))
-    |> Kernel.++(ActionsOverlay.actions_for_app(app_id, RegistryContext.overlay_server(opts)))
-    |> Enum.map(&capability_for_module!(&1, opts))
+    SnapshotCatalog.capabilities_for_app(pack_snapshot(opts), app_id) ++
+      (app_id
+       |> ActionsOverlay.actions_for_app(RegistryContext.overlay_server(opts))
+       |> Enum.map(&capability_for_module!(&1, opts)))
   end
 
   def capabilities_for_app(_app_id, _opts), do: []
@@ -676,17 +675,18 @@ defmodule AllbertAssist.Actions.Registry do
   def resolve(action, opts \\ [])
 
   def resolve(action, opts) when is_atom(action) do
-    if action in modules(opts) do
-      {:ok, action}
-    else
-      action
-      |> Atom.to_string()
-      |> String.replace_prefix("Elixir.", "")
-      |> resolve_name(action, opts)
+    case SnapshotCatalog.resolve(pack_snapshot(opts), action) do
+      {:ok, module} -> {:ok, module}
+      {:error, _reason} -> resolve_dynamic(action, opts)
     end
   end
 
-  def resolve(action, opts) when is_binary(action), do: resolve_name(action, action, opts)
+  def resolve(action, opts) when is_binary(action) do
+    case SnapshotCatalog.resolve(pack_snapshot(opts), action) do
+      {:ok, module} -> {:ok, module}
+      {:error, _reason} -> resolve_dynamic(action, opts)
+    end
+  end
 
   def resolve(action, _opts), do: {:error, {:unknown_action, action}}
 
@@ -694,8 +694,14 @@ defmodule AllbertAssist.Actions.Registry do
   @spec capability(module() | String.t() | atom(), keyword()) ::
           {:ok, Capability.t()} | {:error, {:unknown_action, term()}}
   def capability(action, opts \\ []) do
-    with {:ok, module} <- resolve(action, opts) do
-      {:ok, capability_for_module!(module, opts)}
+    case SnapshotCatalog.capability(pack_snapshot(opts), action) do
+      {:ok, capability} ->
+        {:ok, capability}
+
+      {:error, _reason} ->
+        with {:ok, module} <- resolve_dynamic(action, opts) do
+          {:ok, capability_for_module!(module, opts)}
+        end
     end
   end
 
@@ -724,8 +730,7 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Return action registry diagnostics, including plugin action collisions."
   @spec diagnostics(keyword()) :: [map()]
   def diagnostics(opts \\ []) do
-    plugin_action_diagnostics(opts) ++
-      ActionsOverlay.diagnostics(RegistryContext.overlay_server(opts))
+    ActionsOverlay.diagnostics(RegistryContext.overlay_server(opts))
   end
 
   @doc "Emit an advisory action-registry-changed signal for index subscribers."
@@ -738,29 +743,6 @@ defmodule AllbertAssist.Actions.Registry do
       |> Map.put(:agent_action_count, length(agent_modules()))
 
     Signals.emit_registration(:action_registry_changed, metadata)
-  end
-
-  # M8.8: resolve walked the FULL catalog re-normalizing every action name
-  # per lookup — 110k normalize_name calls inside one Engine.decide (eprof).
-  # The static catalog is compile-constant and ordered ahead of plugin/
-  # dynamic modules, so a first-match static index answers most lookups in
-  # O(1) with identical resolution semantics; only misses scan the (small,
-  # registry-context-dependent) plugin + dynamic tail.
-  defp resolve_name(name, original, opts) do
-    normalized = normalize_name(name)
-
-    case Map.fetch(static_name_index(), normalized) do
-      {:ok, module} ->
-        {:ok, module}
-
-      :error ->
-        plugin_and_dynamic = plugin_actions(opts) ++ dynamic_actions(opts)
-
-        case Enum.find(plugin_and_dynamic, &(normalize_name(&1.name()) == normalized)) do
-          nil -> {:error, {:unknown_action, original}}
-          module -> {:ok, module}
-        end
-    end
   end
 
   defp capability_for_module!(module, opts) do
@@ -795,102 +777,48 @@ defmodule AllbertAssist.Actions.Registry do
     end
   end
 
-  defp plugin_actions(opts) do
-    entries = plugin_action_entries(opts)
-    static_names = static_action_names()
-    duplicate_names = duplicate_plugin_action_names(entries)
+  defp pack_snapshot(opts) do
+    case PackRegistry.snapshot(RegistryContext.pack_opts(opts)) do
+      {:ok, snapshot} -> snapshot
+      {:error, _reason} -> nil
+    end
+  end
 
-    entries
-    |> Enum.reject(&plugin_action_duplicate?(&1, static_names, duplicate_names))
-    |> Enum.map(& &1.module)
+  defp dynamic_capabilities(opts) do
+    Enum.map(dynamic_actions(opts), &capability_for_module!(&1, opts))
+  end
+
+  defp resolve_dynamic(action, opts) do
+    modules = dynamic_actions(opts)
+
+    cond do
+      is_atom(action) and action in modules ->
+        {:ok, action}
+
+      is_atom(action) ->
+        action
+        |> Atom.to_string()
+        |> String.replace_prefix("Elixir.", "")
+        |> resolve_dynamic_name(action, modules)
+
+      is_binary(action) ->
+        resolve_dynamic_name(action, action, modules)
+
+      true ->
+        {:error, {:unknown_action, action}}
+    end
+  end
+
+  defp resolve_dynamic_name(name, original, modules) do
+    normalized = normalize_name(name)
+
+    case Enum.find(modules, &(normalize_name(&1.name()) == normalized)) do
+      nil -> {:error, {:unknown_action, original}}
+      module -> {:ok, module}
+    end
   end
 
   defp dynamic_actions(opts), do: ActionsOverlay.modules(RegistryContext.overlay_server(opts))
-
-  defp plugin_action_entries(opts) do
-    opts
-    |> RegistryContext.plugin_opts()
-    |> PluginRegistry.registered_plugins()
-    |> Enum.flat_map(fn plugin ->
-      plugin.actions
-      |> Enum.filter(&valid_plugin_action?/1)
-      |> Enum.reject(&(&1 in @actions))
-      |> Enum.map(&%{plugin_id: plugin.plugin_id, module: &1, name: normalize_name(&1.name())})
-    end)
-  end
-
-  defp plugin_action_duplicate?(entry, static_names, duplicate_names) do
-    MapSet.member?(static_names, entry.name) or MapSet.member?(duplicate_names, entry.name)
-  end
-
-  defp plugin_action_diagnostics(opts) do
-    entries = plugin_action_entries(opts)
-    static_names = static_action_names()
-    duplicate_names = duplicate_plugin_action_names(entries)
-
-    entries
-    |> Enum.filter(&plugin_action_duplicate?(&1, static_names, duplicate_names))
-    |> Enum.map(fn entry ->
-      %{
-        plugin_id: entry.plugin_id,
-        kind: :duplicate_action_name,
-        severity: :error,
-        message: "Plugin action name collides with another registered action.",
-        action_name: entry.name,
-        action_module: entry.module
-      }
-    end)
-  end
-
-  defp duplicate_plugin_action_names(entries) do
-    entries
-    |> Enum.map(& &1.name)
-    |> Enum.frequencies()
-    |> Enum.filter(fn {_name, count} -> count > 1 end)
-    |> Enum.map(fn {name, _count} -> name end)
-    |> MapSet.new()
-  end
-
-  # M8.8: both derivations below are pure functions of the compile-constant
-  # @actions list, yet were recomputed on every modules/1 and resolve call
-  # (plugin_actions/1 alone re-normalized the whole static catalog per
-  # invocation). Memoized in persistent_term; no invalidation is needed —
-  # the inputs cannot change without a recompile.
-  @static_names_key {__MODULE__, :static_action_names}
-  @static_index_key {__MODULE__, :static_name_index}
-
-  defp static_action_names do
-    case :persistent_term.get(@static_names_key, nil) do
-      nil ->
-        names = @actions |> Enum.map(&normalize_name(&1.name())) |> MapSet.new()
-        :persistent_term.put(@static_names_key, names)
-        names
-
-      names ->
-        names
-    end
-  end
-
-  defp static_name_index do
-    case :persistent_term.get(@static_index_key, nil) do
-      nil ->
-        index =
-          Enum.reduce(@actions, %{}, fn module, acc ->
-            Map.put_new(acc, normalize_name(module.name()), module)
-          end)
-
-        :persistent_term.put(@static_index_key, index)
-        index
-
-      index ->
-        index
-    end
-  end
-
-  defp valid_plugin_action?(module) do
-    Code.ensure_loaded?(module) and function_exported?(module, :name, 0) and
-      match?({:ok, _attrs}, module_capability_attrs(module))
-  end
 
   # Candidate projection helpers intentionally take only values captured by the
   # Pack barrier. They must stay independent from the live registry helpers

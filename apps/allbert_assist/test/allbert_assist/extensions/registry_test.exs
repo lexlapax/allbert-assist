@@ -2,23 +2,15 @@ defmodule AllbertAssist.Extensions.RegistryTest do
   use ExUnit.Case, async: false
   @moduletag :home_fs_serial
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DevGates.V14M0RegistryLedger
   alias AllbertAssist.Extensions.Registry
   alias AllbertAssist.Plugin.Entry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
   setup do
-    PluginRegistry.clear()
-
-    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
-
-    app_registered? = AppRegistry.known_app_id?(:stocksage)
-
-    unless app_registered? do
-      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
-    end
+    context = Fixtures.start_isolated_registries(:extensions_registry)
+    assert "stocksage" = Fixtures.register_plugin!(context, StockSage.Plugin)
+    assert :stocksage = Fixtures.register_app!(context, StockSage.App)
 
     entry = %Entry{
       plugin_id: "m7.example",
@@ -34,17 +26,14 @@ defmodule AllbertAssist.Extensions.RegistryTest do
       children: {Task, fn -> :ok end}
     }
 
-    assert {:ok, "m7.example"} = PluginRegistry.register_entry(entry)
-
-    on_exit(fn ->
-      ShippedRegistries.restore!()
-    end)
-
-    :ok
+    assert "m7.example" = Fixtures.register_plugin!(context, entry)
+    {:ok, registry_context: context}
   end
 
-  test "aggregates app and plugin contribution surfaces through one facade" do
-    contributions = Registry.contributions()
+  test "aggregates app and plugin contribution surfaces through one facade", %{
+    registry_context: context
+  } do
+    contributions = Registry.contributions(context)
 
     assert Enum.any?(contributions.apps, &(&1.app_id == :stocksage))
     assert Enum.any?(contributions.plugins, &(&1.plugin_id == "m7.example"))
@@ -60,38 +49,44 @@ defmodule AllbertAssist.Extensions.RegistryTest do
     assert contributions.diagnostics.plugins |> is_map()
   end
 
-  test "aggregates actions, settings, skill roots, and child specs" do
+  test "aggregates actions, settings, skill roots, and child specs", %{
+    registry_context: context
+  } do
     assert Enum.any?(
-             Registry.registered_actions(),
+             Registry.registered_actions(context),
              &(&1.source == :app and &1.app_id == :stocksage and
                  &1.module == StockSage.Actions.RunAnalysis)
            )
 
     assert Enum.any?(
-             Registry.registered_actions(),
+             Registry.registered_actions(context),
              &(&1.source == :plugin and &1.plugin_id == "m7.example" and
                  &1.module == AllbertAssist.Actions.Intent.DirectAnswer)
            )
 
     assert Enum.any?(
-             Registry.registered_settings_schema(),
+             Registry.registered_settings_schema(context),
              &(Map.get(&1, :key) == "m7.example.enabled")
            )
 
     assert Enum.any?(
-             Registry.registered_skill_paths(),
+             Registry.registered_skill_paths(context),
              &(Map.get(&1, :plugin_id) == "m7.example" and
                  Map.get(&1, :path) == "/tmp/m7-example-skills")
            )
 
     assert Enum.any?(
-             Registry.registered_child_specs(),
+             Registry.registered_child_specs(context),
              &(Map.get(&1, :plugin_id) == "m7.example")
            )
   end
 
   test "shipped restoration preserves the complete frozen registry projection" do
-    assert :ok = ShippedRegistries.restore!()
+    context = Fixtures.start_shipped_registries(:extensions_shipped_projection)
+    contributions = Registry.contributions(context)
+
+    assert length(contributions.apps) == 6
+    assert length(contributions.plugins) == 13
     assert :ok = V14M0RegistryLedger.check!()
   end
 end

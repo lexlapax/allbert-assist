@@ -9,14 +9,17 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
 
   alias AllbertAssist.Objectives.CanonicalJSON
 
+  alias AllbertAssist.Action
   alias AllbertAssist.Actions.Intent.DirectAnswer
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Actions.Capability
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Pack.{ActionCatalog, ActionProjection}
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings.Fragments
 
   @schema_version 1
@@ -132,8 +135,8 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
 
     %{
       "actions" =>
-        normalize(ActionsRegistry.capabilities()) ==
-          normalize(ActionsRegistry.capabilities(actions_opts)),
+        normalize(legacy_action_capabilities([])) ==
+          normalize(legacy_action_capabilities(actions_opts)),
       "apps" =>
         normalize(AppRegistry.registered_apps()) ==
           normalize(AppRegistry.registered_apps(server: AppRegistry)),
@@ -166,17 +169,25 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   end
 
   defp actions_snapshot do
-    modules = ActionsRegistry.modules()
-
-    static_modules = with_empty_action_sources(&ActionsRegistry.modules/1)
-
+    capabilities = legacy_action_capabilities([])
+    modules = Enum.map(capabilities, & &1.module)
+    static_modules = ActionCatalog.residual_modules() |> value!(:compiled_static_actions)
     dynamic_modules = ActionsOverlay.modules()
     plugin_modules = modules -- (static_modules -- dynamic_modules)
+
+    agent_modules =
+      legacy_static_agent_modules() ++
+        (capabilities
+         |> Enum.filter(&(&1.module in plugin_modules and &1.exposure == :agent))
+         |> Enum.map(& &1.module)) ++
+        ActionsOverlay.agent_modules(ActionsOverlay)
+
+    internal_modules = modules -- agent_modules
 
     definitions = compiled_action_definitions()
 
     {rows, input_schemas, output_schemas} =
-      ActionsRegistry.capabilities()
+      capabilities
       |> Enum.with_index(1)
       |> Enum.reduce({[], %{}, %{}}, fn {capability, index}, {rows, inputs, outputs} ->
         module = capability.module
@@ -211,10 +222,10 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
       "rows" => Enum.reverse(rows),
       "input_schema_catalog" => input_schemas,
       "output_schema_catalog" => output_schemas,
-      "agent_modules" => ActionsRegistry.agent_modules(),
-      "internal_modules" => Enum.map(ActionsRegistry.internal_capabilities(), & &1.module),
-      "duplicate_names" => ActionsRegistry.duplicate_names(),
-      "diagnostics" => ActionsRegistry.diagnostics(),
+      "agent_modules" => agent_modules,
+      "internal_modules" => internal_modules,
+      "duplicate_names" => duplicate_names(modules),
+      "diagnostics" => ActionsOverlay.diagnostics(ActionsOverlay),
       "compiled_definitions" => definitions,
       "definition_completeness" => %{
         "compiled" => length(definitions),
@@ -226,8 +237,8 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         "static" => length(static_modules),
         "plugin_append" => length(plugin_modules),
         "dynamic_overlay" => length(dynamic_modules),
-        "agent" => length(ActionsRegistry.agent_modules()),
-        "internal" => length(ActionsRegistry.internal_capabilities())
+        "agent" => length(agent_modules),
+        "internal" => length(internal_modules)
       }
     }
   end
@@ -466,7 +477,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
             }
           ],
           server: overlay_server,
-          existing_names: ActionsRegistry.names(context)
+          existing_names: legacy_action_names(context)
         )
 
       plugin_registration =
@@ -554,18 +565,12 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
       )
 
     %{
-      "actions" => length(ActionsRegistry.modules(context)),
+      "actions" => length(legacy_action_modules(context)),
       "apps" => length(contributions.apps),
       "plugins" => length(contributions.plugins),
       "extensions_actions" => length(contributions.actions),
       "settings_fragments" => length(Fragments.registered_fragments(context))
     }
-  end
-
-  defp with_empty_action_sources(fun) when is_function(fun, 1) do
-    with_temporary_plugin_and_overlay(fn plugin_server, overlay_server ->
-      fun.(plugin: [server: plugin_server], actions_overlay: overlay_server)
-    end)
   end
 
   defp with_isolated_registries(fun) when is_function(fun, 3) do
@@ -619,6 +624,95 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     if Process.alive?(pid), do: GenServer.stop(pid, :normal, 5_000)
     :ok
   end
+
+  defp legacy_action_capabilities(opts) do
+    Enum.map(legacy_action_modules(opts), &dynamic_capability(&1, opts))
+  end
+
+  defp legacy_action_modules(opts) do
+    static = ActionCatalog.residual_modules() |> value!(:compiled_static_actions)
+    dynamic = ActionsOverlay.modules(RegistryContext.overlay_server(opts))
+    static ++ legacy_plugin_modules(opts, static) ++ dynamic
+  end
+
+  defp legacy_action_names(opts), do: Enum.map(legacy_action_capabilities(opts), & &1.name)
+
+  defp legacy_plugin_modules(opts, static) do
+    static_names = static |> Enum.map(& &1.name()) |> MapSet.new()
+
+    entries =
+      opts
+      |> RegistryContext.plugin_opts()
+      |> PluginRegistry.registered_plugins()
+      |> Enum.flat_map(fn plugin ->
+        plugin.actions
+        |> Enum.filter(&valid_action_module?/1)
+        |> Enum.reject(&(&1 in static))
+        |> Enum.map(&%{module: &1, name: &1.name()})
+      end)
+
+    duplicate_names =
+      entries
+      |> Enum.map(& &1.name)
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_name, count} -> count > 1 end)
+      |> MapSet.new(&elem(&1, 0))
+
+    entries
+    |> Enum.reject(
+      &(MapSet.member?(static_names, &1.name) or MapSet.member?(duplicate_names, &1.name))
+    )
+    |> Enum.map(& &1.module)
+  end
+
+  defp valid_action_module?(module) when is_atom(module) do
+    Code.ensure_loaded?(module) and function_exported?(module, :name, 0) and
+      function_exported?(module, :capability, 0) and is_binary(module.name()) and
+      match?({:ok, _attrs}, module.capability() |> Action.validate_capability())
+  rescue
+    _exception -> false
+  end
+
+  defp valid_action_module?(_module), do: false
+
+  defp dynamic_capability(module, opts) do
+    attrs = module.capability() |> Action.validate_capability() |> value!(:dynamic_capability)
+    capability = Capability.new(module, attrs)
+    app_id = AppRegistry.app_id_for_action(module, RegistryContext.app_opts(opts))
+    plugin_id = PluginRegistry.plugin_id_for_action(module, RegistryContext.plugin_opts(opts))
+
+    capability
+    |> maybe_put(:app_id, app_id)
+    |> maybe_put(:plugin_id, plugin_id)
+  end
+
+  defp legacy_static_agent_modules do
+    projections = ActionProjection.static() |> value!(:historical_static_projection)
+
+    static_boundary =
+      projections
+      |> Enum.filter(&(Map.get(&1.normalized_capability, :exposure) == :agent))
+      |> Enum.map(& &1.registry_order)
+      |> Enum.max(fn -> 0 end)
+
+    projections
+    |> Enum.filter(&(&1.registry_order <= static_boundary))
+    |> Enum.map(& &1.module)
+  end
+
+  defp duplicate_names(modules) do
+    modules
+    |> Enum.map(& &1.name())
+    |> Enum.frequencies()
+    |> Enum.filter(fn {_name, count} -> count > 1 end)
+    |> Enum.map(&elem(&1, 0))
+  end
+
+  defp maybe_put(value, _field, nil), do: value
+  defp maybe_put(value, field, owner), do: Map.put(value, field, owner)
+
+  defp value!({:ok, value}, _label), do: value
+  defp value!(other, label), do: raise("#{label} unavailable: #{inspect(other)}")
 
   defp compiled_action_definitions do
     repo_root()

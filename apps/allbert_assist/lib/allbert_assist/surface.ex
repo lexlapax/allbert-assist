@@ -6,7 +6,7 @@ defmodule AllbertAssist.Surface do
   It is metadata, not executable UI code.
   """
 
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Pack.ActionCatalog
   alias AllbertAssist.Surface.ActionBinding
   alias AllbertAssist.Surface.Catalog
   alias AllbertAssist.Surface.Node
@@ -376,7 +376,7 @@ defmodule AllbertAssist.Surface do
         diagnostic(:unsafe_action_binding, "Action binding contains an unsafe value.")
 
       true ->
-        binding_capability_error(binding, ActionsRegistry.capability(binding.action_name), app_id)
+        binding_capability_error(binding, ActionCatalog.capability(binding.action_name), app_id)
     end
   end
 
@@ -429,7 +429,7 @@ defmodule AllbertAssist.Surface do
   end
 
   defp enrich_binding(binding) do
-    case ActionsRegistry.capability(binding.action_name) do
+    case ActionCatalog.capability(binding.action_name) do
       {:ok, capability} ->
         %{
           binding

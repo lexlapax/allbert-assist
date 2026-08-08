@@ -9,9 +9,26 @@ defmodule AllbertAssist.Pack.ActionCatalog do
   """
 
   alias AllbertAssist.Pack.CompiledInventory
+  alias AllbertAssist.{Action, Actions.Capability}
 
   @spec compiled_modules() :: {:ok, [module()]} | {:error, atom()}
   def compiled_modules, do: CompiledInventory.action_modules()
+
+  @spec capability(module() | String.t() | atom()) ::
+          {:ok, Capability.t()} | {:error, {:unknown_action, term()}}
+  def capability(action) do
+    with {:ok, modules} <- compiled_modules(),
+         module when is_atom(module) <- find_module(modules, action),
+         {:ok, attrs} <- Action.validate_capability(module.capability()) do
+      {:ok, Capability.new(module, attrs)}
+    else
+      _other -> {:error, {:unknown_action, action}}
+    end
+  rescue
+    _exception -> {:error, {:unknown_action, action}}
+  catch
+    _kind, _reason -> {:error, {:unknown_action, action}}
+  end
 
   @spec residual_modules() :: {:ok, [module()]} | {:error, atom()}
   def residual_modules do
@@ -74,5 +91,26 @@ defmodule AllbertAssist.Pack.ActionCatalog do
       true ->
         :ok
     end
+  end
+
+  defp find_module(modules, action) when is_atom(action) do
+    Enum.find(modules, fn module ->
+      module == action or normalize_name(module.name()) == normalize_name(Atom.to_string(action))
+    end)
+  end
+
+  defp find_module(modules, action) when is_binary(action) do
+    normalized = normalize_name(action)
+    Enum.find(modules, &(normalize_name(&1.name()) == normalized))
+  end
+
+  defp find_module(_modules, _action), do: nil
+
+  defp normalize_name(name) do
+    name
+    |> String.replace_prefix("Elixir.", "")
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "_")
+    |> String.trim("_")
   end
 end

@@ -14,7 +14,7 @@ defmodule AllbertAssist.RegistryContext do
   # Settings-schema authority — and it is never accepted from serialized params,
   # channels, public protocols, or operator surfaces.
 
-  @context_keys [:app, :plugin, :actions_overlay]
+  @context_keys [:app, :plugin, :pack, :actions_overlay]
 
   @doc "Return the `AllbertAssist.App.Registry` option list carried in `opts`."
   @spec app_opts(keyword()) :: keyword()
@@ -23,6 +23,10 @@ defmodule AllbertAssist.RegistryContext do
   @doc "Return the `AllbertAssist.Plugin.Registry` option list carried in `opts`."
   @spec plugin_opts(keyword()) :: keyword()
   def plugin_opts(opts) when is_list(opts), do: Keyword.get(opts, :plugin, [])
+
+  @doc "Return the `AllbertAssist.Pack.Registry` option list carried in `opts`."
+  @spec pack_opts(keyword()) :: keyword()
+  def pack_opts(opts) when is_list(opts), do: Keyword.get(opts, :pack, [])
 
   @doc "Return the `DynamicPlugins.ActionsOverlay` server carried in `opts`."
   @spec overlay_server(keyword()) :: GenServer.server()

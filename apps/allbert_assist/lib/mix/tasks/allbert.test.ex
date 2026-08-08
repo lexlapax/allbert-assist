@@ -11079,6 +11079,9 @@ defmodule Mix.Tasks.Allbert.Test do
     # log-assertion test uses a module-scoped Logger level override
     # (put_module_level, deleted on_exit) — no VM-wide primary-level mutation.
     "apps/allbert_assist/test/allbert_assist/actions/app_actions_test.exs" => :pure_async,
+    # SnapshotCatalog tests construct immutable value fixtures only. Module and
+    # Registry names are inert data; no process, ETS table, or global state is read.
+    "apps/allbert_assist/test/allbert_assist/actions/snapshot_catalog_test.exs" => :pure_async,
     # "MCP" appears only inside intent-corpus utterance data; the file's real
     # resource class is the global action/plugin registry.
     "apps/allbert_assist/test/allbert_assist/intent/eval/corpus_completeness_test.exs" =>

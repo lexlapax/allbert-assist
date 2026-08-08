@@ -8,7 +8,7 @@ defmodule AllbertAssist.Extensions.Registry do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Pack.ActionProjection
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -98,9 +98,9 @@ defmodule AllbertAssist.Extensions.Registry do
           {:ok, [Descriptor.t()]} | {:error, [ValidationDiagnostic.t()]}
   def intent_descriptors_from_entries(app_entries, plugin_entries)
       when is_list(app_entries) and is_list(plugin_entries) do
-    with {:ok, static} <- ActionsRegistry.static_projection(),
+    with {:ok, static} <- ActionProjection.static(),
          {:ok, action_projection} <-
-           ActionsRegistry.candidate_projection(static, app_entries, plugin_entries),
+           ActionProjection.build(static, app_entries, plugin_entries),
          {:ok, sources} <- descriptor_sources_from_entries(app_entries, plugin_entries),
          {:ok, descriptors} <- normalize_descriptor_sources(sources, action_projection) do
       {:ok, Enum.uniq_by(descriptors, &{&1.app_id, &1.action_name})}
