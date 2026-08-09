@@ -61,7 +61,6 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
 
     PluginRegistry.clear()
     assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
-    ShippedRegistries.reconcile_apps!()
 
     unless notes_app_registered? do
       assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)

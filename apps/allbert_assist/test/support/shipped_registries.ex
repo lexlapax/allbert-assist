@@ -51,27 +51,6 @@ defmodule AllbertAssist.TestSupport.ShippedRegistries do
 
     AppRegistry.clear()
 
-    reconcile_apps!()
-  end
-
-  @doc """
-  Rebuild the app registry from whichever plugins are currently registered.
-
-  Any change to the plugin set leaves the app registry stale, and a stale pair
-  is not merely untidy — `ActionProjection` rejects a candidate outright when an
-  app claims an action module that no plugin provides. A test that narrows the
-  plugin registry to its own plugin must therefore narrow the apps to match, or
-  every composition from that point fails with
-  `:dangling_app_action_membership`. Measured in `tui_test`, whose setup cleared
-  the plugin registry and left the shipped apps behind: 51 rejected
-  compositions.
-
-  Call this together with any change to the plugin set, so the registries never
-  come to rest as an incoherent pair.
-  """
-  def reconcile_apps! do
-    AppRegistry.clear()
-
     plugin_apps =
       PluginRegistry.registered_plugins()
       |> Enum.flat_map(& &1.apps)

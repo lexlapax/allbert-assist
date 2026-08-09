@@ -51,7 +51,6 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
     PluginRegistry.clear()
     assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
     Fragments.clear_cache()
-    ShippedRegistries.reconcile_apps!()
 
     parent = self()
 

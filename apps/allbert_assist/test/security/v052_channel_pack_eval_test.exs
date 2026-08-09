@@ -160,8 +160,6 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert {:ok, "allbert.telegram"} =
              PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
 
-    ShippedRegistries.reconcile_apps!()
-
     assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
 
     assert {:ok, "allbert.discord"} =

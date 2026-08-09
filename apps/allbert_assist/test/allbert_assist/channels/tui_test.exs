@@ -52,8 +52,6 @@ defmodule AllbertAssist.Channels.TUITest do
 
     PluginRegistry.clear()
     assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
-    ShippedRegistries.reconcile_apps!()
-
     Fragments.clear_cache()
 
     parent = self()

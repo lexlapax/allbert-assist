@@ -120,7 +120,6 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     PluginRegistry.clear()
     assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
     Fragments.clear_cache()
-    ShippedRegistries.reconcile_apps!()
 
     configure_settings!(workspace)
 

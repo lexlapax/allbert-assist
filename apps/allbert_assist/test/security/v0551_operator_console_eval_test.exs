@@ -298,8 +298,6 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
     end)
   end
 
-  ShippedRegistries.reconcile_apps!()
-
   defp configure_tui! do
     assert {:ok, _setting} =
              Settings.put(

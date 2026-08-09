@@ -418,8 +418,6 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
     end)
   end
 
-  ShippedRegistries.reconcile_apps!()
-
   defp configure_tui! do
     assert {:ok, _setting} =
              Settings.put(
