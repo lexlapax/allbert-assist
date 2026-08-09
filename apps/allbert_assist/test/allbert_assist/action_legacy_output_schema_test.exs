@@ -2,6 +2,8 @@ defmodule AllbertAssist.ActionLegacyOutputSchemaTest do
   use ExUnit.Case, async: true
   @moduletag :global_process_serial
 
+  alias AllbertAssist.DevGates.V14M0RegistryLedger
+
   # This row sweeps the thirty shipped actions converted to the legacy standard
   # output schema. Its subject is that roster, which is residual content, so it
   # stays here rather than following the Action DSL into the kernel.
@@ -67,16 +69,15 @@ defmodule AllbertAssist.ActionLegacyOutputSchemaTest do
   test "legacy standard output-schema option preserves the frozen four-key schema and digest" do
     assert LegacyStandardResponseAction.output_schema() == @legacy_standard_response_schema
 
-    assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(
-             LegacyStandardResponseAction.output_schema()
-           ) == @legacy_standard_response_digest
+    assert V14M0RegistryLedger.digest(LegacyStandardResponseAction.output_schema()) ==
+             @legacy_standard_response_digest
 
     assert length(@converted_legacy_standard_actions) == 30
 
     for module <- @converted_legacy_standard_actions do
       assert module.output_schema() == @legacy_standard_response_schema
 
-      assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(module.output_schema()) ==
+      assert V14M0RegistryLedger.digest(module.output_schema()) ==
                @legacy_standard_response_digest
     end
   end

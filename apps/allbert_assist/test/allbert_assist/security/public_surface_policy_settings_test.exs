@@ -4,6 +4,7 @@ defmodule AllbertAssist.Security.PublicSurfacePolicySettingsTest do
 
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   # This row asserts Settings Central's refusal to store a value below the
   # safety floor, and that a stored value reaches Policy. Both halves of that
@@ -30,14 +31,14 @@ defmodule AllbertAssist.Security.PublicSurfacePolicySettingsTest do
              Settings.put(
                "permissions.public_surface_call_inbound",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, resolved} =
              Settings.put(
                "permissions.public_surface_call_inbound",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == "denied"
