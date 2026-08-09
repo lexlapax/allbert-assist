@@ -264,6 +264,12 @@ defmodule AllbertAssist.Pack.ActivationGate do
   defp resume_cancelled_activation(state), do: retire_effect_before_resubscribe(state)
 
   defp fail_activation(reason, %{activation: %{context: context}} = state) do
+    # The redacted tag is what crosses the barrier, but it collapses a child's
+    # start failure to a bare `:EXIT` and discards the cause. Log the raw reason
+    # locally so a failed activation is diagnosable without instrumenting the
+    # gate again.
+    Logger.error("Pack activation failed pack_id=#{state.pack_id} raw=#{inspect(reason)}")
+
     Logger.warning(
       "Pack activation failed pack_id=#{state.pack_id} reason=#{inspect(redact_activation_reason(reason))}"
     )
