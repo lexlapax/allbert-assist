@@ -24,10 +24,64 @@ defmodule AllbertAssist.Plugin.Discovery do
     settings = Keyword.get(opts, :settings, read_settings())
     project_root = Keyword.get(opts, :project_root, default_project_root()) |> Path.expand()
 
-    settings
-    |> scan_paths(project_root)
-    |> Enum.flat_map(&discover_root(&1, settings, project_root))
+    filesystem =
+      settings
+      |> scan_paths(project_root)
+      |> Enum.flat_map(&discover_root(&1, settings, project_root))
+
+    (extracted_pack_manifests(settings) ++ filesystem)
+    |> order_contributions()
     |> Enum.reject(&disabled?(&1, settings))
+  end
+
+  # The `plugins/` scan yields folders in sorted order, and folder name is the
+  # plugin id, so discovery order has always been plugin-id order — and the
+  # effective action sequence depends on it. An extracted pack is read from its
+  # application rather than that directory, so the combined list is re-sorted by
+  # plugin id to put it back where its folder used to be. Without this the pack
+  # lands at one end and its actions appear out of registry order, which the
+  # candidate rejects even though every action is present exactly once.
+  defp order_contributions(discovered) do
+    {contributions, diagnostics} =
+      Enum.split_with(
+        discovered,
+        &(match?({kind, _, _} when kind == :module, &1) or match?({:entry, _}, &1))
+      )
+
+    Enum.sort_by(contributions, &contribution_id/1) ++ diagnostics
+  end
+
+  defp contribution_id({:module, module, _opts}), do: module.plugin_id()
+  defp contribution_id({:entry, entry}), do: entry.plugin_id
+
+  # v1.4 M9: an extracted pack keeps its manifest in its own application's
+  # `priv/` rather than under `plugins/`, so a filesystem scan of the scan roots
+  # cannot see it. ADR 0098 §9 keeps that manifest as a deprecated alias to the
+  # pack descriptor rather than a second registration, so it is read here and
+  # normalized through the same validator, producing the same shipped entry the
+  # `plugins/` directory used to produce.
+  #
+  # Without this, extracting a plugin silently removes its actions from the
+  # effective catalog: they are claimed by no enabled plugin, and the registry
+  # order sequence develops a hole where they used to be.
+  defp extracted_pack_manifests(settings) do
+    CompiledInventory.default_applications()
+    |> Enum.flat_map(fn application ->
+      case pack_manifest_path(application) do
+        {:ok, manifest_path} ->
+          discover_manifest(manifest_path, Path.dirname(manifest_path), :shipped, settings)
+
+        :error ->
+          []
+      end
+    end)
+  end
+
+  defp pack_manifest_path(application) do
+    path = Application.app_dir(application, "priv/allbert_plugin.json")
+    if File.regular?(path), do: {:ok, path}, else: :error
+  rescue
+    ArgumentError -> :error
   end
 
   @spec shipped_modules() :: %{String.t() => module()}

@@ -39,9 +39,27 @@ defmodule AllbertAssist.Pack.CompiledInventory do
   @type action_modules_result ::
           {:ok, [module()]} | {:error, action_inventory_error()}
 
-  @doc "The applications searched when a caller supplies none."
+  @doc """
+  The applications searched when a caller supplies none.
+
+  Every loaded application declaring an `allbert_pack` entry, which is how ADR
+  0098 §4 marks a descriptor-bearing application, plus the residual. Discovering
+  the set rather than listing it is the point: extracting a pack must not
+  require editing a roster here, which is the defect this module previously had
+  in the form of a single hardcoded application name.
+
+  The coordinator separately validates each declaration against the raw `.app`
+  term and the sealed projection; this is the search set, not an authority.
+  """
   @spec default_applications() :: [atom()]
-  def default_applications, do: [@residual_application]
+  def default_applications do
+    Application.loaded_applications()
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.filter(&(Application.fetch_env(&1, :allbert_pack) != :error))
+    |> Enum.concat([@residual_application])
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
   @spec action_modules([atom()]) :: action_modules_result()
   def action_modules(applications \\ default_applications()) do
@@ -145,38 +163,32 @@ defmodule AllbertAssist.Pack.CompiledInventory do
   def validate_action_modules(_modules), do: {:error, :invalid_action_inventory}
 
   defp application_modules(applications) when is_list(applications) and applications != [] do
-    applications
-    |> Enum.reduce_while({:ok, []}, fn application, {:ok, acc} ->
-      case Application.spec(application, :modules) do
-        modules when is_list(modules) and modules != [] ->
-          {:cont, {:ok, acc ++ modules}}
-
-        _other ->
-          {:halt, {:error, :compiled_inventory_unavailable}}
-      end
-    end)
-    |> case do
-      {:ok, modules} ->
-        cond do
-          not Enum.all?(modules, &is_atom/1) ->
-            {:error, :invalid_compiled_module}
-
-          # A module appearing in two applications is a packaging error, not a
-          # merge to resolve: the duplicate check spans the whole set rather
-          # than each application separately.
-          length(modules) != MapSet.size(MapSet.new(modules)) ->
-            {:error, :duplicate_compiled_module}
-
-          true ->
-            {:ok, modules}
-        end
-
-      error ->
-        error
+    with {:ok, modules} <- collect_application_modules(applications) do
+      validate_compiled_modules(modules)
     end
   end
 
   defp application_modules(_applications), do: {:error, :compiled_inventory_unavailable}
+
+  defp collect_application_modules(applications) do
+    Enum.reduce_while(applications, {:ok, []}, fn application, {:ok, acc} ->
+      case Application.spec(application, :modules) do
+        modules when is_list(modules) and modules != [] -> {:cont, {:ok, acc ++ modules}}
+        _other -> {:halt, {:error, :compiled_inventory_unavailable}}
+      end
+    end)
+  end
+
+  # A module appearing in two applications is a packaging error, not a merge to
+  # resolve, so the duplicate check spans the whole set rather than each
+  # application separately.
+  defp validate_compiled_modules(modules) do
+    cond do
+      not Enum.all?(modules, &is_atom/1) -> {:error, :invalid_compiled_module}
+      length(modules) != MapSet.size(MapSet.new(modules)) -> {:error, :duplicate_compiled_module}
+      true -> {:ok, modules}
+    end
+  end
 
   defp app_modules(applications) do
     with {:ok, modules} <- application_modules(applications) do
