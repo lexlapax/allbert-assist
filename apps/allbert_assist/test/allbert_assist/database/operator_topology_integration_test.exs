@@ -71,14 +71,14 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "operator-topology",
                  source_thread_id: thread.id,
                  source_channel: "tui",
                  source_surface: "channel",
                  title: "Production-shaped fan-out",
                  objective: "Exercise the single-writer runtime"
-               },
+               }),
                tasks
              )
 

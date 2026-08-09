@@ -113,7 +113,11 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   test "show renders the authoritative fan-out phase, outcome, delivery, and child results" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{user_id: "alice", title: "CLI fan-in", objective: "Render the joined tree"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 title: "CLI fan-in",
+                 objective: "Render the joined tree"
+               }),
                ["one", "two"]
              )
 
@@ -141,11 +145,11 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   test "show maps a model-selected report to completed without changing its body" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Model CLI fan-in",
                  objective: "Render one model report"
-               },
+               }),
                ["one", "two"]
              )
 

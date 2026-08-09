@@ -132,7 +132,8 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                child,
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
-               %{}
+               %{},
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
     assert {:ok, steered} = Steering.apply_pending(child.id)
@@ -143,7 +144,8 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                steered,
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
-               %{}
+               %{},
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
   end
 
@@ -156,7 +158,8 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                child,
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
-               %{}
+               %{},
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
     assert completed.status == "completed"
@@ -180,7 +183,8 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
             child,
             %{status: "completed", completed_at: DateTime.utc_now()},
             "run_completed",
-            %{}
+            %{},
+            effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
           )
         end)
 
@@ -205,7 +209,8 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                      steered,
                      %{status: "completed", completed_at: DateTime.utc_now()},
                      "run_completed",
-                     %{}
+                     %{},
+                     effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                    )
 
         {:error, :terminal} ->

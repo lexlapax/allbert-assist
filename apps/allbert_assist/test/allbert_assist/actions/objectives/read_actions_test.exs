@@ -146,11 +146,19 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
 
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               %{user_id: user, title: "Recovering read", objective: "Read coherently"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: user,
+                 title: "Recovering read",
+                 objective: "Read coherently"
+               }),
                ["one", "two"]
              )
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: user})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: user})
+             )
 
     assert {2, _rows} =
              Objective

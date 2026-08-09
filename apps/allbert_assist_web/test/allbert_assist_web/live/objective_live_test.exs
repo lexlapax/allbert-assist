@@ -235,7 +235,11 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   } do
     assert {:ok, %{parent: parent, children: [first, second]}} =
              Fanout.frame(
-               %{user_id: "local", title: "Parallel launch", objective: "Parallel launch"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "local",
+                 title: "Parallel launch",
+                 objective: "Parallel launch"
+               }),
                ["Research risks", "Draft brief"]
              )
 
@@ -260,13 +264,21 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   test "rejects tampered child ids from another fan-out", %{conn: conn} do
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               %{user_id: "local", title: "Visible launch", objective: "Visible launch"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "local",
+                 title: "Visible launch",
+                 objective: "Visible launch"
+               }),
                ["Visible research", "Visible draft"]
              )
 
     assert {:ok, %{children: [foreign | _]}} =
              Fanout.frame(
-               %{user_id: "local", title: "Other launch", objective: "Other launch"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "local",
+                 title: "Other launch",
+                 objective: "Other launch"
+               }),
                ["Other research", "Other draft"]
              )
 
@@ -290,11 +302,11 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   test "stopping a fan-out preserves finished work and renders the partial outcome", %{conn: conn} do
     assert {:ok, %{parent: parent, children: [completed, active]}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "local",
                  title: "Partially finished launch",
                  objective: "Join two tasks"
-               },
+               }),
                ["Finished research", "Active draft"]
              )
 
@@ -331,7 +343,11 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   test "renders truthful joined child results without stale controls", %{conn: conn} do
     assert {:ok, %{parent: parent, children: [completed, failed]}} =
              Fanout.frame(
-               %{user_id: "local", title: "Joined launch", objective: "Join two tasks"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "local",
+                 title: "Joined launch",
+                 objective: "Join two tasks"
+               }),
                ["Completed research", "Failed draft"]
              )
 
@@ -350,7 +366,8 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  completed_at: DateTime.utc_now()
                },
                "run_failed",
-               %{}
+               %{},
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{parent.id}")

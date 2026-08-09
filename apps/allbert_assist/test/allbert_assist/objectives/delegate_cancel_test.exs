@@ -347,14 +347,14 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
 
   defp frame do
     Fanout.frame(
-      %{
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
         user_id: "cancel-user",
         title: "cancel",
         objective: "cancel",
         source_channel: "test",
         source_surface: "test",
         source_thread_id: "cancel-thread"
-      },
+      }),
       ["first", "second"]
     )
   end

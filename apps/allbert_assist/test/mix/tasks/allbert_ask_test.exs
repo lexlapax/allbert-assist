@@ -227,13 +227,13 @@ defmodule Mix.Tasks.Allbert.AskTest do
       agent_runner: fn _signal, request ->
         assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} =
                  Fanout.frame(
-                   %{
+                   AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                      user_id: request.user_id,
                      title: "Epoch replacement acknowledgement",
                      objective: "Do not acknowledge after E2",
                      source_channel: "cli",
                      source_thread_id: request.thread_id
-                   },
+                   }),
                    ["hold until delivery acknowledgement"]
                  )
 

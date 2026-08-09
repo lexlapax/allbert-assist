@@ -459,11 +459,19 @@ defmodule AllbertAssist.Intent.EngineTest do
 
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               %{user_id: "alice", title: "Recovering parent", objective: "Finalize only"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 title: "Recovering parent",
+                 objective: "Finalize only"
+               }),
                ["one", "two"]
              )
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     assert {2, _rows} =
              Objective
@@ -499,15 +507,19 @@ defmodule AllbertAssist.Intent.EngineTest do
     for index <- 1..24 do
       assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
                Fanout.frame(
-                 %{
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                    user_id: "scan-owner",
                    title: "Recovering parent #{index}",
                    objective: "Finalize only"
-                 },
+                 }),
                  ["one", "two"]
                )
 
-      assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "scan-owner"})
+      assert :ok =
+               Fanout.acknowledge_start(
+                 receipt,
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "scan-owner"})
+               )
 
       assert {2, _rows} =
                Objective

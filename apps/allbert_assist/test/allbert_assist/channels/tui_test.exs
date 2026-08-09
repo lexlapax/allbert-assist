@@ -877,7 +877,11 @@ defmodule AllbertAssist.Channels.TUITest do
     assert :ok = Fanout.acknowledge_start(composing_receipt, attached_delivery_context())
     terminalize_children!(composing_children)
 
-    assert {:ok, %{parent: claimed_composing_parent}} = Fanout.claim_next_composition()
+    assert {:ok, %{parent: claimed_composing_parent}} =
+             Fanout.claim_next_composition(
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert claimed_composing_parent.id == composing_parent.id
 
     assert {:ok,
@@ -2869,14 +2873,14 @@ defmodule AllbertAssist.Channels.TUITest do
 
   defp attached_fanout!(title \\ "Attached fan-out") do
     Fanout.frame(
-      %{
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
         user_id: "alice",
         source_channel: "tui",
         source_surface: "tui",
         source_thread_id: "attached-thread",
         title: title,
         objective: "Exercise attached completion"
-      },
+      }),
       ["first", "second"]
     )
   end

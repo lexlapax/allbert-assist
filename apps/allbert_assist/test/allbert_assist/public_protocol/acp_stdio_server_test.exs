@@ -418,14 +418,14 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "public-protocol:zed-fixture",
                  title: "Old session fan-out",
                  objective: "Cancel through the session",
                  source_channel: "acp_stdio",
                  source_thread_id: "acp-thread-#{session_id}",
                  session_id: session_id
-               },
+               }),
                ["one", "two"]
              )
 
@@ -705,14 +705,14 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   defp joined_acp_fanout!(session_id, title) do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "public-protocol:zed-fixture",
                  title: title,
                  objective: title,
                  source_channel: "acp_stdio",
                  source_thread_id: "acp-thread-#{session_id}",
                  session_id: session_id
-               },
+               }),
                ["one", "two"]
              )
 

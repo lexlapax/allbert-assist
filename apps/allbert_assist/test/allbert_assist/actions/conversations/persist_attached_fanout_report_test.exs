@@ -78,13 +78,13 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
 
     assert {:ok, %{parent: open_parent}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "local",
                  source_channel: "live_view",
                  source_thread_id: thread.id,
                  title: "Still open",
                  objective: "Not ready"
-               },
+               }),
                ["one", "two"]
              )
 

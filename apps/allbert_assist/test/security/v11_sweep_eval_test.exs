@@ -294,10 +294,13 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     {:ok, %{parent: parent, fanout_start_receipt: receipt}} = bound_fanout!()
 
     assert {:error, :receipt_identity_mismatch} =
-             Fanout.acknowledge_start(receipt, %{
-               bound_context("alice")
-               | origin_receiver_account_ref: "account-2"
-             })
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 bound_context("alice")
+                 | origin_receiver_account_ref: "account-2"
+               })
+             )
 
     assert {:ok, unchanged} = Objectives.get_objective(parent.id)
     assert unchanged.kickoff_delivery_state == "pending"

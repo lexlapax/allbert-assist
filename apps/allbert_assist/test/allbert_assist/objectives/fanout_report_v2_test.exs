@@ -635,11 +635,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "durable selected-event replay delegates exact synthesis-contract-v3 validation" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "report-v2-selection-event",
                  title: "Select one phase-reviewed report",
                  objective: "Join two registered-action observations."
-               },
+               }),
                ["first registered action", "second registered action"]
              )
 
@@ -994,12 +994,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "report-v2-receipts",
                  title: "Join verified children",
                  objective: original_request,
                  proposer_hint: %{"fanout_plan" => plan}
-               },
+               }),
                FanoutPlan.child_attrs(compiled)
              )
 
@@ -1235,12 +1235,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "report-v2-legacy-shapes",
                  title: "Legacy completion shapes",
                  objective: original_request,
                  proposer_hint: %{"fanout_plan" => plan}
-               },
+               }),
                FanoutPlan.child_attrs(compiled)
              )
 
@@ -1438,12 +1438,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
       assert {:ok, %{parent: parent, children: children}} =
                Fanout.frame(
-                 %{
+                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                    user_id: "report-v2-real-lifecycle",
                    title: "Join two reviewed lifecycle results",
                    objective: original_request,
                    proposer_hint: %{"fanout_plan" => plan}
-                 },
+                 }),
                  FanoutPlan.child_attrs(compiled)
                )
 
@@ -1510,11 +1510,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "current lifecycle steps bind registered actions while noncompleted children stay outside synthesis" do
     assert {:ok, %{children: [completed, cancelled, failed]}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "report-v2-actions",
                  title: "Bind exact action results",
                  objective: "Join one action result with two terminal failures"
-               },
+               }),
                ["complete action", "cancel action", "fail action"]
              )
 
@@ -1640,15 +1640,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "stale acknowledged active steps abandon into a truthful no-model v2 report" do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "report-v2-stale",
                  title: "Recover stale active work",
                  objective: "Report stale terminal truth"
-               },
+               }),
                ["running child", "crash-left completed step"]
              )
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "report-v2-stale"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "report-v2-stale"})
+             )
 
     Enum.zip(children, ["running", "completed"])
     |> Enum.each(fn {child, step_status} ->
@@ -1682,7 +1686,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert {:ok, joined} = Objectives.get_objective(parent.id)
     assert joined.report_composition_state == "queued"
 
-    assert {:ok, claim} = Fanout.claim_next_composition()
+    assert {:ok, claim} =
+             Fanout.claim_next_composition(
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert claim.frozen.snapshot.version == 2
     assert {:error, :no_completed_children} = Report.synthesis_eligibility(claim.frozen.snapshot)
 
@@ -1717,11 +1725,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "v2 rejects unknown action identity and nonterminal steps for completed children" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "report-v2-corrupt-actions",
                  title: "Reject corrupt action authority",
                  objective: "Join two completed actions"
-               },
+               }),
                ["first action", "second action"]
              )
 
@@ -1858,7 +1866,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     {parent, legacy, join_event} = legacy_unselected_parent!("queued")
     original_join_payload = join_event.payload
 
-    assert {:ok, claim} = Fanout.claim_next_composition()
+    assert {:ok, claim} =
+             Fanout.claim_next_composition(
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert claim.parent.id == parent.id
     assert claim.frozen.snapshot.version == 2
     refute claim.frozen.input_digest == legacy.input_digest
@@ -1899,7 +1911,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
               parent: %{id: parent_id},
               frozen: %{snapshot: %{version: 1}},
               budget: %{"version" => 1}
-            } = claim} = Fanout.claim_next_composition()
+            } = claim} =
+             Fanout.claim_next_composition(
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert parent_id == parent.id
     assert claim.frozen.input_digest == legacy_with_plan.input_digest
@@ -2117,12 +2132,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "report-v2-maximum",
                  title: "Join sixteen verified children",
                  objective: original_request,
                  proposer_hint: %{"fanout_plan" => plan}
-               },
+               }),
                FanoutPlan.child_attrs(compiled)
              )
 

@@ -440,11 +440,11 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
 
     assert {:ok, %{parent: parent, children: [child, _sibling]}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "worker-user",
                  title: "RunServer cancellation parent",
                  objective: "Run two bounded tasks"
-               },
+               }),
                [
                  %{title: "Blocking child", objective: "Block in the provider"},
                  %{title: "Fixture sibling", objective: "Remain queued"}

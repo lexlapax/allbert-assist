@@ -1178,13 +1178,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "nested-owner",
                  title: "Active parent",
                  objective: "Active parent",
                  source_channel: "test",
                  source_thread_id: first_turn.thread_id
-               },
+               }),
                ["one", "two"]
              )
 
@@ -1231,7 +1231,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     children = Fanout.children(response.fanout.parent_id)
     assert Enum.all?(children, &(&1.run_attempt_count == 0 and &1.status == "open"))
 
-    identity = %{user_id: "alice", channel: "test", thread_id: response.thread_id}
+    identity =
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        user_id: "alice",
+        channel: "test",
+        thread_id: response.thread_id
+      })
+
     assert :ok = Runtime.acknowledge_fanout_start(response.fanout_start_receipt, identity)
     assert :ok = Runtime.acknowledge_fanout_start(response.fanout_start_receipt, identity)
 
@@ -1274,7 +1280,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                )
     end
 
-    identity = %{user_id: "receipt-owner", channel: "test", thread_id: response.thread_id}
+    identity =
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        user_id: "receipt-owner",
+        channel: "test",
+        thread_id: response.thread_id
+      })
+
     assert :ok = Runtime.acknowledge_fanout_start(response.fanout_start_receipt, identity)
 
     assert Enum.all?(
@@ -1286,17 +1298,23 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "kickoff acknowledgement after an authoritative join is a no-op" do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Already joined",
                  objective: "Do not restart",
                  source_channel: "test",
                  source_thread_id: "joined-thread"
-               },
+               }),
                ["one", "two"]
              )
 
-    context = %{user_id: "alice", channel: "test", thread_id: "joined-thread"}
+    context =
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        user_id: "alice",
+        channel: "test",
+        thread_id: "joined-thread"
+      })
+
     assert :ok = Fanout.acknowledge_start(receipt, context)
 
     Enum.each(children, fn child ->
@@ -1309,7 +1327,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "done"}
+                 %{summary: "done"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end)
 
@@ -1419,7 +1438,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     refute response.message =~ "as soon as it is ready"
     refute Map.has_key?(response, :notify_offer)
 
-    assert :ok = Runtime.acknowledge_deliveries(response, %{channel: :cli})
+    assert :ok =
+             Runtime.acknowledge_deliveries(
+               response,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{channel: :cli})
+             )
 
     assert {:ok, %{kickoff_delivery_state: "acknowledged", source_channel: "cli"}} =
              Objectives.get_objective(response.fanout.parent_id)
@@ -1447,7 +1470,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert Enum.all?(Fanout.children(parent), &(&1.run_attempt_count == 0))
     assert Fanout.receipt_for(:start, parent.id) == response.fanout_start_receipt
 
-    context = %{user_id: "alice", thread_id: response.thread_id, channel: "test"}
+    context =
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        user_id: "alice",
+        thread_id: response.thread_id,
+        channel: "test"
+      })
+
     assert :ok = Runtime.delivery_failed(response, context)
     assert {:ok, blocked} = Objectives.get_objective(parent.id)
     assert blocked.kickoff_delivery_state == "blocked"
@@ -1466,14 +1495,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Finished work",
                  objective: "Finished work",
                  source_channel: "test",
                  source_surface: "channel",
                  source_thread_id: first_turn.thread_id
-               },
+               }),
                ["one", "two"]
              )
 
@@ -1487,7 +1516,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "done #{child.queue_position}"}
+                 %{summary: "done #{child.queue_position}"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end
 
@@ -1535,14 +1565,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: [completed, cancelled, failed]}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Mixed work",
                  objective: "Mixed work",
                  source_channel: "test",
                  source_surface: "channel",
                  source_thread_id: first_turn.thread_id
-               },
+               }),
                ["completed task", "cancelled task", "failed task"]
              )
 
@@ -1555,7 +1585,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  completed_at: DateTime.utc_now()
                },
                "run_completed",
-               %{summary: "completed result"}
+               %{summary: "completed result"},
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
     assert {:ok, %{child: %{status: "cancelled"}}} =
@@ -1568,7 +1599,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  completed_at: DateTime.utc_now()
                },
                "run_cancelled",
-               %{}
+               %{},
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
     assert {:ok, %{child: %{status: "failed"}}} =
@@ -1580,7 +1612,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  completed_at: DateTime.utc_now()
                },
                "run_failed",
-               %{}
+               %{},
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
     select_queued_report!(parent.id)
@@ -1607,14 +1640,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Canonical before next turn",
                  objective: "Render exactly once",
                  source_channel: "live_view",
                  source_surface: "channel",
                  source_thread_id: first_turn.thread_id
-               },
+               }),
                ["one", "two"]
              )
 
@@ -1628,7 +1661,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "done #{child.queue_position}"}
+                 %{summary: "done #{child.queue_position}"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end
 
@@ -1666,11 +1700,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert [_one_report] = report_messages
 
     assert :ok =
-             Runtime.acknowledge_deliveries(next_turn, %{
-               user_id: "alice",
-               channel: "live_view",
-               thread_id: first_turn.thread_id
-             })
+             Runtime.acknowledge_deliveries(
+               next_turn,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 channel: "live_view",
+                 thread_id: first_turn.thread_id
+               })
+             )
 
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
   end
@@ -1681,14 +1718,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Missed joined signal",
                  objective: "Converge through the next Web turn",
                  source_channel: "live_view",
                  source_surface: "channel",
                  source_thread_id: first_turn.thread_id
-               },
+               }),
                ["one", "two"]
              )
 
@@ -1702,7 +1739,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "done #{child.queue_position}"}
+                 %{summary: "done #{child.queue_position}"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end
 
@@ -1732,11 +1770,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
 
     assert :ok =
-             Runtime.acknowledge_deliveries(next_turn, %{
-               user_id: "alice",
-               channel: "live_view",
-               thread_id: first_turn.thread_id
-             })
+             Runtime.acknowledge_deliveries(
+               next_turn,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 channel: "live_view",
+                 thread_id: first_turn.thread_id
+               })
+             )
 
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
   end
@@ -1747,14 +1788,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Channel-bound report",
                  objective: "Keep the result on its origin channel",
                  source_channel: "test",
                  source_surface: "channel",
                  source_thread_id: first_turn.thread_id
-               },
+               }),
                ["one", "two"]
              )
 
@@ -1768,7 +1809,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "origin-only result"}
+                 %{summary: "origin-only result"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end
 
@@ -1801,7 +1843,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "next-turn report retrieval accepts a refreshed provider ref only for the same account" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Stable thread report",
                  objective: "Survive mutable provider metadata",
@@ -1810,7 +1852,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  origin_thread_ref_id: "41",
                  origin_thread_ref_digest: "stable-origin-digest",
                  origin_receiver_account_ref: "telegram:bot:primary"
-               },
+               }),
                ["one", "two"]
              )
 
@@ -1824,7 +1866,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "done #{child.queue_position}"}
+                 %{summary: "done #{child.queue_position}"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end)
 
@@ -1861,14 +1904,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Controlled report",
                  objective: "Controlled report",
                  source_channel: "test",
                  source_surface: "channel",
                  source_thread_id: first_turn.thread_id
-               },
+               }),
                ["one", "two"]
              )
 
@@ -1904,7 +1947,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "result #{child.queue_position + 1}"}
+                 %{summary: "result #{child.queue_position + 1}"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end
 
@@ -1928,7 +1972,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "exact origin binding denies missing or changed account context" do
     assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Bound work",
                  objective: "Bound work",
@@ -1937,34 +1981,43 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  source_thread_id: "thread-bound",
                  origin_thread_ref_digest: "digest-1",
                  origin_receiver_account_ref: "account-1"
-               },
+               }),
                ["one", "two"]
              )
 
     assert {:error, :receipt_identity_mismatch} =
-             Fanout.acknowledge_start(receipt, %{
-               user_id: "alice",
-               thread_id: "thread-bound",
-               channel: "telegram"
-             })
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 thread_id: "thread-bound",
+                 channel: "telegram"
+               })
+             )
 
     assert {:error, :receipt_identity_mismatch} =
-             Fanout.acknowledge_start(receipt, %{
-               user_id: "alice",
-               thread_id: "thread-bound",
-               channel: "telegram",
-               origin_thread_ref_digest: "digest-1",
-               origin_receiver_account_ref: "account-2"
-             })
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 thread_id: "thread-bound",
+                 channel: "telegram",
+                 origin_thread_ref_digest: "digest-1",
+                 origin_receiver_account_ref: "account-2"
+               })
+             )
 
     assert :ok =
-             Fanout.acknowledge_start(receipt, %{
-               user_id: "alice",
-               thread_id: "thread-bound",
-               channel: "telegram",
-               origin_thread_ref_digest: "digest-1",
-               origin_receiver_account_ref: "account-1"
-             })
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 thread_id: "thread-bound",
+                 channel: "telegram",
+                 origin_thread_ref_digest: "digest-1",
+                 origin_receiver_account_ref: "account-1"
+               })
+             )
 
     assert {:ok, acknowledged} = Objectives.get_objective(parent.id)
     assert acknowledged.kickoff_delivery_state == "acknowledged"
@@ -1973,14 +2026,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "await continuation enforces ownership and returns bounded kickoff on timeout" do
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Await work",
                  objective: "Await work",
                  source_channel: "openai_api",
                  source_surface: "api",
                  source_thread_id: "thread-await"
-               },
+               }),
                ["one", "two"]
              )
 
@@ -2001,14 +2054,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Missed publication",
                  objective: "Recover the durable report",
                  source_channel: "openai_api",
                  source_surface: "api",
                  source_thread_id: "thread-missed-publication"
-               },
+               }),
                ["one", "two"]
              )
 
@@ -2033,7 +2086,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{summary: "done #{child.queue_position}"}
+                 %{summary: "done #{child.queue_position}"},
+                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
                )
     end)
 
@@ -2076,11 +2130,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert Enum.all?(Fanout.children(response.fanout.parent_id), &(&1.run_attempt_count == 0))
 
     assert :ok =
-             Runtime.acknowledge_deliveries(response, %{
-               channel: "test",
-               user_id: "alice",
-               thread_id: response.thread_id
-             })
+             Runtime.acknowledge_deliveries(
+               response,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 channel: "test",
+                 user_id: "alice",
+                 thread_id: response.thread_id
+               })
+             )
 
     assert Enum.all?(Fanout.children(response.fanout.parent_id), &(&1.run_attempt_count == 0))
 
@@ -2161,7 +2218,9 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   defp select_queued_report!(parent_id) do
     assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
+             Fanout.claim_next_composition(
+               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     assert {:ok, provenance} = Report.fallback_provenance(frozen.snapshot, :model_disabled)
 
