@@ -1587,8 +1587,18 @@ defmodule AllbertAssist.Pack.RowSchemas do
 
   defp canonical_string?(value) do
     value != "" and String.valid?(value) and value == String.trim(value) and
-      not Enum.any?(String.to_charlist(value), &(&1 in 0..0x1F or &1 == 0x7F))
+      no_control_characters?(value)
   end
+
+  # Scans the binary directly rather than materializing a codepoint list per
+  # field. Equivalent by construction: the rejected codepoints are ASCII, and
+  # every byte of a multi-byte UTF-8 codepoint is >= 0x80, so no multi-byte
+  # character can produce a byte in these ranges. Candidate composition
+  # normalizes thousands of row fields, and the list this replaces was
+  # allocated and walked for each one.
+  defp no_control_characters?(<<byte, _rest::binary>>) when byte <= 0x1F or byte == 0x7F, do: false
+  defp no_control_characters?(<<_byte, rest::binary>>), do: no_control_characters?(rest)
+  defp no_control_characters?(<<>>), do: true
 
   defp confined_path!(value, field) do
     path = canonical_string!(value, field)
@@ -1632,7 +1642,9 @@ defmodule AllbertAssist.Pack.RowSchemas do
     :crypto.hash(
       :sha256,
       "allbert.pack.row.#{schema}.v1\0" <>
-        canonical_json!(%{"payload" => payload, "source_authority" => source_authority})
+        IO.iodata_to_binary(
+          canonical_json!(%{"payload" => payload, "source_authority" => source_authority})
+        )
     )
     |> Base.encode16(case: :lower)
   end
@@ -1941,6 +1953,9 @@ defmodule AllbertAssist.Pack.RowSchemas do
     )
   end
 
+  # Returns iodata, not a binary. Materializing at every nesting level made each
+  # subtree a fresh binary and re-copied it into its parent, so the encoder paid
+  # for the same bytes once per level of depth. The single caller converts once.
   defp canonical_json!(value) when is_map(value) do
     encoded =
       value
@@ -1948,12 +1963,12 @@ defmodule AllbertAssist.Pack.RowSchemas do
       |> Enum.map(fn {key, nested} -> [encode_string!(key), ?:, canonical_json!(nested)] end)
       |> Enum.intersperse(?,)
 
-    IO.iodata_to_binary([?{, encoded, ?}])
+    [?{, encoded, ?}]
   end
 
   defp canonical_json!(value) when is_list(value) do
     encoded = value |> Enum.map(&canonical_json!/1) |> Enum.intersperse(?,)
-    IO.iodata_to_binary([?[, encoded, ?]])
+    [?[, encoded, ?]]
   end
 
   defp canonical_json!(value) when is_binary(value), do: encode_string!(value)
@@ -1969,21 +1984,44 @@ defmodule AllbertAssist.Pack.RowSchemas do
   defp canonical_json!(nil), do: "null"
 
   defp encode_string!(value) do
-    escaped = value |> String.to_charlist() |> Enum.map(&escape_codepoint/1)
-    IO.iodata_to_binary([?\", escaped, ?\"])
+    [?\", escape_runs(value, value, 0, 0, []), ?\"]
   end
 
-  defp escape_codepoint(?\"), do: "\\\""
-  defp escape_codepoint(?\\), do: "\\\\"
-  defp escape_codepoint(?\b), do: "\\b"
-  defp escape_codepoint(?\f), do: "\\f"
-  defp escape_codepoint(?\n), do: "\\n"
-  defp escape_codepoint(?\r), do: "\\r"
-  defp escape_codepoint(?\t), do: "\\t"
-
-  defp escape_codepoint(codepoint) when codepoint in 0..0x1F do
-    "\\u" <> (codepoint |> Integer.to_string(16) |> String.pad_leading(4, "0"))
+  # Copies runs of unescaped bytes wholesale instead of mapping every codepoint
+  # through a charlist. Equivalent by construction: every escapable character is
+  # ASCII, and every byte of a multi-byte UTF-8 codepoint is >= 0x80, so a
+  # byte-wise scan can never split or misread one. Canonical encoding dominated
+  # candidate composition — this path was 274 million calls and roughly half the
+  # build — and the encoded bytes feed the behavior digest, so the output is
+  # byte-for-byte what the codepoint mapping produced.
+  defp escape_runs(<<>>, original, start, length, acc) do
+    Enum.reverse([binary_part(original, start, length) | acc])
   end
 
-  defp escape_codepoint(codepoint), do: <<codepoint::utf8>>
+  # The overwhelmingly common case is a byte that needs no escape, so it is
+  # matched in a clause head rather than paid for with a function call per byte.
+  # Only 0x00..0x1F, `"` and `\\` are escapable; 0x7F is not, matching the
+  # codepoint mapping this replaces.
+  defp escape_runs(<<byte, rest::binary>>, original, start, length, acc)
+       when byte >= 0x20 and byte != ?\" and byte != ?\\ do
+    escape_runs(rest, original, start, length + 1, acc)
+  end
+
+  defp escape_runs(<<byte, rest::binary>>, original, start, length, acc) do
+    run = binary_part(original, start, length)
+    escape_runs(rest, original, start + length + 1, 0, [escape_byte(byte), run | acc])
+  end
+
+  defp escape_byte(?\"), do: "\\\""
+  defp escape_byte(?\\), do: "\\\\"
+  defp escape_byte(?\b), do: "\\b"
+  defp escape_byte(?\f), do: "\\f"
+  defp escape_byte(?\n), do: "\\n"
+  defp escape_byte(?\r), do: "\\r"
+  defp escape_byte(?\t), do: "\\t"
+
+  defp escape_byte(byte) when byte <= 0x1F do
+    "\\u" <> (byte |> Integer.to_string(16) |> String.pad_leading(4, "0"))
+  end
+
 end
