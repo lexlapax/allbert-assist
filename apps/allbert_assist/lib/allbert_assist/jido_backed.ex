@@ -8,6 +8,8 @@ defmodule AllbertAssist.JidoBacked do
   projection, not a new security or persistence boundary.
   """
 
+  require Logger
+
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias Jido.AgentServer
@@ -70,13 +72,7 @@ defmodule AllbertAssist.JidoBacked do
     name = Keyword.get(opts, :name, module)
     id = Keyword.get(opts, :id, default_id(module))
 
-    initial_state =
-      Keyword.get_lazy(opts, :initial_state, fn ->
-        case module.rebuild_state(opts) do
-          {:ok, state} -> state
-          {:error, reason} -> error_state(reason)
-        end
-      end)
+    initial_state = Keyword.get_lazy(opts, :initial_state, fn -> rebuilt_state(module, opts) end)
 
     AgentServer.start_link(
       jido: Keyword.get(opts, :jido, AllbertAssist.Jido),
@@ -253,6 +249,31 @@ defmodule AllbertAssist.JidoBacked do
     module
     |> Module.split()
     |> Enum.join(".")
+  end
+
+  # A rebuild that raises must degrade the agent, not fail the supervision
+  # subtree that starts it. `error_state/1` already exists for the
+  # `{:error, reason}` return, but a rebuild reading storage can also *raise* —
+  # a DBConnection ownership error when the pool is unavailable is the observed
+  # case — and that exception escaped, taking down the whole activation-owned
+  # subtree and, with it, product readiness.
+  #
+  # The failure stays visible: it is logged, and the agent carries it in
+  # `last_error` exactly as a returned error would.
+  defp rebuilt_state(module, opts) do
+    case module.rebuild_state(opts) do
+      {:ok, state} -> state
+      {:error, reason} -> error_state(reason)
+    end
+  rescue
+    exception ->
+      Logger.error("agent rebuild raised for #{inspect(module)}: #{Exception.message(exception)}")
+
+      error_state({:rebuild_raised, exception.__struct__})
+  catch
+    kind, reason ->
+      Logger.error("agent rebuild exited for #{inspect(module)}: #{inspect({kind, reason})}")
+      error_state({:rebuild_exited, kind})
   end
 
   defp error_state(reason) do
