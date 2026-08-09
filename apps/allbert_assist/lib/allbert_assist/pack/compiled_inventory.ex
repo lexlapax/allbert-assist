@@ -1,16 +1,31 @@
 defmodule AllbertAssist.Pack.CompiledInventory do
   @moduledoc """
-  Reads trusted contribution owners from the compiled `allbert_assist.app` artifact.
+  Reads trusted contribution owners from compiled `.app` artifacts.
 
   The OTP module inventory is release-built input. Action membership and order
   remain owned by each action module through `AllbertAssist.Action` and its
   immutable `registry_order/0` token; this module does not maintain a second
   action catalog.
+
+  ## Why this reads more than one application
+
+  Until v1.4 M9 this read `allbert_assist` alone, which was correct only while
+  every contribution compiled into the residual by path injection. A pack is its
+  own OTP application, so a single hardcoded application name is the same defect
+  ADR 0098 catalogued as a hand-maintained kernel list — M1 deleted the
+  thirteen-entry `@shipped_modules` map, but the derivation that replaced it
+  still assumed one application, and the first real extraction would have
+  vanished from discovery.
+
+  The application set is therefore supplied by the caller and defaults to the
+  residual, so callers that already know the descriptor-bearing applications —
+  the Pack projection enumerates them — pass them, and nothing here keeps a
+  roster of its own.
   """
 
   alias AllbertAssist.Action
 
-  @application :allbert_assist
+  @residual_application :allbert_assist
 
   @type action_inventory_error ::
           :compiled_inventory_unavailable
@@ -24,18 +39,22 @@ defmodule AllbertAssist.Pack.CompiledInventory do
   @type action_modules_result ::
           {:ok, [module()]} | {:error, action_inventory_error()}
 
-  @spec action_modules() :: action_modules_result()
-  def action_modules do
-    with {:ok, modules} <- application_modules() do
+  @doc "The applications searched when a caller supplies none."
+  @spec default_applications() :: [atom()]
+  def default_applications, do: [@residual_application]
+
+  @spec action_modules([atom()]) :: action_modules_result()
+  def action_modules(applications \\ default_applications()) do
+    with {:ok, modules} <- application_modules(applications) do
       modules
       |> Enum.filter(&catalog_action?/1)
       |> validate_action_modules()
     end
   end
 
-  @spec plugin_modules() :: {:ok, %{String.t() => module()}} | {:error, atom()}
-  def plugin_modules do
-    with {:ok, modules} <- application_modules() do
+  @spec plugin_modules([atom()]) :: {:ok, %{String.t() => module()}} | {:error, atom()}
+  def plugin_modules(applications \\ default_applications()) do
+    with {:ok, modules} <- application_modules(applications) do
       modules
       |> Enum.filter(&implements?(&1, AllbertAssist.Plugin))
       |> Enum.reduce_while({:ok, %{}}, fn module, {:ok, plugins} ->
@@ -60,9 +79,9 @@ defmodule AllbertAssist.Pack.CompiledInventory do
     _kind, _reason -> {:error, :invalid_plugin_module}
   end
 
-  @spec default_app_modules() :: {:ok, [module()]} | {:error, atom()}
-  def default_app_modules do
-    with {:ok, modules} <- app_modules() do
+  @spec default_app_modules([atom()]) :: {:ok, [module()]} | {:error, atom()}
+  def default_app_modules(applications \\ default_applications()) do
+    with {:ok, modules} <- app_modules(applications) do
       defaults = Enum.filter(modules, & &1.default_app?())
 
       if defaults == [],
@@ -71,9 +90,9 @@ defmodule AllbertAssist.Pack.CompiledInventory do
     end
   end
 
-  @spec reserved_app_owners() :: {:ok, %{atom() => [module()]}} | {:error, atom()}
-  def reserved_app_owners do
-    with {:ok, modules} <- app_modules() do
+  @spec reserved_app_owners([atom()]) :: {:ok, %{atom() => [module()]}} | {:error, atom()}
+  def reserved_app_owners(applications \\ default_applications()) do
+    with {:ok, modules} <- app_modules(applications) do
       modules
       |> Enum.filter(& &1.reserved_app_id?())
       |> Enum.reduce_while({:ok, %{}}, fn module, {:ok, owners} ->
@@ -125,13 +144,26 @@ defmodule AllbertAssist.Pack.CompiledInventory do
 
   def validate_action_modules(_modules), do: {:error, :invalid_action_inventory}
 
-  defp application_modules do
-    case Application.spec(@application, :modules) do
-      modules when is_list(modules) and modules != [] ->
+  defp application_modules(applications) when is_list(applications) and applications != [] do
+    applications
+    |> Enum.reduce_while({:ok, []}, fn application, {:ok, acc} ->
+      case Application.spec(application, :modules) do
+        modules when is_list(modules) and modules != [] ->
+          {:cont, {:ok, acc ++ modules}}
+
+        _other ->
+          {:halt, {:error, :compiled_inventory_unavailable}}
+      end
+    end)
+    |> case do
+      {:ok, modules} ->
         cond do
           not Enum.all?(modules, &is_atom/1) ->
             {:error, :invalid_compiled_module}
 
+          # A module appearing in two applications is a packaging error, not a
+          # merge to resolve: the duplicate check spans the whole set rather
+          # than each application separately.
           length(modules) != MapSet.size(MapSet.new(modules)) ->
             {:error, :duplicate_compiled_module}
 
@@ -139,13 +171,15 @@ defmodule AllbertAssist.Pack.CompiledInventory do
             {:ok, modules}
         end
 
-      _other ->
-        {:error, :compiled_inventory_unavailable}
+      error ->
+        error
     end
   end
 
-  defp app_modules do
-    with {:ok, modules} <- application_modules() do
+  defp application_modules(_applications), do: {:error, :compiled_inventory_unavailable}
+
+  defp app_modules(applications) do
+    with {:ok, modules} <- application_modules(applications) do
       apps =
         modules
         |> Enum.filter(fn module ->
