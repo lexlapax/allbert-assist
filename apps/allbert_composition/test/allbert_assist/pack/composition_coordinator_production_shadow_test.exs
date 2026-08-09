@@ -20,8 +20,14 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
-  @expected_behavior_digest "e3e5683e94ee5498da5d8a9aaa1401195ea5c9664262017c8784abb2fbfff9ea"
-  @expected_bytes_sha256 "41f1d4910a0b31ca90621d79b67a3aff806d24fb36765d70e9f34b054aedd593"
+  # v1.4 M8 re-froze this digest. Relocation moved the Security suite into the
+  # kernel, so the kernel gate owner now declares the lane that suite carries,
+  # and a gate-owner contribution is part of the Pack candidate. The change was
+  # isolated before it was accepted: reverting only the lane declaration
+  # restores the previous digest exactly, which proves the relocated files
+  # themselves changed no contribution.
+  @expected_behavior_digest "2a3195c0749edcb21dc9552ef62c30c2dad97d1a9aea70166fc50850152b2100"
+  @expected_bytes_sha256 "6082ff7aea789882c2c9a810bbeddc5f760f0447bee392715325e385ff504dca"
 
   defmodule AppMetadataSupervisor do
     use GenServer
