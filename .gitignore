@@ -57,7 +57,15 @@ Thumbs.db
 # Local Claude Code workspace (worktrees, local settings, agent scratch).
 # Keep the entire `.claude/` directory local to each machine; selectively
 # allow specific shared files if needed.
-/.claude/
+# Excludes the contents rather than the directory: git does not descend into an
+# excluded directory, so a wholesale `/.claude/` would make the exception below
+# unreachable.
+/.claude/*
+
+# Shared exception: the project-scoped agents are project configuration, not
+# machine configuration. AGENTS.md routes model work to them by name, so they
+# travel with the repository exactly as `.codex/agents/` does.
+!/.claude/agents/
 
 # Test-run metrics raw store (v1.0.2 M8.1); the committed summary lives in
 # docs/validation/test-metrics/.

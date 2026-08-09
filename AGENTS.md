@@ -140,7 +140,8 @@ business-logic debugging, code review, or repository-specific architecture revie
   narrow repeatable scans, inventories, mechanical transformations, and log
   triage. Rejoin every worker at the root and require Sol review before a
   milestone commit or push; Luna never owns cross-milestone judgment or final
-  acceptance. Use the project-scoped agents in `.codex/agents/`.
+  acceptance. Use the project-scoped agents in `.codex/agents/` or
+  `.claude/agents/`; both encode the same routing.
 - Publish every implementation milestone through at least two recoverable
   checkpoints: first an explicitly non-acceptance implementation checkpoint
   after the worktree is quiescent, formatted, warning-free compiling, and
