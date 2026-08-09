@@ -984,7 +984,7 @@ defmodule Mix.Tasks.Allbert.Test do
   # tree, with the top-failing files completely different each time. A milestone
   # that exists to reduce failures cannot be measured against that.
   defp run_serial_partitions!(gate, owner, lane, partitions, seed \\ nil) do
-    packed = packed_lane_paths(owner, lane, partitions)
+    packed = packed_lane_paths(owner, lane, partitions, seed)
 
     1..partitions
     |> Enum.map(fn partition ->
@@ -10769,15 +10769,28 @@ defmodule Mix.Tasks.Allbert.Test do
   # owners can share an output-relative path, so the packer prefers the
   # "owner:path" cost key and falls back to the bare path for legacy records.
   @doc false
-  def packed_lane_paths(owner, lane, partitions) do
+  def packed_lane_paths(owner, lane, partitions, seed \\ nil) do
     files = lane_packing_files(inventory_records(), owner, lane)
 
-    PartitionPacker.pack(
-      files,
-      partitions,
-      TestMetrics.file_costs(owner_aliases: historical_metrics_owner_aliases())
-    )
+    PartitionPacker.pack(files, partitions, packing_costs(seed))
   end
+
+  # The packer is deterministic given its costs, but the costs come from the
+  # metrics store and every run appends to it — so one run's timings repack the
+  # next run's partitions, different files land together, and the
+  # order-dependent pollution moves with them. Measured: two runs at the same
+  # pinned ExUnit seed still gave 634 and 667 failures, with per-partition
+  # counts of 97/115/240/182 against 182/206/133/146.
+  #
+  # A pinned seed is a request for a reproducible lane, and that is only
+  # reproducible if the packing is pinned too. Dropping the measured costs
+  # prices every file from its test count alone, which depends on nothing that
+  # a run can change. Unseeded runs keep the balanced packing that makes the
+  # gate fast — this trades wall time for repeatability, and only when asked.
+  defp packing_costs(nil),
+    do: TestMetrics.file_costs(owner_aliases: historical_metrics_owner_aliases())
+
+  defp packing_costs(seed) when is_integer(seed), do: %{}
 
   defp historical_metrics_owner_aliases do
     Map.new(
