@@ -149,7 +149,8 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
            plugin_registry.snapshot_and_subscribe(self(),
              server: monitored_pid(monitored, plugin_registry)
            ),
-         {:ok, built_candidate} <- candidate_builder.build(closed, app_snapshot, plugin_snapshot),
+         {:ok, built_candidate} <-
+           build_candidate(candidate_builder, closed, app_snapshot, plugin_snapshot),
          :ok <-
            app_registry.bind_epoch(app_ref, app_snapshot.generation, barrier_pid,
              server: monitored_pid(monitored, app_registry)
@@ -192,6 +193,46 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
          bootstrap_completions: bootstrap_completions,
          monitored: monitored
        }}
+    end
+  end
+
+  # The app and plugin registries are versioned independently, and compose/1
+  # snapshots them in sequence. A registration landing between the two reads
+  # therefore yields a torn pair, and a torn pair cannot produce a meaningful
+  # verdict about the candidate's content: a full app set paired with a
+  # half-rebuilt plugin set makes every plugin-owned action look like an app
+  # claiming a module no plugin provides, which ActionProjection rejects as
+  # :dangling_app_action_membership. Measured during M12.1 — every dangling
+  # module was a plugin-owned action whose app was still registered, against a
+  # plugin snapshot holding a single plugin.
+  #
+  # bind_epoch already detects a moved generation, but it runs after the build
+  # and cannot be moved ahead of it: it binds the epoch as a side effect, so
+  # binding before the candidate is known-good would leave epoch_binding set
+  # after a build failure and wedge every later bind on :already_bound.
+  #
+  # Both snapshots are taken through snapshot_and_subscribe, so a generation
+  # that moved under us has already queued a message in this process's mailbox.
+  # Reading it non-blockingly is a pure staleness check with no side effect and
+  # no new ordering. Reporting the staleness rather than the content verdict
+  # keeps the restart behaviour identical — a generation change stops the
+  # coordinator either way — while naming the real cause.
+  defp build_candidate(candidate_builder, closed, app_snapshot, plugin_snapshot) do
+    case candidate_builder.build(closed, app_snapshot, plugin_snapshot) do
+      {:ok, candidate} ->
+        {:ok, candidate}
+
+      {:error, reason} ->
+        if metadata_generation_moved?(), do: {:error, :metadata_generation_moved}, else: {:error, reason}
+    end
+  end
+
+  defp metadata_generation_moved? do
+    receive do
+      {:allbert_metadata_generation_changed, _registry_pid, _subscription_ref, _generation} ->
+        true
+    after
+      0 -> false
     end
   end
 
