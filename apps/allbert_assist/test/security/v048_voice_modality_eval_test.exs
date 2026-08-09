@@ -78,6 +78,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert {:ok, "allbert.telegram"} =
              PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
 
+    ShippedRegistries.reconcile_apps!()
+
     on_exit(fn ->
       File.rm_rf!(home)
       restore_env(original_env)

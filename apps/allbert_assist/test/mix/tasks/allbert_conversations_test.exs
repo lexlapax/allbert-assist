@@ -29,6 +29,7 @@ defmodule Mix.Tasks.Allbert.ConversationsTest do
     PluginRegistry.register_module(AllbertAssist.Plugins.Email)
     PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
     PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
+    ShippedRegistries.reconcile_apps!()
 
     on_exit(fn ->
       Mix.Task.reenable("allbert.conversations")

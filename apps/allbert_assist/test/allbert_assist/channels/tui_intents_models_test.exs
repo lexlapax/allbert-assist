@@ -50,6 +50,7 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
     assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
     Fragments.clear_cache()
     configure_tui!()
+    ShippedRegistries.reconcile_apps!()
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)

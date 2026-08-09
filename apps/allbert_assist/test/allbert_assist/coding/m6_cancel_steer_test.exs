@@ -35,6 +35,7 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
     PluginRegistry.clear()
     assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
     Fragments.clear_cache()
+    ShippedRegistries.reconcile_apps!()
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)

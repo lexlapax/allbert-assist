@@ -82,6 +82,7 @@ defmodule AllbertAssist.Channels.EmailTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     PluginRegistry.clear()
     assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    ShippedRegistries.reconcile_apps!()
 
     on_exit(fn ->
       File.rm_rf!(home)

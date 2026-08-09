@@ -33,6 +33,7 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     PluginRegistry.clear()
     assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
     assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
+    ShippedRegistries.reconcile_apps!()
 
     ensure_browser_supervisor()
     ensure_research_supervisor()
