@@ -8,6 +8,8 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
 
   use GenServer
 
+  require Logger
+
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.MetadataSupervisor, as: AppMetadataSupervisor
   alias AllbertAssist.App.Registry, as: AppRegistry
@@ -350,6 +352,11 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
       Process.send_after(self(), :retry_compose, @input_retry_ms)
       {:noreply, state}
     else
+      # The stop reason stays redacted because it becomes a supervisor report,
+      # but collapsing an unrecognised shape to :composition_rejected hid the
+      # cause of twelve of nineteen terminations in one lane run. Log the reason
+      # before redacting it.
+      Logger.error("composition failed: #{inspect(reason)}")
       {:stop, {:composition_failed, redact_reason(reason)}, state}
     end
   end
