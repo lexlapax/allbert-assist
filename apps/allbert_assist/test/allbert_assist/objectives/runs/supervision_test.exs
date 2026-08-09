@@ -111,7 +111,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert {:ok, fresh} = Objectives.get_objective(runnable.id)
     assert fresh.run_attempt_count == 0
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -142,7 +146,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     add_safe_step(sibling)
 
     assert {:ok, confirmation} = create_child_confirmation(parked, step)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -224,7 +233,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     assert {:ok, confirmation} = create_child_confirmation(parked, step)
     legacy_confirmation = rewrite_as_candidate_unversioned!(confirmation)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -338,7 +352,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                decision: :needs_confirmation
              )
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -421,7 +439,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                decision: :needs_confirmation
              )
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -475,7 +497,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     add_safe_step(sibling)
 
     assert {:ok, confirmation} = create_child_confirmation(parked, step)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -521,7 +548,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     assert %{source: :conversation_manager} = Grounding.resolve(parked)
     assert {:ok, confirmation} = create_child_confirmation(parked, step)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -622,7 +654,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              )
 
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
+
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id)
 
     eventually(fn ->
@@ -686,7 +724,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: [first, second], receipt: receipt} = frame_two()
     add_safe_step(first)
     add_safe_step(second)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -732,7 +775,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: [unknown, safe], receipt: receipt} = frame_two()
     unknown_id = unknown.id
     add_safe_step(safe)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -761,7 +809,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     add_safe_step(safe)
     add_action_step(direct, "direct_answer")
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, starts} = Agent.start_link(fn -> %{} end)
     direct_id = direct.id
@@ -841,7 +894,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
+
     test_pid = self()
 
     forbidden_starter = fn {_run_server, opts} ->
@@ -880,7 +938,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     crashing_id = crashing.id
     add_safe_step(crashing)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -922,7 +985,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     add_safe_step(restarting)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -953,7 +1021,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     add_safe_step(untrusted)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -977,7 +1050,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: [failing, sibling], receipt: receipt} = frame_two()
     add_safe_step(failing)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [
       lifecycle_opts: [
@@ -1008,7 +1086,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: [crashing, sibling], receipt: receipt} = frame_two()
     add_safe_step(crashing)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -1019,7 +1102,15 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     second_pid = await_paused_run(crashing_id)
     directive = "replace the exhausted task without replaying its earlier effect"
-    assert {:ok, _steer} = Steering.steer("alice", crashing_id, directive)
+
+    assert {:ok, _steer} =
+             Steering.steer(
+               "alice",
+               crashing_id,
+               directive,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     Process.exit(second_pid, :kill)
 
     release_child_when_paused(sibling.id)
@@ -1043,7 +1134,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: [crashing, sibling], receipt: receipt} = frame_two()
     add_safe_step(crashing)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
 
@@ -1072,7 +1168,15 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     second_pid = await_paused_run(crashing_id)
     directive = "preserve this steered task for explicit review"
-    assert {:ok, _steer} = Steering.steer("alice", crashing_id, directive)
+
+    assert {:ok, _steer} =
+             Steering.steer(
+               "alice",
+               crashing_id,
+               directive,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     Process.exit(second_pid, :kill)
     release_child_when_paused(sibling.id)
 
@@ -1090,7 +1194,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   test "a transient uncertain-effect park failure retries persistence without replaying work" do
     %{parent: parent, children: [uncertain, sibling], receipt: receipt} = frame_two()
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
 
@@ -1133,7 +1242,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: [crashing, sibling], receipt: receipt} = frame_two()
     add_safe_step(crashing)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
 
@@ -1178,7 +1292,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   test "a permanent recovery transition error stays held and never becomes an execution grant" do
     %{parent: parent, children: [uncertain, sibling], receipt: receipt} = frame_two()
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
 
@@ -1218,7 +1337,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "a transient worker start failure retries the same child and joins exactly once" do
     %{parent: parent, children: [failing, sibling], receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, attempts} = Agent.start_link(fn -> %{} end)
 
@@ -1263,7 +1387,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "transient database failures before run_started retry without uncertain-effect parking" do
     %{parent: parent, children: [contended, sibling], receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, attempts} = Agent.start_link(fn -> %{} end)
     test_pid = self()
@@ -1351,7 +1480,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "a successful worker start clears its pre-effect database retry history" do
     %{parent: parent, children: [contended, sibling], receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, attempts} = Agent.start_link(fn -> %{} end)
     test_pid = self()
@@ -1424,7 +1558,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     cancelled_id = cancelled.id
     add_safe_step(cancelled)
     add_safe_step(sibling)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -1486,7 +1625,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: [completed, active], receipt: receipt} = frame_two()
     add_safe_step(completed)
     add_safe_step(active)
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
@@ -1520,7 +1664,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "parent cancellation reports finalizing without mutating a recovering fan-out" do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     # Reproduce a pre-M12.15 crash orphan without using a production writer.
     assert {2, _rows} =
@@ -1563,8 +1712,17 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     second_coordinator = start_registry_fixture({:fanout, second_parent.id})
     first_run = start_registry_fixture({:run, first_child.id})
 
-    assert :ok = Fanout.acknowledge_start(first_receipt, %{user_id: "alice"})
-    assert :ok = Fanout.acknowledge_start(second_receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               first_receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               second_receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     scheduler =
       start_isolated_scheduler(
@@ -1638,7 +1796,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "live coordinator recovery repairs an all-terminal open parent" do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     force_legacy_terminal_children!(children, "historical result")
 
@@ -1664,7 +1827,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "join reconciliation keeps retrying with backoff until durable fan-in succeeds" do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     force_legacy_terminal_children!(children, "durable result")
 
@@ -1695,7 +1863,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "join reconciliation contains transient database exceptions and retries" do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     force_legacy_terminal_children!(children, "durable result")
 
@@ -1732,7 +1905,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "join reconciliation keeps programming errors crash-visible" do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     force_legacy_terminal_children!(children, "durable result")
 
@@ -1766,7 +1944,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "persistent coordinator crashes retain scheduler recovery backoff" do
     %{parent: parent, receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     test_pid = self()
 
@@ -1821,7 +2004,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   test "a coordinator retires when its durable parent no longer exists" do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     for child <- children do
       assert {1, _rows} =
@@ -1865,7 +2053,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       force_historical_active_state(child, "running", 1)
     end
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
+
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id)
 
     eventually(fn ->
@@ -1886,7 +2079,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     } = frame_two_with_budget(budget: :legacy)
 
     running_step = add_action_step(running_direct, "direct_answer")
-    assert :ok = Fanout.acknowledge_start(direct_receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               direct_receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
+
     running_direct_id = running_direct.id
 
     assert {:ok, historical_run} =
@@ -1896,6 +2095,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                 child_id: running_direct_id,
                 parent_id: direct_parent.id,
                 coordinator: self(),
+                allbert_pack_epoch: ready_epoch(),
                 lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]}
              )
 
@@ -1965,7 +2165,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     add_safe_step(safe)
     force_historical_active_state(safe, "running", 1)
-    assert :ok = Fanout.acknowledge_start(safe_receipt, %{user_id: "alice"})
+
+    assert :ok =
+             Fanout.acknowledge_start(
+               safe_receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
+
     direct_sibling_id = direct_sibling.id
 
     safe_starter = fn {run_server, opts} ->
@@ -2040,8 +2246,22 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     first_directive = "Replace the historical child task before recovery"
     directive = "List objectives"
-    assert {:ok, _first_event} = Steering.steer("alice", steered.id, first_directive)
-    assert {:ok, _second_event} = Steering.steer("alice", steered.id, directive)
+
+    assert {:ok, _first_event} =
+             Steering.steer(
+               "alice",
+               steered.id,
+               first_directive,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
+    assert {:ok, _second_event} =
+             Steering.steer(
+               "alice",
+               steered.id,
+               directive,
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
 
     # Steering wake-ups are hints queued on the global Scheduler. Cross its
     # mailbox while kickoff is still blocked so the injected coordinator below,
@@ -2049,7 +2269,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert is_map(Scheduler.snapshot())
     assert Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) == []
 
-    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    assert :ok =
+             Fanout.acknowledge_start(
+               receipt,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> %{blocked.id => 0, steered.id => 0} end)
 
@@ -2122,7 +2346,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   defp frame_two do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               %{user_id: "alice", title: unique("parent"), objective: "Parallel"},
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 title: unique("parent"),
+                 objective: "Parallel"
+               }),
                [unique("first"), unique("second")]
              )
 
@@ -2196,12 +2424,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: unique("parent"),
                  objective: original,
                  proposer_hint: %{"fanout_plan" => provenance}
-               },
+               }),
                FanoutPlan.child_attrs(compiled)
              )
 
@@ -2351,6 +2579,11 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     step
   end
 
+  # RunServer does Keyword.fetch!(opts, :allbert_pack_epoch); a run started
+  # directly by a test must therefore carry a ready epoch of its own.
+  defp ready_epoch,
+    do: AllbertAssist.TestSupport.ReadyEffectContext.context().allbert_pack_epoch
+
   defp create_child_confirmation(child, step, opts \\ []) do
     permission = Keyword.get(opts, :permission, :read_only)
     execution_mode = Keyword.get(opts, :execution_mode, :read_only)
@@ -2371,13 +2604,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
         },
         resume_params_ref: %{}
       },
-      %{
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
         user_id: child.user_id,
         objective_id: child.id,
         step_id: step.id,
         parent_objective_id: child.parent_objective_id,
         selected_action: step.candidate_action
-      }
+      })
     )
   end
 
