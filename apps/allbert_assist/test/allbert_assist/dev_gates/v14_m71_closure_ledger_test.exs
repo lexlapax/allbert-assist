@@ -5,11 +5,11 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
 
   alias AllbertAssist.DevGates.V14M71ClosureLedger, as: Ledger
 
-  @registry "apps/allbert_assist/lib/allbert_assist/actions/registry.ex"
-  @runner "apps/allbert_assist/lib/allbert_assist/actions/runner.ex"
-  @decision "apps/allbert_assist/lib/allbert_assist/security/decision.ex"
-  @status "apps/allbert_assist/lib/allbert_assist/security/status.ex"
-  @paths "apps/allbert_assist/lib/allbert_assist/paths.ex"
+  @registry "apps/allbert_kernel/lib/allbert_assist/actions/registry.ex"
+  @runner "apps/allbert_kernel/lib/allbert_assist/actions/runner.ex"
+  @decision "apps/allbert_kernel/lib/allbert_assist/security/decision.ex"
+  @status "apps/allbert_kernel/lib/allbert_assist/security/status.ex"
+  @paths "apps/allbert_kernel/lib/allbert_assist/paths.ex"
 
   describe "the frozen roster" do
     test "covers the three locked concerns and every file exists" do
@@ -33,9 +33,9 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
     test "WriterLock.Holder is deliberately excluded as a retained startup host" do
       paths = Enum.map(Ledger.roster(), &elem(&1, 0))
 
-      assert "apps/allbert_assist/lib/allbert_assist/runtime/writer_lock.ex" in paths
+      assert "apps/allbert_kernel/lib/allbert_assist/runtime/writer_lock.ex" in paths
 
-      refute "apps/allbert_assist/lib/allbert_assist/runtime/writer_lock/holder.ex" in paths
+      refute "apps/allbert_kernel/lib/allbert_assist/runtime/writer_lock/holder.ex" in paths
     end
   end
 
@@ -176,8 +176,8 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
       # These two already close, so they can never appear. If they do, a split
       # regressed a test that was already kernel-pure.
       closed = [
-        "apps/allbert_assist/test/allbert_assist/runtime/writer_lock_test.exs",
-        "apps/allbert_assist/test/allbert_assist/runtime/safe_term_test.exs"
+        "apps/allbert_kernel/test/allbert_assist/runtime/writer_lock_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/runtime/safe_term_test.exs"
       ]
 
       for path <- closed, do: refute(Enum.any?(backlog, &(&1.path == path)))
@@ -213,26 +213,29 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
   describe "the R2 move manifest" do
     @manifest "docs/validation/v1.4-m8-move-manifest.csv"
 
-    test "the committed manifest matches a live regeneration byte for byte" do
-      assert {:ok, rows} = Ledger.move_manifest()
-
+    test "the committed manifest stays the R2 record, not a post-move regeneration" do
+      # Before M8 this row compared the manifest against a live regeneration.
+      # After the move that comparison is meaningless — a regeneration now reads
+      # the kernel paths — so the manifest's job changes from "matches today" to
+      # "records what R2 froze". Its source paths must still be the pre-move
+      # ones, and `relocation_diffs/0` is what proves the bytes arrived.
       committed =
         @manifest
         |> Path.expand(repository_root())
         |> File.read!()
         |> String.split("\n", trim: true)
+        |> tl()
 
-      [header | committed_rows] = committed
-      headers = String.split(header, ",")
+      for row <- committed do
+        [_concern, _module, source, destination | _rest] = String.split(row, ",")
 
-      regenerated =
-        Enum.map(rows, fn row ->
-          headers |> Enum.map(&Map.fetch!(row, &1)) |> Enum.join(",")
-        end)
+        assert String.starts_with?(source, "apps/allbert_assist/"),
+               "the manifest must keep its pre-move source paths as R2 evidence: #{source}"
 
-      assert committed_rows == regenerated,
-             "the frozen move manifest has drifted; M8 must consume the exact " <>
-               "bytes R2 froze. Regenerate deliberately, never to make this pass."
+        assert String.starts_with?(destination, "apps/allbert_kernel/")
+      end
+
+      assert {:ok, []} = Ledger.relocation_diffs()
     end
 
     test "every row moves one file into the kernel under the same module name" do
@@ -265,6 +268,16 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
       end
     end
 
+    test "every relocated file still hashes to the byte R2 froze" do
+      # M8's acceptance, stated as code. A relocation that changes content is
+      # not a relocation, and this catches it rather than a review.
+      assert {:ok, diffs} = Ledger.relocation_diffs()
+
+      assert diffs == [],
+             "relocated content changed:\n" <>
+               Enum.map_join(diffs, "\n", &"  #{&1.file}")
+    end
+
     test "a source digest tracks its file, so a content change cannot pass as a move" do
       assert {:ok, rows} = Ledger.move_manifest()
 
@@ -293,6 +306,8 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
         |> Enum.reject(&(&1 == ""))
 
       for path <- shared.security_central do
+        assert String.starts_with?(path, "apps/allbert_kernel/")
+
         refute path in dedicated,
                "#{path} proves the Security plane as a unit and cannot also be " <>
                  "one module's dedicated owner"

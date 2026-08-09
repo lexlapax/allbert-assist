@@ -38,35 +38,35 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   @roster %{
     # Concern 1 — Home and Identity. WriterLock.Holder is deliberately absent:
     # it is a daemon-mode supervision child and stays a residual startup host.
-    "apps/allbert_assist/lib/allbert_assist/paths.ex" => :home_identity,
-    "apps/allbert_assist/lib/allbert_assist/config_context.ex" => :home_identity,
-    "apps/allbert_assist/lib/allbert_assist/runtime/writer_lock.ex" => :home_identity,
+    "apps/allbert_kernel/lib/allbert_assist/paths.ex" => :home_identity,
+    "apps/allbert_kernel/lib/allbert_assist/config_context.ex" => :home_identity,
+    "apps/allbert_kernel/lib/allbert_assist/runtime/writer_lock.ex" => :home_identity,
 
     # Concern 3 — Security Central.
-    "apps/allbert_assist/lib/allbert_assist/security.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/audit.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/context.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/decision.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/policy.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/redactor.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/review.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/risk.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/security/status.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/external/http_policy.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/external/request_spec.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/maps.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/validation.ex" => :security_central,
-    "apps/allbert_assist/lib/allbert_assist/runtime/safe_term.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/audit.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/context.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/decision.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/policy.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/redactor.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/review.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/risk.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/security/status.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/external/http_policy.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/external/request_spec.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/maps.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/validation.ex" => :security_central,
+    "apps/allbert_kernel/lib/allbert_assist/runtime/safe_term.ex" => :security_central,
 
     # Concern 4 — Capability Plane.
-    "apps/allbert_assist/lib/allbert_assist/action.ex" => :capability_plane,
-    "apps/allbert_assist/lib/allbert_assist/actions/capability.ex" => :capability_plane,
-    "apps/allbert_assist/lib/allbert_assist/actions/param_contract.ex" => :capability_plane,
-    "apps/allbert_assist/lib/allbert_assist/actions/registry.ex" => :capability_plane,
-    "apps/allbert_assist/lib/allbert_assist/actions/runner.ex" => :capability_plane,
-    "apps/allbert_assist/lib/allbert_assist/actions/snapshot_catalog.ex" => :capability_plane,
-    "apps/allbert_assist/lib/allbert_assist/runtime/response.ex" => :capability_plane,
-    "apps/allbert_assist/lib/allbert_assist/registry_context.ex" => :capability_plane
+    "apps/allbert_kernel/lib/allbert_assist/action.ex" => :capability_plane,
+    "apps/allbert_kernel/lib/allbert_assist/actions/capability.ex" => :capability_plane,
+    "apps/allbert_kernel/lib/allbert_assist/actions/param_contract.ex" => :capability_plane,
+    "apps/allbert_kernel/lib/allbert_assist/actions/registry.ex" => :capability_plane,
+    "apps/allbert_kernel/lib/allbert_assist/actions/runner.ex" => :capability_plane,
+    "apps/allbert_kernel/lib/allbert_assist/actions/snapshot_catalog.ex" => :capability_plane,
+    "apps/allbert_kernel/lib/allbert_assist/runtime/response.ex" => :capability_plane,
+    "apps/allbert_kernel/lib/allbert_assist/registry_context.ex" => :capability_plane
   }
 
   # Owning tests that do not relocate at all, with the reason each stays.
@@ -97,10 +97,10 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   # the concern; no per-module row claims them as its dedicated owner.
   @shared_tests [
     security_central: [
-      "apps/allbert_assist/test/allbert_assist/security/channel_inbound_policy_test.exs",
-      "apps/allbert_assist/test/allbert_assist/security/permission_gate_test.exs",
-      "apps/allbert_assist/test/allbert_assist/security/public_surface_policy_test.exs",
-      "apps/allbert_assist/test/allbert_assist/security/security_central_test.exs"
+      "apps/allbert_kernel/test/allbert_assist/security/channel_inbound_policy_test.exs",
+      "apps/allbert_kernel/test/allbert_assist/security/permission_gate_test.exs",
+      "apps/allbert_kernel/test/allbert_assist/security/public_surface_policy_test.exs",
+      "apps/allbert_kernel/test/allbert_assist/security/security_central_test.exs"
     ]
   ]
 
@@ -412,9 +412,9 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   defp owning_test(source) do
     candidate =
       source
-      |> String.replace_prefix("apps/allbert_assist/lib/allbert_assist/", "")
+      |> String.replace_prefix("apps/allbert_kernel/lib/allbert_assist/", "")
       |> String.replace_suffix(".ex", "_test.exs")
-      |> then(&Path.join("apps/allbert_assist/test/allbert_assist", &1))
+      |> then(&Path.join("apps/allbert_kernel/test/allbert_assist", &1))
 
     cond do
       Map.has_key?(@residual_owned_tests, candidate) -> nil
@@ -423,9 +423,10 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
     end
   end
 
-  defp destination(source) do
-    String.replace_prefix(source, "apps/allbert_assist/", "apps/allbert_kernel/")
-  end
+  # Post-M8 the roster already lives in the kernel, so a destination is the
+  # path itself. The frozen manifest keeps the pre-move source paths as R2
+  # evidence; this is the identity the closure proof now walks.
+  defp destination(source), do: source
 
   defp digest(relative_path) do
     @repo_root
@@ -437,6 +438,40 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
 
   defp module_for_source(source) do
     source |> quoted!() |> defined_modules() |> List.last()
+  end
+
+  @doc """
+  Prove every relocated file still hashes to the byte frozen at R2.
+
+  This is M8's acceptance stated as code. The frozen manifest keeps the
+  pre-move source paths; each row's bytes must now be found, unchanged, at its
+  destination. A content change means something other than a relocation
+  happened, and it is caught here rather than at a review.
+  """
+  @spec relocation_diffs() :: {:ok, [map()]} | {:error, term()}
+  def relocation_diffs do
+    path = Path.join(@repo_root, "docs/validation/v1.4-m8-move-manifest.csv")
+
+    with {:ok, contents} <- File.read(path) do
+      [header | rows] = contents |> String.split("\n", trim: true)
+      headers = String.split(header, ",")
+
+      diffs =
+        rows
+        |> Enum.map(&(headers |> Enum.zip(String.split(&1, ",")) |> Map.new()))
+        |> Enum.flat_map(&frozen_pairs/1)
+        |> Enum.reject(fn {file, frozen} -> digest(file) == frozen end)
+        |> Enum.map(fn {file, frozen} ->
+          %{file: file, frozen: frozen, actual: digest(file)}
+        end)
+
+      {:ok, diffs}
+    end
+  end
+
+  defp frozen_pairs(row) do
+    [{row["destination"], row["source_sha256"]}, {row["test_destination"], row["test_sha256"]}]
+    |> Enum.reject(fn {file, _frozen} -> file in [nil, ""] end)
   end
 
   @doc "Every module a relocation target references, with aliases resolved."

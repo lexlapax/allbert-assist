@@ -2,8 +2,10 @@ defmodule AllbertAssist.SecurityCentralIntegrationTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Security
   alias AllbertAssist.Security.Context
+  alias AllbertAssist.Security.Decision
   alias AllbertAssist.Settings
 
   # These two rows assert Security Central against residual runtime rather than
@@ -76,6 +78,78 @@ defmodule AllbertAssist.SecurityCentralIntegrationTest do
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+
+  test "normalizes sparse runtime context" do
+    assert {:ok, capability} = Registry.capability("append_memory")
+
+    context =
+      Context.normalize(:read_only, %{
+        request: %{operator_id: "local", channel: :cli, input_signal_id: "sig"},
+        selected_action: "append_memory",
+        action_capability: Map.from_struct(capability),
+        selected_skill: "append-memory",
+        skill_metadata: %{source_scope: :built_in, trust_status: :trusted},
+        api_key: "sk-test"
+      })
+
+    assert context.actor.id == "local"
+    assert context.channel == %{name: :cli, trust: :local}
+    assert context.session.source_signal_id == "sig"
+    assert context.action.name == "append_memory"
+    assert context.action.registered?
+    assert context.action.capability.name == "append_memory"
+    assert context.skill.name == "append-memory"
+    assert context.skill.trust_status == :trusted
+    assert context.skill.capability_contract.validation_status == :valid
+    assert context.skill.capability_contract.execution_eligible?
+    assert context.secret_status.raw_secret_present?
+  end
+
+  test "unknown actions and undiscoverable selected skills deny instead of gaining authority" do
+    unknown_action =
+      Security.authorize(:read_only, %{
+        selected_action: "not_registered"
+      })
+
+    assert unknown_action.decision == :denied
+    assert unknown_action.policy.context_denial =~ "Unknown or unregistered action"
+
+    missing_skill =
+      Security.authorize(:memory_write, %{
+        selected_skill: "missing-skill",
+        selected_action: "append_memory"
+      })
+
+    assert missing_skill.decision == :denied
+    assert missing_skill.policy.context_denial =~ "Selected skill is not trusted"
+  end
+
+  test "builds canonical decisions with compatibility and widened metadata" do
+    decision =
+      Security.authorize(:external_network, %{
+        request: %{operator_id: "local", channel: :test, input_signal_id: "sig"},
+        selected_action: "external_network_request"
+      })
+
+    assert decision.permission == :external_network
+    assert decision.decision == :needs_confirmation
+    assert decision.requires_confirmation
+    assert decision.risk.tier == :high
+    assert decision.policy.effective == :needs_confirmation
+    assert decision.trace.risk_tier == :high
+    assert decision.audit.event == "security.decision"
+    assert decision.context.actor.id == "local"
+    assert decision.trust_boundary.action_registered?
+
+    compatibility =
+      Decision.compatibility(decision, source: AllbertAssist.Security)
+
+    assert Map.keys(compatibility) |> Enum.sort() ==
+             [:decision, :permission, :reason, :requires_confirmation, :source]
+
+    assert compatibility.source == AllbertAssist.Security
+  end
+
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp write_skill(root, directory, name) do

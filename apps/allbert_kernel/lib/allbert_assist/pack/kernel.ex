@@ -57,7 +57,11 @@ defmodule AllbertAssist.Pack.Kernel do
           :pure_async,
           :app_env_serial,
           :home_fs_serial,
-          :global_process_serial
+          :global_process_serial,
+          # v1.4 M8: the relocated Security Central suite carries this lane.
+          # Declared here rather than retagging the suite, which would have
+          # changed bytes the R2 manifest froze.
+          :external_runtime_serial
         ],
         aggregate_policy: :mix_test,
         target_resolver: {AllbertAssist.DevGates.GateTargetResolver, :resolve},
