@@ -114,6 +114,11 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives do
     end
   end
 
+  # Call sites that already hold an epoch pass their own context rather than
+  # admitting a second one; without this arity they resolve against the wrapper
+  # and raise UndefinedFunctionError.
+  def create_step(attrs, context), do: Objectives.create_step(attrs, context)
+
   def transition_step(step, status, attrs) do
     with {:ok, epoch} <- EffectGuard.admit_ready() do
       Objectives.transition_step(step, status, attrs, %{allbert_pack_epoch: epoch})

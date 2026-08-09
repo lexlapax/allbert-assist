@@ -7,6 +7,11 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest.EpochObjectives do
   def create_objective(attrs), do: with_epoch(&Objectives.create_objective(attrs, &1))
   def create_step(attrs), do: with_epoch(&Objectives.create_step(attrs, &1))
 
+  # Call sites holding an epoch pass their own context instead of admitting a
+  # second one; without these arities they resolve against the wrapper and raise.
+  def create_objective(attrs, context), do: Objectives.create_objective(attrs, context)
+  def create_step(attrs, context), do: Objectives.create_step(attrs, context)
+
   defdelegate get_objective(id), to: Objectives
   defdelegate list_steps(id), to: Objectives
   defdelegate list_events(id), to: Objectives
