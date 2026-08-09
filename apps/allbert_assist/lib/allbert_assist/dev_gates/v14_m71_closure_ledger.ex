@@ -342,24 +342,47 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   """
   @spec move_manifest() :: {:ok, [map()]}
   def move_manifest do
-    rows =
-      Enum.map(roster(), fn {source, concern} ->
-        test_source = owning_test(source)
-
-        Map.new([
-          {"concern", Atom.to_string(concern)},
-          {"module", source |> module_for_source() |> inspect()},
-          {"source", source},
-          {"destination", destination(source)},
-          {"source_sha256", digest(source)},
-          {"test_source", test_source || ""},
-          {"test_destination", (test_source && destination(test_source)) || ""},
-          {"test_sha256", (test_source && digest(test_source)) || ""},
-          {"disposition", "move"}
-        ])
-      end)
+    rows = Enum.map(roster(), &module_row/1) ++ shared_test_rows()
 
     {:ok, rows}
+  end
+
+  # A concern-shared suite relocates too, so its bytes must be frozen like any
+  # other relocating file. Carrying it only in `shared_tests/0` left four files
+  # moving at M8 with no digest to compare against, which is exactly the hole
+  # the pure-move proof exists to close.
+  defp shared_test_rows do
+    Enum.flat_map(@shared_tests, fn {concern, paths} ->
+      Enum.map(paths, fn path ->
+        Map.new([
+          {"concern", Atom.to_string(concern)},
+          {"module", ""},
+          {"source", path},
+          {"destination", destination(path)},
+          {"source_sha256", digest(path)},
+          {"test_source", ""},
+          {"test_destination", ""},
+          {"test_sha256", ""},
+          {"disposition", "move_shared_test"}
+        ])
+      end)
+    end)
+  end
+
+  defp module_row({source, concern}) do
+    test_source = owning_test(source)
+
+    Map.new([
+      {"concern", Atom.to_string(concern)},
+      {"module", source |> module_for_source() |> inspect()},
+      {"source", source},
+      {"destination", destination(source)},
+      {"source_sha256", digest(source)},
+      {"test_source", test_source || ""},
+      {"test_destination", (test_source && destination(test_source)) || ""},
+      {"test_sha256", (test_source && digest(test_source)) || ""},
+      {"disposition", "move"}
+    ])
   end
 
   @doc """

@@ -237,9 +237,18 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
 
     test "every row moves one file into the kernel under the same module name" do
       assert {:ok, rows} = Ledger.move_manifest()
-      assert length(rows) == 25
+      assert length(rows) == 29
 
-      for row <- rows do
+      module_rows = Enum.filter(rows, &(&1["disposition"] == "move"))
+      shared_rows = Enum.filter(rows, &(&1["disposition"] == "move_shared_test"))
+
+      assert length(module_rows) == 25
+      # Concern-shared suites relocate too and must carry a frozen digest, or
+      # four files would move at M8 with nothing to compare against.
+      assert length(shared_rows) == 4
+      assert Enum.all?(shared_rows, &(String.length(&1["source_sha256"]) == 64))
+
+      for row <- module_rows do
         assert row["disposition"] == "move"
 
         assert row["destination"] ==
