@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test prepush [--partitions N]
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
-      mix allbert.test serial-owner --owner OWNER --lane LANE [--partitions N]
+      mix allbert.test serial-owner --owner OWNER --lane LANE [--partitions N] [--seed N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release-assembly --checkpoint CHECKPOINT
       mix allbert.test param-contract-sweep
@@ -944,7 +944,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp serial_owner(args) do
     {opts, rest, invalid} =
       OptionParser.parse(args,
-        strict: [owner: :string, lane: :string, partitions: :integer]
+        strict: [owner: :string, lane: :string, partitions: :integer, seed: :integer]
       )
 
     reject_invalid!(invalid)
@@ -962,7 +962,7 @@ defmodule Mix.Tasks.Allbert.Test do
       Mix.raise("#{lane} must run as a single-VM serial or external smoke lane")
     end
 
-    run_serial_partitions!("serial-owner", owner, lane, partitions)
+    run_serial_partitions!("serial-owner", owner, lane, partitions, Keyword.get(opts, :seed))
   end
 
   defp release_assembly(args) do
@@ -977,7 +977,13 @@ defmodule Mix.Tasks.Allbert.Test do
     ReleaseAssembly.run!(checkpoint, root: root(), command: gate_command())
   end
 
-  defp run_serial_partitions!(gate, owner, lane, partitions) do
+  # A pinned seed makes a lane reproducible. Without one ExUnit picks a fresh
+  # seed per partition per run, so execution order changes every time, and any
+  # order-dependent pollution moves the failure count and reshuffles which files
+  # carry it. Measured on db_serial: 622 to 670 failures across runs of the same
+  # tree, with the top-failing files completely different each time. A milestone
+  # that exists to reduce failures cannot be measured against that.
+  defp run_serial_partitions!(gate, owner, lane, partitions, seed \\ nil) do
     packed = packed_lane_paths(owner, lane, partitions)
 
     1..partitions
@@ -990,6 +996,7 @@ defmodule Mix.Tasks.Allbert.Test do
         partitions: partitions,
         lane: lane,
         test_paths: Enum.at(packed, partition - 1),
+        seed: seed,
         env: owned_env("serial-#{owner}-#{lane}", partition)
       }
     end)
@@ -10632,16 +10639,18 @@ defmodule Mix.Tasks.Allbert.Test do
     output
   end
 
-  defp run_serial_partition(%{
-         label: label,
-         gate: gate,
-         owner: owner,
-         env: env,
-         lane: lane,
-         partitions: partitions,
-         partition: partition,
-         test_paths: test_paths
-       }) do
+  defp run_serial_partition(
+         %{
+           label: label,
+           gate: gate,
+           owner: owner,
+           env: env,
+           lane: lane,
+           partitions: partitions,
+           partition: partition,
+           test_paths: test_paths
+         } = spec
+       ) do
     env =
       [
         {"MIX_TEST_PARTITION", to_string(partition)},
@@ -10656,7 +10665,7 @@ defmodule Mix.Tasks.Allbert.Test do
       if test_paths == [] do
         {:ok, label, empty_partition_message(lane)}
       else
-        run_serial_partition_cmd(label, owner, lane, env, test_paths)
+        run_serial_partition_cmd(label, owner, lane, env, test_paths, Map.get(spec, :seed))
       end
 
     record_serial_partition_metrics(gate, owner, lane, partition, partitions, started, output)
@@ -10668,7 +10677,10 @@ defmodule Mix.Tasks.Allbert.Test do
   # so ExUnit's hash split (`--partitions`) is no longer passed — each VM
   # runs exactly its assigned files. MIX_TEST_PARTITION stays exported for
   # the per-partition owned-env naming contract.
-  defp run_serial_partition_cmd(label, owner, lane, env, test_paths) do
+  defp seed_args(nil), do: []
+  defp seed_args(seed) when is_integer(seed), do: ["--seed", Integer.to_string(seed)]
+
+  defp run_serial_partition_cmd(label, owner, lane, env, test_paths, seed) do
     with {migrate_output, 0} <-
            prepare_serial_owner(owner, env),
          {test_output, status} <-
@@ -10685,7 +10697,7 @@ defmodule Mix.Tasks.Allbert.Test do
                  "1",
                  "--slowest",
                  "25"
-               ] ++ test_paths,
+               ] ++ seed_args(seed) ++ test_paths,
              env: env
            }) do
       cond do
@@ -11563,7 +11575,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test prepush [--partitions N]
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
-      mix allbert.test serial-owner --owner OWNER --lane LANE [--partitions N]
+      mix allbert.test serial-owner --owner OWNER --lane LANE [--partitions N] [--seed N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release-assembly --checkpoint CHECKPOINT
       mix allbert.test param-contract-sweep

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "list_objectives is user scoped and goes through action runner metadata" do
     user = unique_user("read_actions")
@@ -22,7 +23,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  objective: "Complete one analysis for AAPL.",
                  active_app: "stocksage"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _bob} =
@@ -32,7 +33,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  title: "Analyze MSFT",
                  objective: "Complete one analysis for MSFT."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} = Runner.run("list_objectives", %{user_id: user}, %{})
@@ -54,7 +55,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  objective: "Waiting on operator.",
                  status: "blocked"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _completed} =
@@ -65,7 +66,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  objective: "Already done.",
                  status: "completed"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} =
@@ -92,7 +93,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  objective: "Complete one analysis for AAPL.",
                  active_app: "stocksage"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -105,7 +106,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  action_params: %{ticker: "AAPL"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _event} =
@@ -116,7 +117,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  kind: "step_proposed",
                  summary: "Proposed step."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} =
@@ -146,7 +147,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
 
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: user,
                  title: "Recovering read",
                  objective: "Read coherently"
@@ -157,7 +158,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: user})
+               ReadyEffectContext.attach(%{user_id: user})
              )
 
     assert {2, _rows} =
@@ -193,7 +194,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  objective: "Complete one analysis for AAPL.",
                  status: "blocked"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -206,7 +207,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  confirmation_id: "conf_pending"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} =
@@ -269,7 +270,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  objective: "Wait for approval.",
                  status: "blocked"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -282,14 +283,14 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  confirmation_id: confirmation_id
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _objective} =
              Objectives.update_objective(
                objective,
                %{current_step_id: step.id},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _confirmation} =
@@ -324,7 +325,7 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
                  objective: "Already abandoned.",
                  status: "abandoned"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, terminal} =

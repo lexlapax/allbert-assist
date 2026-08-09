@@ -14,6 +14,7 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Repo
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   defmodule CheckpointAdapter do
     def operation(operation, state, opts) do
@@ -347,7 +348,7 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
 
   defp frame do
     Fanout.frame(
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         user_id: "cancel-user",
         title: "cancel",
         objective: "cancel",

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Repo
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Ecto.Adapters.SQL.Sandbox
 
   setup_all do
@@ -71,7 +72,7 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "operator-topology",
                  source_thread_id: thread.id,
                  source_channel: "tui",

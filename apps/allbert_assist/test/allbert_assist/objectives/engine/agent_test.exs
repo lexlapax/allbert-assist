@@ -58,12 +58,13 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
-  alias AllbertAssist.Objectives.Engine.AgentTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Objectives.Engine.AgentTest.EpochEngine, as: EngineAgent
+  alias AllbertAssist.Objectives.Engine.AgentTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Proposer
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Jido.AgentServer
   alias Jido.Signal.Bus
 
@@ -210,7 +211,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Open",
                  objective: "Open objective"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, running} =
@@ -221,7 +222,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Running",
                  objective: "Running objective"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, completed} =
@@ -232,7 +233,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Completed",
                  objective: "Completed objective"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, stale} =
@@ -243,7 +244,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Stale",
                  objective: "Stale objective"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     stale_at = DateTime.add(now, -2, :hour)
@@ -276,7 +277,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Read-only stale",
                  objective: "Must not be abandoned without an effect receipt."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     stale_at = DateTime.add(now, -2, :hour)
@@ -321,7 +322,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  objective: "Keep proposer hint durable.",
                  proposer_hint: %{"app_id" => "allbert", "state" => %{"cursor" => 1}}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     start_supervised!(
@@ -353,7 +354,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Evaluate",
                  objective: "Evaluate one completed step."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _step} =
@@ -365,7 +366,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  stage: "observe_step",
                  candidate_action: "StockSage.Actions.RunAnalysis"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, %{verdict: :met, evaluated_steps: 1}} =
@@ -404,7 +405,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Transaction boundary",
                  objective: "Run outside the database transaction."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -417,7 +418,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  candidate_action: TransactionProbeAction.name(),
                  action_params: %{}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, %{step: %{status: "completed"}}} =
@@ -438,7 +439,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Stale",
                  objective: "Stale objective"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     stale_at = DateTime.add(now, -2, :hour)
@@ -472,7 +473,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Delegate",
                  objective: "Delegate one step."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -485,7 +486,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  delegate_agent_id: "delegate-test",
                  action_params: %{payload: "hello"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, %{step: completed, objective: completed_objective, verdict: :met}} =
@@ -518,7 +519,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Delegate research",
                  objective: "Delegate one research step."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -531,7 +532,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  delegate_agent_id: "delegate-research",
                  action_params: %{command: "research", params: %{payload: "topic"}}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, %{step: completed, objective: completed_objective, verdict: :met}} =
@@ -574,7 +575,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                  title: "Delegate pending",
                  objective: "Pause on a delegate confirmation."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -590,7 +591,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
                    params: %{confirmation_id: "conf_delegate_pending"}
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok,

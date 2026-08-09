@@ -8,6 +8,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Surface.Catalog
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "renders objective details and cancels through registered action", %{conn: conn} do
     assert {:ok, objective} =
@@ -20,7 +21,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  active_app: "stocksage",
                  acceptance_criteria: %{"min_completed_steps" => 1}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -33,7 +34,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  confirmation_id: "conf_live_objective"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _event} =
@@ -44,7 +45,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  kind: "blocked",
                  summary: "Waiting for confirmation."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
@@ -92,7 +93,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  objective: "Already abandoned.",
                  status: "abandoned"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
@@ -107,7 +108,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
              Objectives.update_objective(
                objective,
                %{status: "cancelled"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     send(view.pid, {:objective_event, %{type: "allbert.objective.cancelled"}})
@@ -125,7 +126,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  title: "Alice only",
                  objective: "Should not leak."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, _cross_view, cross_html} = live(conn, ~p"/objectives/#{other_user.id}")
@@ -144,7 +145,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  active_app: "allbert",
                  source_intent: "workflow:multi_step:1"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -158,7 +159,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  candidate_action: "delegate_agent",
                  delegate_agent_id: "plan-build-stub"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _event} =
@@ -169,7 +170,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  kind: "observed",
                  summary: "Parent step started."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _child_event} =
@@ -180,7 +181,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  summary: "Child agent reported progress.",
                  payload: %{parent_step_id: step.id}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
@@ -216,7 +217,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                  active_app: "allbert",
                  acceptance_criteria: %{"min_completed_steps" => 1}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, _html} = live(conn, ~p"/objectives/#{objective.id}")
@@ -235,7 +236,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   } do
     assert {:ok, %{parent: parent, children: [first, second]}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "local",
                  title: "Parallel launch",
                  objective: "Parallel launch"
@@ -264,7 +265,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   test "rejects tampered child ids from another fan-out", %{conn: conn} do
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "local",
                  title: "Visible launch",
                  objective: "Visible launch"
@@ -274,7 +275,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
     assert {:ok, %{children: [foreign | _]}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "local",
                  title: "Other launch",
                  objective: "Other launch"
@@ -302,7 +303,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   test "stopping a fan-out preserves finished work and renders the partial outcome", %{conn: conn} do
     assert {:ok, %{parent: parent, children: [completed, active]}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "local",
                  title: "Partially finished launch",
                  objective: "Join two tasks"
@@ -343,7 +344,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   test "renders truthful joined child results without stale controls", %{conn: conn} do
     assert {:ok, %{parent: parent, children: [completed, failed]}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "local",
                  title: "Joined launch",
                  objective: "Join two tasks"
@@ -367,7 +368,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                },
                "run_failed",
                %{},
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+               effect_context: ReadyEffectContext.context()
              )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{parent.id}")

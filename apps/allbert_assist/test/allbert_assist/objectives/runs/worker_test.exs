@@ -8,6 +8,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Runs.{Cancel, CancelToken, RunServer, Worker}
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @resolution_hook_key {Store, :resolution_hook}
 
@@ -72,13 +73,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
       AllbertAssist.Settings.put(
         "intent.direct_answer_model_enabled",
         false,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
 
       AllbertAssist.Settings.put(
         "objectives.fanout.confirm_before_start",
         false,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        ReadyEffectContext.attach(%{
           audit?: false
         })
       )
@@ -117,7 +118,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
              AllbertAssist.Settings.put(
                "intent.direct_answer_model_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -381,7 +382,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
              AllbertAssist.Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -433,14 +434,14 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
              AllbertAssist.Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
 
     assert {:ok, %{parent: parent, children: [child, _sibling]}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "worker-user",
                  title: "RunServer cancellation parent",
                  objective: "Run two bounded tasks"
@@ -461,7 +462,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
                  candidate_action: "direct_answer",
                  action_params: %{text: child.objective}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, run_server} =
@@ -496,7 +497,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
              AllbertAssist.Settings.put(
                "objectives.fanout.confirm_before_start",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -505,7 +506,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
              AllbertAssist.Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -536,7 +537,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
              AllbertAssist.Settings.put(
                "objectives.fanout.confirm_before_start",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

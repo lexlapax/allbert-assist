@@ -296,7 +296,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     assert {:error, :receipt_identity_mismatch} =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  bound_context("alice")
                  | origin_receiver_account_ref: "account-2"
                })
@@ -458,7 +458,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
           Settings.put(
             key,
             value,
-            AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+            ReadyEffectContext.attach(%{audit?: false})
           )
       )
 

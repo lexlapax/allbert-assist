@@ -18,6 +18,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.YamlCodec
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   defmodule PausingAdapter do
     def operation(operation, state, opts) do
@@ -114,7 +115,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -150,7 +151,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -237,7 +238,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -296,7 +297,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                %{
                  confirmation_id: legacy_confirmation["id"]
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _second_step} =
@@ -306,7 +307,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                %{
                  confirmation_id: legacy_confirmation["id"]
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} =
@@ -330,7 +331,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       Settings.put(
         "permissions.external_network",
         original_policy,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
 
@@ -338,7 +339,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "permissions.external_network",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two()
@@ -355,7 +356,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -380,7 +381,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "permissions.external_network",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -417,7 +418,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       Settings.put(
         "permissions.external_network",
         original_policy,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
 
@@ -425,7 +426,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "permissions.external_network",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two()
@@ -442,7 +443,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -470,7 +471,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "permissions.external_network",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -501,7 +502,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -552,7 +553,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -621,21 +622,21 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "permissions.command_execute",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "execution.local.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "execution.local.allowed_roots",
                [workspace],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     %{parent: parent, children: [confirmed, sibling], receipt: receipt} = frame_two()
@@ -650,7 +651,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                  candidate_action: "run_shell_command",
                  action_params: %{executable: "pwd", args: [], cwd: workspace}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     add_safe_step(sibling)
@@ -658,7 +659,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id)
@@ -728,7 +729,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -779,7 +780,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -813,7 +814,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, starts} = Agent.start_link(fn -> %{} end)
@@ -891,13 +892,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                  kind: "run_started",
                  payload: %{attempt: 1}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     test_pid = self()
@@ -942,7 +943,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -975,7 +976,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "objectives.fanout.max_worker_attempts_per_child",
                3,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -989,7 +990,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -1025,7 +1026,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -1054,7 +1055,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [
@@ -1090,7 +1091,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -1108,7 +1109,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                "alice",
                crashing_id,
                directive,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     Process.exit(second_pid, :kill)
@@ -1138,7 +1139,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
@@ -1174,7 +1175,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                "alice",
                crashing_id,
                directive,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     Process.exit(second_pid, :kill)
@@ -1198,7 +1199,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
@@ -1246,7 +1247,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
@@ -1296,7 +1297,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
@@ -1341,7 +1342,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, attempts} = Agent.start_link(fn -> %{} end)
@@ -1391,7 +1392,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, attempts} = Agent.start_link(fn -> %{} end)
@@ -1484,7 +1485,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, attempts} = Agent.start_link(fn -> %{} end)
@@ -1551,7 +1552,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "execution.cancel.grace_ms",
                500,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     %{parent: parent, children: [cancelled, sibling], receipt: receipt} = frame_two()
@@ -1562,7 +1563,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -1619,7 +1620,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Settings.put(
                "execution.cancel.grace_ms",
                100,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     %{parent: parent, children: [completed, active], receipt: receipt} = frame_two()
@@ -1629,7 +1630,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
@@ -1668,7 +1669,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     # Reproduce a pre-M12.15 crash orphan without using a production writer.
@@ -1715,13 +1716,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                first_receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert :ok =
              Fanout.acknowledge_start(
                second_receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     scheduler =
@@ -1800,7 +1801,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     force_legacy_terminal_children!(children, "historical result")
@@ -1831,7 +1832,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     force_legacy_terminal_children!(children, "durable result")
@@ -1867,7 +1868,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     force_legacy_terminal_children!(children, "durable result")
@@ -1909,7 +1910,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     force_legacy_terminal_children!(children, "durable result")
@@ -1948,7 +1949,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     test_pid = self()
@@ -2008,7 +2009,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     for child <- children do
@@ -2056,7 +2057,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id)
@@ -2083,7 +2084,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                direct_receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     running_direct_id = running_direct.id
@@ -2169,7 +2170,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                safe_receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     direct_sibling_id = direct_sibling.id
@@ -2239,7 +2240,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                blocked_step,
                "blocked",
                %{},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     force_historical_active_state(blocked, "blocked", 1)
@@ -2252,7 +2253,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                "alice",
                steered.id,
                first_directive,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _second_event} =
@@ -2260,7 +2261,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                "alice",
                steered.id,
                directive,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     # Steering wake-ups are hints queued on the global Scheduler. Cross its
@@ -2272,7 +2273,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     {:ok, transition_attempts} = Agent.start_link(fn -> %{blocked.id => 0, steered.id => 0} end)
@@ -2346,7 +2347,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   defp frame_two do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: unique("parent"),
                  objective: "Parallel"
@@ -2424,7 +2425,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: unique("parent"),
                  objective: original,
@@ -2543,7 +2544,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                    kind: "run_completed",
                    payload: %{summary: String.slice(summary, 0, 500)}
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end)
   end
@@ -2573,7 +2574,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
                  candidate_action: action,
                  action_params: %{user_id: child.user_id}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     step
@@ -2582,7 +2583,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   # RunServer does Keyword.fetch!(opts, :allbert_pack_epoch); a run started
   # directly by a test must therefore carry a ready epoch of its own.
   defp ready_epoch,
-    do: AllbertAssist.TestSupport.ReadyEffectContext.context().allbert_pack_epoch
+    do: ReadyEffectContext.context().allbert_pack_epoch
 
   defp create_child_confirmation(child, step, opts \\ []) do
     permission = Keyword.get(opts, :permission, :read_only)
@@ -2604,7 +2605,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
         },
         resume_params_ref: %{}
       },
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         user_id: child.user_id,
         objective_id: child.id,
         step_id: step.id,

@@ -12,6 +12,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -190,7 +191,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {session_id, state} = started_session()
@@ -244,7 +245,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     runtime_config = Application.get_env(:allbert_assist, Runtime, [])
@@ -302,7 +303,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     runtime_config = Application.get_env(:allbert_assist, Runtime, [])
@@ -418,7 +419,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "public-protocol:zed-fixture",
                  title: "Old session fan-out",
                  objective: "Cancel through the session",
@@ -438,7 +439,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
                    objective: "Newer ordinary #{index}",
                    session_id: session_id
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end
 
@@ -691,21 +692,21 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              Settings.put(
                "acp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "acp_server.stdio.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
   defp joined_acp_fanout!(session_id, title) do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "public-protocol:zed-fixture",
                  title: title,
                  objective: title,

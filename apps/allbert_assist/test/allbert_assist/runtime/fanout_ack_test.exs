@@ -18,6 +18,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Ecto.Adapters.SQL.Sandbox
   alias Jido.Signal.Bus
 
@@ -144,14 +145,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.confirm_before_start",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.telegram.autonomous_notify.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
@@ -198,7 +199,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     cases = [
@@ -234,7 +235,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     operator_text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
@@ -270,7 +271,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     for role <- ~w[direct_answer fanout_synthesis] do
@@ -413,7 +414,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     put_setting!("model_preferences.tasks.fanout_synthesis", ["fast"])
@@ -503,7 +504,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     put_setting!("providers.openai.enabled", true)
@@ -532,7 +533,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     put_setting!("model_preferences.tasks.fanout_manager", ["fast"])
@@ -558,7 +559,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     counter = :counters.new(1, [])
@@ -597,7 +598,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     transcript =
@@ -623,7 +624,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     test_pid = self()
@@ -723,7 +724,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     test_pid = self()
@@ -768,7 +769,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     test_pid = self()
@@ -839,14 +840,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Application.put_env(:allbert_assist, Runtime, decomposer: fn _text, _context -> :single end)
@@ -896,7 +897,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Application.put_env(:allbert_assist, Runtime,
@@ -952,7 +953,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     text = "Research Project Juniper and Cedar independently."
@@ -999,7 +1000,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     tasks = ["Research one", "Research two", "Research three"]
@@ -1037,7 +1038,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "shadow",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     test_pid = self()
@@ -1081,7 +1082,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "shadow",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     test_pid = self()
@@ -1112,7 +1113,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     test_pid = self()
@@ -1155,7 +1156,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     test_pid = self()
@@ -1178,7 +1179,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "nested-owner",
                  title: "Active parent",
                  objective: "Active parent",
@@ -1212,7 +1213,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -1232,7 +1233,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert Enum.all?(children, &(&1.run_attempt_count == 0 and &1.status == "open"))
 
     identity =
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         user_id: "alice",
         channel: "test",
         thread_id: response.thread_id
@@ -1257,7 +1258,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -1276,12 +1277,12 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    title: "newer objective #{index}",
                    objective: "newer objective #{index}"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end
 
     identity =
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         user_id: "receipt-owner",
         channel: "test",
         thread_id: response.thread_id
@@ -1298,7 +1299,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "kickoff acknowledgement after an authoritative join is a no-op" do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Already joined",
                  objective: "Do not restart",
@@ -1309,7 +1310,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              )
 
     context =
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         user_id: "alice",
         channel: "test",
         thread_id: "joined-thread"
@@ -1328,7 +1329,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end)
 
@@ -1346,7 +1347,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     for channel <- [:tui, :live_view] do
@@ -1369,7 +1370,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -1389,14 +1390,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.telegram.autonomous_notify.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -1416,14 +1417,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "objectives.fanout.confirm_before_start",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -1441,7 +1442,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert :ok =
              Runtime.acknowledge_deliveries(
                response,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{channel: :cli})
+               ReadyEffectContext.attach(%{channel: :cli})
              )
 
     assert {:ok, %{kickoff_delivery_state: "acknowledged", source_channel: "cli"}} =
@@ -1453,7 +1454,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     request = %{
@@ -1471,7 +1472,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert Fanout.receipt_for(:start, parent.id) == response.fanout_start_receipt
 
     context =
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         user_id: "alice",
         thread_id: response.thread_id,
         channel: "test"
@@ -1495,7 +1496,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Finished work",
                  objective: "Finished work",
@@ -1517,7 +1518,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end
 
@@ -1565,7 +1566,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: [completed, cancelled, failed]}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Mixed work",
                  objective: "Mixed work",
@@ -1586,7 +1587,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                },
                "run_completed",
                %{summary: "completed result"},
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+               effect_context: ReadyEffectContext.context()
              )
 
     assert {:ok, %{child: %{status: "cancelled"}}} =
@@ -1600,7 +1601,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                },
                "run_cancelled",
                %{},
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+               effect_context: ReadyEffectContext.context()
              )
 
     assert {:ok, %{child: %{status: "failed"}}} =
@@ -1613,7 +1614,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                },
                "run_failed",
                %{},
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+               effect_context: ReadyEffectContext.context()
              )
 
     select_queued_report!(parent.id)
@@ -1640,7 +1641,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Canonical before next turn",
                  objective: "Render exactly once",
@@ -1662,7 +1663,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end
 
@@ -1702,7 +1703,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert :ok =
              Runtime.acknowledge_deliveries(
                next_turn,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  channel: "live_view",
                  thread_id: first_turn.thread_id
@@ -1718,7 +1719,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Missed joined signal",
                  objective: "Converge through the next Web turn",
@@ -1740,7 +1741,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end
 
@@ -1772,7 +1773,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert :ok =
              Runtime.acknowledge_deliveries(
                next_turn,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  channel: "live_view",
                  thread_id: first_turn.thread_id
@@ -1788,7 +1789,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Channel-bound report",
                  objective: "Keep the result on its origin channel",
@@ -1810,7 +1811,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "origin-only result"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end
 
@@ -1843,7 +1844,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "next-turn report retrieval accepts a refreshed provider ref only for the same account" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Stable thread report",
                  objective: "Survive mutable provider metadata",
@@ -1867,7 +1868,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end)
 
@@ -1904,7 +1905,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Controlled report",
                  objective: "Controlled report",
@@ -1948,7 +1949,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "result #{child.queue_position + 1}"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end
 
@@ -1972,7 +1973,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "exact origin binding denies missing or changed account context" do
     assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Bound work",
                  objective: "Bound work",
@@ -1988,7 +1989,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:error, :receipt_identity_mismatch} =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  thread_id: "thread-bound",
                  channel: "telegram"
@@ -1998,7 +1999,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:error, :receipt_identity_mismatch} =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  thread_id: "thread-bound",
                  channel: "telegram",
@@ -2010,7 +2011,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  thread_id: "thread-bound",
                  channel: "telegram",
@@ -2026,7 +2027,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   test "await continuation enforces ownership and returns bounded kickoff on timeout" do
     assert {:ok, %{parent: parent}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Await work",
                  objective: "Await work",
@@ -2054,7 +2055,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Missed publication",
                  objective: "Recover the durable report",
@@ -2087,7 +2088,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 effect_context: ReadyEffectContext.context()
                )
     end)
 
@@ -2106,14 +2107,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "objectives.fanout.confirm_before_start",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -2132,7 +2133,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert :ok =
              Runtime.acknowledge_deliveries(
                response,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  channel: "test",
                  user_id: "alice",
                  thread_id: response.thread_id
@@ -2159,7 +2160,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     for capability <- [nil, false, true, "fanout_delivery_ack_v2", :fanout_delivery_ack_v1] do
@@ -2194,7 +2195,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       Settings.put(
         key,
         value,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
 
     :ok
@@ -2218,9 +2219,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   defp select_queued_report!(parent_id) do
     assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition(
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
-             )
+             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
 
     assert {:ok, provenance} = Report.fallback_provenance(frozen.snapshot, :model_disabled)
 

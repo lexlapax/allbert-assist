@@ -23,6 +23,7 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
   defmodule PluginEcho do
@@ -339,7 +340,7 @@ defmodule AllbertAssist.Intent.EngineTest do
       Settings.put(
         "intent.descriptors_enabled",
         true,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
 
@@ -347,7 +348,7 @@ defmodule AllbertAssist.Intent.EngineTest do
              Settings.put(
                "intent.descriptors_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, decision} =
@@ -429,7 +430,7 @@ defmodule AllbertAssist.Intent.EngineTest do
                  objective: "Complete one StockSage analysis for AAPL.",
                  active_app: "stocksage"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     request = EvalFixtures.request(text: "continue the AAPL objective", user_id: "alice")
@@ -454,12 +455,12 @@ defmodule AllbertAssist.Intent.EngineTest do
                  title: "Ordinary active objective",
                  objective: "Keep this candidate"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Recovering parent",
                  objective: "Finalize only"
@@ -470,7 +471,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "alice"})
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert {2, _rows} =
@@ -501,13 +502,13 @@ defmodule AllbertAssist.Intent.EngineTest do
                  title: "Old but actionable objective",
                  objective: "Keep this candidate"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     for index <- 1..24 do
       assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
                Fanout.frame(
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    user_id: "scan-owner",
                    title: "Recovering parent #{index}",
                    objective: "Finalize only"
@@ -518,7 +519,7 @@ defmodule AllbertAssist.Intent.EngineTest do
       assert :ok =
                Fanout.acknowledge_start(
                  receipt,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "scan-owner"})
+                 ReadyEffectContext.attach(%{user_id: "scan-owner"})
                )
 
       assert {2, _rows} =
@@ -655,7 +656,7 @@ defmodule AllbertAssist.Intent.EngineTest do
                Settings.put(
                  "memory.index_enabled",
                  false,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       refute indexed_memory_candidate?(Engine.collect_candidates(request, registry))
@@ -711,7 +712,7 @@ defmodule AllbertAssist.Intent.EngineTest do
              AllbertAssist.Settings.put(
                "intent.trace_rejected_candidates",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

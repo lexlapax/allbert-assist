@@ -89,12 +89,12 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
   end
 
   defp create_objective(attrs) do
-    Objectives.create_objective(attrs, AllbertAssist.TestSupport.ReadyEffectContext.context())
+    Objectives.create_objective(attrs, ReadyEffectContext.context())
   end
 
   defp frame(parent_attrs, tasks) do
     Fanout.frame(
-      Map.merge(parent_attrs, AllbertAssist.TestSupport.ReadyEffectContext.context()),
+      Map.merge(parent_attrs, ReadyEffectContext.context()),
       tasks
     )
   end
@@ -133,7 +133,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
                %{},
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+               effect_context: ReadyEffectContext.context()
              )
 
     assert {:ok, steered} = Steering.apply_pending(child.id)
@@ -145,7 +145,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
                %{},
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+               effect_context: ReadyEffectContext.context()
              )
   end
 
@@ -159,7 +159,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
                %{},
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+               effect_context: ReadyEffectContext.context()
              )
 
     assert completed.status == "completed"
@@ -184,7 +184,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
             %{status: "completed", completed_at: DateTime.utc_now()},
             "run_completed",
             %{},
-            effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+            effect_context: ReadyEffectContext.context()
           )
         end)
 
@@ -210,7 +210,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                      %{status: "completed", completed_at: DateTime.utc_now()},
                      "run_completed",
                      %{},
-                     effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     effect_context: ReadyEffectContext.context()
                    )
 
         {:error, :terminal} ->

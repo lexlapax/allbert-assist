@@ -22,6 +22,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   }
 
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @receipt_sha String.duplicate("a", 64)
   @frozen_v1_snapshot %{
@@ -635,7 +636,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "durable selected-event replay delegates exact synthesis-contract-v3 validation" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "report-v2-selection-event",
                  title: "Select one phase-reviewed report",
                  objective: "Join two registered-action observations."
@@ -656,7 +657,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                    candidate_action: "append_memory",
                    result_summary: summary
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, _child} =
@@ -680,7 +681,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                      step_status: "completed"
                    }
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end)
 
@@ -716,7 +717,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                    report_input_digest: frozen.input_digest
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     synthesis = "The two registered-action observations complement the joined request."
@@ -994,7 +995,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "report-v2-receipts",
                  title: "Join verified children",
                  objective: original_request,
@@ -1017,7 +1018,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                      candidate_action: "direct_answer",
                      action_params: %{text: child.objective}
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
@@ -1071,7 +1072,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                        step_status: "completed"
                      }
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         {child.id, %{digest: receipt_digest, event: event, step: step}}
@@ -1107,7 +1108,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  candidate_action: "direct_answer",
                  action_params: %{text: "decoy later step"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _frozen} = Fanout.report_input(parent)
@@ -1145,7 +1146,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  kind: "run_completed",
                  payload: %{}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :invalid_fanout_report_quality_receipt} = Fanout.report_input(parent)
@@ -1235,7 +1236,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "report-v2-legacy-shapes",
                  title: "Legacy completion shapes",
                  objective: original_request,
@@ -1259,7 +1260,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                      action_params: %{text: child.objective},
                      result_summary: summary
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         assert {:ok, child} =
@@ -1312,7 +1313,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                      kind: "run_completed",
                      payload: payload
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         {child.id, %{event: event, step: step, summary: summary}}
@@ -1438,7 +1439,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
       assert {:ok, %{parent: parent, children: children}} =
                Fanout.frame(
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    user_id: "report-v2-real-lifecycle",
                    title: "Join two reviewed lifecycle results",
                    objective: original_request,
@@ -1510,7 +1511,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "current lifecycle steps bind registered actions while noncompleted children stay outside synthesis" do
     assert {:ok, %{children: [completed, cancelled, failed]}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "report-v2-actions",
                  title: "Bind exact action results",
                  objective: "Join one action result with two terminal failures"
@@ -1527,7 +1528,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  stage: "execute_step",
                  candidate_action: "append_memory"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, completed} =
@@ -1548,7 +1549,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  stage: "execute_step",
                  candidate_action: "append_memory"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, cancelled} =
@@ -1569,7 +1570,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  stage: "execute_step",
                  candidate_action: "append_memory"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :forced_failure} =
@@ -1626,7 +1627,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  kind: "run_completed",
                  payload: %{summary: "forged completion"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :invalid_fanout_report_completion_event} = Fanout.report_input(joined)
@@ -1640,7 +1641,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "stale acknowledged active steps abandon into a truthful no-model v2 report" do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "report-v2-stale",
                  title: "Recover stale active work",
                  objective: "Report stale terminal truth"
@@ -1651,7 +1652,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert :ok =
              Fanout.acknowledge_start(
                receipt,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{user_id: "report-v2-stale"})
+               ReadyEffectContext.attach(%{user_id: "report-v2-stale"})
              )
 
     Enum.zip(children, ["running", "completed"])
@@ -1665,7 +1666,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                    stage: "execute_step",
                    candidate_action: "direct_answer"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, _child} =
@@ -1687,9 +1688,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert joined.report_composition_state == "queued"
 
     assert {:ok, claim} =
-             Fanout.claim_next_composition(
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
-             )
+             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
 
     assert claim.frozen.snapshot.version == 2
     assert {:error, :no_completed_children} = Report.synthesis_eligibility(claim.frozen.snapshot)
@@ -1725,7 +1724,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "v2 rejects unknown action identity and nonterminal steps for completed children" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "report-v2-corrupt-actions",
                  title: "Reject corrupt action authority",
                  objective: "Join two completed actions"
@@ -1750,7 +1749,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                      candidate_action: action,
                      result_summary: summary
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         assert {:ok, _child} =
@@ -1774,7 +1773,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                        step_status: "completed"
                      }
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         %{child: child, step: step, event: event, summary: summary}
@@ -1867,9 +1866,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     original_join_payload = join_event.payload
 
     assert {:ok, claim} =
-             Fanout.claim_next_composition(
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
-             )
+             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
 
     assert claim.parent.id == parent.id
     assert claim.frozen.snapshot.version == 2
@@ -1912,9 +1909,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
               frozen: %{snapshot: %{version: 1}},
               budget: %{"version" => 1}
             } = claim} =
-             Fanout.claim_next_composition(
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
-             )
+             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
 
     assert parent_id == parent.id
     assert claim.frozen.input_digest == legacy_with_plan.input_digest
@@ -2132,7 +2127,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "report-v2-maximum",
                  title: "Join sixteen verified children",
                  objective: original_request,
@@ -2156,7 +2151,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                    candidate_action: "direct_answer",
                    action_params: %{text: child.objective}
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
@@ -2194,7 +2189,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                      step_status: "completed"
                    }
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert byte_size(event.payload) <= 2_000
@@ -2270,7 +2265,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  kind: "fanout_report_selected",
                  payload: selection_event
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert byte_size(event.payload) <= 2_000
@@ -2426,7 +2421,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                    kind: "run_completed",
                    payload: %{summary: summary}
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end)
 
@@ -2463,7 +2458,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                    report_input_digest: legacy.input_digest
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {parent, legacy, join_event}
@@ -2506,7 +2501,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                AllbertAssist.Settings.put(
                  "intent.direct_answer_model_enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    audit?: false
                  })
                )
@@ -2522,7 +2517,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
           AllbertAssist.Settings.put(
             "intent.direct_answer_model_enabled",
             enabled,
-            AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+            ReadyEffectContext.attach(%{
               audit?: false
             })
           )

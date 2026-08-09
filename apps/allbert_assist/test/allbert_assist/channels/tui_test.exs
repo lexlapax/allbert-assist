@@ -880,9 +880,7 @@ defmodule AllbertAssist.Channels.TUITest do
     terminalize_children!(composing_children)
 
     assert {:ok, %{parent: claimed_composing_parent}} =
-             Fanout.claim_next_composition(
-               effect_context: AllbertAssist.TestSupport.ReadyEffectContext.context()
-             )
+             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
 
     assert claimed_composing_parent.id == composing_parent.id
 
@@ -918,7 +916,7 @@ defmodule AllbertAssist.Channels.TUITest do
                    candidate_action: "append_memory",
                    result_summary: observation
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, _event} =
@@ -932,7 +930,7 @@ defmodule AllbertAssist.Channels.TUITest do
                      step_status: "completed"
                    }
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {1, _rows} =
@@ -1063,7 +1061,7 @@ defmodule AllbertAssist.Channels.TUITest do
                  status: "received",
                  payload_summary: "tui receipt #{receipt_id}"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, server} =
@@ -2875,7 +2873,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
   defp attached_fanout!(title \\ "Attached fan-out") do
     Fanout.frame(
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         user_id: "alice",
         source_channel: "tui",
         source_surface: "tui",
@@ -3156,7 +3154,7 @@ defmodule AllbertAssist.Channels.TUITest do
                  status: "received",
                  payload_summary: "tui receipt #{receipt_id}"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     event

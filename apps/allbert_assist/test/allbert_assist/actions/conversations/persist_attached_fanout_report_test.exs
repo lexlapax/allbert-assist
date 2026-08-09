@@ -12,6 +12,7 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Runtime
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "both layout-v2 selections persist their exact body once" do
     for source <- [:model, :fallback] do
@@ -78,7 +79,7 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
 
     assert {:ok, %{parent: open_parent}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "local",
                  source_channel: "live_view",
                  source_thread_id: thread.id,

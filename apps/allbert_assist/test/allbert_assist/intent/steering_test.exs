@@ -4,11 +4,12 @@ defmodule AllbertAssist.Intent.SteeringTest do
   alias AllbertAssist.Intent.Steering
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     {:ok, fanout} =
       Fanout.frame(
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        ReadyEffectContext.attach(%{
           user_id: "alice",
           source_thread_id: "thread-1",
           title: "Work",
@@ -66,7 +67,7 @@ defmodule AllbertAssist.Intent.SteeringTest do
   test "handle scopes targets to the current user and thread", ctx do
     {:ok, other_thread} =
       Fanout.frame(
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        ReadyEffectContext.attach(%{
           user_id: "alice",
           source_thread_id: "thread-2",
           title: "Other",
@@ -77,7 +78,7 @@ defmodule AllbertAssist.Intent.SteeringTest do
 
     {:ok, foreign} =
       Fanout.frame(
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        ReadyEffectContext.attach(%{
           user_id: "mallory",
           source_thread_id: "thread-1",
           title: "Foreign",
@@ -104,7 +105,7 @@ defmodule AllbertAssist.Intent.SteeringTest do
   test "ordinal mutations across multiple fan-outs clarify until the parent is named", ctx do
     {:ok, second} =
       Fanout.frame(
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        ReadyEffectContext.attach(%{
           user_id: "alice",
           source_thread_id: "thread-1",
           title: "Launch batch",

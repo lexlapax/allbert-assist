@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Objectives, as: ObjectivesTask
 
   setup do
@@ -35,7 +36,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
                  objective: "Complete one analysis for AAPL.",
                  active_app: "stocksage"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _step} =
@@ -48,7 +49,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  action_params: %{ticker: "AAPL"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     list_output =
@@ -79,7 +80,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
                  objective: "Stop the analysis.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:halt, 64} =
@@ -113,7 +114,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   test "show renders the authoritative fan-out phase, outcome, delivery, and child results" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "CLI fan-in",
                  objective: "Render the joined tree"
@@ -145,7 +146,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   test "show maps a model-selected report to completed without changing its body" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  title: "Model CLI fan-in",
                  objective: "Render one model report"
@@ -197,7 +198,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
                  objective: "No more work.",
                  status: "abandoned"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     output =

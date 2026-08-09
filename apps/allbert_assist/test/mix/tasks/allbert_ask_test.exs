@@ -5,10 +5,10 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Channels.Event
+  alias AllbertAssist.CLI.Ask, as: CLIAsk
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
-  alias AllbertAssist.CLI.Ask, as: CLIAsk
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Memory
@@ -20,6 +20,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Ask
 
@@ -227,7 +228,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
       agent_runner: fn _signal, request ->
         assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} =
                  Fanout.frame(
-                   AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                   ReadyEffectContext.attach(%{
                      user_id: request.user_id,
                      title: "Epoch replacement acknowledgement",
                      objective: "Do not acknowledge after E2",
@@ -490,14 +491,14 @@ defmodule Mix.Tasks.Allbert.AskTest do
              Settings.put(
                "voice.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -537,14 +538,14 @@ defmodule Mix.Tasks.Allbert.AskTest do
              Settings.put(
                "voice.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -553,7 +554,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
              Settings.put(
                "model_preferences.capabilities.text_to_speech",
                ["voice_tts_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -691,7 +692,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -700,21 +701,21 @@ defmodule Mix.Tasks.Allbert.AskTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 end

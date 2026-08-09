@@ -142,15 +142,16 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
-  alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives, as: Objectives
-  alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle, as: Lifecycle
+  alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering, as: Steering
-  alias AllbertAssist.Repo
+  alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Settings.YamlCodec
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @resolution_hook_key {Store, :resolution_hook}
   @quoted_preference_prompt "What day and time does this sentence say I prefer for Project Juniper status summaries? I prefer Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary. Answer in one sentence."
@@ -549,7 +550,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                step,
                "completed",
                %{result_summary: answer},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, completed} =
@@ -580,7 +581,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                step,
                "failed",
                %{result_summary: "earlier failure"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, {:incompatible_terminal_step_status, step_id, "failed", "completed"}} =
@@ -626,7 +627,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  candidate_action: "list_objectives",
                  action_params: %{user_id: "alice"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error,
@@ -845,7 +846,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  candidate_action: "list_objectives",
                  action_params: %{user_id: "alice"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, completed} = Lifecycle.run(child.id)
@@ -956,7 +957,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  candidate_action: "append_memory",
                  action_params: %{memory: "Project Juniper launch code is opal."}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, {:grounded_step_mismatch, :action}} = Lifecycle.run(child.id)
@@ -989,7 +990,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  action_params: %{text: "Answer a different generated task."},
                  resource_access: []
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, {:grounded_step_mismatch, :params}} = Lifecycle.run(child.id)
@@ -1046,7 +1047,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  action_params: %{user_id: "alice"},
                  resource_access: []
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, {:grounded_step_mismatch, :action}} = Lifecycle.run(child.id)
@@ -1070,7 +1071,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  action_params: %{memory: "Remember a different generated launch code."},
                  resource_access: []
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, {:grounded_step_mismatch, :params}} = Lifecycle.run(child.id)
@@ -1585,7 +1586,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  stage: "authorize_step",
                  candidate_action: "list_objectives"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:blocked, {:needs_confirmation, "confirm-123"}} =
@@ -1644,7 +1645,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                  candidate_action: "direct_answer",
                  action_params: %{text: child_objective}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     grounding = Grounding.resolve(child)
