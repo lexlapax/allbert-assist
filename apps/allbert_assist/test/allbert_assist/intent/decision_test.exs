@@ -2,10 +2,10 @@ defmodule AllbertAssist.Intent.DecisionTest do
   use ExUnit.Case, async: false
   @moduletag :global_process_serial
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures
 
   test "copies action capability and security posture from registered boundaries" do
     assert {:ok, decision} =
@@ -50,20 +50,23 @@ defmodule AllbertAssist.Intent.DecisionTest do
   end
 
   test "preserves context active app and rejects unknown active app output" do
-    ensure_stocksage_app!()
+    registry = isolated_stocksage_registry()
 
     assert {:ok, decision} =
-             Decision.new(%{
-               intent: :direct_answer,
-               selected_action: "direct_answer",
-               context: %{
-                 request: %{
-                   user_id: "alice",
-                   session_id: "sess-1",
-                   active_app: :stocksage
+             Decision.new(
+               %{
+                 intent: :direct_answer,
+                 selected_action: "direct_answer",
+                 context: %{
+                   request: %{
+                     user_id: "alice",
+                     session_id: "sess-1",
+                     active_app: :stocksage
+                   }
                  }
-               }
-             })
+               },
+               registry
+             )
 
     assert decision.active_app == :stocksage
     assert decision.trace_metadata.active_app == :stocksage
@@ -117,21 +120,13 @@ defmodule AllbertAssist.Intent.DecisionTest do
              })
   end
 
-  defp ensure_stocksage_app! do
-    registered? = AppRegistry.known_app_id?(:stocksage)
-
-    unless registered? do
-      # Tolerate a concurrent/serial-neighbour registration: an earlier test's
-      # on_exit unregister may not have completed when this setup runs, so the app
-      # can already be registered. Accept that rather than failing the assert.
-      assert AppRegistry.register(StockSage.App) in [
-               {:ok, :stocksage},
-               {:error, {:app_id_taken, :stocksage}}
-             ]
-    end
-
-    on_exit(fn ->
-      unless registered?, do: AppRegistry.unregister(:stocksage)
-    end)
+  # Registering into the global App registry advances its metadata generation,
+  # which stops the composition coordinator and costs every later test in the
+  # run a recomposition window. `Decision.new/2` already accepts a registry
+  # context, so the app is registered privately and passed in instead.
+  defp isolated_stocksage_registry do
+    context = RegistryIsolationFixtures.start_isolated_registries(:decision_active_app)
+    RegistryIsolationFixtures.register_app!(context, StockSage.App)
+    context
   end
 end
