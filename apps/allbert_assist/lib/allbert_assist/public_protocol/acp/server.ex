@@ -357,6 +357,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
       acknowledge_report_deliveries(
         worker_state.report_deliveries,
         session_id,
+        worker_state,
         owner_state
       )
     end
@@ -383,8 +384,13 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     kind, reason -> {:error, {kind, reason}}
   end
 
-  defp acknowledge_report_deliveries(parent_ids, session_id, state) do
-    user_id = "public-protocol:#{state.client_id}"
+  # The epoch for a given report delivery is stamped on the worker_state that
+  # ran the dispatch which admitted it (report_delivery_epochs), not on the
+  # owner_state passed in for identity -- looking it up on owner_state always
+  # returned nil (owner_state.report_delivery_epochs is empty at this point)
+  # and every acknowledgement failed with :product_not_ready.
+  defp acknowledge_report_deliveries(parent_ids, session_id, worker_state, owner_state) do
+    user_id = "public-protocol:#{owner_state.client_id}"
 
     Enum.reduce_while(parent_ids, :ok, fn parent_id, result ->
       acknowledge_report(
@@ -392,7 +398,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
         result,
         user_id,
         session_id,
-        Map.get(state.report_delivery_epochs, parent_id)
+        Map.get(worker_state.report_delivery_epochs, parent_id)
       )
     end)
   end
@@ -490,10 +496,17 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     )
   end
 
-  # Protocol rejections can occur before session/prompt admits an epoch. Those
-  # paths must remain effect-free rather than acquiring a new admission.
-  defp effect_context(state),
-    do: %{allbert_pack_epoch: Map.get(state, :allbert_pack_epoch)}
+  # Protocol rejections can occur before session/prompt admits an epoch. The
+  # state struct never carries one (it is only populated once a prompt is
+  # admitted), so admit a fresh epoch here instead of always reading nil --
+  # Channels.create_event/2 fails closed without one and the rejection audit
+  # event was silently dropped otherwise.
+  defp effect_context(_state) do
+    case EffectGuard.admit_ready() do
+      {:ok, epoch} -> %{allbert_pack_epoch: epoch}
+      {:error, _reason} -> %{}
+    end
+  end
 
   defp method_slug(method) do
     method

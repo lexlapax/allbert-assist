@@ -63,15 +63,7 @@ defmodule AllbertAssist.Surface.RendererTest do
 
     for status <-
           Response.action_statuses() --
-            [
-              :needs_confirmation,
-              :denied,
-              :rejected,
-              :error,
-              :failed,
-              :unsupported,
-              :unavailable
-            ] do
+            [:needs_confirmation, :denied, :rejected, :error, :failed, :unsupported, :unavailable] do
       response = canonical_public_response(status)
 
       assert {:ok, _completion} =
@@ -91,6 +83,7 @@ defmodule AllbertAssist.Surface.RendererTest do
 
     for {status, openai_status, openai_code, acp_code} <- [
           {:denied, 403, "authorization_error", "authorization_error"},
+          {:rejected, 403, "authorization_error", "authorization_error"},
           {:error, 400, "runtime_error", "runtime_error"},
           {:failed, 400, "runtime_error", "runtime_error"},
           {:unsupported, 400, "runtime_error", "runtime_error"},

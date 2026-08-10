@@ -100,7 +100,12 @@ defmodule AllbertAssist.Tools.FinderTest do
     configure_http_server()
     stub_http_mcp()
 
-    context = %{actor: "local", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
+    context =
+      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+        actor: "local",
+        channel: :test,
+        mcp: %{req_plug: {Req.Test, __MODULE__}}
+      })
 
     assert {:ok, candidates} = Local.search("calendar", %{context: context})
 

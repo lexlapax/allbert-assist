@@ -434,13 +434,13 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
   end
 
   defp action_context do
-    %{
+    AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
       actor: "local",
       channel: :cli,
       surface: "mix allbert.skills",
       disable_legacy_built_ins: true,
       request: %{operator_id: "local", channel: :cli, input_signal_id: "sig-skill-script"}
-    }
+    })
   end
 
   defp request_and_approve(params) do

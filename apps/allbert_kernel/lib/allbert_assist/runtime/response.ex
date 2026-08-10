@@ -15,6 +15,7 @@ defmodule AllbertAssist.Runtime.Response do
     :answer,
     :needs_confirmation,
     :denied,
+    :rejected,
     :advisory,
     :error,
     :unsupported,
@@ -34,7 +35,6 @@ defmodule AllbertAssist.Runtime.Response do
     :finalizing,
     :needs_clarification,
     :queued,
-    :rejected,
     :running,
     :stopped
   ]
@@ -44,6 +44,7 @@ defmodule AllbertAssist.Runtime.Response do
     answer: :success,
     needs_confirmation: :needs_confirmation,
     denied: :denied,
+    rejected: :denied,
     advisory: :success,
     error: :error,
     unsupported: :error,
@@ -63,7 +64,6 @@ defmodule AllbertAssist.Runtime.Response do
     finalizing: :success,
     needs_clarification: :success,
     queued: :success,
-    rejected: :denied,
     running: :success,
     stopped: :success
   }
@@ -77,6 +77,7 @@ defmodule AllbertAssist.Runtime.Response do
           | :answer
           | :needs_confirmation
           | :denied
+          | :rejected
           | :advisory
           | :error
           | :unsupported

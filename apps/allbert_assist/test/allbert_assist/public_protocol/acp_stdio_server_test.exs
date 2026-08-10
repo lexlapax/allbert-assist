@@ -385,7 +385,11 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     first = joined_acp_fanout!(session_id, "ACP report A")
     second = joined_acp_fanout!(session_id, "ACP report B")
 
-    first_worker_state = %{state | report_deliveries: [first.id]}
+    first_worker_state = %{
+      state
+      | report_deliveries: [first.id],
+        report_delivery_epochs: %{first.id => ReadyEffectContext.context().allbert_pack_epoch}
+    }
 
     assert :ok =
              Server.acknowledge_written_reports(

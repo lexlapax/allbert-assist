@@ -8,6 +8,7 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original = System.get_env("ALLBERT_HOME")
@@ -164,7 +165,12 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       # Track chooser "q" then Enter for each step.
       {io, out} = scripted_io(["q" | List.duplicate("", 10)])
 
-      assert {"", 0} = Area.run_interactive(nil, io)
+      # The model-doctor local-endpoint probe behind first_chat readiness is
+      # itself effect-gated (Settings.ModelDoctor.request/5 needs a readiness
+      # epoch to make the Req call at all) -- without a carried context the
+      # probe always reports unusable and the wizard can never reach
+      # completion, looping on `first_chat` until the scripted input runs out.
+      assert {"", 0} = Area.run_interactive(ReadyEffectContext.context(), io)
       text = output(out)
 
       for step <- ~w(welcome track_select model_path profile_select profile_review
