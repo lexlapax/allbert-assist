@@ -231,10 +231,13 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
 
     assert {:ok,
             %{objective: failed_objective, step: failed_step, result: result, status: :failed}} =
-             EngineAgent.execute_step(engine_name, %{
-               step_id: step.id,
-               trace_id: "trace_v046_invalid_delegate_command"
-             })
+             EngineAgent.execute_step(
+               engine_name,
+               ReadyEffectContext.attach(%{
+                 step_id: step.id,
+                 trace_id: "trace_v046_invalid_delegate_command"
+               })
+             )
 
     assert failed_step.status == "failed"
     assert failed_objective.status == "failed"

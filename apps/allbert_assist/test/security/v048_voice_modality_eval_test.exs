@@ -492,7 +492,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
                local_stt_profile(),
                %{input_path: input_path, transcode_spec: transcode_spec},
                req_options: [plug: {Req.Test, __MODULE__}],
-               transcode_runner: runner
+               transcode_runner: runner,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
              )
 
     assert transcript.transcript == "hello local voice"
@@ -501,7 +502,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              ProviderAdapter.synthesize(
                openai_tts_profile(),
                %{text: "speak this", output_format: "wav", voice: "alloy"},
-               req_options: [plug: {Req.Test, __MODULE__}]
+               req_options: [plug: {Req.Test, __MODULE__}],
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
              )
 
     assert {:ok, <<"RIFF", _rest::binary>>} = File.read(openai_audio.path)
@@ -513,7 +515,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
                gemini_stt_profile(),
                %{input_path: input_path, transcode_spec: gemini_spec},
                req_options: [plug: {Req.Test, __MODULE__}],
-               transcode_runner: runner
+               transcode_runner: runner,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
              )
 
     assert gemini_transcript.transcript == "hello gemini voice"
@@ -524,7 +527,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              ProviderAdapter.synthesize(
                gemini_tts_profile(),
                %{text: "hello", output_format: "wav", voice: "Kore"},
-               req_options: [plug: {Req.Test, __MODULE__}]
+               req_options: [plug: {Req.Test, __MODULE__}],
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
              )
 
     assert {:ok, <<"RIFF", _rest::binary>>} = File.read(gemini_audio.path)

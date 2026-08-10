@@ -575,14 +575,20 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
     assert_eval!("telegram-callback-data-within-64b-001")
 
     assert {:ok, confirmation} =
-             Confirmations.create(%{
-               origin: %{actor: "alice", channel: "telegram", surface: "v053-eval"},
-               target_action: %{name: "external_network_request"},
-               target_permission: :external_network,
-               target_execution_mode: :external_network_unavailable,
-               security_decision: %{permission: :external_network, decision: :needs_confirmation},
-               params_summary: %{url: "https://example.com"}
-             })
+             Confirmations.create(
+               %{
+                 origin: %{actor: "alice", channel: "telegram", surface: "v053-eval"},
+                 target_action: %{name: "external_network_request"},
+                 target_permission: :external_network,
+                 target_execution_mode: :external_network_unavailable,
+                 security_decision: %{
+                   permission: :external_network,
+                   decision: :needs_confirmation
+                 },
+                 params_summary: %{url: "https://example.com"}
+               },
+               ReadyEffectContext.context()
+             )
 
     handoff = %{confirmation_id: confirmation["id"], status: :pending}
 

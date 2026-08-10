@@ -275,7 +275,13 @@ defmodule AllbertAssist.Security.V13CrossConsumerEvalTest do
     do: %{operator_id: "local", user_id: "local", channel: "tui"}
 
   defp operator_context,
-    do: %{user_id: "local", actor: "local", channel: :cli, surface: "test"}
+    do:
+      ReadyEffectContext.attach(%{
+        user_id: "local",
+        actor: "local",
+        channel: :cli,
+        surface: "test"
+      })
 
   defp approved_context,
     do: Map.put(operator_context(), :confirmation, %{approved?: true})
