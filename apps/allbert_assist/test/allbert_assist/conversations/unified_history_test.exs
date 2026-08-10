@@ -24,14 +24,12 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    PluginRegistry.clear()
-    PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
+    ensure_plugin!("allbert.telegram", AllbertAssist.Plugins.Telegram)
+    ensure_plugin!("allbert.email", AllbertAssist.Plugins.Email)
+    ensure_plugin!("allbert.discord", AllbertAssist.Plugins.Discord)
+    ensure_plugin!("allbert.slack", AllbertAssist.Plugins.Slack)
 
     on_exit(fn ->
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)
@@ -465,4 +463,15 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end

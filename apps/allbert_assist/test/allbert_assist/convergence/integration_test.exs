@@ -11,6 +11,7 @@ defmodule AllbertAssist.Convergence.IntegrationTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
@@ -50,7 +51,11 @@ defmodule AllbertAssist.Convergence.IntegrationTest do
   end
 
   test "confirmation lifecycle still flows through registered actions" do
-    assert {:ok, record} = Confirmations.create(base_confirmation("conf_converge"))
+    assert {:ok, record} =
+             Confirmations.create(
+               base_confirmation("conf_converge"),
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, list_response} =
              Runner.run("list_confirmations", %{}, %{actor: "local", channel: :test})
@@ -80,19 +85,23 @@ defmodule AllbertAssist.Convergence.IntegrationTest do
              Settings.put(
                "confirmations.default_ttl_minutes",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, record} =
              Confirmations.create(
                base_confirmation("conf_expiry"),
+               ReadyEffectContext.context(),
                now: ~U[2026-05-14 08:00:00Z]
              )
 
     assert record["expires_at"] == "2026-05-14T08:01:00Z"
 
     assert {:ok, [{:ok, expired}]} =
-             Confirmations.expire(now: ~U[2026-05-14 08:02:00Z])
+             Confirmations.expire(
+               ReadyEffectContext.context(),
+               now: ~U[2026-05-14 08:02:00Z]
+             )
 
     assert expired["id"] == record["id"]
     assert expired["status"] == "expired"
@@ -143,7 +152,8 @@ defmodule AllbertAssist.Convergence.IntegrationTest do
              Confirmations.resolve(
                confirmation_id,
                :denied,
-               %{resolver_actor: "alice", resolver_channel: :cli}
+               %{resolver_actor: "alice", resolver_channel: :cli},
+               ReadyEffectContext.context()
              )
 
     assert {:ok, resumed} = Jobs.resume_job(blocked_job)
@@ -178,21 +188,21 @@ defmodule AllbertAssist.Convergence.IntegrationTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

@@ -10,15 +10,12 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
-    PluginRegistry.clear()
-    AppRegistry.clear()
-
-    assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
+    ensure_plugin!("allbert.research", AllbertResearch.Plugin)
     register_app!(AllbertAssist.App.CoreApp, :allbert)
     register_app!(AllbertResearch.App, :allbert_research)
 
     on_exit(fn ->
-      ShippedRegistries.restore!()
+      nil
     end)
 
     :ok
@@ -107,5 +104,16 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
     candidates
     |> Enum.filter(&(&1.kind == :app_intent))
     |> Enum.map(&%{app_id: &1.app_id, action_name: &1.action_name, score: &1.score})
+  end
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
   end
 end
