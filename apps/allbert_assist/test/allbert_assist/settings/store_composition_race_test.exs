@@ -59,7 +59,6 @@ defmodule AllbertAssist.Settings.StoreCompositionRaceTest do
 
       File.rm_rf!(settings_root)
       Fragments.clear_cache()
-      ShippedRegistries.restore!()
     end)
 
     {:ok, settings_root: settings_root}

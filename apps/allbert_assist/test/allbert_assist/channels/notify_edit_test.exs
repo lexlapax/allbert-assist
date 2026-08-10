@@ -12,7 +12,6 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)
@@ -21,12 +20,10 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
       Path.join(System.tmp_dir!(), "allbert-notify-edit-#{System.unique_integer([:positive])}")
 
     Application.put_env(:allbert_assist, Paths, home: root)
-    ShippedRegistries.restore!()
     Fragments.clear_cache()
 
     on_exit(fn ->
       restore_env(Paths, original_paths)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

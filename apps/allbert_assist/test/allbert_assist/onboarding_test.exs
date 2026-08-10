@@ -9,7 +9,6 @@ defmodule AllbertAssist.OnboardingTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @env_vars [
     "ALLBERT_HOME",
@@ -44,7 +43,6 @@ defmodule AllbertAssist.OnboardingTest do
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
-      ShippedRegistries.restore!()
       Enum.each(registered_diagnostics, &restore_plugin_diagnostics/1)
     end)
 
