@@ -1,31 +1,11 @@
 defmodule AllbertAssist.DynamicPlugins.ReconcilerTest do
   use ExUnit.Case, async: false
 
+  alias AllbertAssist.TestSupport.EffectGuardStubs.Recording, as: EpochGuard
+
   @moduletag :global_process_serial
 
   alias AllbertAssist.DynamicPlugins.Reconciler
-
-  defmodule EpochGuard do
-    def admit_ready(agent) do
-      Agent.get_and_update(agent, fn state ->
-        send(state.test_pid, {:reconciler_epoch_admitted, state.epoch})
-        {{:ok, state.epoch}, Map.update!(state, :admit_count, &(&1 + 1))}
-      end)
-    end
-
-    def validate(agent, epoch) do
-      Agent.get_and_update(agent, fn state ->
-        send(state.test_pid, {:reconciler_epoch_validated, epoch})
-
-        result =
-          if epoch == state.replacement,
-            do: :ok,
-            else: {:error, :stale_epoch}
-
-        {result, Map.update!(state, :validate_count, &(&1 + 1))}
-      end)
-    end
-  end
 
   defmodule LoaderSpy do
     def reconcile(agent) do
@@ -55,7 +35,9 @@ defmodule AllbertAssist.DynamicPlugins.ReconcilerTest do
              replacement: %{barrier_pid: barrier_two, snapshot_digest: digest},
              test_pid: test_pid,
              admit_count: 0,
-             validate_count: 0
+             validate_count: 0,
+             admitted_tag: :reconciler_epoch_admitted,
+             validated_tag: :reconciler_epoch_validated
            }
          end},
         id: :reconciler_epoch_guard

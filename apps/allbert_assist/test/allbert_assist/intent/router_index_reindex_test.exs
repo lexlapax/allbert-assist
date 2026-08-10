@@ -1,5 +1,7 @@
 defmodule AllbertAssist.Intent.Router.IndexReindexTest do
   @moduledoc "v0.54 M9.3b / v0.56 M11 — Index reindex-on-signal logic."
+  alias AllbertAssist.TestSupport.EffectGuardStubs.StaleEpoch, as: SameDigestReplacementGuard
+
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
@@ -9,12 +11,6 @@ defmodule AllbertAssist.Intent.Router.IndexReindexTest do
   # Router.Index calls admit_ready/0 and validate/1; the stub took an opts
   # argument on each, so every call raised :undef rather than exercising the
   # stale-epoch path this test is about.
-  defmodule SameDigestReplacementGuard do
-    def admit_ready,
-      do: {:ok, %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}}
-
-    def validate(_epoch), do: {:error, :stale_epoch}
-  end
 
   setup do
     prev = Application.get_env(:allbert_assist, :intent_router_embedder)

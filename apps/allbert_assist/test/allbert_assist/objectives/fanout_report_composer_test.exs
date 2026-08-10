@@ -1,5 +1,7 @@
 defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   use AllbertAssist.DataCase, async: false
+
+  alias AllbertAssist.TestSupport.EffectGuardStubs.Recording, as: EpochGuard
   @moduletag :db_serial
 
   alias AllbertAssist.Objectives
@@ -232,28 +234,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
   defmodule NonTransientExitStore do
     def recover_composition(_owner, _opts), do: exit(:invalid_store_contract)
-  end
-
-  defmodule EpochGuard do
-    def admit_ready(agent) do
-      Agent.get_and_update(agent, fn state ->
-        send(state.test_pid, {:epoch_admitted, state.epoch})
-        {{:ok, state.epoch}, Map.update!(state, :admit_count, &(&1 + 1))}
-      end)
-    end
-
-    def validate(agent, epoch) do
-      Agent.get_and_update(agent, fn state ->
-        send(state.test_pid, {:epoch_validated, epoch})
-
-        result =
-          if epoch == state.replacement,
-            do: :ok,
-            else: {:error, :stale_epoch}
-
-        {result, Map.update!(state, :validate_count, &(&1 + 1))}
-      end)
-    end
   end
 
   defmodule ProcessModels do

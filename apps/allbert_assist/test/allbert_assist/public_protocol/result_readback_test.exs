@@ -1,6 +1,8 @@
 defmodule AllbertAssist.PublicProtocol.ResultReadbackTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.TestSupport.EffectGuardStubs.StaleEpoch, as: SameDigestReplacementGuard
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.PublicProtocol.CallResult
   alias AllbertAssist.PublicProtocol.ResultReadback
@@ -12,12 +14,6 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackTest do
   # validate/1. The stub previously took an opts argument on each, so every call
   # raised :undef and the sweeper reported :readback_sweeper_unavailable instead
   # of the :product_not_ready this test exists to assert.
-  defmodule SameDigestReplacementGuard do
-    def admit_ready,
-      do: {:ok, %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}}
-
-    def validate(_epoch), do: {:error, :stale_epoch}
-  end
 
   defmodule SweepProbe do
     def sweep_expired(opts) do

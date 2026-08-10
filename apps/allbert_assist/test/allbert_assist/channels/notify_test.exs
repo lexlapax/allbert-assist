@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Channels.NotifyTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
+  alias AllbertAssist.TestSupport.EffectGuardStubs.Recording, as: EpochGuard
+
   import Ecto.Query
 
   alias AllbertAssist.Channels.Notify
@@ -26,28 +28,6 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias Jido.Signal.Bus
 
   setup {Req.Test, :verify_on_exit!}
-
-  defmodule EpochGuard do
-    def admit_ready(agent) do
-      Agent.get_and_update(agent, fn state ->
-        send(state.test_pid, {:notify_epoch_admitted, state.epoch})
-        {{:ok, state.epoch}, Map.update!(state, :admit_count, &(&1 + 1))}
-      end)
-    end
-
-    def validate(agent, epoch) do
-      Agent.get_and_update(agent, fn state ->
-        send(state.test_pid, {:notify_epoch_validated, epoch})
-
-        result =
-          if epoch == state.replacement,
-            do: :ok,
-            else: {:error, :stale_epoch}
-
-        {result, Map.update!(state, :validate_count, &(&1 + 1))}
-      end)
-    end
-  end
 
   defmodule ReadyEpochGuard do
     alias AllbertAssist.Pack.EffectGuard
@@ -775,7 +755,9 @@ defmodule AllbertAssist.Channels.NotifyTest do
              replacement: %{barrier_pid: barrier_two, snapshot_digest: digest},
              test_pid: test_pid,
              admit_count: 0,
-             validate_count: 0
+             validate_count: 0,
+             admitted_tag: :notify_epoch_admitted,
+             validated_tag: :notify_epoch_validated
            }
          end}
       )
