@@ -1743,11 +1743,28 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
   end
 
+  # The confirm path admits its own readiness epoch, exactly as process_text/3
+  # does for submitted text. Without it `fields` carries no
+  # :allbert_pack_epoch, and process_text_or_callback/6 reaches a
+  # `Map.fetch!(fields, :allbert_pack_epoch)` that raises — crashing the adapter
+  # rather than failing closed the way every other effect path does.
   defp dispatch_confirmation(confirmation_id, decision, opts, state) do
     command = {:ok, decision, confirmation_id}
     text = "ALLBERT:#{String.upcase(to_string(decision))}:#{confirmation_id}"
-    fields = fields(text, opts, state)
 
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
+      fields = Map.put(fields(text, opts, state), :allbert_pack_epoch, epoch)
+      dispatch_admitted_confirmation(command, fields, state)
+    else
+      {:error, _reason} ->
+        state = clear_live_status(state)
+        :ok = emit_callback_rejection(command, :product_not_ready, state)
+        {{:error, :product_not_ready}, state}
+    end
+  end
+
+  defp dispatch_admitted_confirmation(command, fields, state) do
     with {:ok, user_id} <- resolve_identity(fields, state),
          {:ok, _inbound_trust} <- authorize_inbound(fields, user_id, command),
          session_id <-

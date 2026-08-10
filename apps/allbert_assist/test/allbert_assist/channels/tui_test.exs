@@ -29,7 +29,6 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.FanoutReportFixture
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Jido.Signal
   alias Jido.Signal.Bus
@@ -50,8 +49,10 @@ defmodule AllbertAssist.Channels.TUITest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
+    unless match?({:ok, _}, PluginRegistry.lookup("allbert.tui")) do
+      assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
+    end
+
     Fragments.clear_cache()
 
     parent = self()
@@ -74,7 +75,6 @@ defmodule AllbertAssist.Channels.TUITest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -2884,7 +2884,7 @@ defmodule AllbertAssist.Channels.TUITest do
   end
 
   defp attached_delivery_context do
-    %{user_id: "alice", channel: "tui", thread_id: "attached-thread"}
+    ReadyEffectContext.attach(%{user_id: "alice", channel: "tui", thread_id: "attached-thread"})
   end
 
   defp set_active_fanout(server, parent_id) do
