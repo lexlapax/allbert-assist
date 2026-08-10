@@ -18,6 +18,7 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
@@ -219,9 +220,13 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
     assert_eval_group!(:settings)
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://channels/discord/bot_token", "xoxb-v0551-secret", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://channels/discord/bot_token",
+               "xoxb-v0551-secret",
+               ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
              Settings.put(

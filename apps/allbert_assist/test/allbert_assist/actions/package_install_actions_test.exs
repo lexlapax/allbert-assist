@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.PackageInstallActionsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -169,7 +170,8 @@ defmodule AllbertAssist.Actions.PackageInstallActionsTest do
         &(&1["origin_kind"] == "local_path")
       )
 
-    assert {:ok, _grant} = Grants.remember(target_root_ref, audit?: false)
+    assert {:ok, _grant} =
+             Grants.remember(target_root_ref, ReadyEffectContext.attach(%{audit?: false}))
 
     assert {:ok, later_response} =
              Runner.run(

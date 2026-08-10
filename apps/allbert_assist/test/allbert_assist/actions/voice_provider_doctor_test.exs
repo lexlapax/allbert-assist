@@ -6,6 +6,7 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -179,9 +180,13 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
 
   defp install_anthropic_voice_profile! do
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/anthropic/api_key", "sk-ant-test", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/anthropic/api_key",
+               "sk-ant-test",
+               ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _settings} =
              Settings.write_user_settings(

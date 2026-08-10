@@ -23,6 +23,7 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   defmodule InvalidDescriptorPlugin do
@@ -647,7 +648,8 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
   end
 
   defp put_secret!(secret_ref, value) do
-    assert {:ok, _secret} = Secrets.put_secret(secret_ref, value, %{audit?: false})
+    assert {:ok, _secret} =
+             Secrets.put_secret(secret_ref, value, ReadyEffectContext.attach(%{audit?: false}))
   end
 
   defp whatsapp_signature(secret, raw_body) do

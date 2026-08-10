@@ -12,6 +12,7 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.{Extractors, NetworkPolicy, Session}
 
@@ -173,7 +174,7 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
 
     assert pending.status == :needs_confirmation
     ref = navigation_ref!("https://example.com/docs/")
-    assert {:ok, _grant} = Grants.remember(ref, audit?: false)
+    assert {:ok, _grant} = Grants.remember(ref, ReadyEffectContext.attach(%{audit?: false}))
 
     assert {:ok, granted} =
              Runner.run(

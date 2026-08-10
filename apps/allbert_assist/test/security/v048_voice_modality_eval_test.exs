@@ -16,6 +16,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertAssist.Voice.ProviderAdapter
@@ -345,9 +346,13 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              ProviderHTTP.endpoint(openai_tts_profile(), "/models")
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-v048", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-v048",
+               ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, %{url: "https://api.openai.com/v1/models"}} =
              ProviderHTTP.endpoint(openai_tts_profile(), "/models")
@@ -368,14 +373,22 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert_eval!("voice-transcode-materialized-bound-001")
 
     assert {:ok, _openai_secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _gemini_secret} =
-             Secrets.put_secret("secret://providers/gemini/api_key", "AIza-test-gemini", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/gemini/api_key",
+               "AIza-test-gemini",
+               ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     materialized_audio = "materialized audio"
 
@@ -592,9 +605,13 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              )
 
     assert {:ok, _openai_secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -755,7 +772,11 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
 
   defp configure_telegram!(opts) do
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://channels/telegram/bot_token", "token", %{audit?: false})
+             Secrets.put_secret(
+               "secret://channels/telegram/bot_token",
+               "token",
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, _setting} =
              Settings.put(

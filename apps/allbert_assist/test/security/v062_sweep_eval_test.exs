@@ -20,6 +20,7 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
   alias AllbertAssist.Settings.Vault
   alias AllbertAssist.Settings.Vault.Env
   alias AllbertAssist.Settings.Vault.MacKeychain
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @eval_ids ~w(
     packaging-no-authority-change-001
@@ -181,7 +182,7 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
       File.rm_rf!(root)
     end)
 
-    assert {:ok, _} = Secrets.put_secret(secret_ref, secret_value, %{})
+    assert {:ok, _} = Secrets.put_secret(secret_ref, secret_value, ReadyEffectContext.attach(%{}))
 
     # Tier resolution surfaces tier + notice, never the value.
     resolution = Vault.resolve()

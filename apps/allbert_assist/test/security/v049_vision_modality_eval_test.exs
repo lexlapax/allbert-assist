@@ -12,6 +12,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertBrowser.Actions.AnalyzeScreenshot
   alias AllbertBrowser.Cache, as: BrowserCache
   alias Jido.Signal
@@ -331,9 +332,13 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              )
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               ReadyEffectContext.attach(%{
+                 audit?: false
+               })
+             )
 
     assert {:ok, _setting} =
              Settings.put(

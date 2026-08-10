@@ -20,6 +20,7 @@ defmodule AllbertAssist.Security.V13CrossConsumerEvalTest do
   alias AllbertAssist.Search.Projection, as: SearchProjection
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_home = System.get_env("ALLBERT_HOME")
@@ -143,8 +144,21 @@ defmodule AllbertAssist.Security.V13CrossConsumerEvalTest do
                provider_message_id: "cross-consumer-seed"
              })
 
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:memory, :mapped_operator_dm, false)
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :memory,
+               :mapped_operator_dm,
+               false,
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, search_snapshot} = Corpus.snapshot("alice", mapped_policy(:search, false))
     assert {:ok, search_page} = Corpus.page(search_snapshot, nil, 100)
@@ -153,8 +167,21 @@ defmodule AllbertAssist.Security.V13CrossConsumerEvalTest do
     assert {:error, :origin_grant_required} =
              Corpus.snapshot("alice", mapped_policy(:memory, false))
 
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:memory, :mapped_operator_dm, true)
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, false)
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :memory,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               false,
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, memory_snapshot} = Corpus.snapshot("alice", mapped_policy(:memory, false))
     assert {:ok, memory_page} = Corpus.page(memory_snapshot, nil, 100)
@@ -163,8 +190,17 @@ defmodule AllbertAssist.Security.V13CrossConsumerEvalTest do
     assert {:error, :origin_grant_required} =
              Corpus.snapshot("alice", mapped_policy(:search, false))
 
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :e2ee_operator, true)
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(:search, :e2ee_operator, true, ReadyEffectContext.context())
+
     assert {:error, :e2ee_grant_required} = Corpus.snapshot("alice", mapped_policy(:memory, true))
     assert {:ok, _snapshot} = Corpus.snapshot("alice", mapped_policy(:search, true))
   end

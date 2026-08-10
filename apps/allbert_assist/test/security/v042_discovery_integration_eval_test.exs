@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store, as: SettingsStore
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.ToolCandidate
@@ -530,7 +531,11 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     secret = "mcp-calendar-token-v042"
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://mcp/calendar/bearer_token", secret, %{audit?: false})
+             Secrets.put_secret(
+               "secret://mcp/calendar/bearer_token",
+               secret,
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     credential_scope =
       run_eval(
@@ -810,12 +815,15 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
       })
 
     assert {:ok, _grant} =
-             Grants.remember(ref, %{
-               action_permission: :mcp_resource_read,
-               actor: "local",
-               channel: :test,
-               audit?: false
-             })
+             Grants.remember(
+               ref,
+               ReadyEffectContext.attach(%{
+                 action_permission: :mcp_resource_read,
+                 actor: "local",
+                 channel: :test,
+                 audit?: false
+               })
+             )
   end
 
   defp stub_official(response) do

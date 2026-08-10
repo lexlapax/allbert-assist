@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.Session
 
@@ -294,7 +295,7 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
         downstream_consumer: :browser_navigator
       })
 
-    assert {:ok, _grant} = Grants.remember(ref, audit?: false)
+    assert {:ok, _grant} = Grants.remember(ref, ReadyEffectContext.attach(%{audit?: false}))
   end
 
   defp memory_files(root) do

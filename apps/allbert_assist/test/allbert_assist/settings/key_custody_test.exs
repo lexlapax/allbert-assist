@@ -6,6 +6,7 @@ defmodule AllbertAssist.Settings.KeyCustodyTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -47,14 +48,22 @@ defmodule AllbertAssist.Settings.KeyCustodyTest do
     assert Secrets.status(ref) == :missing
 
     assert {:ok, %{status: :configured}} =
-             Secrets.put_secret(ref, "bot-token-v1", %{actor: "local", channel: :test})
+             Secrets.put_secret(
+               ref,
+               "bot-token-v1",
+               ReadyEffectContext.attach(%{actor: "local", channel: :test})
+             )
 
     assert {:ok, "bot-token-v1"} = Secrets.get_secret(ref, %{actor: "reader", channel: :test})
     assert {:ok, true} = KeyCustody.secure_compare(ref, "bot-token-v1")
     assert {:ok, false} = KeyCustody.secure_compare(ref, "bot-token-v2")
 
     assert {:ok, %{status: :configured}} =
-             Secrets.put_secret(ref, "bot-token-v2", %{actor: "local", channel: :test})
+             Secrets.put_secret(
+               ref,
+               "bot-token-v2",
+               ReadyEffectContext.attach(%{actor: "local", channel: :test})
+             )
 
     assert {:ok, "bot-token-v2"} = Secrets.get_secret(ref, %{actor: "reader", channel: :test})
 
@@ -68,7 +77,11 @@ defmodule AllbertAssist.Settings.KeyCustodyTest do
     raw_secret = "sk-no-leak-from-custody"
 
     assert {:ok, %{status: :configured}} =
-             Secrets.put_secret(ref, raw_secret, %{actor: "local", channel: :test})
+             Secrets.put_secret(
+               ref,
+               raw_secret,
+               ReadyEffectContext.attach(%{actor: "local", channel: :test})
+             )
 
     assert {:ok, ^raw_secret} = Secrets.get_secret(ref, %{actor: "reader", channel: :test})
 
@@ -86,7 +99,11 @@ defmodule AllbertAssist.Settings.KeyCustodyTest do
     ref = "secret://mcp/demo/bearer_token"
 
     assert {:ok, %{status: :configured}} =
-             Secrets.put_secret(ref, "mcp-fetch-token", %{actor: "writer", channel: :test})
+             Secrets.put_secret(
+               ref,
+               "mcp-fetch-token",
+               ReadyEffectContext.attach(%{actor: "writer", channel: :test})
+             )
 
     assert {:ok, "mcp-fetch-token"} =
              Secrets.get_secret(ref, %{actor: "reader", channel: :test})
@@ -107,7 +124,11 @@ defmodule AllbertAssist.Settings.KeyCustodyTest do
     on_exit(fn -> File.rm_rf!(second_home) end)
 
     assert {:ok, %{status: :configured}} =
-             Secrets.put_secret(first_ref, "first-home-secret", %{audit?: false})
+             Secrets.put_secret(
+               first_ref,
+               "first-home-secret",
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, "first-home-secret"} = Secrets.get_secret(first_ref)
 
@@ -116,7 +137,11 @@ defmodule AllbertAssist.Settings.KeyCustodyTest do
     assert Secrets.status(first_ref) == :missing
 
     assert {:ok, %{status: :configured}} =
-             Secrets.put_secret(second_ref, "second-home-secret", %{audit?: false})
+             Secrets.put_secret(
+               second_ref,
+               "second-home-secret",
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, "second-home-secret"} = Secrets.get_secret(second_ref)
     assert {:error, {:secret_not_found, ^first_ref}} = Secrets.get_secret(first_ref)
