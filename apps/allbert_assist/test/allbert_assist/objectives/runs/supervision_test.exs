@@ -2304,7 +2304,8 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert {:ok, _coordinator} =
              Scheduler.start_fanout(parent.id,
                run_starter: forbidden_starter,
-               recovery_transaction_hook: recovery_transaction_hook
+               recovery_transaction_hook: recovery_transaction_hook,
+               allbert_pack_epoch: ready_epoch()
              )
 
     eventually(fn ->

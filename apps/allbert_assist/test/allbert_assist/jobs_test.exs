@@ -361,7 +361,8 @@ defmodule AllbertAssist.JobsTest do
                    resolver_actor: "alice",
                    resolver_channel: :cli,
                    resolution_reason: "not needed"
-                 }
+                 },
+                 %{allbert_pack_epoch: pack_epoch!()}
                )
 
       assert {:ok, resumed} = Jobs.resume_job(blocked_job)
@@ -1010,20 +1011,23 @@ defmodule AllbertAssist.JobsTest do
   end
 
   defp create_pending_confirmation(id) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{
-        actor: "alice",
-        channel: :job,
-        surface: "scheduled_job"
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{
+          actor: "alice",
+          channel: :job,
+          surface: "scheduled_job"
+        },
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"},
+        resume_params_ref: %{url: "https://example.com"}
       },
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"},
-      resume_params_ref: %{url: "https://example.com"}
-    })
+      %{allbert_pack_epoch: pack_epoch!()}
+    )
   end
 
   defp run_now(job), do: Runner.run_now(job, allbert_pack_epoch: pack_epoch!())

@@ -124,6 +124,11 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives do
       Objectives.transition_step(step, status, attrs, %{allbert_pack_epoch: epoch})
     end
   end
+
+  # Call sites that already hold an epoch pass their own context rather than
+  # admitting a second one.
+  def transition_step(step, status, attrs, context),
+    do: Objectives.transition_step(step, status, attrs, context)
 end
 
 defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
@@ -375,14 +380,14 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
             params_summary: %{objective_id: objective.id, step_id: step.id},
             resume_params_ref: Keyword.get(opts, :resume_params_override, params)
           },
-          %{
+          ReadyEffectContext.attach(%{
             user_id: objective.user_id,
             objective_id: objective.id,
             step_id: step.id,
             parent_objective_id: objective.parent_objective_id,
             selected_action: step.candidate_action,
             selected_action_module: action_module
-          }
+          })
         )
 
       send(Keyword.fetch!(opts, :test_pid), {:grounded_confirmation, confirmation["id"]})
@@ -1290,13 +1295,19 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert parked.confirmation_resume_params_sha256 == expected_digest
 
     assert {:ok, %{"status" => "approved"}} =
-             Confirmations.resolve(confirmation_id, :approved, %{
-               actor: "alice",
-               decision_source: "operator"
-             })
+             Confirmations.resolve(
+               confirmation_id,
+               :approved,
+               %{actor: "alice", decision_source: "operator"},
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, completed} =
-             Lifecycle.run(child.id, adapter: GroundedConfirmationAdapter, test_pid: self())
+             Lifecycle.run(child.id,
+               adapter: GroundedConfirmationAdapter,
+               test_pid: self(),
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
 
     assert completed.status == "completed"
 
@@ -1328,10 +1339,12 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert child_id == child.id
 
     assert {:ok, %{"status" => "approved"}} =
-             Confirmations.resolve(confirmation_id, :approved, %{
-               actor: "alice",
-               decision_source: "operator"
-             })
+             Confirmations.resolve(
+               confirmation_id,
+               :approved,
+               %{actor: "alice", decision_source: "operator"},
+               ReadyEffectContext.context()
+             )
 
     assert {:error, :confirmation_resume_params_mismatch} =
              Lifecycle.run(child.id,

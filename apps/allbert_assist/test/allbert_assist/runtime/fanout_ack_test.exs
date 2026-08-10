@@ -1523,7 +1523,10 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     end
 
     select_queued_report!(parent.id)
-    assert {:ok, %{report_delivery_receipt: receipt}} = Fanout.finalize_join(parent)
+
+    assert {:ok, %{report_delivery_receipt: receipt}} =
+             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
+
     parent_id = parent.id
 
     assert {:ok, next_turn} =
@@ -1541,21 +1544,27 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert next_turn.message == "single: what next?\n\n#{expected_report}"
 
     assert {:error, :receipt_identity_mismatch} =
-             Runtime.acknowledge_report_delivery(receipt, %{
-               user_id: "mallory",
-               channel: "test",
-               thread_id: first_turn.thread_id
-             })
+             Runtime.acknowledge_report_delivery(
+               receipt,
+               ReadyEffectContext.attach(%{
+                 user_id: "mallory",
+                 channel: "test",
+                 thread_id: first_turn.thread_id
+               })
+             )
 
     assert [%{report_delivery_receipt: ^receipt}] =
              Fanout.pending_reports("alice", first_turn.thread_id, %{channel: "test"})
 
     assert :ok =
-             Runtime.acknowledge_report_delivery(receipt, %{
-               user_id: "alice",
-               channel: "test",
-               thread_id: first_turn.thread_id
-             })
+             Runtime.acknowledge_report_delivery(
+               receipt,
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 channel: "test",
+                 thread_id: first_turn.thread_id
+               })
+             )
 
     assert Fanout.pending_reports("alice", first_turn.thread_id, %{channel: "test"}) == []
   end
@@ -1618,7 +1627,9 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              )
 
     select_queued_report!(parent.id)
-    assert {:ok, _join} = Fanout.finalize_join(parent)
+
+    assert {:ok, _join} =
+             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
 
     assert {:ok, next_turn} =
              Runtime.submit_user_input(%{
@@ -1954,7 +1965,9 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     end
 
     select_queued_report!(parent.id)
-    assert {:ok, _join} = Fanout.finalize_join(parent)
+
+    assert {:ok, _join} =
+             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
 
     assert {:ok, joined} =
              Runtime.submit_user_input(%{
@@ -2223,12 +2236,15 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, provenance} = Report.fallback_provenance(frozen.snapshot, :model_disabled)
 
+    # validate_claim_context/2 compares the claim's own :effect_context against
+    # the one in opts, so a fresh epoch here reads as :stale_epoch.
     assert {:ok, _selected} =
              Fanout.select_composition(
                claim,
                "deterministic_fallback",
                frozen.fallback_body,
-               provenance
+               provenance,
+               effect_context: claim.effect_context
              )
   end
 
