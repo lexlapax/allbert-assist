@@ -66,7 +66,8 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
         Lifecycle.run(child.id,
           adapter: CheckpointAdapter,
           cancel_token: token,
-          test_pid: parent
+          test_pid: parent,
+          allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
         )
       end)
 
@@ -121,7 +122,8 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
           env: [],
           timeout_ms: 30_000,
           kill_grace_ms: 100,
-          max_output_bytes: 100
+          max_output_bytes: 100,
+          allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
         )
       end)
 
@@ -178,16 +180,31 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
     assert {:ok, %{children: [child, _sibling]}} = frame()
 
     assert {:error, :not_found} =
-             Objectives.request_cancellation("other-user", child.id, "not owned")
+             Objectives.request_cancellation(
+               "other-user",
+               child.id,
+               "not owned",
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, requested} =
-             Objectives.request_cancellation("cancel-user", child.id, "operator requested")
+             Objectives.request_cancellation(
+               "cancel-user",
+               child.id,
+               "operator requested",
+               ReadyEffectContext.context()
+             )
 
     assert requested.status == "blocked"
     assert requested.review_reason == "cancellation_requested"
 
     assert {:ok, duplicate} =
-             Objectives.request_cancellation("cancel-user", child.id, "operator requested")
+             Objectives.request_cancellation(
+               "cancel-user",
+               child.id,
+               "operator requested",
+               ReadyEffectContext.context()
+             )
 
     assert duplicate.id == requested.id
 

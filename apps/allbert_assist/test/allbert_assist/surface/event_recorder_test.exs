@@ -7,29 +7,36 @@ defmodule AllbertAssist.Surface.EventRecorderTest do
   alias AllbertAssist.Operator.Inspection
   alias AllbertAssist.Repo
   alias AllbertAssist.Surface.EventRecorder
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "records non-channel inbound events and marks successful runtime results processed" do
     event =
-      EventRecorder.record_inbound("live_view", %{
-        external_event_id: "live_view:test-success",
-        user_id: "local",
-        session_id: "web-local",
-        payload_summary: "hello"
-      })
+      EventRecorder.record_inbound(
+        "live_view",
+        %{
+          external_event_id: "live_view:test-success",
+          user_id: "local",
+          session_id: "web-local",
+          payload_summary: "hello"
+        },
+        ReadyEffectContext.context()
+      )
 
     assert %Event{channel: "live_view", provider: "allbert", status: "received"} = event
 
     assert :ok =
-             EventRecorder.mark_result(event, {
-               :ok,
-               %{
-                 status: :completed,
-                 message: "done",
-                 signal_id: "sig-1",
-                 trace_id: "trace-1",
-                 thread_id: "thr-1"
-               }
-             })
+             EventRecorder.mark_result(
+               event,
+               {:ok,
+                %{
+                  status: :completed,
+                  message: "done",
+                  signal_id: "sig-1",
+                  trace_id: "trace-1",
+                  thread_id: "thr-1"
+                }},
+               ReadyEffectContext.context()
+             )
 
     stored = Repo.get!(Event, event.id)
     assert stored.status == "processed"
@@ -40,14 +47,23 @@ defmodule AllbertAssist.Surface.EventRecorderTest do
 
   test "records rejected and failed surface events for operator audit" do
     rejected =
-      EventRecorder.record_rejection(:openai_api, %{
-        external_event_id: "openai_api:test-rejected",
-        user_id: "client",
-        reason: "invalid_request"
-      })
+      EventRecorder.record_rejection(
+        :openai_api,
+        %{
+          external_event_id: "openai_api:test-rejected",
+          user_id: "client",
+          reason: "invalid_request"
+        },
+        ReadyEffectContext.context()
+      )
 
     failed =
-      EventRecorder.record_error(:mcp_http, %{external_event_id: "mcp_http:test-failed"}, :boom)
+      EventRecorder.record_error(
+        :mcp_http,
+        %{external_event_id: "mcp_http:test-failed"},
+        :boom,
+        ReadyEffectContext.context()
+      )
 
     assert %Event{channel: "openai_api", status: "rejected"} = rejected
     assert %Event{channel: "mcp_http", status: "failed", error: ":boom"} = failed
@@ -60,11 +76,16 @@ defmodule AllbertAssist.Surface.EventRecorderTest do
   end
 
   test "marks denied runtime responses as rejected and error responses as failed" do
-    denied = EventRecorder.record_inbound(:cli, %{external_event_id: "cli:test-denied"})
-    failed = EventRecorder.record_inbound(:cli, %{external_event_id: "cli:test-error"})
+    context = ReadyEffectContext.context()
 
-    EventRecorder.mark_result(denied, {:ok, %{status: :denied, message: "no"}})
-    EventRecorder.mark_result(failed, {:ok, %{status: :error, message: "bad"}})
+    denied =
+      EventRecorder.record_inbound(:cli, %{external_event_id: "cli:test-denied"}, context)
+
+    failed =
+      EventRecorder.record_inbound(:cli, %{external_event_id: "cli:test-error"}, context)
+
+    EventRecorder.mark_result(denied, {:ok, %{status: :denied, message: "no"}}, context)
+    EventRecorder.mark_result(failed, {:ok, %{status: :error, message: "bad"}}, context)
 
     statuses =
       Repo.all(

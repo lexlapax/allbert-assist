@@ -31,7 +31,17 @@ defmodule AllbertAssist.Surface.EventRecorder do
 
   @spec record_error(String.t() | atom(), map(), term()) :: Event.t() | nil
   def record_error(surface_id, attrs \\ %{}, reason) when is_map(attrs) do
-    create(surface_id, Map.put_new(attrs, :error, inspect(reason)), "inbound", "failed", %{})
+    record_error(surface_id, attrs, reason, %{})
+  end
+
+  # Channels.create_event/2 fails closed without a readiness epoch, so the
+  # context-less arity records nothing — the surface error is dropped exactly
+  # when an operator most wants it. record_rejection/3 already takes a context;
+  # this gives record_error the same seam.
+  @spec record_error(String.t() | atom(), map(), term(), map()) :: Event.t() | nil
+  def record_error(surface_id, attrs, reason, context)
+      when is_map(attrs) and is_map(context) do
+    create(surface_id, Map.put_new(attrs, :error, inspect(reason)), "inbound", "failed", context)
   end
 
   @spec mark_result(Event.t() | nil, {:ok, map()} | {:error, term()} | term()) :: :ok
