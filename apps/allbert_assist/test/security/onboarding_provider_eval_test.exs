@@ -7,6 +7,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @secret "sk-test-secret-v039"
   @secret_body "raw-provider-body-sk-test-secret-v039"
@@ -489,13 +490,13 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
 
   defp context(overrides \\ %{}) do
     Map.merge(
-      %{
+      ReadyEffectContext.attach(%{
         actor: "local",
         operator_id: "local",
         user_id: "local",
         channel: :test,
         surface: "security_eval"
-      },
+      }),
       overrides
     )
   end

@@ -19,6 +19,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.StockSageRegistryCase
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @eval_groups [
     exposure: [
@@ -528,7 +529,8 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              )
   end
 
-  defp context, do: %{actor: "test", channel: "test", audit?: false}
+  defp context,
+    do: ReadyEffectContext.attach(%{actor: "test", channel: "test", audit?: false})
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

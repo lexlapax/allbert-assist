@@ -31,6 +31,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
 
@@ -528,7 +529,8 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
                permission: :coding_shell_execute
              )
 
-    assert {:ok, _revoked} = Grants.revoke(grant["id"], %{audit?: false})
+    assert {:ok, _revoked} =
+             Grants.revoke(grant["id"], ReadyEffectContext.attach(%{audit?: false}))
   end
 
   test "stream events render assistant deltas and Esc cancellation leaves partial evidence", %{
@@ -780,7 +782,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   end
 
   defp trusted_context(workspace) do
-    %{
+    ReadyEffectContext.attach(%{
       actor: "local",
       operator_id: "local",
       user_id: "local",
@@ -789,7 +791,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
       cwd_jail: workspace,
       coding: %{cwd_jail: workspace, pi_mode_enabled: true, trusted_operator_id: "local"},
       session: %{main?: true}
-    }
+    })
   end
 
   defp approval_context(workspace, approval_mode) do

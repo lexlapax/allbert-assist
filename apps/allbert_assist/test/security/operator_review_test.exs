@@ -12,6 +12,7 @@ defmodule AllbertAssist.Security.OperatorReviewTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
@@ -241,34 +242,40 @@ defmodule AllbertAssist.Security.OperatorReviewTest do
 
   defp seed_review_confirmations! do
     {:ok, external} =
-      Confirmations.create(%{
-        id: "conf_review_external",
-        origin: %{actor: "local", channel: :cli, surface: "mix allbert.external"},
-        target_action: %{name: "external_network_request"},
-        target_permission: :external_network,
-        target_execution_mode: :req_http,
-        security_decision: %{
-          permission: :external_network,
-          decision: :needs_confirmation,
-          reason: "External network access requires confirmation."
+      Confirmations.create(
+        %{
+          id: "conf_review_external",
+          origin: %{actor: "local", channel: :cli, surface: "mix allbert.external"},
+          target_action: %{name: "external_network_request"},
+          target_permission: :external_network,
+          target_execution_mode: :req_http,
+          security_decision: %{
+            permission: :external_network,
+            decision: :needs_confirmation,
+            reason: "External network access requires confirmation."
+          },
+          params_summary: %{url: "https://example.com/status", api_key: "sk-test-secret"}
         },
-        params_summary: %{url: "https://example.com/status", api_key: "sk-test-secret"}
-      })
+        ReadyEffectContext.context()
+      )
 
     {:ok, import} =
-      Confirmations.create(%{
-        id: "conf_review_import",
-        origin: %{actor: "local", channel: :cli, surface: "mix allbert.skills"},
-        target_action: %{name: "import_online_skill"},
-        target_permission: :online_skill_import,
-        target_execution_mode: :online_skill_import,
-        security_decision: %{
-          permission: :online_skill_import,
-          decision: :needs_confirmation,
-          reason: "Online skill import requires confirmation."
+      Confirmations.create(
+        %{
+          id: "conf_review_import",
+          origin: %{actor: "local", channel: :cli, surface: "mix allbert.skills"},
+          target_action: %{name: "import_online_skill"},
+          target_permission: :online_skill_import,
+          target_execution_mode: :online_skill_import,
+          security_decision: %{
+            permission: :online_skill_import,
+            decision: :needs_confirmation,
+            reason: "Online skill import requires confirmation."
+          },
+          params_summary: %{url: "https://skills.sh/demo/SKILL.md"}
         },
-        params_summary: %{url: "https://skills.sh/demo/SKILL.md"}
-      })
+        ReadyEffectContext.context()
+      )
 
     {:ok, _denied} =
       Confirmations.resolve(
@@ -279,7 +286,8 @@ defmodule AllbertAssist.Security.OperatorReviewTest do
           resolver_channel: :cli,
           resolver_surface: "security-review-test",
           resolution_reason: "security review eval"
-        }
+        },
+        ReadyEffectContext.context()
       )
 
     external

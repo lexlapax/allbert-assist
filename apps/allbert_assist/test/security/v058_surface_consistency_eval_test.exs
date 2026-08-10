@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.V058SurfaceConsistencyEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -109,13 +110,17 @@ defmodule AllbertAssist.Security.V058SurfaceConsistencyEvalTest do
     external_event_id = "v058-m131c-#{System.unique_integer([:positive])}"
 
     assert %Event{} =
-             EventRecorder.record_rejection(:mcp_stdio, %{
-               external_event_id: external_event_id,
-               external_user_id: "fixture-client",
-               user_id: "public-protocol:fixture-client",
-               reason: "resource_not_exposed",
-               payload_summary: "resources/read allbert-memory://missing/namespace"
-             })
+             EventRecorder.record_rejection(
+               :mcp_stdio,
+               %{
+                 external_event_id: external_event_id,
+                 external_user_id: "fixture-client",
+                 user_id: "public-protocol:fixture-client",
+                 reason: "resource_not_exposed",
+                 payload_summary: "resources/read allbert-memory://missing/namespace"
+               },
+               ReadyEffectContext.context()
+             )
 
     assert %Event{
              channel: "mcp_stdio",

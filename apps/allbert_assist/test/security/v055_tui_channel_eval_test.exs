@@ -21,6 +21,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
 
@@ -459,15 +460,18 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
   end
 
   defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "v055-eval"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "v055-eval"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      ReadyEffectContext.context()
+    )
   end
 
   defp row!(rows, channel) do
