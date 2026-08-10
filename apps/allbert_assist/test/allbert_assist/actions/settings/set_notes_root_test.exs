@@ -4,8 +4,11 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
 
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
-  @context %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+  # A module attribute is evaluated at compile time, so the epoch has to be
+  # attached per call rather than baked into the attribute.
+  @context_attrs %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -41,7 +44,7 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
     File.mkdir_p!(dir)
     on_exit(fn -> File.rm_rf!(dir) end)
 
-    assert {:ok, response} = SetNotesRoot.run(%{path: dir}, @context)
+    assert {:ok, response} = SetNotesRoot.run(%{path: dir}, context())
     assert response.status == :completed
     assert response.message =~ dir
     assert response.setting.key == "apps.notes_files.notes_root"
@@ -57,7 +60,7 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
         "nope-#{System.pid()}-#{System.unique_integer([:positive])}"
       )
 
-    assert {:ok, response} = SetNotesRoot.run(%{path: missing}, @context)
+    assert {:ok, response} = SetNotesRoot.run(%{path: missing}, context())
     assert response.status == :denied
     assert response.message =~ "could not set the notes root"
   end
@@ -72,12 +75,14 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
     File.write!(file, "# not a dir")
     on_exit(fn -> File.rm_rf!(file) end)
 
-    assert {:ok, response} = SetNotesRoot.run(%{path: file}, @context)
+    assert {:ok, response} = SetNotesRoot.run(%{path: file}, context())
     assert response.status == :denied
   end
 
   test "rejects an empty path" do
-    assert {:ok, response} = SetNotesRoot.run(%{path: "   "}, @context)
+    assert {:ok, response} = SetNotesRoot.run(%{path: "   "}, context())
     assert response.status == :denied
   end
+
+  defp context, do: ReadyEffectContext.attach(@context_attrs)
 end

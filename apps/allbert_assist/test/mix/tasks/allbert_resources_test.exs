@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.ResourcesTest do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Resources, as: ResourcesTask
 
   setup do
@@ -33,10 +34,13 @@ defmodule Mix.Tasks.Allbert.ResourcesTest do
 
   test "lists, shows, and revokes remembered resource grants" do
     assert {:ok, grant} =
-             Grants.remember(external_ref("https://example.com/status"),
-               id: "grant_mix_resource",
-               reason: "mix task smoke",
-               audit?: false
+             Grants.remember(
+               external_ref("https://example.com/status"),
+               ReadyEffectContext.attach(%{
+                 id: "grant_mix_resource",
+                 reason: "mix task smoke",
+                 audit?: false
+               })
              )
 
     list_output = capture_io(fn -> assert :ok = ResourcesTask.run(["grants", "list"]) end)

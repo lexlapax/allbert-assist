@@ -7,6 +7,7 @@ defmodule AllbertAssist.PublicProtocol.TokenAuthTest do
   alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.PublicProtocol, as: PublicProtocolTask
 
   setup do
@@ -93,7 +94,8 @@ defmodule AllbertAssist.PublicProtocol.TokenAuthTest do
     refute list_output =~ token
   end
 
-  defp context, do: %{actor: "test", channel: "test", audit?: false}
+  defp context,
+    do: ReadyEffectContext.attach(%{actor: "test", channel: "test", audit?: false})
 
   defp temp_root(prefix) do
     Path.join(

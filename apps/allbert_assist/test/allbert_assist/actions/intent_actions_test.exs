@@ -16,6 +16,7 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
@@ -234,10 +235,10 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
 
   test "external_network_request requires confirmation and makes no call" do
     assert {:ok, response} =
-             ExternalNetworkRequest.run(%{request: "fetch https://example.com"}, %{
-               actor: "local",
-               channel: :test
-             })
+             ExternalNetworkRequest.run(
+               %{request: "fetch https://example.com"},
+               ReadyEffectContext.attach(%{actor: "local", channel: :test})
+             )
 
     assert response.status == :needs_confirmation
     assert response.message =~ "External network request is ready"

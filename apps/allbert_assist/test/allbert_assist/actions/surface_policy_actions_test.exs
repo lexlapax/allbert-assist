@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.SurfacePolicyActionsTest do
   alias AllbertAssist.PublicProtocol.ExposureFilter
   alias AllbertAssist.Settings
   alias AllbertAssist.SurfacePolicy
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @m131c_operator_reads ~w(
     intent_coverage
@@ -59,7 +60,10 @@ defmodule AllbertAssist.Actions.SurfacePolicyActionsTest do
   end
 
   test "update action writes through Settings Central and preserves explicit raw affordance" do
-    context = %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+    context =
+      ReadyEffectContext.attach(%{
+        request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}
+      })
 
     assert SurfacePolicy.render_mode("list_settings", %{render_mode: "operator_report"}, %{
              surface: "mcp_http"
@@ -116,7 +120,10 @@ defmodule AllbertAssist.Actions.SurfacePolicyActionsTest do
   end
 
   test "policy rejects invalid values and grants no public authority" do
-    context = %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+    context =
+      ReadyEffectContext.attach(%{
+        request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}
+      })
 
     assert {:ok, denied} =
              UpdateSurfacePolicy.run(
