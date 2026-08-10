@@ -8,6 +8,7 @@ defmodule AllbertAssist.OnboardingTest do
   alias AllbertAssist.Personas
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   @env_vars [
@@ -193,9 +194,14 @@ defmodule AllbertAssist.OnboardingTest do
       # A ready model at model_path flips the gate so `allbert ask` works without a
       # manual settings edit (the operator-reported dead end).
       assert {:ok, s} =
-               Onboarding.wizard_advance("model_path", %{},
-                 first_model_state: :local_ready,
-                 enablement_result: %{state: :auto_enabled, model_state: :local_ready}
+               Onboarding.wizard_advance(
+                 "model_path",
+                 %{},
+                 epoch_opts() ++
+                   [
+                     first_model_state: :local_ready,
+                     enablement_result: %{state: :auto_enabled, model_state: :local_ready}
+                   ]
                )
 
       assert s.readiness == :ready
@@ -329,18 +335,18 @@ defmodule AllbertAssist.OnboardingTest do
                    active_app: "allbert",
                    source_intent: "first_run_onboarding"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       objective_id = objective.id
 
-      assert :ok = Onboarding.reconcile_stale_objective(user_id: "alice")
+      assert :ok = Onboarding.reconcile_stale_objective([user_id: "alice"] ++ epoch_opts())
       assert {:ok, objective} = Objectives.get_objective("alice", objective_id)
       assert objective.status == "cancelled"
       assert FirstRun.read_marker()["objective_reconciled_v063"] == true
 
       # Idempotent: a second call is a no-op (flag already set).
-      assert :ok = Onboarding.reconcile_stale_objective(user_id: "alice")
+      assert :ok = Onboarding.reconcile_stale_objective([user_id: "alice"] ++ epoch_opts())
     end
 
     test "a fresh Home with no stale objective records the flag without error" do
@@ -537,7 +543,7 @@ defmodule AllbertAssist.OnboardingTest do
                Settings.put(
                  "intent.direct_answer_model_enabled",
                  false,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       Onboarding.wizard_start(:quickstart)
@@ -554,7 +560,7 @@ defmodule AllbertAssist.OnboardingTest do
       refute Onboarding.claim_model_reenable_affordance()
       assert FirstRun.read_marker()["model_reenable_offered"] == true
 
-      assert :ok = Onboarding.reenable_model_answers()
+      assert :ok = Onboarding.reenable_model_answers(epoch_opts())
       assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
       assert Settings.get("intent.model_assist_enabled") == {:ok, true}
     end
@@ -612,14 +618,15 @@ defmodule AllbertAssist.OnboardingTest do
   end
 
   defp ready_direct_answer_opts do
-    [
-      first_model_state: :local_ready,
-      enablement_result: %{
-        state: :auto_enabled,
-        model_state: :local_ready,
-        availability: :available
-      }
-    ]
+    epoch_opts() ++
+      [
+        first_model_state: :local_ready,
+        enablement_result: %{
+          state: :auto_enabled,
+          model_state: :local_ready,
+          availability: :available
+        }
+      ]
   end
 
   defp sticky_ready_direct_answer_opts do
@@ -653,4 +660,9 @@ defmodule AllbertAssist.OnboardingTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  # Onboarding writes settings through settings_context/1, which reads
+  # :allbert_pack_epoch out of the opts it is given. Without it every write
+  # fails closed and the wizard silently does not enable anything.
+  defp epoch_opts, do: [allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch]
 end
