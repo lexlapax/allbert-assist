@@ -19,6 +19,7 @@ defmodule AllbertAssist.SandboxTest do
   alias AllbertAssist.Sandbox.ReportWriter
   alias AllbertAssist.Sandbox.SourcePolicy
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   defmodule AvailableDocker do
     @behaviour AllbertAssist.Sandbox.Backend
@@ -689,7 +690,11 @@ defmodule AllbertAssist.SandboxTest do
     spec = compile_spec!(bundle, policy)
     echo = System.find_executable("echo") || "/bin/echo"
 
-    assert {:ok, report} = ContainerRunner.run(:docker, echo, ["sandbox ok"], bundle, spec)
+    assert {:ok, report} =
+             ContainerRunner.run(:docker, echo, ["sandbox ok"], bundle, spec,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
+
     assert report.status == :completed
     assert report.exit_status == 0
     assert report.stdout =~ "sandbox ok"

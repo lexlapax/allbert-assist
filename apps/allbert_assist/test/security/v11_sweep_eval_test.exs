@@ -22,7 +22,6 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @ids ~w[
     fanout-decomposition-advisory-001
@@ -51,13 +50,11 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
       end
     )
 
-    ShippedRegistries.restore!()
     Fragments.clear_cache()
 
     on_exit(fn ->
       restore_env(Paths, original_paths)
       restore_env(Runtime, original_runtime)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

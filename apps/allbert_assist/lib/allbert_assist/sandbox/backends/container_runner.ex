@@ -7,9 +7,9 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerRunner do
   alias AllbertAssist.Sandbox.Report
   alias AllbertAssist.Sandbox.ReportWriter
 
-  @spec run(atom(), String.t(), [String.t()], Bundle.t(), CommandSpec.t()) ::
+  @spec run(atom(), String.t(), [String.t()], Bundle.t(), CommandSpec.t(), keyword()) ::
           {:ok, Report.t()} | {:error, term()}
-  def run(backend_id, engine, argv, %Bundle{} = bundle, %CommandSpec{} = spec) do
+  def run(backend_id, engine, argv, %Bundle{} = bundle, %CommandSpec{} = spec, opts \\ []) do
     started_at = System.monotonic_time(:millisecond)
 
     with {:engine, {:ok, result}} <-
@@ -18,7 +18,8 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerRunner do
               timeout_ms: spec.timeout_ms,
               max_output_bytes: spec.output_bytes,
               execution_id: spec.execution_id || Ecto.UUID.generate(),
-              on_timeout: fn -> cleanup_timed_out_container(engine, argv) end
+              on_timeout: fn -> cleanup_timed_out_container(engine, argv) end,
+              allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)
             )} do
       backend_id
       |> report_from_result(spec, argv, result, started_at)

@@ -14,6 +14,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
   alias AllbertAssist.Sandbox.Host
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -528,7 +529,12 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
   end
 
   defp context do
-    %{actor: "local", channel: :cli, surface: "cli", explicit_generation?: true}
+    ReadyEffectContext.attach(%{
+      actor: "local",
+      channel: :cli,
+      surface: "cli",
+      explicit_generation?: true
+    })
   end
 
   defp project_root, do: Path.expand("../../../../..", __DIR__)

@@ -217,7 +217,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
                :pure_async,
                :app_env_serial,
                :home_fs_serial,
-               :global_process_serial
+               :global_process_serial,
+               :external_runtime_serial
              ]
            }
 
@@ -457,7 +458,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     end
 
     assert_raise Mix.Error,
-                 "lane db_serial is not declared for serial owner kernel; expected one of pure_async, app_env_serial, home_fs_serial, global_process_serial",
+                 "lane db_serial is not declared for serial owner kernel; expected one of pure_async, app_env_serial, home_fs_serial, global_process_serial, external_runtime_serial",
                  fn ->
                    AllbertTestTask.run([
                      "serial-owner",

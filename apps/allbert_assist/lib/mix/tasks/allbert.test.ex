@@ -1648,7 +1648,7 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("commit gate is not release evidence")
 
     files
-    |> Enum.map(&owner/1)
+    |> Enum.map(&owner_or_unknown/1)
     |> Enum.reject(&(&1 == :unknown))
     |> Enum.uniq()
     |> case do
@@ -11421,6 +11421,18 @@ defmodule Mix.Tasks.Allbert.Test do
     owner_records()
     |> GateOwners.owner_for_test_path!(path)
     |> Map.fetch!(:owner_id)
+  end
+
+  # print_commit_guidance reports informational owner-change guidance across
+  # every changed file, including docs and other paths GateOwners never
+  # claims (owner/1 raises for those, by design, so "focused"/"serial-owner"
+  # fail loud on a genuinely unowned test target). Guidance is advisory, not
+  # a gate, so an unowned path here is reported as :unknown rather than
+  # aborting the commit gate.
+  defp owner_or_unknown(path) do
+    owner(path)
+  rescue
+    ArgumentError -> :unknown
   end
 
   defp app_cwd(owner) do

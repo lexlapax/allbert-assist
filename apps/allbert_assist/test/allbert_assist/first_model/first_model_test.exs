@@ -13,6 +13,7 @@ defmodule AllbertAssist.FirstModelTest do
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Jido.Signal.Bus
 
   setup {Req.Test, :verify_on_exit!}
@@ -172,7 +173,7 @@ defmodule AllbertAssist.FirstModelTest do
         Req.Test.json(conn, %{"version" => "0.5.0"})
       end)
 
-      assert Ollama.server_version() == {:ok, "0.5.0"}
+      assert Ollama.server_version(ReadyEffectContext.context()) == {:ok, "0.5.0"}
 
       Req.Test.expect(__MODULE__, fn %{request_path: "/api/tags"} = conn ->
         Req.Test.json(conn, %{
@@ -180,7 +181,7 @@ defmodule AllbertAssist.FirstModelTest do
         })
       end)
 
-      assert Ollama.model_tags() == [Ollama.curated_model()]
+      assert Ollama.model_tags(ReadyEffectContext.context()) == [Ollama.curated_model()]
     end
 
     test "default HTTP refuses non-loopback OLLAMA_HOST" do
@@ -313,7 +314,7 @@ defmodule AllbertAssist.FirstModelTest do
       end)
 
       assert {:ok, %{status: :completed, actions: [%{executed: true, summary: summary}]}} =
-               PullModel.run(%{}, %{confirmation: %{approved?: true}})
+               PullModel.run(%{}, ReadyEffectContext.attach(%{confirmation: %{approved?: true}}))
 
       assert summary.status == "success"
     end
@@ -543,9 +544,10 @@ defmodule AllbertAssist.FirstModelTest do
       end)
 
       assert {:ok, %{status: :completed, progress: progress, actions: [%{summary: summary}]}} =
-               PullModel.run(%{model: model, user_id: "user-web", thread_id: "thread-web"}, %{
-                 confirmation: %{approved?: true}
-               })
+               PullModel.run(
+                 %{model: model, user_id: "user-web", thread_id: "thread-web"},
+                 ReadyEffectContext.attach(%{confirmation: %{approved?: true}})
+               )
 
       assert summary.status == "success"
       assert Enum.any?(progress, &(&1.status == "downloading" and &1.percent == 50.0))
