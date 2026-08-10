@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.Session
 
@@ -41,14 +42,14 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
              Settings.put(
                "browser.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "research.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
@@ -203,7 +204,7 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
                  title: "Research reject",
                  objective: "Reject an unsupported research delegate command."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -219,14 +220,14 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
                    params: %{url: "https://example.com/docs/a"}
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok,
             %{objective: failed_objective, step: failed_step, result: result, status: :failed}} =
              EngineAgent.execute_step(
                engine_name,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  step_id: step.id,
                  trace_id: "trace_research_reject"
                })
@@ -269,7 +270,7 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     assert {:ok, _grant} =
              Grants.remember(
                ref,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
