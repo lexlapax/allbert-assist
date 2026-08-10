@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -146,9 +147,11 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     use_openai_image!()
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, pending} =
              Runner.run(
@@ -207,9 +210,11 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     use_openai_image!()
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     assert {:ok, pending} =
              Runner.run(
@@ -299,9 +304,11 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     use_openai_then_fake_image!()
 
     assert {:ok, _secret} =
-             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
-               audit?: false
-             })
+             Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-openai",
+               ReadyEffectContext.attach(%{audit?: false})
+             )
 
     Req.Test.expect(__MODULE__, fn %{request_path: "/v1/images/generations"} = conn ->
       conn
@@ -398,7 +405,11 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
   end
 
   defp context do
-    %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
+    ReadyEffectContext.attach(%{
+      actor: "local",
+      channel: :cli,
+      request: %{operator_id: "local", channel: :cli}
+    })
   end
 
   defp approved_context(extra) do
