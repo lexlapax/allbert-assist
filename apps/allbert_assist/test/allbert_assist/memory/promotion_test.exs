@@ -11,6 +11,7 @@ defmodule AllbertAssist.Memory.PromotionTest do
   alias AllbertAssist.Memory.Promotion
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Memory, as: MemoryTask
 
   setup do
@@ -71,18 +72,21 @@ defmodule AllbertAssist.Memory.PromotionTest do
                  category: "preferences",
                  summary: "Crisp summaries"
                },
-               %{user_id: "alice", actor: "alice", channel: :test}
+               ReadyEffectContext.attach(%{user_id: "alice", actor: "alice", channel: :test})
              )
 
     assert pending.status == :needs_confirmation
     assert {:ok, []} = Memory.list_entries(user_id: "alice")
 
     assert {:ok, approved} =
-             ApproveConfirmation.run(%{id: pending.confirmation_id, reason: "test"}, %{
-               user_id: "alice",
-               actor: "alice",
-               channel: :test
-             })
+             ApproveConfirmation.run(
+               %{id: pending.confirmation_id, reason: "test"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               })
+             )
 
     assert approved.status == :completed
     assert approved.confirmation["status"] == "approved"

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Pack.Readiness
   alias AllbertAssist.Repo
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.ReadyEffectContext
@@ -26,6 +27,12 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
 
     database = Path.join(root, "allbert.sqlite3")
 
+    # Composition lives in its own OTP application since M8, and it holds the
+    # composed catalog every action resolution reads. Restarting :allbert_assist
+    # alone leaves that catalog bound to registries that no longer exist, so
+    # ActionsRegistry.resolve/1 fails and fan-in reports come back as
+    # :invalid_fanout_report_registered_action. Cycle both, innermost last.
+    assert :ok = Application.stop(:allbert_composition)
     assert :ok = Application.stop(:allbert_assist)
     File.mkdir_p!(root)
     File.cp!(source_database, database)
@@ -45,12 +52,17 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
     )
 
     assert {:ok, _started} = Application.ensure_all_started(:allbert_assist)
+    assert {:ok, _started} = Application.ensure_all_started(:allbert_composition)
+    assert :ok = await_pack_ready()
 
     on_exit(fn ->
+      Application.stop(:allbert_composition)
       Application.stop(:allbert_assist)
       Application.put_env(:allbert_assist, Repo, original_repo)
 
       {:ok, _started} = Application.ensure_all_started(:allbert_assist)
+      {:ok, _started} = Application.ensure_all_started(:allbert_composition)
+      :ok = await_pack_ready()
       Sandbox.mode(Repo, :manual)
       File.rm_rf!(root)
     end)
@@ -105,5 +117,28 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
              Objectives.get_objective(parent.id)
 
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+  end
+
+  # Composition is asynchronous: the coordinator recomposes the catalog after
+  # the applications are up, and every action resolution in this file depends on
+  # that catalog being current.
+  defp await_pack_ready(timeout \\ 60_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+    await_pack_ready(deadline, :waiting)
+  end
+
+  defp await_pack_ready(deadline, _state) do
+    case Readiness.status(timeout: 1_000) do
+      {:ok, %{phase: :ready}} ->
+        :ok
+
+      _other ->
+        if System.monotonic_time(:millisecond) < deadline do
+          Process.sleep(50)
+          await_pack_ready(deadline, :waiting)
+        else
+          {:error, :timeout}
+        end
+    end
   end
 end

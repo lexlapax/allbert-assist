@@ -235,7 +235,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
                      source_channel: "cli",
                      source_thread_id: request.thread_id
                    }),
-                   ["hold until delivery acknowledgement"]
+                   ["hold until delivery acknowledgement", "second held child"]
                  )
 
         send(test_pid, {:pending_fanout, parent.id})

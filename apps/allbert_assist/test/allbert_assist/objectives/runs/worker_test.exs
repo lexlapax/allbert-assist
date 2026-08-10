@@ -472,6 +472,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
                 child_id: child.id,
                 parent_id: parent.id,
                 coordinator: self(),
+                allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch,
                 lifecycle_opts: [worker_timeout_ms: 30_000]}
              )
 

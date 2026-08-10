@@ -95,6 +95,15 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
     end
   end
 
+  # The enabled? gate has to live on this arity too, not only on poll_once/2.
+  # Every dispatched cycle admits its epoch first and so enters here directly
+  # (Scheduler.Commands calls poll_once/3), which meant a scheduler started with
+  # enabled?: false read the schedule policy and ran due jobs anyway — the one
+  # thing disabling it is supposed to prevent.
+  def poll_once(%{enabled?: false}, _now, _epoch) do
+    {:ok, base_summary("disabled")}
+  end
+
   def poll_once(state, now, epoch) when is_map(state) do
     case Settings.get("jobs.schedule_policy") do
       {:ok, "operator_approved"} ->

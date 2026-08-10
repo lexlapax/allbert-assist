@@ -10,6 +10,8 @@ defmodule AllbertAssist.Intent.EngineTest do
   # writes — ADR 0082 decision 7); one test additionally owns ALLBERT_HOME +
   # Application env with save/restore, within the stricter serial lane.
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
@@ -373,6 +375,30 @@ defmodule AllbertAssist.Intent.EngineTest do
                trust_status: :trusted,
                actions: [PluginEcho]
              })
+
+    # Action capabilities resolve through the sealed Pack snapshot, not through
+    # the isolated plugin registry, so a fixture action that exists only in this
+    # test is invisible to collect_candidates until it is also supplied through
+    # the actions overlay. The isolated plugin registry still supplies the
+    # provenance, which is what this test is actually asserting.
+    overlay = :"intent_engine_overlay_#{System.unique_integer([:positive])}"
+    start_supervised!(Supervisor.child_spec({ActionsOverlay, name: overlay}, id: overlay))
+
+    assert :ok =
+             ActionsOverlay.register_many(
+               [
+                 %{
+                   module: PluginEcho,
+                   slug: "intent-engine-plugin-echo",
+                   revision: "test",
+                   exposure: :agent
+                 }
+               ],
+               server: overlay,
+               existing_names: ActionsRegistry.names()
+             )
+
+    registry = Keyword.put(registry, :actions_overlay, overlay)
 
     assert Enum.any?(
              Engine.collect_candidates(

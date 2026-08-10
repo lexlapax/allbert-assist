@@ -8,11 +8,15 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackTest do
 
   @now ~U[2026-06-09 12:00:00Z]
 
+  # Mirrors the arities ResultReadbackSweeper actually calls — admit_ready/0 and
+  # validate/1. The stub previously took an opts argument on each, so every call
+  # raised :undef and the sweeper reported :readback_sweeper_unavailable instead
+  # of the :product_not_ready this test exists to assert.
   defmodule SameDigestReplacementGuard do
-    def admit_ready(_opts),
+    def admit_ready,
       do: {:ok, %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}}
 
-    def validate(_epoch, _opts), do: {:error, :stale_epoch}
+    def validate(_epoch), do: {:error, :stale_epoch}
   end
 
   defmodule SweepProbe do

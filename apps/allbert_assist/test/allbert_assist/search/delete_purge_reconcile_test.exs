@@ -12,6 +12,7 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
   alias AllbertAssist.Search.Query
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -238,7 +239,12 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
   end
 
   defp operator_context do
-    %{operator_id: "alice", user_id: "alice", actor: "alice", channel: :tui}
+    ReadyEffectContext.attach(%{
+      operator_id: "alice",
+      user_id: "alice",
+      actor: "alice",
+      channel: :tui
+    })
   end
 
   defp advance_to_phase(root, manifest, "connections_closed") do
