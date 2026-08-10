@@ -14,6 +14,7 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -268,12 +269,13 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     manual = manual_revision(stream, value: exact_value)
     File.write!(first.path, Format.render(nil, stream.records ++ [manual]))
 
-    context = %{
-      user_id: "operator:local",
-      actor: "operator:local",
-      channel: :test,
-      surface: "test"
-    }
+    context =
+      ReadyEffectContext.attach(%{
+        user_id: "operator:local",
+        actor: "operator:local",
+        channel: :test,
+        surface: "test"
+      })
 
     assert {:ok, pending} =
              ConfirmManualMemoryRevision.run(
@@ -346,12 +348,13 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     assert {:error, {:quarantined, :memory_integrity_key_unavailable, ^destination_path}} =
              Claims.current(claim_id)
 
-    context = %{
-      user_id: "operator:local",
-      actor: "operator:local",
-      channel: :test,
-      surface: "test"
-    }
+    context =
+      ReadyEffectContext.attach(%{
+        user_id: "operator:local",
+        actor: "operator:local",
+        channel: :test,
+        surface: "test"
+      })
 
     assert {:ok, pending} =
              ConfirmDestinationMemoryChain.run(

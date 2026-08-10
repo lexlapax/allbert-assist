@@ -12,6 +12,7 @@ defmodule AllbertAssist.Memory.ForgetTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -95,12 +96,13 @@ defmodule AllbertAssist.Memory.ForgetTest do
     {:ok, _projection} = Projection.start_link()
     assert {:ok, _built} = Projection.rebuild()
 
-    context = %{
-      user_id: "operator:local",
-      actor: "operator:local",
-      channel: :test,
-      surface: "test"
-    }
+    context =
+      ReadyEffectContext.attach(%{
+        user_id: "operator:local",
+        actor: "operator:local",
+        channel: :test,
+        surface: "test"
+      })
 
     assert {:ok, pending} =
              ForgetMemoryClaim.run(
@@ -137,12 +139,13 @@ defmodule AllbertAssist.Memory.ForgetTest do
     claim_id = Ecto.UUID.generate()
     assert {:ok, _claim} = Claims.append(claim_id, nil, transition(value: "pending cleanup"))
 
-    context = %{
-      user_id: "operator:local",
-      actor: "operator:local",
-      channel: :test,
-      surface: "test"
-    }
+    context =
+      ReadyEffectContext.attach(%{
+        user_id: "operator:local",
+        actor: "operator:local",
+        channel: :test,
+        surface: "test"
+      })
 
     assert {:ok, pending} =
              ForgetMemoryClaim.run(%{claim_id: claim_id, user_id: "operator:local"}, context)

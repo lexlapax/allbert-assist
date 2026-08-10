@@ -94,7 +94,7 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgentTest do
     assert response.delegate_result.state.last_command == :execute
     assert {:ok, result} = response.delegate_result.state.last_result
     assert result.status == :completed
-    assert result.payload == %{message: "hello"}
+    assert Map.drop(result.payload, [:allbert_pack_epoch]) == %{message: "hello"}
 
     assert [
              %{
@@ -174,7 +174,7 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgentTest do
       assert response.delegate_response.status == :ok
       assert response.delegate_result.state.last_command == :research
       assert {:ok, result} = response.delegate_result.state.last_result
-      assert result.payload == %{topic: "delegation"}
+      assert Map.drop(result.payload, [:allbert_pack_epoch]) == %{topic: "delegation"}
       assert [%{command: :research}] = response.actions
     end
   end

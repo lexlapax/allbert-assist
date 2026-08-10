@@ -5,6 +5,7 @@ defmodule AllbertAssist.Conversations.CorpusTest do
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -154,7 +155,12 @@ defmodule AllbertAssist.Conversations.CorpusTest do
     assert {:error, :origin_grant_required} = Corpus.page(search_snapshot, nil, 10)
 
     assert {:ok, _epoch} =
-             Corpus.set_origin_grant(:search, :local_operator, false, %{actor: "test"})
+             Corpus.set_origin_grant(
+               :search,
+               :local_operator,
+               false,
+               ReadyEffectContext.attach(%{actor: "test"})
+             )
 
     assert Corpus.eligibility_epoch(:search) > search_snapshot.eligibility_epoch
     assert {:error, :origin_grant_required} = Corpus.page(search_snapshot, nil, 10)
@@ -170,7 +176,9 @@ defmodule AllbertAssist.Conversations.CorpusTest do
                AllbertAssist.TestSupport.ReadyEffectContext.context()
              )
 
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:memory, :local_operator, true)
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(:memory, :local_operator, true, ReadyEffectContext.context())
+
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Memory context")
     assert {:ok, first} = local_message(thread, "I prefer verified context.")
 

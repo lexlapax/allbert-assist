@@ -6,6 +6,7 @@ defmodule AllbertAssist.Workspace.EmittersTest do
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Emitters
   alias AllbertAssist.Workspace.Fragment.Guard
@@ -41,7 +42,8 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     assert {:ok, _subscription_id} =
              Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
 
-    assert {:ok, record} = Confirmations.create(confirmation_attrs())
+    assert {:ok, record} =
+             Confirmations.create(confirmation_attrs(), ReadyEffectContext.context())
 
     signal = receive_signal("allbert.workspace.fragment.emitted")
     envelope = signal.data.envelope
@@ -64,8 +66,11 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     assert {:ok, _subscription_id} =
              Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.ephemeral.closed")
 
-    assert {:ok, record} = Confirmations.create(confirmation_attrs())
-    assert {:ok, resolved} = Confirmations.resolve(record["id"], :denied)
+    assert {:ok, record} =
+             Confirmations.create(confirmation_attrs(), ReadyEffectContext.context())
+
+    assert {:ok, resolved} =
+             Confirmations.resolve(record["id"], :denied, %{}, ReadyEffectContext.context())
 
     signal = receive_signal("allbert.workspace.ephemeral.closed")
 
