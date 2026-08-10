@@ -571,11 +571,21 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     end
   end
 
+  # This one opts list is consumed by two modules that carry the epoch under
+  # different keys: TerminalTransitions reads opts[:effect_context] (a map
+  # holding the epoch), while Objectives.Lifecycle reads opts[:allbert_pack_epoch]
+  # directly. Supplying only the first meant every Lifecycle call from the
+  # recovery path -- reconcile_quality_protocol_upgrade/2 -- validated a nil
+  # epoch, failed :product_not_ready, and left the child held permanently. A
+  # historical Budget v1 DirectAnswer child could therefore never complete its
+  # upgrade transition. Satisfy both conventions here rather than change either
+  # module's contract; unifying them is a wider decision than this repair.
   defp recovery_transition_opts(state, signal) do
     [
       transaction_hook: state.recovery_transaction_hook,
       signal: signal,
-      effect_context: effect_context(state)
+      effect_context: effect_context(state),
+      allbert_pack_epoch: state.allbert_pack_epoch
     ]
   end
 

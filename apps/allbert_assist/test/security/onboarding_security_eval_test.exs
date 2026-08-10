@@ -23,8 +23,12 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Vault
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
-  @context %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
+  # A module attribute is evaluated at compile time and so cannot carry a
+  # per-run readiness epoch; SetProviderCredential writes a secret and fails
+  # closed without one.
+  @context_attrs %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
 
   test "onboarding-no-authority-from-profiles-001: personas grant no authority" do
     for persona <- Personas.all() do
@@ -80,7 +84,7 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
     before = Settings.get("coding.default_approval_mode")
 
     assert {:ok, response} =
-             ApplyPersonaProfile.run(%{persona_id: "developer", dry_run: true}, @context)
+             ApplyPersonaProfile.run(%{persona_id: "developer", dry_run: true}, context())
 
     assert response.status == :completed
     refute response.review.executed
@@ -102,7 +106,7 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
         assert {:ok, response} =
                  SetProviderCredential.run(
                    %{provider: "openai", mode: :set_secret, api_key: "sk-eval-secret"},
-                   @context
+                   context()
                  )
 
         assert response.status == :completed
@@ -171,7 +175,7 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
 
   test "provider-switch-no-config-edit-001: switch writes settings; the action cannot edit a file" do
     assert {:ok, response} =
-             Runner.run("set_active_model_profile", %{profile: "local"}, @context)
+             Runner.run("set_active_model_profile", %{profile: "local"}, context())
 
     assert response.status == :completed
     # The switch wrote Settings Central keys (not a file).
@@ -203,7 +207,7 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
 
     # The gated action records a durable confirmation (never an ad-hoc approved?)…
     assert {:ok, pending} =
-             Runner.run("apply_persona_profile", %{persona_id: "general"}, @context)
+             Runner.run("apply_persona_profile", %{persona_id: "general"}, context())
 
     assert pending.status == :needs_confirmation
     assert pending.confirmation_id
@@ -213,7 +217,7 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
              Runner.run(
                "approve_confirmation",
                %{id: pending.confirmation_id, reason: "eval approve"},
-               @context
+               context()
              )
 
     assert approved.status == :completed
@@ -222,7 +226,7 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
 
     # Deprecated --accept-risk aliases to the same path with a warning (review step).
     assert {risk_msg, 0} =
-             OnboardArea.dispatch(["apply-persona", "general", "--accept-risk"], @context)
+             OnboardArea.dispatch(["apply-persona", "general", "--accept-risk"], context())
 
     assert risk_msg =~ "deprecated"
 
@@ -278,4 +282,6 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
       :home_data_preserved
     ])
   end
+
+  defp context, do: ReadyEffectContext.attach(@context_attrs)
 end
