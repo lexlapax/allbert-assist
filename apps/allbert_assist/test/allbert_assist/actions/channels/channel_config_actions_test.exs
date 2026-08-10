@@ -12,6 +12,7 @@ defmodule AllbertAssist.Actions.Channels.ChannelConfigActionsTest do
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -36,7 +37,8 @@ defmodule AllbertAssist.Actions.Channels.ChannelConfigActionsTest do
     :ok
   end
 
-  defp allowed_context, do: %{request: %{operator_id: "local", channel: :test}}
+  defp allowed_context,
+    do: ReadyEffectContext.attach(%{request: %{operator_id: "local", channel: :test}})
 
   # A context that claims an unregistered action boundary forces a Security
   # Central context denial regardless of the permission's configured floor. The

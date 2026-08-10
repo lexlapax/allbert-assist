@@ -31,14 +31,23 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
                 report_delivery_receipt: receipt,
                 delivery_context: %{channel: "live_view"},
                 acknowledgement_required?: true
-              }} = Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
+              }} =
+               Runner.run(
+                 "persist_attached_fanout_report",
+                 params,
+                 ReadyEffectContext.attach(%{user_id: "local"})
+               )
 
       assert parent_id == parent.id
       assert is_binary(message_id)
       assert is_binary(receipt)
 
       assert {:ok, %{status: :completed, canonical_message_id: ^message_id}} =
-               Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
+               Runner.run(
+                 "persist_attached_fanout_report",
+                 params,
+                 ReadyEffectContext.attach(%{user_id: "local"})
+               )
 
       assert [message] = Conversations.list_messages(thread)
       assert message.id == message_id
@@ -114,14 +123,18 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
     params = %{thread_id: thread.id, parent_id: parent.id}
 
     assert {:ok, first} =
-             Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
+             Runner.run(
+               "persist_attached_fanout_report",
+               params,
+               ReadyEffectContext.attach(%{user_id: "local"})
+             )
 
     assert first.acknowledgement_required?
 
     assert :ok =
              Runtime.acknowledge_report_delivery(
                first.report_delivery_receipt,
-               first.delivery_context
+               ReadyEffectContext.attach(first.delivery_context)
              )
 
     assert {:ok,
@@ -129,7 +142,12 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
               status: :completed,
               canonical_message_id: message_id,
               acknowledgement_required?: false
-            }} = Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
+            }} =
+             Runner.run(
+               "persist_attached_fanout_report",
+               params,
+               ReadyEffectContext.attach(%{user_id: "local"})
+             )
 
     assert message_id == first.canonical_message_id
     assert [_message] = Conversations.list_messages(thread)

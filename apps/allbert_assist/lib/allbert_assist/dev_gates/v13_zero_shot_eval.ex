@@ -101,7 +101,11 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
     replay_answerer = Keyword.get(opts, :replay_answerer, ReqLLMAnswerer)
 
     {:ok, epoch} = EffectGuard.admit_ready()
-    :ok = EffectGuard.validate(epoch)
+    # require_current_epoch/1 raises the documented "product is not ready"
+    # message. Matching on :ok directly turned a stale epoch -- which is what a
+    # same-digest barrier replacement produces -- into a bare MatchError, so the
+    # eval failed with no indication that readiness was the cause.
+    require_current_epoch(epoch)
     put_setting!("intent.direct_answer_model_enabled", true, epoch)
     put_setting!("model_preferences.tasks.direct_answer", [profile], epoch)
     put_setting!("active_memory.enabled", false, epoch)

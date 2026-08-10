@@ -294,18 +294,21 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
              )
 
     assert {:ok, _confirmation} =
-             Confirmations.create(%{
-               id: confirmation_id,
-               origin: %{actor: user, channel: "test", surface: "objective-action-test"},
-               target_action: %{name: "run_analysis"},
-               target_permission: :stocksage_analyze,
-               target_execution_mode: :external_market_data,
-               security_decision: %{
-                 permission: :stocksage_analyze,
-                 decision: :needs_confirmation
+             Confirmations.create(
+               %{
+                 id: confirmation_id,
+                 origin: %{actor: user, channel: "test", surface: "objective-action-test"},
+                 target_action: %{name: "run_analysis"},
+                 target_permission: :stocksage_analyze,
+                 target_execution_mode: :external_market_data,
+                 security_decision: %{
+                   permission: :stocksage_analyze,
+                   decision: :needs_confirmation
+                 },
+                 params_summary: %{objective_id: objective.id, step_id: step.id}
                },
-               params_summary: %{objective_id: objective.id, step_id: step.id}
-             })
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, blocked} =
              Runner.run("continue_objective", %{id: objective.id, user_id: user}, %{
