@@ -578,8 +578,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
       assert lifecycle_pid != Process.whereis(name)
       assert_selection_persisted(selection_ref)
 
-      [{^claim, "deterministic_fallback", body, provenance}] =
+      [{stored_claim, "deterministic_fallback", body, provenance}] =
         Agent.get(store, & &1.selected)
+
+      assert_claim_stamped(stored_claim, claim)
 
       assert body == claim.frozen.fallback_body
 
@@ -628,8 +630,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert_selection_persisted(selection_ref)
 
-    [{^claim, "deterministic_fallback", body, provenance}] =
+    [{stored_claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
+
+    assert_claim_stamped(stored_claim, claim)
 
     assert body == claim.frozen.fallback_body
 
@@ -693,8 +697,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert restarted_composer_pid != composer_pid
     assert Process.alive?(restarted_composer_pid)
 
-    [{^claim, "deterministic_fallback", body, provenance}] =
+    [{stored_claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
+
+    # Recovery re-selects the claim from durable store state rather than from the
+    # composer's stamped in-memory copy, so this one carries no :effect_context.
+    assert stored_claim == claim
 
     assert body == claim.frozen.fallback_body
 
@@ -738,7 +746,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert_selection_persisted(selection_ref)
 
-    [{^claim, "model", body, provenance}] = Agent.get(store, & &1.selected)
+    [{stored_claim, "model", body, provenance}] = Agent.get(store, & &1.selected)
+    assert_claim_stamped(stored_claim, claim)
     assert provenance.layout_version == 2
     assert provenance.synthesis_contract_version == 3
     assert provenance.validation_outcome == "passed"
@@ -777,8 +786,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert snapshot == claim.frozen.snapshot
     assert_selection_persisted(selection_ref)
 
-    [{^claim, "deterministic_fallback", body, provenance}] =
+    [{stored_claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
+
+    assert_claim_stamped(stored_claim, claim)
 
     assert body == claim.frozen.fallback_body
 
@@ -832,8 +843,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
         assert snapshot == claim.frozen.snapshot
         assert_selection_persisted(selection_ref)
 
-        [{^claim, "deterministic_fallback", body, provenance}] =
+        [{stored_claim, "deterministic_fallback", body, provenance}] =
           Agent.get(store, & &1.selected)
+
+        assert_claim_stamped(stored_claim, claim)
 
         assert body == claim.frozen.fallback_body
 
@@ -881,8 +894,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert_selection_persisted(selection_ref)
 
-    [{^claim, "deterministic_fallback", body, provenance}] =
+    [{stored_claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
+
+    assert_claim_stamped(stored_claim, claim)
 
     assert body == claim.frozen.fallback_body
 
@@ -925,8 +940,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert_selection_persisted(selection_ref)
 
-    [{^claim, "deterministic_fallback", body, provenance}] =
+    [{stored_claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
+
+    assert_claim_stamped(stored_claim, claim)
 
     assert body == claim.frozen.fallback_body
 
@@ -984,8 +1001,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert_selection_persisted(selection_ref)
 
-    [{^claim, "deterministic_fallback", body, provenance}] =
+    [{stored_claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
+
+    assert_claim_stamped(stored_claim, claim)
 
     assert provenance.fallback_reason == "no_completed_children"
     assert provenance.synthesis_outcome == "not_run"
@@ -1009,6 +1028,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
         child(1, "Durable recovery", "Replay rebuilds state after restart.")
       ]
     }
+  end
+
+  # ReportComposer stamps the claim it selects with the epoch it validated
+  # (`Map.put_new(claim, :effect_context, ...)`, added at M1.a3), so the stored
+  # claim is the fixture claim plus that field. These sites pinned the bare
+  # fixture with `^claim` and were never updated when the field appeared, so
+  # they could not match. Assert the stamp explicitly instead of ignoring it.
+  defp assert_claim_stamped(stored_claim, claim) do
+    assert Map.delete(stored_claim, :effect_context) == claim
+    assert %{allbert_pack_epoch: %{}} = stored_claim.effect_context
   end
 
   defp claim(authority \\ "generated_advisory") do

@@ -731,7 +731,7 @@
       "module": "AllbertAssist.Security.Policy",
       "profile": "truth.true_or_true_string_or_one_string",
       "purpose": "Interpret Security Central policy-mode flags",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/security/policy.ex",
+      "source_path": "apps/allbert_kernel/lib/allbert_assist/security/policy.ex",
       "trust_or_wire": "security_policy_input",
       "use_sites": [
         {

@@ -139,7 +139,18 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
                "plugins/allbert.notes_files/test/allbert_notes_files/intent_descriptors_test.exs"
              ]
 
-    assert Enum.count(records, &(&1.owner == :artifacts)) == 3
+    # M1.a3 added artifact_live_readiness_test.exs as a fourth artifacts-owned
+    # file (946052384) without updating this count. Anchor the new file to its
+    # owner and lane so the number is not the only thing holding the assertion.
+    assert %{
+             owner: :artifacts,
+             primary_lane: :pure_async
+           } =
+             by_path[
+               "plugins/allbert.artifacts/test/allbert_artifacts_web/artifact_live_readiness_test.exs"
+             ]
+
+    assert Enum.count(records, &(&1.owner == :artifacts)) == 4
     assert Enum.count(records, &(&1.owner == :notes_files)) == 3
     assert AllbertTestTask.lane_reconciliation_issues(records) == []
   end

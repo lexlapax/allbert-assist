@@ -5,10 +5,15 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
 
   @fixture Path.expand("../../fixtures/v1.4/m1a3_effect_boundaries.json", __DIR__)
   @registry_ledger Path.expand("../../fixtures/v1.4/m0_registry_ledger.json", __DIR__)
+  # `apps/allbert_kernel/lib` belongs here: M8 relocated AllbertAssist.Actions.Runner
+  # into the kernel (recorded in docs/validation/v1.4-m8-move-manifest.csv), and that
+  # module is a central effect boundary this roster names in @effect_boundaries. While
+  # the kernel was unscanned the roster silently stopped covering it.
   @source_roots [
     "apps/allbert_assist/lib",
     "apps/allbert_assist_web/lib",
     "apps/allbert_composition/lib",
+    "apps/allbert_kernel/lib",
     "plugins/*/lib"
   ]
   @required_fields ~w[
@@ -16,6 +21,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     missing_or_stale_result compatibility_provenance focused_test
   ]
 
+  @activation_carrier_definition "apps/allbert_kernel/lib/allbert_assist/pack/activation_guard.ex"
   @candidate_fields ~w[source_path line boundary disposition roster_id evidence]
   @multi_owner_candidate_fields ~w[source_path line boundary disposition roster_ids evidence]
   @effect_boundaries %{
@@ -276,7 +282,14 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
                "cli-run-1",
                "cli-run-attached-1",
                "app-registry-register-2",
-               "plugin-registry-register"
+               "plugin-registry-register",
+               # A Mix task is a process entrypoint -- nothing upstream can carry
+               # an epoch to it, which is why cli.ex is already here. M12.1 found
+               # it dispatching with a nil context, so it always failed closed.
+               # It admits rather than routing through Areas.run/2 because that
+               # wrapper turns any non-zero code into a Mix.Error and the task
+               # documents sysexits codes. Operator decision, 2026-08-10.
+               "mix-allbert-delegate-run-1"
              ])
   end
 
@@ -301,9 +314,15 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     authorizing_paths = authorizing_rows |> Enum.map(& &1["source_path"]) |> MapSet.new()
     rejection_paths = MapSet.new(fixture["expected_activation_rejection_sources"])
 
+    # ActivationGuard names the carrier because it *defines* its validation. It is
+    # the definition site, not an acceptance site, so it is neither an authorizing
+    # callsite nor a rejection source -- it cannot honestly satisfy the
+    # `{:error, :product_not_ready}` contract asserted of rejection sources below.
+    # It only became visible when the kernel joined @source_roots.
     assert activation_key_sources
            |> Enum.reject(
-             &(MapSet.member?(authorizing_paths, &1) or MapSet.member?(rejection_paths, &1))
+             &(MapSet.member?(authorizing_paths, &1) or MapSet.member?(rejection_paths, &1) or
+                 &1 == @activation_carrier_definition)
            ) == [],
            "public/steady-state source accepts the activation carrier"
 
@@ -359,6 +378,29 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
 
   defp collect_action_modules(_value), do: []
 
+  # Two kinds of file name a guard or carrier without being a production effect
+  # surface the roster can describe, and both live in the kernel:
+  #
+  #   - the guards' own definition sites, which name the carrier because they
+  #     implement its validation, and
+  #   - test-only seams deliberately kept in `lib/` (a provider must reside in a
+  #     started application's module list, which a `test/support` module does
+  #     not) and compiled only under `if Mix.env() == :test`.
+  #
+  # Giving either a roster row would describe test-only or definition code as a
+  # production effect surface. They are excluded from the discovered inventories
+  # instead. Operator decision, 2026-08-10.
+  defp inventory_excluded?(path) do
+    path in [
+      "apps/allbert_kernel/lib/allbert_assist/pack/effect_guard.ex",
+      @activation_carrier_definition
+    ] or test_only_seam?(path)
+  end
+
+  defp test_only_seam?(path) do
+    project_path(path) |> File.read!() |> String.starts_with?("if Mix.env() == :test do\n")
+  end
+
   defp source_paths_matching(pattern) do
     @source_roots
     |> Enum.flat_map(fn root ->
@@ -366,6 +408,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     end)
     |> Enum.filter(&(File.read!(&1) =~ pattern))
     |> Enum.map(&Path.relative_to(&1, project_root()))
+    |> Enum.reject(&inventory_excluded?/1)
     |> Enum.sort()
   end
 
@@ -451,17 +494,32 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     end)
   end
 
+  # `alias __MODULE__.Foo` puts an AST node, not an atom, at the head of the
+  # segment list, and joining it raises. Such an alias names a submodule of the
+  # enclosing module, which is never one of the foreign central boundaries in
+  # @effect_boundaries, so it is skipped rather than resolved. Only fully atomic
+  # segment lists can name a boundary, so `resolvable?/1` guards every clause.
+  defp resolvable?(parts), do: Enum.all?(parts, &is_atom/1)
+
   defp alias_targets({:__aliases__, _meta, parts}) do
-    [Enum.join(parts, ".")]
+    if resolvable?(parts), do: [Enum.join(parts, ".")], else: []
   end
 
   defp alias_targets(
          {{:., _dot_meta, [{:__aliases__, _prefix_meta, prefix}, :{}]}, _group_meta, members}
        ) do
-    Enum.map(members, fn {:__aliases__, _member_meta, member} ->
-      Enum.join(prefix ++ member, ".")
-    end)
+    if resolvable?(prefix) do
+      Enum.flat_map(members, &grouped_alias_target(prefix, &1))
+    else
+      []
+    end
   end
+
+  defp grouped_alias_target(prefix, {:__aliases__, _member_meta, member}) do
+    if resolvable?(member), do: [Enum.join(prefix ++ member, ".")], else: []
+  end
+
+  defp grouped_alias_target(_prefix, _other), do: []
 
   defp alias_targets(_other), do: []
 
