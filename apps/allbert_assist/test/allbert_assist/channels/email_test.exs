@@ -80,12 +80,10 @@ defmodule AllbertAssist.Channels.EmailTest do
     File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
-    PluginRegistry.clear()
-    assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    ensure_plugin!("allbert.email", AllbertAssist.Plugins.Email)
 
     on_exit(fn ->
       File.rm_rf!(home)
-      ShippedRegistries.restore!()
       restore_env(original_env)
       restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)
@@ -521,6 +519,7 @@ defmodule AllbertAssist.Channels.EmailTest do
              Adapter.deliver_outbound("alice@example.com", "background complete",
                smtp_client: FakeSmtpClient,
                test_pid: self(),
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch,
                subject: "Re: Background work",
                thread: %{"message_id" => "origin@example.com", "references" => "root@example.com"}
              )
@@ -722,4 +721,15 @@ defmodule AllbertAssist.Channels.EmailTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, so the adapter's own polls come back
+  # :product_not_ready — and every later file in the lane inherits the window.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end
