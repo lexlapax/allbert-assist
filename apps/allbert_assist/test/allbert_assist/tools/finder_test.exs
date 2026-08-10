@@ -12,6 +12,7 @@ defmodule AllbertAssist.Tools.FinderTest do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Tools.Finder
   alias AllbertAssist.Tools.Source.Local
   alias AllbertAssist.Tools.ToolCandidate
@@ -101,7 +102,7 @@ defmodule AllbertAssist.Tools.FinderTest do
     stub_http_mcp()
 
     context =
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+      ReadyEffectContext.attach(%{
         actor: "local",
         channel: :test,
         mcp: %{req_plug: {Req.Test, __MODULE__}}
@@ -190,21 +191,21 @@ defmodule AllbertAssist.Tools.FinderTest do
              Settings.put(
                "mcp.servers.demo.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.servers.demo.transport",
                "streamable_http",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.servers.demo.base_url",
                "https://example.com/mcp",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -213,7 +214,7 @@ defmodule AllbertAssist.Tools.FinderTest do
              Settings.put(
                "mcp.servers.demo.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -222,28 +223,28 @@ defmodule AllbertAssist.Tools.FinderTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/mcp"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_methods",
                ["POST"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -252,14 +253,14 @@ defmodule AllbertAssist.Tools.FinderTest do
              Settings.put(
                "mcp.discovery.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.discovery.sources.official.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -268,14 +269,14 @@ defmodule AllbertAssist.Tools.FinderTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["registry.modelcontextprotocol.io"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -284,14 +285,14 @@ defmodule AllbertAssist.Tools.FinderTest do
              Settings.put(
                "external_services.allowed_paths",
                ["/v0.1/servers"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_methods",
                ["GET"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

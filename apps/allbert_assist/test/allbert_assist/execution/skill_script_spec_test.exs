@@ -9,6 +9,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
   alias AllbertAssist.Execution.SkillScriptSpec
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
 
@@ -123,7 +124,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
              Settings.put(
                "execution.skill_scripts.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, disabled_policy} =
@@ -139,7 +140,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
              Settings.put(
                "skills.disabled",
                ["demo-script"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, disabled_skill} =
@@ -384,7 +385,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
              Settings.put(
                "permissions.skill_script_execute",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, policy_denied} =
@@ -434,7 +435,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
   end
 
   defp action_context do
-    AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+    ReadyEffectContext.attach(%{
       actor: "local",
       channel: :cli,
       surface: "mix allbert.skills",
@@ -481,7 +482,7 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
