@@ -1810,7 +1810,7 @@ defmodule AllbertAssist.Objectives.Commands.CancelObjective do
              "cancelled",
              %{reason: reason, trace_id: trace_id},
              transaction_hook: transaction_hook,
-             effect_context: %{allbert_pack_epoch: Map.get(params, :allbert_pack_epoch)},
+             allbert_pack_epoch: Map.get(params, :allbert_pack_epoch),
              signal: {:run_cancelled, %{reason: reason}}
            ) do
       Commands.emit_objective(:cancelled, cancelled, %{

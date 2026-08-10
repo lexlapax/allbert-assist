@@ -1093,7 +1093,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     }
   end
 
-  defp effect_opts(socket), do: [effect_context: action_context(socket)]
+  # `action_context/1` is a Settings-write context (actor, channel, surface,
+  # request) that happens to carry the epoch. It used to travel under
+  # `:effect_context`, colliding with the epoch-carrier key of the same name.
+  # It now has its own key, and the epoch travels under the one convention.
+  defp effect_opts(socket) do
+    context = action_context(socket)
+
+    [settings_context: context, allbert_pack_epoch: context.allbert_pack_epoch]
+  end
 
   defp user_id(context), do: field(context, :user_id) || @local_user_id
 

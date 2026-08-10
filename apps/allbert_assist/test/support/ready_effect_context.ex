@@ -6,12 +6,21 @@ defmodule AllbertAssist.TestSupport.ReadyEffectContext do
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Pack.EffectGuard.TestRegistry
 
-  def context do
+  @doc """
+  A fresh readiness epoch, ready to carry under `:allbert_pack_epoch`.
+
+  This is the one convention effect-gated APIs read from opts. `context/0`
+  wraps it in a map for the places that hold the epoch as a *data* field --
+  the composition claim, `Lifecycle` state, Jido signal payloads.
+  """
+  def epoch do
     {:ok, barrier} = start_link([])
     {:ok, epoch} = EffectGuard.admit_ready(server: barrier)
 
-    %{allbert_pack_epoch: epoch}
+    epoch
   end
+
+  def context, do: %{allbert_pack_epoch: epoch()}
 
   def attach(context) when is_map(context), do: Map.merge(context, context())
 

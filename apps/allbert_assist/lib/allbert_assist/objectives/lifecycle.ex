@@ -341,7 +341,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
         {:run_failed, %{reason: @quality_protocol_upgrade_reason}}
       )
       |> Keyword.put(:transaction_hook, transaction_hook)
-      |> Keyword.put(:effect_context, context)
+      |> Keyword.put(:allbert_pack_epoch, Map.get(context, :allbert_pack_epoch))
 
     {attrs, transition_opts}
   end
@@ -466,7 +466,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
              "run_cancelled",
              %{confirmation_id: confirmation["id"], reason: "confirmation_denied"},
              transaction_hook: fn _child -> finalize_step(step, "cancelled", reason, context) end,
-             effect_context: context,
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch),
              signal:
                {:run_cancelled,
                 %{confirmation_id: confirmation["id"], reason: "confirmation_denied"}}
@@ -808,7 +808,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
              "run_completed",
              completion_event_payload(state, summary),
              transaction_hook: fn _child -> finalize_state_step(state, "completed", summary) end,
-             effect_context: state.effect_context,
+             allbert_pack_epoch: Map.get(state.effect_context, :allbert_pack_epoch),
              signal: {:run_completed, %{summary: summary}}
            ) do
       annotate_confirmation_outcome(state, "completed", summary)
@@ -946,7 +946,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
              transaction_hook: fn _child ->
                finalize_state_step(state, "cancelled", "cancelled")
              end,
-             effect_context: state.effect_context,
+             allbert_pack_epoch: Map.get(state.effect_context, :allbert_pack_epoch),
              signal: {:run_cancelled, %{}}
            ) do
       annotate_confirmation_outcome(state, "cancelled", "cancelled")
@@ -973,7 +973,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
              "run_failed",
              %{reason: reason_text},
              transaction_hook: fn _child -> finalize_state_step(state, "failed", reason_text) end,
-             effect_context: state.effect_context,
+             allbert_pack_epoch: Map.get(state.effect_context, :allbert_pack_epoch),
              signal: {:run_failed, %{reason: reason_text}}
            ) do
       annotate_confirmation_outcome(state, "failed", reason_text)
@@ -1121,7 +1121,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     if objective.fanout_role == "child" do
       TerminalTransitions.transition_active_child(objective, attrs, kind, payload,
         transaction_hook: fn _updated -> before.() end,
-        effect_context: context
+        allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
       )
     else
       transaction = fn ->

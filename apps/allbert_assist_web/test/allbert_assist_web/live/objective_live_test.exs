@@ -368,7 +368,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                },
                "run_failed",
                %{},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{parent.id}")

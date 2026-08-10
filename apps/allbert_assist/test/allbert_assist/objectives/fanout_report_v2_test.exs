@@ -739,7 +739,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                "model",
                prepared.body,
                provenance,
-               effect_context: composing_context
+               allbert_pack_epoch: composing_context.allbert_pack_epoch
              )
 
     assert Fanout.parent_projection(selected).authoritatively_joined?
@@ -1701,7 +1701,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert joined.report_composition_state == "queued"
 
     assert {:ok, claim} =
-             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
+             Fanout.claim_next_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert claim.frozen.snapshot.version == 2
     assert {:error, :no_completed_children} = Report.synthesis_eligibility(claim.frozen.snapshot)
@@ -1723,7 +1723,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                "deterministic_fallback",
                claim.frozen.fallback_body,
                provenance,
-               effect_context: claim.effect_context
+               allbert_pack_epoch: claim.effect_context.allbert_pack_epoch
              )
 
     assert selected.report_delivery_state == "pending"
@@ -1880,7 +1880,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     original_join_payload = join_event.payload
 
     assert {:ok, claim} =
-             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
+             Fanout.claim_next_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert claim.parent.id == parent.id
     assert claim.frozen.snapshot.version == 2
@@ -1897,7 +1897,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                "deterministic_fallback",
                claim.frozen.fallback_body,
                provenance,
-               effect_context: claim.effect_context
+               allbert_pack_epoch: claim.effect_context.allbert_pack_epoch
              )
 
     assert selected.report_input_digest == claim.frozen.input_digest
@@ -1924,7 +1924,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
               frozen: %{snapshot: %{version: 1}},
               budget: %{"version" => 1}
             } = claim} =
-             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
+             Fanout.claim_next_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert parent_id == parent.id
     assert claim.frozen.input_digest == legacy_with_plan.input_digest
@@ -1941,7 +1941,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                "deterministic_fallback",
                claim.frozen.fallback_body,
                provenance,
-               effect_context: claim.effect_context
+               allbert_pack_epoch: claim.effect_context.allbert_pack_epoch
              )
 
     assert selected.report_composition_state == "fallback"
@@ -1961,7 +1961,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     {parent, legacy, join_event} = legacy_unselected_parent!("composing")
     original_join_payload = join_event.payload
 
-    assert {:ok, 1} = Fanout.recover_composition(effect_context: ReadyEffectContext.context())
+    assert {:ok, 1} = Fanout.recover_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
     assert {:ok, recovered} = Objectives.get_objective(parent.id)
     assert recovered.report_composition_state == "fallback"
     assert recovered.report_source == "deterministic_fallback"
@@ -1984,7 +1984,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              original_join_payload
 
     assert Fanout.parent_projection(recovered).phase == :joined
-    assert {:ok, 0} = Fanout.recover_composition(effect_context: ReadyEffectContext.context())
+    assert {:ok, 0} = Fanout.recover_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
   end
 
   test "recovery classifies an unsupported explicit budget as an invalid snapshot" do
@@ -2077,7 +2077,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                ]
              )
 
-    assert {:ok, 1} = Fanout.recover_composition(effect_context: ReadyEffectContext.context())
+    assert {:ok, 1} = Fanout.recover_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
     assert {:ok, recovered} = Objectives.get_objective(parent.id)
     assert recovered.report_composition_state == "fallback"
     assert recovered.report_input_digest == legacy.input_digest
@@ -2100,7 +2100,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert replayed.snapshot.version == 1
     assert replayed.fallback_body == legacy.fallback_body
     assert Fanout.parent_projection(recovered).phase == :joined
-    assert {:ok, 0} = Fanout.recover_composition(effect_context: ReadyEffectContext.context())
+    assert {:ok, 0} = Fanout.recover_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
   end
 
   test "sixteen durable reviewed children fit canonical input, report, and selection event bounds" do

@@ -19,6 +19,37 @@ defmodule AllbertAssist.Pack.EffectGuard do
     end
   end
 
+  @doc """
+  Read and validate the readiness epoch an opts list carries.
+
+  One place instead of sixty-five hand-rolled `Keyword.fetch` clauses. Those
+  clauses had drifted into two conventions for the same datum -- some callers
+  put the raw epoch under `:allbert_pack_epoch`, others wrapped it in a map
+  under `:effect_context` -- and a caller that satisfied one convention while
+  its callee read the other validated `nil` and failed closed. That is how the
+  fan-out recovery path came to hold Budget v1 children permanently: the epoch
+  was present, under the key the callee did not read.
+
+  `:allbert_pack_epoch` is the single convention. Callers hand the raw epoch;
+  this returns it validated or explains why not.
+  """
+  @spec carried_epoch(keyword()) :: {:ok, epoch()} | {:error, :product_not_ready | :stale_epoch}
+  def carried_epoch(opts) when is_list(opts) do
+    with {:ok, epoch} <- fetch_carried_epoch(opts),
+         :ok <- validate(epoch) do
+      {:ok, epoch}
+    end
+  end
+
+  def carried_epoch(_opts), do: {:error, :product_not_ready}
+
+  defp fetch_carried_epoch(opts) do
+    case Keyword.fetch(opts, :allbert_pack_epoch) do
+      {:ok, epoch} when is_map(epoch) -> {:ok, epoch}
+      _ -> {:error, :product_not_ready}
+    end
+  end
+
   @spec validate(term(), keyword()) :: :ok | {:error, :product_not_ready | :stale_epoch}
   def validate(epoch, opts \\ [])
 

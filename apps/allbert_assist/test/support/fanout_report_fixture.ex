@@ -215,7 +215,7 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
           step_id: step.id,
           step_status: "completed"
         },
-        effect_context: %{allbert_pack_epoch: epoch}
+        allbert_pack_epoch: epoch
       )
 
     true = step_id == step.id
@@ -273,8 +273,8 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
     end
   end
 
-  defp effect_options, do: effect_options(effect_context())
-  defp effect_options(context), do: [effect_context: context]
+  defp effect_options, do: [allbert_pack_epoch: ReadyEffectContext.epoch()]
+  defp effect_options(context), do: [allbert_pack_epoch: context.allbert_pack_epoch]
 
   defp effect_context do
     ReadyEffectContext.context()

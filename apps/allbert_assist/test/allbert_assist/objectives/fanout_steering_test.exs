@@ -25,7 +25,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest.EpochTransitions do
       attrs,
       kind,
       payload,
-      Keyword.put_new(opts, :effect_context, ReadyEffectContext.context())
+      Keyword.put_new(opts, :allbert_pack_epoch, ReadyEffectContext.epoch())
     )
   end
 end
@@ -134,7 +134,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
                %{},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     assert {:ok, steered} = Steering.apply_pending(child.id)
@@ -146,7 +146,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
                %{},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
   end
 
@@ -160,7 +160,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
                %{},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     assert completed.status == "completed"
@@ -185,7 +185,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
             %{status: "completed", completed_at: DateTime.utc_now()},
             "run_completed",
             %{},
-            effect_context: ReadyEffectContext.context()
+            allbert_pack_epoch: ReadyEffectContext.epoch()
           )
         end)
 
@@ -211,7 +211,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
                      %{status: "completed", completed_at: DateTime.utc_now()},
                      "run_completed",
                      %{},
-                     effect_context: ReadyEffectContext.context()
+                     allbert_pack_epoch: ReadyEffectContext.epoch()
                    )
 
         {:error, :terminal} ->

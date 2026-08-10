@@ -1,6 +1,6 @@
 defmodule AllbertAssist.TestSupport.EffectGuardStubsTest do
   @moduledoc """
-  Keeps the shared `EffectGuard` stubs honest.
+  Keeps the shared `EffectGuard` stubs honest, and the epoch's opts key single.
 
   Two hand-copied stubs drifted to arities their consumers do not call, so every
   call raised `:undef`, the consumer reported its own "unavailable" error, and
@@ -98,5 +98,47 @@ defmodule AllbertAssist.TestSupport.EffectGuardStubsTest do
 
     assert :ok = Recording.validate(agent, epoch)
     assert_receive {:custom_validated, ^epoch}
+  end
+
+  # ADR 0098: EffectGuard validates the epoch "through the sole public
+  # `:allbert_pack_epoch` context/option key". A second opts key carrying the
+  # same thing existed anyway, and it cost a real defect -- one opts list in
+  # Runs.Coordinator was read by TerminalTransitions under `:effect_context` and
+  # by Objectives.Lifecycle under `:allbert_pack_epoch`, so whichever module read
+  # the key the caller had not set failed closed with `:product_not_ready`.
+  #
+  # Nothing tested the key, only that some epoch arrived, so the drift was
+  # invisible. This tests the key.
+  #
+  # `effect_context` survives as a *data field* -- on the composition claim, on
+  # Lifecycle state, in Jido signal payloads -- which is why this looks for
+  # `Keyword.*` calls naming the atom rather than for the atom itself.
+  @forbidden_opts_key ~r/Keyword\.[a-z_!?]+\([^)]*:effect_context/
+
+  defp umbrella_root, do: Path.expand("../../../../..", __DIR__)
+
+  defp production_sources do
+    ["apps/*/lib/**/*.ex", "plugins/*/lib/**/*.ex"]
+    |> Enum.flat_map(&Path.wildcard(Path.join(umbrella_root(), &1)))
+  end
+
+  test "the readiness epoch has exactly one opts key in production source" do
+    sources = production_sources()
+
+    # Guards the guard: a wildcard that matched nothing would pass vacuously.
+    assert length(sources) > 100,
+           "expected the umbrella's production sources, found #{length(sources)} files " <>
+             "under #{umbrella_root()}"
+
+    offenders =
+      for path <- sources,
+          line <- String.split(File.read!(path), "\n"),
+          Regex.match?(@forbidden_opts_key, line),
+          do: "#{Path.relative_to(path, umbrella_root())}: #{String.trim(line)}"
+
+    assert offenders == [],
+           "ADR 0098 makes :allbert_pack_epoch the sole public option key for the " <>
+             "readiness epoch. These read or write a second one:\n" <>
+             Enum.join(offenders, "\n")
   end
 end

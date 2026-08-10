@@ -433,7 +433,7 @@ defmodule AllbertAssist.Onboarding do
 
   defp settings_context(opts) do
     opts
-    |> Keyword.get(:effect_context, %{})
+    |> Keyword.get(:settings_context, %{})
     |> Map.put(:audit?, true)
     |> Map.put_new(:allbert_pack_epoch, Keyword.get(opts, :allbert_pack_epoch))
   end

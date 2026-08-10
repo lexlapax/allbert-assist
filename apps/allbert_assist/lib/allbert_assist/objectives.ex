@@ -567,7 +567,7 @@ defmodule AllbertAssist.Objectives do
              %{reason: "stale_recovery_window_exceeded"},
              updated_before: cutoff,
              signal: {:run_abandoned, %{reason: "stale_recovery_window_exceeded"}},
-             effect_context: context
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
            ) do
         {:ok, _transition} ->
           {:cont, {:ok, count + 1}}

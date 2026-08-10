@@ -87,7 +87,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     def select_composition(claim, source, body, provenance),
       do:
         DurableFanout.select_composition(claim, source, body, provenance,
-          effect_context: Map.fetch!(claim, :effect_context)
+          allbert_pack_epoch: Map.fetch!(claim, :effect_context).allbert_pack_epoch
         )
 
     def recover_composition, do: DurableFanout.recover_composition(effect_options())
@@ -96,7 +96,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
       do:
         DurableFanout.reconcile_parent(
           parent,
-          Keyword.put_new(opts, :effect_context, effect_context())
+          Keyword.put_new(opts, :allbert_pack_epoch, ReadyEffectContext.epoch())
         )
 
     def finalize_join(parent), do: DurableFanout.finalize_join(parent, effect_options())
@@ -118,7 +118,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     defdelegate wake_recovery(parent), to: DurableFanout
     defdelegate wake_recovery(parent, opts), to: DurableFanout
 
-    defp effect_options, do: [effect_context: effect_context()]
+    defp effect_options, do: [allbert_pack_epoch: ReadyEffectContext.epoch()]
 
     defp with_context(context), do: Map.merge(effect_context(), context)
 
@@ -136,7 +136,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
         attrs,
         kind,
         payload,
-        Keyword.put_new(opts, :effect_context, effect_context())
+        Keyword.put_new(opts, :allbert_pack_epoch, ReadyEffectContext.epoch())
       )
     end
 
@@ -146,12 +146,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
         attrs,
         kind,
         payload,
-        Keyword.put_new(opts, :effect_context, effect_context())
+        Keyword.put_new(opts, :allbert_pack_epoch, ReadyEffectContext.epoch())
       )
-    end
-
-    defp effect_context do
-      AllbertAssist.TestSupport.ReadyEffectContext.context()
     end
   end
 
@@ -288,7 +284,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                %{status: "completed", completed_at: DateTime.utc_now()},
                "run_completed",
                %{summary: "This must roll back."},
-               effect_context: context,
+               allbert_pack_epoch: context.allbert_pack_epoch,
                transaction_hook: fn _updated -> SameDigestReadiness.replace(barrier) end
              )
 

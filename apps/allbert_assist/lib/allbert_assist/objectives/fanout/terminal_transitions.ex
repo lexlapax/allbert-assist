@@ -191,7 +191,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
              body,
              event_provenance,
              selection_digest,
-             Keyword.put(opts, :effect_context, context)
+             Keyword.put(opts, :allbert_pack_epoch, Map.fetch!(context, :allbert_pack_epoch))
            ) do
       publish_join(selected, %{report_source: source})
       {:ok, selected}
@@ -565,16 +565,15 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
+  # Opts carry the raw epoch under :allbert_pack_epoch, the one convention.
+  # This module used to read a map under :effect_context instead, which is what
+  # let a caller satisfy one convention while its callee read the other. The
+  # claim's own :effect_context FIELD is unchanged -- that is a data field the
+  # claim carries so select_composition/5 can prove epoch identity, not an opts
+  # key.
   defp effect_context(opts) when is_list(opts) do
-    case Keyword.fetch(opts, :effect_context) do
-      {:ok, %{allbert_pack_epoch: epoch} = context} when is_map(epoch) ->
-        case EffectGuard.validate(epoch) do
-          :ok -> {:ok, context}
-          {:error, reason} -> {:error, reason}
-        end
-
-      _ ->
-        {:error, :product_not_ready}
+    with {:ok, epoch} <- EffectGuard.carried_epoch(opts) do
+      {:ok, %{allbert_pack_epoch: epoch}}
     end
   end
 

@@ -878,7 +878,7 @@ defmodule AllbertAssist.Channels.TUITest do
     terminalize_children!(composing_children)
 
     assert {:ok, %{parent: claimed_composing_parent}} =
-             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
+             Fanout.claim_next_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert claimed_composing_parent.id == composing_parent.id
 

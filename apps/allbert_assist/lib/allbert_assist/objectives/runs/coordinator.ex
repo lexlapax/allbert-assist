@@ -572,7 +572,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   # This one opts list is consumed by two modules that carry the epoch under
-  # different keys: TerminalTransitions reads opts[:effect_context] (a map
+  # different keys: TerminalTransitions read opts[:effect_context] (a map
   # holding the epoch), while Objectives.Lifecycle reads opts[:allbert_pack_epoch]
   # directly. Supplying only the first meant every Lifecycle call from the
   # recovery path -- reconcile_quality_protocol_upgrade/2 -- validated a nil
@@ -584,7 +584,6 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     [
       transaction_hook: state.recovery_transaction_hook,
       signal: signal,
-      effect_context: effect_context(state),
       allbert_pack_epoch: state.allbert_pack_epoch
     ]
   end
@@ -713,7 +712,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     state.join_reconciler.(
       state.parent_id,
       recovered?: state.recovery?,
-      effect_context: effect_context(state)
+      allbert_pack_epoch: state.allbert_pack_epoch
     )
   rescue
     exception ->

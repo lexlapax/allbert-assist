@@ -272,7 +272,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     FanoutReportFixture.select_pending!(parent.id, :fallback)
 
     assert {:ok, %{report_delivery_receipt: receipt}} =
-             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
+             Fanout.finalize_join(parent, allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert {:error, :receipt_identity_mismatch} =
              Fanout.acknowledge_report(receipt, bound_context("mallory"))

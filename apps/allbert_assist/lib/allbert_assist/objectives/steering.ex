@@ -172,7 +172,7 @@ defmodule AllbertAssist.Objectives.Steering do
       },
       "steer_applied",
       %{directive_event_id: event.id},
-      effect_context: context,
+      allbert_pack_epoch: Map.get(context, :allbert_pack_epoch),
       signal: {:run_steered, %{}}
     )
   end

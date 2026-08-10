@@ -270,7 +270,7 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
                %{status: "running", proposer_hint: %{"fanout_child" => %{"version" => 99}}},
                "run_progress",
                %{operation: "immutability_test"},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     assert transitioned.status == "running"

@@ -965,7 +965,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     end)
 
     assert {:ok, %{parent: %{id: parent_id}, budget: %{"version" => 1}}} =
-             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
+             Fanout.claim_next_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert parent_id == parent.id
 
@@ -999,7 +999,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       |> Enum.filter(&(&1.kind == "fanout_report_selected"))
 
     assert length(selection_events) == 1
-    assert {:ok, 0} = Fanout.recover_composition(effect_context: ReadyEffectContext.context())
+    assert {:ok, 0} = Fanout.recover_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert [same_event] =
              parent.id
@@ -1856,7 +1856,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
                  step_id: step.id,
                  step_status: "completed"
                },
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     transition
@@ -1873,7 +1873,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
                },
                "run_failed",
                %{reason: reason},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     transition

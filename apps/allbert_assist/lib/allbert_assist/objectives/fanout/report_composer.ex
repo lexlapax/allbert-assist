@@ -542,7 +542,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
 
   defp validate_claim_epoch(_claim, _epoch, _state), do: {:error, :stale_epoch}
 
-  defp effect_options(epoch, state), do: [effect_context: effect_context(epoch, state)]
+  defp effect_options(epoch, _state), do: [allbert_pack_epoch: epoch]
 
   defp effect_context(epoch, _state), do: %{allbert_pack_epoch: epoch}
 

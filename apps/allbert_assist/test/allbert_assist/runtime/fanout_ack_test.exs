@@ -1329,7 +1329,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end)
 
@@ -1518,14 +1518,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end
 
     select_queued_report!(parent.id)
 
     assert {:ok, %{report_delivery_receipt: receipt}} =
-             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
+             Fanout.finalize_join(parent, allbert_pack_epoch: ReadyEffectContext.epoch())
 
     parent_id = parent.id
 
@@ -1596,7 +1596,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                },
                "run_completed",
                %{summary: "completed result"},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     assert {:ok, %{child: %{status: "cancelled"}}} =
@@ -1610,7 +1610,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                },
                "run_cancelled",
                %{},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     assert {:ok, %{child: %{status: "failed"}}} =
@@ -1623,13 +1623,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                },
                "run_failed",
                %{},
-               effect_context: ReadyEffectContext.context()
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     select_queued_report!(parent.id)
 
     assert {:ok, _join} =
-             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
+             Fanout.finalize_join(parent, allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert {:ok, next_turn} =
              Runtime.submit_user_input(%{
@@ -1674,7 +1674,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end
 
@@ -1752,7 +1752,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end
 
@@ -1822,7 +1822,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "origin-only result"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end
 
@@ -1879,7 +1879,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end)
 
@@ -1960,14 +1960,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "result #{child.queue_position + 1}"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end
 
     select_queued_report!(parent.id)
 
     assert {:ok, _join} =
-             Fanout.finalize_join(parent, effect_context: ReadyEffectContext.context())
+             Fanout.finalize_join(parent, allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert {:ok, joined} =
              Runtime.submit_user_input(%{
@@ -2101,7 +2101,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  },
                  "run_completed",
                  %{summary: "done #{child.queue_position}"},
-                 effect_context: ReadyEffectContext.context()
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
                )
     end)
 
@@ -2232,7 +2232,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   defp select_queued_report!(parent_id) do
     assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition(effect_context: ReadyEffectContext.context())
+             Fanout.claim_next_composition(allbert_pack_epoch: ReadyEffectContext.epoch())
 
     assert {:ok, provenance} = Report.fallback_provenance(frozen.snapshot, :model_disabled)
 
@@ -2244,7 +2244,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                "deterministic_fallback",
                frozen.fallback_body,
                provenance,
-               effect_context: claim.effect_context
+               allbert_pack_epoch: claim.effect_context.allbert_pack_epoch
              )
   end
 

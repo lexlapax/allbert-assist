@@ -59,7 +59,7 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
              {:ok, join} <-
                Fanout.reconcile_parent(parent.id,
                  recovered?: false,
-                 effect_context: %{allbert_pack_epoch: field(context, :allbert_pack_epoch)}
+                 allbert_pack_epoch: field(context, :allbert_pack_epoch)
                ),
              {:ok, joined} <- require_joined(join) do
           {:ok, {:cancelled, tier, joined}}

@@ -1779,6 +1779,19 @@ reject any partition count other than one for every owner. An M1.a checkpoint
 records metric identities as the tuple of full SHA, gate, owner, lane,
 partition, and partition count.
 
+`serial-owner` also accepts `--seed N`, which pins **both** the ExUnit seed and
+the partition packing. Without it a lane's failure count is a random variable
+and two runs are not comparable: `PartitionPacker.pack/3` balances from
+`TestMetrics.file_costs`, and every run appends to that store, so the packing
+drifts run over run even at a fixed ExUnit seed. Any before/after comparison of
+lane failure counts must quote the same `--seed` and `--partitions`; a count
+quoted without them is not evidence.
+
+```
+mix allbert.test serial-owner --owner core --lane db_serial --partitions 4 --seed 1
+# PASS: exits 0 and the summary reports "0 failures"
+```
+
 M1.a1's guarded `release-assembly --checkpoint v14-m1a1` wrapper creates its own
 temporary root and Home, clears inherited Allbert root overrides, and accepts a
 release root only when it is the exact generated `_build/prod/rel/allbert` path
