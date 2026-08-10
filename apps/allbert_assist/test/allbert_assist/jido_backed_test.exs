@@ -7,6 +7,7 @@ defmodule AllbertAssist.JidoBackedTest do
   alias AllbertAssist.Confirmations.Store.Agent, as: StoreAgent
   alias AllbertAssist.JidoBacked
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Jido.AgentServer
 
   defmodule SchemaOnlyAgent do
@@ -139,14 +140,17 @@ defmodule AllbertAssist.JidoBackedTest do
 
   test "dispatch through a JidoBacked agent unwraps command results" do
     assert {:ok, record} =
-             Store.create(%{
-               origin: %{actor: "local", channel: :test},
-               target_action: %{name: "direct_answer"},
-               target_permission: :read_only,
-               target_execution_mode: :read_only,
-               security_decision: %{permission: :read_only, decision: :allowed},
-               params_summary: %{message: "hello"}
-             })
+             Store.create(
+               %{
+                 origin: %{actor: "local", channel: :test},
+                 target_action: %{name: "direct_answer"},
+                 target_permission: :read_only,
+                 target_execution_mode: :read_only,
+                 security_decision: %{permission: :read_only, decision: :allowed},
+                 params_summary: %{message: "hello"}
+               },
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, ^record} =
              JidoBacked.dispatch(

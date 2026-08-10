@@ -6,11 +6,14 @@ defmodule AllbertAssist.Intent.Router.IndexReindexTest do
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
   alias AllbertAssist.Intent.Router.Index
 
+  # Router.Index calls admit_ready/0 and validate/1; the stub took an opts
+  # argument on each, so every call raised :undef rather than exercising the
+  # stale-epoch path this test is about.
   defmodule SameDigestReplacementGuard do
-    def admit_ready(_opts),
+    def admit_ready,
       do: {:ok, %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}}
 
-    def validate(_epoch, _opts), do: {:error, :stale_epoch}
+    def validate(_epoch), do: {:error, :stale_epoch}
   end
 
   setup do

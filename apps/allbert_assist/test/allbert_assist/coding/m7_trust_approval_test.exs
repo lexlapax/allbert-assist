@@ -10,6 +10,7 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -195,7 +196,8 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
     refute response.permission_decision.requires_confirmation
     refute Map.has_key?(response, :confirmation_id)
 
-    assert {:ok, _revoked} = Grants.revoke(grant["id"], %{audit?: false})
+    assert {:ok, _revoked} =
+             Grants.revoke(grant["id"], ReadyEffectContext.attach(%{audit?: false}))
 
     assert {:error, :no_matching_command_grant} =
              CommandGrants.find_applicable(params,
@@ -225,7 +227,8 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
                now: now
              )
 
-    assert {:ok, _revoked_expired} = Grants.revoke(expired["id"], %{audit?: false})
+    assert {:ok, _revoked_expired} =
+             Grants.revoke(expired["id"], ReadyEffectContext.attach(%{audit?: false}))
 
     assert {:ok, _setting} =
              Settings.put(
@@ -251,8 +254,10 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
              )
   end
 
+  # CommandGrants.settings_context/1 takes :allbert_pack_epoch out of the caller's
+  # context and hands it to Settings.put/3, which fails closed without it.
   defp trusted_context(workspace) do
-    %{
+    ReadyEffectContext.attach(%{
       actor: %{id: "local"},
       operator_id: "local",
       user_id: "local",
@@ -261,7 +266,7 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
       cwd_jail: workspace,
       coding: %{cwd_jail: workspace, pi_mode_enabled: true, trusted_operator_id: "local"},
       session: %{main?: true}
-    }
+    })
   end
 
   defp approval_context(workspace, approval_mode) do
