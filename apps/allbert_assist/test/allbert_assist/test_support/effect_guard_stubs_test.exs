@@ -12,7 +12,8 @@ defmodule AllbertAssist.TestSupport.EffectGuardStubsTest do
   disabling several other tests.
   """
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.TestSupport.EffectGuardStubs.Recording
