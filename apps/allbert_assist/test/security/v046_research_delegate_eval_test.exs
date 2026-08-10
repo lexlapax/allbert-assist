@@ -47,10 +47,8 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
     Application.put_env(:allbert_assist, AllbertAssist.Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Stub)
 
-    PluginRegistry.clear()
-    AppRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
+    ensure_plugin!("allbert.browser", AllbertBrowser.Plugin)
+    ensure_plugin!("allbert.research", AllbertResearch.Plugin)
     register_app!(AllbertAssist.App.CoreApp, :allbert)
     register_app!(AllbertBrowser.App, :allbert_browser)
     register_app!(AllbertResearch.App, :allbert_research)
@@ -76,7 +74,6 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
     on_exit(fn ->
       close_all_sessions()
       AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -362,4 +359,15 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
   defp restore_env(key, value), do: Application.put_env(:allbert_assist, key, value)
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)
   defp restore_env(module, key, value), do: Application.put_env(module, key, value)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end

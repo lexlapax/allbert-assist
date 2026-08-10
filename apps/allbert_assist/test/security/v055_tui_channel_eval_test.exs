@@ -83,7 +83,6 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
       end
     )
 
-    PluginRegistry.clear()
     register_channel_plugins!()
     Fragments.clear_cache()
     configure_tui!()
@@ -94,7 +93,6 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -413,8 +411,13 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
       AllbertAssist.Plugins.TUI
     ]
 
+    # The setup no longer clears the registry first, so these are already
+    # present in the shipped baseline; an existing entry is success.
     Enum.each(modules, fn module ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_module(module)
+      case PluginRegistry.register_module(module) do
+        {:ok, _plugin_id} -> :ok
+        {:error, {:plugin_id_taken, _plugin_id}} -> :ok
+      end
     end)
   end
 

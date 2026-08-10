@@ -117,8 +117,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
+    ensure_plugin!("allbert.tui", TUIPlugin)
     Fragments.clear_cache()
 
     configure_settings!(workspace)
@@ -130,7 +129,6 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
       restore_app_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -834,4 +832,15 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 
   defp unique, do: System.unique_integer([:positive])
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end

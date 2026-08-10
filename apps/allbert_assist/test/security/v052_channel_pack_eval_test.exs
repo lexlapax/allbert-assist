@@ -155,17 +155,13 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
       end
     )
 
-    PluginRegistry.clear()
+    ensure_plugin!("allbert.telegram", AllbertAssist.Plugins.Telegram)
 
-    assert {:ok, "allbert.telegram"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    ensure_plugin!("allbert.email", AllbertAssist.Plugins.Email)
 
-    assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    ensure_plugin!("allbert.discord", AllbertAssist.Plugins.Discord)
 
-    assert {:ok, "allbert.discord"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
-
-    assert {:ok, "allbert.slack"} = PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
+    ensure_plugin!("allbert.slack", AllbertAssist.Plugins.Slack)
     Fragments.clear_cache()
 
     configure_channels!()
@@ -180,7 +176,6 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
       restore_env(Trace, original_trace_config)
       restore_app_env(:slack_client_stub_result, original_slack_stub_result)
       restore_app_env(:discord_client_stub_result, original_discord_stub_result)
-      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -679,4 +674,15 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
 
   defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end

@@ -73,10 +73,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
       )
 
     System.put_env("ALLBERT_HOME", home)
-    PluginRegistry.clear()
 
-    assert {:ok, "allbert.telegram"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    ensure_plugin!("allbert.telegram", AllbertAssist.Plugins.Telegram)
 
     on_exit(fn ->
       File.rm_rf!(home)
@@ -86,7 +84,6 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
       restore_app_env(Trace, original_trace_config)
-      ShippedRegistries.restore!()
     end)
 
     {:ok, home: home, context: context()}
@@ -931,4 +928,15 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end

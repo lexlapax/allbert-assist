@@ -54,11 +54,9 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Stub)
 
-    PluginRegistry.clear()
-    AppRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, :allbert} = AppRegistry.register(AllbertAssist.App.CoreApp)
-    assert {:ok, :allbert_browser} = AppRegistry.register(AllbertBrowser.App)
+    ensure_plugin!("allbert.browser", AllbertBrowser.Plugin)
+    ensure_app!(:allbert, AllbertAssist.App.CoreApp)
+    ensure_app!(:allbert_browser, AllbertBrowser.App)
     ensure_browser_supervisor()
     close_all_sessions()
 
@@ -71,7 +69,6 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
 
     on_exit(fn ->
       close_all_sessions()
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -401,4 +398,23 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
   defp restore_env(module, key, value), do: Application.put_env(module, key, value)
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
+
+  defp ensure_app!(app_id, module) do
+    unless match?({:ok, _entry}, AppRegistry.lookup(app_id)) do
+      {:ok, ^app_id} = AppRegistry.register(module)
+    end
+
+    :ok
+  end
 end

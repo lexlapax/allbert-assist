@@ -181,7 +181,6 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
         do: System.put_env("ALLBERT_HOME_DIR", original_home_dir),
         else: System.delete_env("ALLBERT_HOME_DIR")
 
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
       restore_env(:intent_router_embedder, original_embedder)
@@ -593,25 +592,39 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
   defp restore_env(key, value) when is_atom(key),
     do: Application.put_env(:allbert_assist, key, value)
 
+  # The setup no longer clears the registries first, so every registration here
+  # may already be present. Re-registering is the point — this re-seeds the
+  # bootstrap set — but an existing entry is success, not a MatchError.
   defp reset_bootstrap_registries! do
-    PluginRegistry.clear()
-    AppRegistry.clear()
-
     Discovery.discover()
     |> Enum.each(&register_discovery!/1)
 
     configured_apps()
     |> Kernel.++(PluginRegistry.registered_apps())
     |> Enum.uniq()
-    |> Enum.each(&AppRegistry.register/1)
+    |> Enum.each(&register_app/1)
+  end
+
+  defp register_app(module) do
+    case AppRegistry.register(module) do
+      {:ok, _app_id} -> :ok
+      {:error, {:app_id_taken, _app_id}} -> :ok
+      other -> other
+    end
   end
 
   defp register_discovery!({:module, module, opts}) do
-    {:ok, _plugin_id} = PluginRegistry.register_module(module, opts)
+    case PluginRegistry.register_module(module, opts) do
+      {:ok, _plugin_id} -> :ok
+      {:error, {:plugin_id_taken, _plugin_id}} -> :ok
+    end
   end
 
   defp register_discovery!({:entry, entry}) do
-    {:ok, _plugin_id} = PluginRegistry.register_entry(entry)
+    case PluginRegistry.register_entry(entry) do
+      {:ok, _plugin_id} -> :ok
+      {:error, {:plugin_id_taken, _plugin_id}} -> :ok
+    end
   end
 
   defp register_discovery!({:diagnostic, key, diagnostics}) do

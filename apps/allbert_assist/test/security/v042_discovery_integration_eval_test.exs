@@ -59,11 +59,10 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
+    ensure_plugin!("allbert.notes_files", AllbertNotesFiles.Plugin)
 
     unless notes_app_registered? do
-      assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
+      ensure_app!(:notes_files, AllbertNotesFiles.App)
     end
 
     {:ok, _state} =
@@ -87,7 +86,6 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
       restore_env(Memory, original_memory)
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
-      ShippedRegistries.restore!()
       File.rm_rf!(root)
     end)
 
@@ -964,4 +962,23 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
+
+  defp ensure_app!(app_id, module) do
+    unless match?({:ok, _entry}, AppRegistry.lookup(app_id)) do
+      {:ok, ^app_id} = AppRegistry.register(module)
+    end
+
+    :ok
+  end
 end
