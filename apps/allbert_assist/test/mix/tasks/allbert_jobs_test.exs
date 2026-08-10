@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.JobsTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Jobs, as: JobsTask
 
@@ -258,19 +259,22 @@ defmodule Mix.Tasks.Allbert.JobsTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp create_pending_confirmation(id) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{
-        actor: "alice",
-        channel: :job,
-        surface: "mix allbert.jobs"
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{
+          actor: "alice",
+          channel: :job,
+          surface: "mix allbert.jobs"
+        },
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"},
+        resume_params_ref: %{url: "https://example.com"}
       },
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"},
-      resume_params_ref: %{url: "https://example.com"}
-    })
+      ReadyEffectContext.context()
+    )
   end
 end

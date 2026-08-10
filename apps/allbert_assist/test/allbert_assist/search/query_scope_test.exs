@@ -12,6 +12,7 @@ defmodule AllbertAssist.Search.QueryScopeTest do
   alias AllbertAssist.Search.Projection
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)
@@ -40,7 +41,14 @@ defmodule AllbertAssist.Search.QueryScopeTest do
 
   test "mapped DM cross-surface approval stores no query and requires exact resubmission" do
     assert {:ok, _link} = ChannelThread.link_identity(identity_attrs("U_ALICE"))
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, turn} =
              Runtime.submit_user_input(%{

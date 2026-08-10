@@ -10,6 +10,7 @@ defmodule AllbertAssist.Search.SurfaceParityTest do
   alias AllbertAssist.Search.Surface
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)
@@ -97,7 +98,14 @@ defmodule AllbertAssist.Search.SurfaceParityTest do
 
   test "mapped DM defaults to the exact current origin and discloses E2EE opt-in" do
     assert {:ok, _link} = ChannelThread.link_identity(identity_attrs())
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, local_thread} = Conversations.create_general_thread("alice", "Local private")
 

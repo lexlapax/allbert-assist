@@ -14,6 +14,7 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertBrowser.Session
   alias AllbertResearch.DelegateObjective
   alias Mix.Tasks.Allbert.Research, as: ResearchTask
@@ -184,7 +185,7 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
         downstream_consumer: :browser_navigator
       })
 
-    assert {:ok, _grant} = Grants.remember(ref, audit?: false)
+    assert {:ok, _grant} = Grants.remember(ref, ReadyEffectContext.attach(%{audit?: false}))
   end
 
   defp ensure_browser_supervisor do
