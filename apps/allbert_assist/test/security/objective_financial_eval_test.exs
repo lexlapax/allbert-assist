@@ -11,6 +11,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias StockSage.Analyses
   alias StockSage.TraderBridge
 
@@ -58,7 +59,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
                  objective: "Analyze private portfolio note.",
                  progress_summary: "alice-private-objective-marker"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     eval =
@@ -106,7 +107,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
                  status: "blocked",
                  progress_summary: "alice-resume-secret"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     eval =
@@ -172,7 +173,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
                    ]
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -185,7 +186,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  action_params: %{ticker: "AAPL"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     eval =
@@ -194,7 +195,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
           run: fn fixture ->
             {:ok, result} =
               EngineAgent.observe_step(
-                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                ReadyEffectContext.attach(%{
                   step_id: step.id,
                   trace_id: "trace-loop"
                 })
@@ -285,7 +286,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
                  objective: "Cancel while work is blocked.",
                  status: "blocked"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _step} =
@@ -298,7 +299,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  confirmation_id: "conf-pending-cancel"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     eval =
@@ -421,7 +422,7 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+           ReadyEffectContext.attach(%{
              actor: "security_eval",
              audit?: false
            })

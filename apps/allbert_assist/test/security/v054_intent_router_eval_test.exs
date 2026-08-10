@@ -28,6 +28,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ProviderPreconditions
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @shortlist [
     %{action_name: "create_note", app_id: :notes_files, label: "Create or write a local note"},
@@ -275,7 +276,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     assert {:ok, response} =
              SendEmail.run(
                %{to: "a@example.com", body: "hello"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert response.status == :needs_confirmation
