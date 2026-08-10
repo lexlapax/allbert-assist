@@ -22,6 +22,7 @@ defmodule AllbertAssist.Settings.VaultTest do
   alias AllbertAssist.Settings.Vault.Env
   alias AllbertAssist.Settings.Vault.LinuxSecretService
   alias AllbertAssist.Settings.Vault.MacKeychain
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @secret_ref "secret://providers/anthropic/api_key"
   @secret_value "sk-ant-SUPER-SECRET-VALUE-do-not-leak"
@@ -87,7 +88,9 @@ defmodule AllbertAssist.Settings.VaultTest do
 
   describe "EncryptedFile tier (tier 2, the stable fallback)" do
     test "round-trips through Settings.Secrets unchanged" do
-      assert {:ok, _} = EncryptedFile.put(@secret_ref, @secret_value, %{})
+      assert {:ok, _} =
+               EncryptedFile.put(@secret_ref, @secret_value, ReadyEffectContext.context())
+
       assert {:ok, @secret_value} = EncryptedFile.get(@secret_ref, %{})
     end
   end
@@ -192,7 +195,7 @@ defmodule AllbertAssist.Settings.VaultTest do
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
       inject_os_runners(true)
 
-      assert {:ok, result} = Vault.put(@secret_ref, @secret_value, %{})
+      assert {:ok, result} = Vault.put(@secret_ref, @secret_value, ReadyEffectContext.context())
       assert result.tier == :os
       assert result.status == :configured
 
@@ -209,7 +212,9 @@ defmodule AllbertAssist.Settings.VaultTest do
     test "OS-tier read miss falls back to the tier-2 store (upgrade-safe)" do
       # A value written to tier-2 before the OS-vault routing landed must still resolve.
       System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
-      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+
+      assert {:ok, _} =
+               Secrets.put_secret(@secret_ref, @secret_value, ReadyEffectContext.context())
 
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
       inject_os_runners(false)
@@ -221,7 +226,7 @@ defmodule AllbertAssist.Settings.VaultTest do
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
       inject_os_runners(true)
 
-      assert {:ok, result} = Vault.put(@secret_ref, @secret_value, %{})
+      assert {:ok, result} = Vault.put(@secret_ref, @secret_value, ReadyEffectContext.context())
       refute inspect(result) =~ @secret_value
     end
   end
@@ -263,7 +268,11 @@ defmodule AllbertAssist.Settings.VaultTest do
       on_exit(fn -> System.delete_env("OPENAI_API_KEY") end)
 
       assert {:ok, _} =
-               Secrets.put_secret("secret://providers/openai/api_key", @secret_value, %{})
+               Secrets.put_secret(
+                 "secret://providers/openai/api_key",
+                 @secret_value,
+                 ReadyEffectContext.context()
+               )
 
       assert {:ok, @secret_value} = Vault.get("secret://providers/openai/api_key", %{})
     end
@@ -294,7 +303,9 @@ defmodule AllbertAssist.Settings.VaultTest do
       # v0.62 M8.8: migrate_secrets carries a settings_write needs_confirmation
       # floor (Policy.safety_floor). Through the Runner (the only real path) the
       # first invocation must return needs_confirmation and move no secret.
-      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      assert {:ok, _} =
+               Secrets.put_secret(@secret_ref, @secret_value, ReadyEffectContext.context())
+
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
 
       test_pid = self()
@@ -314,7 +325,9 @@ defmodule AllbertAssist.Settings.VaultTest do
     end
 
     test "an approved resume round-trips into the OS vault and never surfaces a secret" do
-      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      assert {:ok, _} =
+               Secrets.put_secret(@secret_ref, @secret_value, ReadyEffectContext.context())
+
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
 
       test_pid = self()
@@ -342,7 +355,9 @@ defmodule AllbertAssist.Settings.VaultTest do
       # approve <id>` had nothing to resume. This proves the REAL operator path:
       # the gate creates a durable record, it shows up in the list, and approving
       # it (not an injected `approved?` stub) resumes the migration.
-      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      assert {:ok, _} =
+               Secrets.put_secret(@secret_ref, @secret_value, ReadyEffectContext.context())
+
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
 
       test_pid = self()
@@ -385,7 +400,9 @@ defmodule AllbertAssist.Settings.VaultTest do
       # strict param contract rejects it outright (it can never reach
       # approval_resume?) — the migration does NOT run. Proves the params/context
       # trust boundary the security audit named.
-      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      assert {:ok, _} =
+               Secrets.put_secret(@secret_ref, @secret_value, ReadyEffectContext.context())
+
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
 
       test_pid = self()

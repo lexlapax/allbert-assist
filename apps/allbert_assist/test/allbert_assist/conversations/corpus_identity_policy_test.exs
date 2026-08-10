@@ -8,6 +8,7 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_runtime = Application.get_env(:allbert_assist, Runtime)
@@ -33,7 +34,14 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
 
   test "remote admission freezes exact principal and origin while assistant remains distinct" do
     link_identity("U_ALICE")
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -72,10 +80,17 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:memory, :mapped_operator_dm, true)
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :memory,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
+
     assert {:ok, memory_snapshot} = Corpus.snapshot("alice", %{policy | consumer: :memory})
     assert {:ok, %{items: memory_items}} = Corpus.page(memory_snapshot, nil, 20)
     assert Enum.map(memory_items, & &1.author) == [:operator]
@@ -89,7 +104,13 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
                metadata: %{"channel" => "slack"}
              )
 
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, [{:error, :legacy_principal_unverified}]} =
              Corpus.rehydrate_and_authorize("alice", [spoofed.id], mapped_search_policy())
@@ -97,7 +118,14 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
 
   test "verified mapped identity does not turn a shared provider conversation into a DM" do
     link_identity("U_ALICE")
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
 
     shared_ref = Map.put(slack_ref("1718040000.000150"), :conversation_scope, :shared)
 
@@ -121,7 +149,15 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
 
   test "one exact legacy ref and current principal can be backfilled, ambiguity cannot" do
     link_identity("U_ALICE")
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
+
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Legacy")
     assert {:ok, message} = Conversations.append_user_message(thread, "legacy remote")
     ref = slack_ref("1718040000.000200")
@@ -168,7 +204,14 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
 
   test "principal remap suppresses already projected source at rehydration" do
     link_identity("U_ALICE")
-    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{

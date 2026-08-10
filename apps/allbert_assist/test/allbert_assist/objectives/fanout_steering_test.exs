@@ -38,6 +38,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
   alias AllbertAssist.Objectives.FanoutSteeringTest.EpochTransitions, as: TerminalTransitions
   alias AllbertAssist.Objectives.FanoutSteeringTest.EpochSteering, as: Steering
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "directive is ownership-bound, durable, idempotent, and applied at a boundary" do
     {:ok, %{children: [child | _]}} =
