@@ -12,10 +12,7 @@ defmodule AllbertAssist.Pack.EffectGuard do
       when is_pid(pid) and is_binary(digest) ->
         epoch = %{barrier_pid: pid, snapshot_digest: digest}
 
-        case maybe_register_test_epoch(epoch, opts) do
-          :ok -> {:ok, epoch}
-          {:error, _reason} -> {:error, :product_not_ready}
-        end
+        admitted_epoch(epoch, opts)
 
       _ ->
         {:error, :product_not_ready}
@@ -38,7 +35,20 @@ defmodule AllbertAssist.Pack.EffectGuard do
 
   def validate(_epoch, _opts), do: {:error, :product_not_ready}
 
+  # The admission result is decided inside the env branch rather than by a case
+  # at the call site. Outside :test the registration is unconditionally :ok, so
+  # a call-site `{:error, _} ->` clause is unreachable and dev/prod builds warn
+  # that it can never match — while the same clause is genuinely reachable under
+  # :test. Deciding here keeps both environments warning-free without weakening
+  # the test-only failure path.
   if Mix.env() == :test do
+    defp admitted_epoch(epoch, opts) do
+      case maybe_register_test_epoch(epoch, opts) do
+        :ok -> {:ok, epoch}
+        {:error, _reason} -> {:error, :product_not_ready}
+      end
+    end
+
     defp maybe_register_test_epoch(epoch, opts) do
       case Keyword.fetch(opts, :server) do
         {:ok, server} ->
@@ -64,7 +74,7 @@ defmodule AllbertAssist.Pack.EffectGuard do
 
     defp trusted_validation_opts(_epoch, opts), do: opts
   else
-    defp maybe_register_test_epoch(_epoch, _opts), do: :ok
+    defp admitted_epoch(epoch, _opts), do: {:ok, epoch}
     defp trusted_validation_opts(_epoch, opts), do: opts
   end
 end

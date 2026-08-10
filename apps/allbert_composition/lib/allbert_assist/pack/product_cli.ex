@@ -33,38 +33,21 @@ defmodule AllbertAssist.Pack.ProductCLI do
   @spec run_entry([String.t()]) :: {:stdout | :stderr, String.t(), non_neg_integer()}
   def run_entry(argv) when is_list(argv) do
     plan = CLI.entry_plan(argv)
-    run_production_plan(plan, argv)
+    run_plan(plan, argv, default_seams())
   end
 
-  defp run_production_plan(%{disposition: :license_view} = plan, _argv),
-    do: CLI.run_local(plan, [])
-
-  defp run_production_plan(%{disposition: :runtime_free} = plan, _argv) do
-    _ = Application.ensure_all_started(:req)
-    CLI.run_local(plan, [])
-  end
-
-  defp run_production_plan(%{disposition: :runtime_required} = plan, argv) do
-    _ = Application.ensure_all_started(:req)
-
-    case CLI.classify_attach(Attach.run(argv)) do
-      {:attached, output, code} ->
-        maybe_attach_marker()
-        {:stdout, output, code}
-
-      {:error, message} ->
-        {:stderr, message, 3}
-
-      :fallback ->
-        dispatch_embedded_runtime(plan)
-    end
-  end
-
-  defp dispatch_embedded_runtime(plan) do
-    case ProductBootstrap.ensure_ready([]) do
-      {:ok, epoch} -> CLI.run_local(plan, allbert_pack_epoch: epoch)
-      {:error, _diagnostic} -> {:stderr, @not_ready_message, 3}
-    end
+  # Production and the test entry ran two parallel copies of this dispatch, and
+  # they had already drifted: only the production copy emitted the attach
+  # marker, so the tests were exercising an implementation the packaged binary
+  # never runs. There is now one implementation, and production is simply the
+  # default set of seams.
+  defp default_seams do
+    %{
+      cli: CLI,
+      attach: Attach,
+      bootstrap: ProductBootstrap,
+      req_starter: &Application.ensure_all_started/1
+    }
   end
 
   defp maybe_attach_marker do
@@ -108,8 +91,10 @@ defmodule AllbertAssist.Pack.ProductCLI do
   defp attach_result(argv, attach) when is_atom(attach), do: attach.run(argv)
   defp attach_result(argv, attach) when is_function(attach, 1), do: attach.(argv)
 
-  defp dispatch_runtime_plan({:attached, output, code}, _plan, _seams),
-    do: {:stdout, output, code}
+  defp dispatch_runtime_plan({:attached, output, code}, _plan, _seams) do
+    maybe_attach_marker()
+    {:stdout, output, code}
+  end
 
   defp dispatch_runtime_plan({:error, message}, _plan, _seams),
     do: {:stderr, message, 3}
