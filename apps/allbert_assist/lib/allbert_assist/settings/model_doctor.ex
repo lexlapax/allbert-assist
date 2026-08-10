@@ -135,6 +135,14 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           diagnostic(:provider_host_denied)
         ])
 
+      # See the note on the remote path: the probe is effect-gated and neither
+      # `with` handled :product_not_ready, so the doctor raised instead of
+      # reporting.
+      {:error, :product_not_ready} ->
+        base_summary(:local_endpoint, "unknown", [
+          diagnostic(:doctor_failed)
+        ])
+
       {:error, {:transport_error, _reason, url}} ->
         host = url |> URI.parse() |> redacted_host()
 
@@ -198,6 +206,17 @@ defmodule AllbertAssist.Settings.ModelDoctor do
       {:error, :non_loopback_local_model_endpoint} ->
         base_summary(:credentialed_remote, "unknown", [
           diagnostic(:provider_host_denied)
+        ])
+
+      # The probe is effect-gated: without a readiness epoch in the context it
+      # returns :product_not_ready. Neither `with` had a clause for it, so the
+      # doctor raised WithClauseError instead of reporting — and
+      # FirstRun.UsableModel calls diagnose/2 with a defaulted empty context,
+      # so that crash was reachable. :doctor_failed is the catalog's entry for
+      # exactly this: the doctor could not complete.
+      {:error, :product_not_ready} ->
+        base_summary(:credentialed_remote, "unknown", [
+          diagnostic(:doctor_failed)
         ])
 
       {:error, {:transport_error, _reason, url}} ->

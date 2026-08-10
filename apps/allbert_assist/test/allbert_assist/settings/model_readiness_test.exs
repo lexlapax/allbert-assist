@@ -8,6 +8,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
   alias AllbertAssist.Settings.ModelReadiness
   alias AllbertAssist.Settings.ModelRecommendations
   alias AllbertAssist.Settings.ModelRuntime
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @provider_env ~w(ALLBERT_VAULT_BACKEND OLLAMA_BASE_URL OPENAI_API_KEY)
 
@@ -73,7 +74,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{manager: {:role, :fanout_manager}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
 
     refute_received {:unexpected_hosted_probe, _path}
@@ -113,7 +114,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{synthesis: {:role, :fanout_synthesis}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
 
     refute_received {:unexpected_hosted_probe, _path}
@@ -146,7 +147,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{direct_answer: {:profile, "direct_answer_local"}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
 
     refute_received {:unexpected_disabled_local_probe, _path}
@@ -186,7 +187,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{hosted: {:profile, "fast"}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
 
     refute_received {:unexpected_disabled_hosted_probe, _path}
@@ -209,7 +210,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
           manager: {:role, :fanout_manager},
           synthesis: {:role, :fanout_synthesis}
         },
-        %{req_options: [plug: {Req.Test, __MODULE__}]}
+        ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
       )
 
     assert Map.keys(readiness) |> Enum.sort() ==
@@ -255,7 +256,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{manager: {:role, :fanout_manager}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
   end
 
@@ -285,7 +286,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{manager: {:role, :fanout_manager}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
   end
 
@@ -308,7 +309,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{manager: {:role, :fanout_manager}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
 
     refute_received {:unexpected_remote_override_probe, _host}
@@ -350,7 +351,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{direct_answer: {:profile, "direct_answer_local"}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
   end
 
@@ -424,7 +425,9 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
     end)
 
     report =
-      ModelRecommendations.diagnose(%{req_options: [plug: {Req.Test, __MODULE__}]})
+      ModelRecommendations.diagnose(
+        ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
+      )
 
     rows = Map.new(report.rows, &{&1.id, &1})
 
@@ -460,7 +463,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
 
     report =
       ModelRecommendations.diagnose(
-        %{req_options: [plug: {Req.Test, __MODULE__}]},
+        ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]}),
         scope: :intent
       )
 
@@ -511,7 +514,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{direct_answer: {:role, :direct_answer}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
   end
 
@@ -529,7 +532,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{synthesis: {:role, :fanout_synthesis}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
   end
 
@@ -547,7 +550,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
            } =
              ModelReadiness.check(
                %{synthesis: {:role, :fanout_synthesis}},
-               %{req_options: [plug: {Req.Test, __MODULE__}]}
+               ReadyEffectContext.attach(%{req_options: [plug: {Req.Test, __MODULE__}]})
              )
   end
 
