@@ -29,6 +29,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertNotesFiles.Actions.WriteNote
 
   @now "2026-05-28T12:00:00Z"
@@ -484,7 +485,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   end
 
   defp action_context do
-    %{
+    ReadyEffectContext.attach(%{
       active_app: :notes_files,
       request: %{
         active_app: :notes_files,
@@ -492,7 +493,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
         channel: :test,
         input_signal_id: "sig"
       }
-    }
+    })
   end
 
   defp memory_context(user_id) do

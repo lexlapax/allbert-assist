@@ -63,7 +63,15 @@ defmodule AllbertAssist.Surface.RendererTest do
 
     for status <-
           Response.action_statuses() --
-            [:needs_confirmation, :denied, :error, :failed, :unsupported, :unavailable] do
+            [
+              :needs_confirmation,
+              :denied,
+              :rejected,
+              :error,
+              :failed,
+              :unsupported,
+              :unavailable
+            ] do
       response = canonical_public_response(status)
 
       assert {:ok, _completion} =

@@ -272,7 +272,12 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
 
   # m10-send-email-reaches-confirmation-001 (+ outbound-grants-no-authority)
   test "send_email reaches the confirmation gate and never auto-sends" do
-    assert {:ok, response} = SendEmail.run(%{to: "a@example.com", body: "hello"}, %{})
+    assert {:ok, response} =
+             SendEmail.run(
+               %{to: "a@example.com", body: "hello"},
+               AllbertAssist.TestSupport.ReadyEffectContext.context()
+             )
+
     assert response.status == :needs_confirmation
     assert is_binary(response.confirmation_id)
   end

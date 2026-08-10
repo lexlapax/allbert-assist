@@ -34,6 +34,7 @@ defmodule AllbertAssist.Runtime.Response do
     :finalizing,
     :needs_clarification,
     :queued,
+    :rejected,
     :running,
     :stopped
   ]
@@ -62,6 +63,7 @@ defmodule AllbertAssist.Runtime.Response do
     finalizing: :success,
     needs_clarification: :success,
     queued: :success,
+    rejected: :denied,
     running: :success,
     stopped: :success
   }

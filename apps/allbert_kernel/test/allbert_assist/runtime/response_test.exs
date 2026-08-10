@@ -160,7 +160,15 @@ defmodule AllbertAssist.Runtime.ResponseTest do
 
     for status <-
           Response.action_statuses() --
-            [:needs_confirmation, :denied, :error, :failed, :unsupported, :unavailable] do
+            [
+              :needs_confirmation,
+              :denied,
+              :rejected,
+              :error,
+              :failed,
+              :unsupported,
+              :unavailable
+            ] do
       assert outcomes[status] == :success
     end
 

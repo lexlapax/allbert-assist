@@ -192,7 +192,13 @@ defmodule AllbertAssist.Security.ObjectiveFinancialEvalTest do
       run_eval(
         Map.merge(fixture, %{
           run: fn fixture ->
-            {:ok, result} = EngineAgent.observe_step(%{step_id: step.id, trace_id: "trace-loop"})
+            {:ok, result} =
+              EngineAgent.observe_step(
+                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                  step_id: step.id,
+                  trace_id: "trace-loop"
+                })
+              )
 
             %{
               decision:
