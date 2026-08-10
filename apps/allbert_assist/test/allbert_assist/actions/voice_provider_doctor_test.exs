@@ -171,10 +171,16 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
     refute inspect(response) =~ "voice_stt_fake"
   end
 
+  # The adapter opts are handed straight to ProviderHTTP, which reads
+  # :allbert_pack_epoch out of them and fails closed without it, so the epoch
+  # belongs in voice_adapter_opts rather than in the surrounding context map.
   defp doctor_context do
     %{
       voice_transcode_executable: "sh",
-      voice_adapter_opts: [req_options: [plug: {Req.Test, __MODULE__}]]
+      voice_adapter_opts: [
+        req_options: [plug: {Req.Test, __MODULE__}],
+        allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+      ]
     }
   end
 

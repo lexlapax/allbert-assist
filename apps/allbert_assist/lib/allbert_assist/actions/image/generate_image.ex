@@ -211,8 +211,18 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     end
   end
 
+  # :allbert_pack_epoch rides in opts so carried_epoch/1 can gate the call, but
+  # it is not a provider option and ReqLLM rejects the whole request as
+  # "unknown options [:allbert_pack_epoch]". The openai_compatible clause above
+  # already deletes it before prepare_request; this clause did not, so any
+  # provider taking this path failed whenever the caller supplied an epoch --
+  # which is the correct path, since without one the action fails closed
+  # instead. Validate here too rather than passing an unchecked epoch onward.
   defp generate_image_response(_profile, model, prompt, opts) do
-    with {:ok, model} <- ReqLLM.model(model) do
+    with {:ok, epoch} <- carried_epoch(opts),
+         opts <- Keyword.delete(opts, :allbert_pack_epoch),
+         :ok <- EffectGuard.validate(epoch),
+         {:ok, model} <- ReqLLM.model(model) do
       ReqLLM.generate_image(model, prompt, opts)
     end
   end
