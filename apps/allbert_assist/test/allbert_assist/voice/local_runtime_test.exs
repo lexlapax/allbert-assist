@@ -6,6 +6,7 @@ defmodule AllbertAssist.Voice.LocalRuntimeTest do
   import Plug.Conn, only: [put_req_header: 3]
 
   alias AllbertAssist.Runtime.Paths
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Voice.LocalRuntime
   alias AllbertAssist.Voice.LocalRuntime.Auth
   alias AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT
@@ -142,7 +143,15 @@ defmodule AllbertAssist.Voice.LocalRuntimeTest do
         )
     end)
 
-    config = Config.build(enabled?: true, req_options: [plug: {Req.Test, __MODULE__}])
+    config =
+      Config.build(
+        enabled?: true,
+        req_options: [
+          plug: {Req.Test, __MODULE__},
+          allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+        ]
+      )
+
     assert %{available?: true, diagnostic_codes: []} = OllamaSTT.doctor(config)
 
     audio_path = Path.join(Paths.tmp_root(), "ollama-stt.wav")

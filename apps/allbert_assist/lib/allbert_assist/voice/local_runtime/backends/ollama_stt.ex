@@ -192,4 +192,12 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
 
   defp diagnostic_code({:local_ollama_http_error, _status}), do: :local_ollama_http_error
   defp diagnostic_code({:local_ollama_transport_error, _reason}), do: :local_ollama_unreachable
+
+  # unavailable/2 exists to REPORT why the backend is unavailable, so this must
+  # total over the reasons that reach it. carried_epoch/1 returns a bare
+  # :product_not_ready when req_options carry no epoch, which matched no clause
+  # and raised FunctionClauseError — turning "unavailable, here is why" into a
+  # crash, precisely when the caller wanted the diagnosis.
+  defp diagnostic_code(:product_not_ready), do: :local_voice_backend_unavailable
+  defp diagnostic_code(_reason), do: :local_voice_backend_unavailable
 end
