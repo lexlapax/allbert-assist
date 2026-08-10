@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
 
   setup do
@@ -43,7 +44,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
   end
 
   test "lists, shows, denies, and lists resolved confirmations" do
-    assert {:ok, record} = Confirmations.create(base_attrs())
+    assert {:ok, record} = Confirmations.create(base_attrs(), ReadyEffectContext.context())
 
     list_output = capture_io(fn -> assert :ok = ConfirmationsTask.run(["list"]) end)
     assert list_output =~ record["id"]
@@ -75,7 +76,11 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
   end
 
   test "approve and expire commands render operator output" do
-    assert {:ok, approval} = Confirmations.create(Map.put(base_attrs(), :id, "conf_cli_approve"))
+    assert {:ok, approval} =
+             Confirmations.create(
+               Map.put(base_attrs(), :id, "conf_cli_approve"),
+               ReadyEffectContext.context()
+             )
 
     approve_output =
       capture_io(fn ->
@@ -135,7 +140,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
         objective_status: "running"
       })
 
-    assert {:ok, record} = Confirmations.create(attrs)
+    assert {:ok, record} = Confirmations.create(attrs, ReadyEffectContext.context())
 
     assert {:ok, _cancelled} =
              Objectives.update_objective(

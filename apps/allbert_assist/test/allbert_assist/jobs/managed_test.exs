@@ -12,6 +12,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Search.Projection
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -275,11 +276,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
              )
 
     assert {:ok, _epoch} =
-             Corpus.set_origin_grant(
-               :memory,
-               :local_operator,
-               true
-             )
+             Corpus.set_origin_grant(:memory, :local_operator, true, ReadyEffectContext.context())
 
     enabled = managed_job("memory-consolidation")
     assert enabled.metadata["feature_enabled"]
@@ -343,11 +340,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
              )
 
     assert {:ok, _epoch} =
-             Corpus.set_origin_grant(
-               :memory,
-               :local_operator,
-               true
-             )
+             Corpus.set_origin_grant(:memory, :local_operator, true, ReadyEffectContext.context())
 
     assert {:ok, thread} = Conversations.create_general_thread("local", "Managed Memory")
 
@@ -417,7 +410,12 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert managed_job("search-index").metadata["dirty_seq"] == 1
 
     assert {:ok, _epoch} =
-             Corpus.set_origin_grant(:search, :mapped_operator_dm, true, %{actor: "test"})
+             Corpus.set_origin_grant(
+               :search,
+               :mapped_operator_dm,
+               true,
+               ReadyEffectContext.attach(%{actor: "test"})
+             )
 
     assert managed_job("search-index").metadata["dirty_seq"] == 2
     assert managed_job("search-rebuild").metadata["dirty_seq"] == 1

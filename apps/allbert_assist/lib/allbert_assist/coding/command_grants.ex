@@ -380,10 +380,15 @@ defmodule AllbertAssist.Coding.CommandGrants do
 
   defp now(opts), do: field(opts, :now) || DateTime.utc_now()
 
+  # :allbert_pack_epoch has to survive into the settings write. Grants.remember_record/2
+  # hands this straight to Settings.put/3, which fails closed with
+  # :product_not_ready when the context carries no epoch — so dropping it here
+  # made `approve --remember exact` on a bash confirmation impossible, not merely
+  # unaudited. Resources.Grants.settings_context/1 already keeps it.
   defp settings_context(opts) do
     opts
     |> field(:context, %{})
-    |> Map.take([:actor, :channel, :surface, :audit?])
+    |> Map.take([:actor, :channel, :surface, :audit?, :allbert_pack_epoch])
     |> Map.put_new(:actor, "local")
     |> Map.put_new(:channel, :coding_command_grants)
   end
