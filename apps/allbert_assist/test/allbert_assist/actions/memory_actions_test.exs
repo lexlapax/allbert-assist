@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_memory = Application.get_env(:allbert_assist, Memory)
@@ -56,7 +57,10 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, _bob} = append("bob", "Bob prefers long reports.")
 
     assert {:ok, response} =
-             ListMemoryEntries.run(%{user_id: "alice", limit: 10}, %{user_id: "alice"})
+             ListMemoryEntries.run(
+               %{user_id: "alice", limit: 10},
+               ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     assert response.status == :completed
     assert [%{actor: "alice", review_status: :unreviewed} = entry] = response.entries
@@ -67,22 +71,31 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, entry} = append("alice", "Alice wants short updates.")
 
     assert {:ok, response} =
-             ReadMemoryEntry.run(%{path: entry.path, user_id: "alice"}, %{user_id: "alice"})
+             ReadMemoryEntry.run(
+               %{path: entry.path, user_id: "alice"},
+               ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     assert response.status == :completed
     assert response.entry.body =~ "short updates"
 
     assert {:ok, not_found} =
-             ReadMemoryEntry.run(%{path: entry.path, user_id: "bob"}, %{user_id: "bob"})
+             ReadMemoryEntry.run(
+               %{path: entry.path, user_id: "bob"},
+               ReadyEffectContext.attach(%{user_id: "bob"})
+             )
 
     assert not_found.status == :not_found
   end
 
   test "read_memory_entry rejects paths outside the memory root" do
     assert {:ok, response} =
-             ReadMemoryEntry.run(%{path: "/tmp/not-allbert-memory.md", user_id: "alice"}, %{
-               user_id: "alice"
-             })
+             ReadMemoryEntry.run(
+               %{path: "/tmp/not-allbert-memory.md", user_id: "alice"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice"
+               })
+             )
 
     assert response.status == :error
     assert response.error == :path_outside_memory_root
@@ -94,7 +107,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, reviewed} =
              ReviewMemoryEntry.run(
                %{path: entry.path, status: "flagged", note: "stale", user_id: "alice"},
-               %{user_id: "alice"}
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert reviewed.status == :completed
@@ -109,7 +122,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
                  body: "Alice prefers concise implementation updates.",
                  user_id: "alice"
                },
-               %{user_id: "alice"}
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert updated.status == :completed
@@ -122,21 +135,27 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, entry} = append("alice", "Delete me after confirmation.")
 
     assert {:ok, response} =
-             DeleteMemoryEntry.run(%{path: entry.path, user_id: "alice"}, %{
-               user_id: "alice",
-               actor: "alice",
-               channel: :test
-             })
+             DeleteMemoryEntry.run(
+               %{path: entry.path, user_id: "alice"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               })
+             )
 
     assert response.status == :needs_confirmation
     assert File.exists?(entry.path)
 
     assert {:ok, approved} =
-             ApproveConfirmation.run(%{id: response.confirmation_id, reason: "test"}, %{
-               user_id: "alice",
-               actor: "alice",
-               channel: :test
-             })
+             ApproveConfirmation.run(
+               %{id: response.confirmation_id, reason: "test"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               })
+             )
 
     assert approved.status == :completed
     assert approved.confirmation["status"] == "approved"
@@ -146,9 +165,12 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert [%{confirmation_metadata: %{target_resumed?: true}}] = approved.actions
 
     assert {:ok, restored} =
-             RestoreMemoryClaim.run(%{claim_id: archived.claim_id, user_id: "alice"}, %{
-               user_id: "alice"
-             })
+             RestoreMemoryClaim.run(
+               %{claim_id: archived.claim_id, user_id: "alice"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice"
+               })
+             )
 
     assert restored.status == :completed
     assert {:ok, restored_stream} = Claims.read(archived.claim_id)
@@ -159,11 +181,14 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, entry} = append("alice", "Archive only this exact revision.")
 
     assert {:ok, pending} =
-             DeleteMemoryEntry.run(%{path: entry.path, user_id: "alice"}, %{
-               user_id: "alice",
-               actor: "alice",
-               channel: :test
-             })
+             DeleteMemoryEntry.run(
+               %{path: entry.path, user_id: "alice"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               })
+             )
 
     assert pending.status == :needs_confirmation
 
@@ -175,17 +200,20 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
                  body: "This is no longer the exact approved revision.",
                  user_id: "alice"
                },
-               %{user_id: "alice"}
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert updated.status == :completed
 
     assert {:ok, denied} =
-             ApproveConfirmation.run(%{id: pending.confirmation_id, reason: "stale preview"}, %{
-               user_id: "alice",
-               actor: "alice",
-               channel: :test
-             })
+             ApproveConfirmation.run(
+               %{id: pending.confirmation_id, reason: "stale preview"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               })
+             )
 
     assert denied.status == :completed
     assert denied.confirmation["status"] == "denied"
@@ -199,30 +227,41 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, _reviewed} =
              ReviewMemoryEntry.run(
                %{path: entry.path, status: "prune_nominated", user_id: "alice"},
-               %{user_id: "alice"}
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
-    assert {:ok, dry_run} = PruneMemoryEntries.run(%{user_id: "alice"}, %{user_id: "alice"})
+    assert {:ok, dry_run} =
+             PruneMemoryEntries.run(
+               %{user_id: "alice"},
+               ReadyEffectContext.attach(%{user_id: "alice"})
+             )
+
     assert dry_run.status == :completed
     assert [%{path: path, reason: :prune_nominated}] = dry_run.candidates
     assert path == entry.path
 
     assert {:ok, pending} =
-             PruneMemoryEntries.run(%{user_id: "alice", write: true}, %{
-               user_id: "alice",
-               actor: "alice",
-               channel: :test
-             })
+             PruneMemoryEntries.run(
+               %{user_id: "alice", write: true},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               })
+             )
 
     assert pending.status == :needs_confirmation
     assert File.exists?(entry.path)
 
     assert {:ok, approved} =
-             ApproveConfirmation.run(%{id: pending.confirmation_id, reason: "test"}, %{
-               user_id: "alice",
-               actor: "alice",
-               channel: :test
-             })
+             ApproveConfirmation.run(
+               %{id: pending.confirmation_id, reason: "test"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: :test
+               })
+             )
 
     assert approved.status == :completed
     assert File.exists?(entry.path)
@@ -244,11 +283,14 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, _reviewed} =
              ReviewMemoryEntry.run(
                %{path: entry.path, status: "prune_nominated", user_id: "alice"},
-               %{user_id: "alice"}
+               ReadyEffectContext.attach(%{user_id: "alice"})
              )
 
     assert {:ok, response} =
-             PruneMemoryEntries.run(%{user_id: "alice", write: true}, %{user_id: "alice"})
+             PruneMemoryEntries.run(
+               %{user_id: "alice", write: true},
+               ReadyEffectContext.attach(%{user_id: "alice"})
+             )
 
     assert response.status == :completed
     assert response.archived != []
@@ -274,11 +316,11 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert {:ok, approved} =
              ApproveConfirmation.run(
                %{id: pending.confirmation_id, reason: "operator reviewed"},
-               %{
+               ReadyEffectContext.attach(%{
                  user_id: "alice",
                  actor: "alice",
                  channel: :test
-               }
+               })
              )
 
     assert approved.status == :completed
@@ -383,9 +425,12 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert [%{source: :projection}] = search.actions
 
     assert {:ok, summary} =
-             SummarizeMemoryCategory.run(%{category: "notes", user_id: "alice"}, %{
-               user_id: "alice"
-             })
+             SummarizeMemoryCategory.run(
+               %{category: "notes", user_id: "alice"},
+               ReadyEffectContext.attach(%{
+                 user_id: "alice"
+               })
+             )
 
     assert summary.status == :completed
     assert File.read!(summary.result.path) =~ "# DERIVED - DO NOT EDIT"
@@ -452,13 +497,13 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   end
 
   defp app_lesson_context do
-    %{
+    ReadyEffectContext.attach(%{
       user_id: "alice",
       actor: "alice",
       channel: :test,
       active_app: :stocksage,
       request: %{user_id: "alice", operator_id: "alice", channel: :test, active_app: :stocksage}
-    }
+    })
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -24,6 +24,7 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @fixtures Path.expand("../../fixtures/v0.24/acceptance_criteria", __DIR__)
 
@@ -98,7 +99,12 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
              |> where([objective], objective.id == ^objective.id)
              |> Repo.update_all(set: [updated_at: stale])
 
-    assert {:ok, 1} = Objectives.abandon_stale_objectives(now: DateTime.utc_now())
+    assert {:ok, 1} =
+             Objectives.abandon_stale_objectives(
+               [now: DateTime.utc_now()],
+               ReadyEffectContext.context()
+             )
+
     assert {:ok, abandoned} = Objectives.get_objective(objective.id)
     assert abandoned.status == "abandoned"
   end
@@ -117,7 +123,7 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
                  title: "Facade objective",
                  objective: "Complete a facade objective."
                },
-               %{}
+               ReadyEffectContext.context()
              )
 
     assert framed.user_id == user
@@ -130,14 +136,22 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
     assert {:error, :not_found} = Objectives.get(other_user, framed.id)
 
     assert {:ok, %{objective: cancelled}} =
-             Objectives.cancel(user, framed.id, "facade test complete")
+             Objectives.cancel(
+               user,
+               framed.id,
+               "facade test complete",
+               ReadyEffectContext.context()
+             )
 
     assert cancelled.status == "cancelled"
   end
 
   test "public facade requires explicit user identity when framing" do
     assert {:error, :missing_user_id} =
-             Objectives.frame(%{title: "No user", objective: "Do not silently default."}, %{})
+             Objectives.frame(
+               %{title: "No user", objective: "Do not silently default."},
+               ReadyEffectContext.context()
+             )
   end
 
   test "objective preserves the canonical fanout request through 4,000 graphemes" do
@@ -206,7 +220,8 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
       %{title: "Second task", objective: "Complete the second task."}
     ]
 
-    assert {:ok, %{children: [child, _sibling]}} = Fanout.frame(parent_attrs, tasks)
+    assert {:ok, %{children: [child, _sibling]}} =
+             Fanout.frame(ReadyEffectContext.attach(parent_attrs), tasks)
 
     protected_updates = %{
       user_id: "other-user",
@@ -254,7 +269,8 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
                child,
                %{status: "running", proposer_hint: %{"fanout_child" => %{"version" => 99}}},
                "run_progress",
-               %{operation: "immutability_test"}
+               %{operation: "immutability_test"},
+               effect_context: ReadyEffectContext.context()
              )
 
     assert transitioned.status == "running"

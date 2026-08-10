@@ -5,6 +5,7 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -33,7 +34,11 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
 
   test "runs an allowed local command in the approved cwd", %{workspace: workspace} do
     assert {:ok, spec} = allowed_spec("pwd", [], workspace)
-    assert {:ok, result} = LocalRunner.run(spec)
+
+    assert {:ok, result} =
+             LocalRunner.run(spec,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
 
     assert result.status == :completed
     assert result.exit_status == 0
@@ -45,7 +50,11 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
 
   test "captures non-zero exit output without leaking to terminal", %{workspace: workspace} do
     assert {:ok, spec} = allowed_spec("ls", ["--allbert-not-a-real-option"], workspace)
-    assert {:ok, result} = LocalRunner.run(spec)
+
+    assert {:ok, result} =
+             LocalRunner.run(spec,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
 
     assert result.status == :completed
     assert result.exit_status != 0
@@ -66,7 +75,10 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
                max_output_bytes: 12
              })
 
-    assert {:ok, result} = LocalRunner.run(spec)
+    assert {:ok, result} =
+             LocalRunner.run(spec,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
 
     assert result.status == :completed
     assert result.truncated?
@@ -92,7 +104,10 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
                cwd: workspace
              })
 
-    assert {:ok, result} = LocalRunner.run(spec)
+    assert {:ok, result} =
+             LocalRunner.run(spec,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
 
     assert result.status == :timed_out
     assert result.timed_out?
@@ -104,7 +119,11 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
     File.write!(Path.join(workspace, "regular"), "regular\n")
 
     assert {:ok, spec} = allowed_spec("ls", ["*"], workspace)
-    assert {:ok, result} = LocalRunner.run(spec)
+
+    assert {:ok, result} =
+             LocalRunner.run(spec,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
 
     assert result.status == :completed
     assert result.exit_status == 0
@@ -119,7 +138,10 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
                cwd: workspace
              })
 
-    assert {:ok, result} = LocalRunner.run(denied_spec)
+    assert {:ok, result} =
+             LocalRunner.run(denied_spec,
+               allbert_pack_epoch: ReadyEffectContext.context().allbert_pack_epoch
+             )
 
     assert result.status == :denied
     assert result.exit_status == nil

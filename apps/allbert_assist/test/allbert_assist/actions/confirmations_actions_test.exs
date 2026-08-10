@@ -6,6 +6,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -33,7 +34,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
   end
 
   test "list and show confirmations through the action runner" do
-    assert {:ok, record} = Confirmations.create(base_attrs())
+    assert {:ok, record} = Confirmations.create(base_attrs(), ReadyEffectContext.context())
 
     assert {:ok, list_response} =
              Runner.run("list_confirmations", %{}, %{actor: "local", channel: :test})
@@ -58,7 +59,10 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert Registry.resumable?("external_network_request")
 
     assert {:ok, approval_candidate} =
-             Confirmations.create(Map.put(base_attrs(), :id, "conf_approve"))
+             Confirmations.create(
+               Map.put(base_attrs(), :id, "conf_approve"),
+               ReadyEffectContext.context()
+             )
 
     assert approval_candidate["objective_binding_version"] == 2
     assert approval_candidate["objective_binding_kind"] == "ordinary"
@@ -99,7 +103,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert approve_again.actions |> hd() |> get_in([:confirmation_metadata, :idempotent?])
     assert approve_again.confirmation["status"] == "adapter_unavailable"
 
-    assert {:ok, denial_candidate} = Confirmations.create(Map.put(base_attrs(), :id, "conf_deny"))
+    assert {:ok, denial_candidate} =
+             Confirmations.create(
+               Map.put(base_attrs(), :id, "conf_deny"),
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, deny_response} =
              Runner.run(
@@ -125,7 +133,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
       |> Map.put(:target_execution_mode, :read_only)
       |> Map.put(:security_decision, %{permission: :read_only, decision: :allowed})
 
-    assert {:ok, record} = Confirmations.create(attrs)
+    assert {:ok, record} = Confirmations.create(attrs, ReadyEffectContext.context())
 
     assert {:ok, response} =
              Runner.run("approve_confirmation", %{id: record["id"]}, %{
@@ -145,7 +153,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert {:ok, approval_record} =
              Confirmations.create(
                Map.put(base_attrs(), :id, "conf_incomplete_ordinary_approve"),
-               %{objective_id: "obj_ordinary"}
+               ReadyEffectContext.attach(%{objective_id: "obj_ordinary"})
              )
 
     assert approval_record["objective_binding_version"] == 2
@@ -165,7 +173,10 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert {:ok, denial_record} =
              Confirmations.create(
                Map.put(base_attrs(), :id, "conf_complete_objective_deny"),
-               %{objective_id: "obj_ordinary", step_id: "step_ordinary"}
+               ReadyEffectContext.attach(%{
+                 objective_id: "obj_ordinary",
+                 step_id: "step_ordinary"
+               })
              )
 
     assert denial_record["objective_binding_kind"] == "objective"
@@ -195,7 +206,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
   end
 
   test "approval respects target policy changes before resolution" do
-    assert {:ok, record} = Confirmations.create(Map.put(base_attrs(), :id, "conf_policy_change"))
+    assert {:ok, record} =
+             Confirmations.create(
+               Map.put(base_attrs(), :id, "conf_policy_change"),
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, _setting} =
              Settings.put(
@@ -227,7 +242,11 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert {:ok, record} = Confirmations.create(Map.put(base_attrs(), :id, "conf_cross_channel"))
+    assert {:ok, record} =
+             Confirmations.create(
+               Map.put(base_attrs(), :id, "conf_cross_channel"),
+               ReadyEffectContext.context()
+             )
 
     assert {:ok, response} =
              Runner.run("approve_confirmation", %{id: record["id"]}, %{
@@ -250,7 +269,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert {:ok, record} = Confirmations.create(base_attrs())
+    assert {:ok, record} = Confirmations.create(base_attrs(), ReadyEffectContext.context())
 
     assert {:ok, response} =
              Runner.run("deny_confirmation", %{id: record["id"]}, %{actor: "local", channel: :cli})
@@ -269,7 +288,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
-    assert {:ok, record} = Confirmations.create(base_attrs())
+    assert {:ok, record} = Confirmations.create(base_attrs(), ReadyEffectContext.context())
 
     assert {:ok, response} =
              Runner.run("approve_confirmation", %{id: record["id"]}, %{
@@ -285,7 +304,12 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
 
   test "expire confirmations resolves expired records" do
     assert {:ok, _expired} =
-             Confirmations.create(base_attrs(), ttl_minutes: 1, now: ~U[2000-01-01 00:00:00Z])
+             Confirmations.create(
+               base_attrs(),
+               ReadyEffectContext.context(),
+               ttl_minutes: 1,
+               now: ~U[2000-01-01 00:00:00Z]
+             )
 
     assert {:ok, response} =
              Runner.run("expire_confirmations", %{}, %{actor: "local", channel: :cli})
