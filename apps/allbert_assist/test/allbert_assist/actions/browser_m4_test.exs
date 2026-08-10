@@ -10,14 +10,11 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
-    PluginRegistry.clear()
-    AppRegistry.clear()
-
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, :allbert_browser} = AppRegistry.register(AllbertBrowser.App)
+    ensure_plugin!("allbert.browser", AllbertBrowser.Plugin)
+    ensure_app!(:allbert_browser, AllbertBrowser.App)
 
     on_exit(fn ->
-      ShippedRegistries.restore!()
+      nil
     end)
 
     :ok
@@ -114,5 +111,24 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
                :browser_interact
              ]
     end
+  end
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      assert {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
+
+  defp ensure_app!(app_id, module) do
+    unless match?({:ok, _entry}, AppRegistry.lookup(app_id)) do
+      assert {:ok, ^app_id} = AppRegistry.register(module)
+    end
+
+    :ok
   end
 end

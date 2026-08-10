@@ -27,13 +27,10 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Stub)
 
-    PluginRegistry.clear()
-    AppRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, :allbert_browser} = AppRegistry.register(AllbertBrowser.App)
+    ensure_plugin!("allbert.browser", AllbertBrowser.Plugin)
+    ensure_app!(:allbert_browser, AllbertBrowser.App)
 
     on_exit(fn ->
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(:allbert_browser, :driver, original_driver)
@@ -187,4 +184,23 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
   defp restore_env(module, key, value), do: Application.put_env(module, key, value)
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      assert {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
+
+  defp ensure_app!(app_id, module) do
+    unless match?({:ok, _entry}, AppRegistry.lookup(app_id)) do
+      assert {:ok, ^app_id} = AppRegistry.register(module)
+    end
+
+    :ok
+  end
 end

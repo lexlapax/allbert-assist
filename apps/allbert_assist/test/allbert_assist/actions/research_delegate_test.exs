@@ -30,9 +30,8 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Stub)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
+    ensure_plugin!("allbert.browser", AllbertBrowser.Plugin)
+    ensure_plugin!("allbert.research", AllbertResearch.Plugin)
 
     ensure_browser_supervisor()
     ensure_research_supervisor()
@@ -55,7 +54,6 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     on_exit(fn ->
       close_all_sessions()
       AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -226,10 +224,13 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
 
     assert {:ok,
             %{objective: failed_objective, step: failed_step, result: result, status: :failed}} =
-             EngineAgent.execute_step(engine_name, %{
-               step_id: step.id,
-               trace_id: "trace_research_reject"
-             })
+             EngineAgent.execute_step(
+               engine_name,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 step_id: step.id,
+                 trace_id: "trace_research_reject"
+               })
+             )
 
     assert failed_step.status == "failed"
     assert failed_step.result_summary =~ "Unable to delegate objective step"
@@ -265,7 +266,11 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
         downstream_consumer: :browser_navigator
       })
 
-    assert {:ok, _grant} = Grants.remember(ref, audit?: false)
+    assert {:ok, _grant} =
+             Grants.remember(
+               ref,
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+             )
   end
 
   defp ensure_browser_supervisor do
@@ -298,4 +303,15 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
   defp restore_env(module, key, value), do: Application.put_env(module, key, value)
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and registration is itself
+  # effect-gated, so the next register returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      assert {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end

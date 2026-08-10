@@ -42,9 +42,8 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Stub)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
+    ensure_plugin!("allbert.browser", AllbertBrowser.Plugin)
+    ensure_plugin!("allbert.research", AllbertResearch.Plugin)
 
     ensure_browser_supervisor()
     ensure_research_supervisor()
@@ -53,7 +52,6 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
     on_exit(fn ->
       close_all_sessions()
       AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -713,6 +711,17 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
       })
 
     ref
+  end
+
+  # Registering only when absent, rather than clearing first. A clear closes
+  # readiness while the catalog recomposes, and register_module/1 is itself
+  # effect-gated, so the very next registration returns :product_not_ready.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      assert {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
   end
 
   defp ensure_browser_supervisor do
