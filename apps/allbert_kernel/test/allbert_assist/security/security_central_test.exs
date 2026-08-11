@@ -2,11 +2,7 @@ defmodule AllbertAssist.SecurityCentralTest do
   use ExUnit.Case, async: false
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Kernel.Contract.TestProviders
-  alias AllbertAssist.Security
-  alias AllbertAssist.Security.Context
-  alias AllbertAssist.Security.Decision
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Security.Risk
