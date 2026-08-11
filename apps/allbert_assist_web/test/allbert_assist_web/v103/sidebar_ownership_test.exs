@@ -85,7 +85,8 @@ defmodule AllbertAssistWeb.V103.SidebarOwnershipTest do
     # mounts until the wall clock passes the lease the PRE-FIX code granted
     # (120 s), then proves the sidebar neighborhood still resolves. Before the
     # fix this is RED with the campaign signature; after it, the lease is
-    # 240 s + headroom and ExUnit's own budget is the only deadline.
+    # the budget + headroom and ExUnit's own budget is the only deadline.
+    #
     @tag timeout: 240_000
     test "the sidebar destination sweep survives past the pre-fix lease boundary", %{conn: conn} do
       deadline = deadline_after(@pre_fix_lease_ms + 5_000)
@@ -147,6 +148,20 @@ defmodule AllbertAssistWeb.V103.SidebarOwnershipTest do
   defp mount_workspace_until(conn, deadline, mounts \\ 0) do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     assert has_element?(view, "#workspace-shell")
+
+    # Every mount was left running, so the sweep accumulated a live WorkspaceLive
+    # (and everything it subscribes) for each of its hundreds of iterations. Each
+    # further mount then cost more than the last, the 125 s loop overshot by
+    # minutes, and the test blew its ExUnit budget -- under the gate's owned
+    # environment it died at exactly the budget, ExUnit killed the test process,
+    # the sandbox owner went down with it, and the in-flight LiveView raised
+    # DBConnection.OwnershipError. That is the signature of the very lease class
+    # this file regresses against, manufactured by a leak rather than a lease,
+    # which is what made it look like the retired campaign returning.
+    #
+    # Stopping each view keeps exactly what the sweep asserts -- real, on-path
+    # mounts continuing past the 120 s pre-fix boundary -- without the leak.
+    :ok = GenServer.stop(view.pid)
 
     if expired?(deadline) do
       mounts + 1
