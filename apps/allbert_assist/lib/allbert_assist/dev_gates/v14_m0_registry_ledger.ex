@@ -28,6 +28,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   @normalization "v14_m0_registry_ledger_v1"
   @generator_command "ALLBERT_HOME=<TEMP_HOME> MIX_ENV=test mix do allbert.ecto.migrate --quiet + run -e 'AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!()'"
   @repo_root Path.expand("../../../../..", __DIR__)
+  @m0_source_sha "1739a402834310f996dc3649cb5a2979a6757af1"
   # The one authorized regeneration of this fixture, kept in the artifact so the
   # change is auditable from the artifact alone rather than from a commit
   # message. v1.4 M9 both MOVED a pack (its manifest and skills now live in an
@@ -180,9 +181,16 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     frozen =
       snapshot()
       |> Map.put("provenance", %{
-        "source_sha" => source_sha!(),
+        # The M0 BUILD-START SHA, pinned. It identifies the baseline this fixture
+        # is the ledger of, and the v1.4 action-delta ledger binds its own
+        # `baseline.m0_source_sha` to it. Recording the current HEAD here instead
+        # -- which this function did until M9 -- silently repoints the baseline at
+        # whatever commit happened to regenerate the artifact, and the delta
+        # ledger then fails with a source SHA mismatch. A regeneration changes how
+        # the payload is DERIVED; it does not move the baseline it describes.
+        "source_sha" => @m0_source_sha,
         "generator_command" => @generator_command,
-        "superseded" => @superseded_provenance
+        "superseded" => Map.put(@superseded_provenance, "refrozen_at_sha", source_sha!())
       })
 
     path |> Path.dirname() |> File.mkdir_p!()

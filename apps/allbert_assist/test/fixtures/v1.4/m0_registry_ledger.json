@@ -52014,11 +52014,12 @@
   },
   "provenance": {
     "generator_command": "ALLBERT_HOME=<TEMP_HOME> MIX_ENV=test mix do allbert.ecto.migrate --quiet + run -e 'AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!()'",
-    "source_sha": "e06fa17bf82dd953ff4aad6ed50974be34bc41e5",
+    "source_sha": "1739a402834310f996dc3649cb5a2979a6757af1",
     "superseded": {
       "milestone": "M9",
       "payload_sha256": "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
-      "reason": "notes_files extracted to apps/allbert_notes_files, and the registry-shaped sections re-derived from declarations so the payload no longer depends on which applications the checking VM has loaded"
+      "reason": "notes_files extracted to apps/allbert_notes_files, and the registry-shaped sections re-derived from declarations so the payload no longer depends on which applications the checking VM has loaded",
+      "refrozen_at_sha": "063ab1f2185457b1ddc1c07f7430cf88bd254393"
     }
   },
   "schema_version": 1
