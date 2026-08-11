@@ -447,6 +447,15 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
   pre-move source paths; each row's bytes must now be found, unchanged, at its
   destination. A content change means something other than a relocation
   happened, and it is caught here rather than at a review.
+
+  A relocated file may still need an ordinary fix later in the release -- M12.1
+  admitted `:rejected` to the canonical status vocabulary in the relocated
+  `Runtime.Response`. Re-freezing `source_sha256` would let any later edit be
+  waved through by regenerating, which is the failure mode this exists to catch,
+  so the R2 digest stays immutable and an authorized change is recorded instead
+  in `v1.4-post-move-changes.csv` with its milestone and reason. A file matching
+  a recorded delta passes; a file matching neither its R2 digest nor a recorded
+  delta is still a diff. Operator decision, 2026-08-10.
   """
   @spec relocation_diffs() :: {:ok, [map()]} | {:error, term()}
   def relocation_diffs do
@@ -456,16 +465,45 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedger do
       [header | rows] = contents |> String.split("\n", trim: true)
       headers = String.split(header, ",")
 
+      recorded = recorded_post_move_changes()
+
       diffs =
         rows
         |> Enum.map(&(headers |> Enum.zip(String.split(&1, ",")) |> Map.new()))
         |> Enum.flat_map(&frozen_pairs/1)
-        |> Enum.reject(fn {file, frozen} -> digest(file) == frozen end)
+        |> Enum.reject(fn {file, frozen} ->
+          digest(file) in [frozen, Map.get(recorded, file)]
+        end)
         |> Enum.map(fn {file, frozen} ->
           %{file: file, frozen: frozen, actual: digest(file)}
         end)
 
       {:ok, diffs}
+    end
+  end
+
+  @doc """
+  Authorized post-move content changes, as `%{file => post_move_sha256}`.
+
+  Empty when the record is absent, so a missing file fails closed rather than
+  admitting every change.
+  """
+  @spec recorded_post_move_changes() :: %{String.t() => String.t()}
+  def recorded_post_move_changes do
+    path = Path.join(@repo_root, "docs/validation/v1.4-post-move-changes.csv")
+
+    case File.read(path) do
+      {:ok, contents} ->
+        contents
+        |> String.split("\n", trim: true)
+        |> tl()
+        |> Map.new(fn row ->
+          [file, sha | _rest] = String.split(row, ",")
+          {file, sha}
+        end)
+
+      {:error, _reason} ->
+        %{}
     end
   end
 

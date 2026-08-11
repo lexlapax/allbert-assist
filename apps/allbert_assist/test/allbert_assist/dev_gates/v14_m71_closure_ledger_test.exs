@@ -278,6 +278,51 @@ defmodule AllbertAssist.DevGates.V14M71ClosureLedgerTest do
                Enum.map_join(diffs, "\n", &"  #{&1.file}")
     end
 
+    test "an authorized post-move change is recorded with a reason, not waved through" do
+      # The escape hatch must not become a rubber stamp. Every recorded delta
+      # names a real manifest destination, carries a digest that matches the
+      # file on disk right now, and states which milestone changed it and why.
+      # A stale or invented row fails here rather than silently widening the
+      # set of files the R2 freeze no longer covers.
+      recorded = Ledger.recorded_post_move_changes()
+      assert {:ok, rows} = Ledger.move_manifest()
+
+      destinations =
+        rows
+        |> Enum.flat_map(&[&1["destination"], &1["test_destination"]])
+        |> Enum.reject(&(&1 in [nil, ""]))
+        |> MapSet.new()
+
+      csv =
+        "docs/validation/v1.4-post-move-changes.csv"
+        |> Path.expand(repository_root())
+        |> File.read!()
+        |> String.split("\n", trim: true)
+
+      assert hd(csv) == "file,post_move_sha256,milestone,reason"
+
+      for row <- tl(csv) do
+        [file, sha, milestone, reason] = String.split(row, ",", parts: 4)
+
+        assert MapSet.member?(destinations, file),
+               "#{file} is not a relocation destination in the move manifest"
+
+        assert String.length(sha) == 64
+        assert milestone != ""
+        assert String.length(reason) > 20, "record why #{file} changed, not just that it did"
+
+        actual =
+          file
+          |> Path.expand(repository_root())
+          |> File.read!()
+          |> then(&:crypto.hash(:sha256, &1))
+          |> Base.encode16(case: :lower)
+
+        assert sha == actual, "the recorded delta for #{file} is stale"
+        assert recorded[file] == sha
+      end
+    end
+
     test "a source digest tracks its file, so a content change cannot pass as a move" do
       assert {:ok, rows} = Ledger.move_manifest()
 

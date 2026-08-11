@@ -1,0 +1,3 @@
+file,post_move_sha256,milestone,reason
+apps/allbert_kernel/lib/allbert_assist/runtime/response.ex,7bb86787770857ad050ce1b031a4ba4d8386955f8c508bf2b62ac974d915c929,M12.1,admitted :rejected to the canonical action status vocabulary; the runtime already produced it while @action_statuses @action_status_outcomes and @type status all denied it
+apps/allbert_kernel/test/allbert_assist/runtime/response_test.exs,004a19418ac4380b0c0d37c0bc88059a85b21f00c5606e3a427865d23dcace92,M12.1,covers the :rejected status admitted above including the compile-time assertion that the two status maps agree

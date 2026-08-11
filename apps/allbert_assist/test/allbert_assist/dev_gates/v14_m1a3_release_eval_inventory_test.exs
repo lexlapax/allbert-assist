@@ -95,7 +95,14 @@ defmodule AllbertAssist.DevGates.V14M1A3ReleaseEvalInventoryTest do
     product_cli =
       File.read!(project_path("apps/allbert_composition/lib/allbert_assist/pack/product_cli.ex"))
 
-    assert product_cli =~ "ProductBootstrap.ensure_ready"
+    # The boot call went through a seam when the production and test dispatches
+    # were merged into one implementation, so the direct call no longer appears
+    # verbatim. The obligation is unchanged -- the packaged entry boots through
+    # ProductBootstrap -- and both halves are asserted because either alone
+    # could hold while readiness was skipped: the default seam must name
+    # ProductBootstrap, and the fallback path must call ensure_ready through it.
+    assert product_cli =~ "bootstrap: ProductBootstrap"
+    assert product_cli =~ "seams.bootstrap.ensure_ready"
   end
 
   defp tracked_raw_eval_rows do
