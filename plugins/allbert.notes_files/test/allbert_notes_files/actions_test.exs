@@ -15,7 +15,6 @@ defmodule AllbertNotesFiles.ActionsTest do
     original_memory = Application.get_env(:allbert_assist, Memory)
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
-    original_plugins = PluginRegistry.registered_plugins()
     app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     root =
@@ -31,8 +30,7 @@ defmodule AllbertNotesFiles.ActionsTest do
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
+    ensure_plugin!("allbert.notes_files", AllbertNotesFiles.Plugin)
 
     unless app_registered? do
       assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
@@ -50,8 +48,6 @@ defmodule AllbertNotesFiles.ActionsTest do
       restore_env(Memory, original_memory)
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
       unless app_registered?, do: AppRegistry.unregister(:notes_files)
       File.rm_rf!(root)
     end)
@@ -179,4 +175,18 @@ defmodule AllbertNotesFiles.ActionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  # Registering only when absent, rather than clearing first. A setup-time
+  # `PluginRegistry.clear/0` wipes the whole shipped catalog and revokes the
+  # request's readiness epoch while the catalog recomposes; registration is
+  # itself effect-gated, so a subsequent register/composition can then fail
+  # with :metadata_generation_moved or :product_not_ready. Register only when
+  # the plugin isn't already present, and never clear it back out in on_exit.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
+  end
 end

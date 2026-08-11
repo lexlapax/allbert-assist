@@ -16,9 +16,7 @@ defmodule AllbertNotesFiles.PluginTest do
   alias AllbertAssist.Surface.Node
 
   setup do
-    original_plugins = PluginRegistry.registered_plugins()
-    PluginRegistry.clear()
-    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
+    ensure_plugin!("allbert.notes_files", AllbertNotesFiles.Plugin)
     app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     unless app_registered? do
@@ -43,8 +41,6 @@ defmodule AllbertNotesFiles.PluginTest do
 
     on_exit(fn ->
       unless app_registered?, do: AppRegistry.unregister(:notes_files)
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
     end)
 
     %{
@@ -217,7 +213,8 @@ defmodule AllbertNotesFiles.PluginTest do
 
     assert Enum.all?(
              surfaces,
-             &(Surface.validate_surface_catalog(&1, AllbertNotesFiles.App.surface_catalog()) == :ok)
+             &(Surface.validate_surface_catalog(&1, AllbertNotesFiles.App.surface_catalog()) ==
+                 :ok)
            )
   end
 
@@ -240,5 +237,19 @@ defmodule AllbertNotesFiles.PluginTest do
   defp notes_skill_diagnostic?(diagnostic, notes_skill_paths) do
     source_path = diagnostic |> Map.get(:source_path, "") |> to_string() |> Path.expand()
     Enum.any?(notes_skill_paths, &String.starts_with?(source_path, &1))
+  end
+
+  # Registering only when absent, rather than clearing first. A setup-time
+  # `PluginRegistry.clear/0` wipes the whole shipped catalog and revokes the
+  # request's readiness epoch while the catalog recomposes; registration is
+  # itself effect-gated, so a subsequent register/composition can then fail
+  # with :metadata_generation_moved or :product_not_ready. Register only when
+  # the plugin isn't already present, and never clear it back out in on_exit.
+  defp ensure_plugin!(plugin_id, module) do
+    unless match?({:ok, _entry}, PluginRegistry.lookup(plugin_id)) do
+      {:ok, ^plugin_id} = PluginRegistry.register_module(module)
+    end
+
+    :ok
   end
 end
