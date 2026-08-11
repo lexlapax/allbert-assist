@@ -36,7 +36,9 @@ defmodule AllbertAssist.Runtime.Response do
     :needs_clarification,
     :queued,
     :running,
-    :stopped
+    :stopped,
+    :conflict,
+    :steered
   ]
   @known_string_statuses Map.new(@action_statuses, &{Atom.to_string(&1), &1})
   @action_status_outcomes %{
@@ -65,7 +67,9 @@ defmodule AllbertAssist.Runtime.Response do
     needs_clarification: :success,
     queued: :success,
     running: :success,
-    stopped: :success
+    stopped: :success,
+    conflict: :success,
+    steered: :success
   }
 
   if MapSet.new(Map.keys(@action_status_outcomes)) != MapSet.new(@action_statuses) do
@@ -99,6 +103,8 @@ defmodule AllbertAssist.Runtime.Response do
           | :queued
           | :running
           | :stopped
+          | :conflict
+          | :steered
 
   @type t :: %{
           required(:message) => String.t(),

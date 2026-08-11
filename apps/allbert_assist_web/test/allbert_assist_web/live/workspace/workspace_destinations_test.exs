@@ -16,6 +16,7 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
   alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.ToolCandidate
   alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
@@ -183,14 +184,14 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "memory.collection.origin_grants",
                ["local_operator"],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     proposal = seed_memory_proposal("tea")
@@ -773,14 +774,14 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
              Settings.put(
                "mcp.servers.#{server_id}.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.servers.#{server_id}.transport",
                "streamable_http",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -789,7 +790,7 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
              Settings.put(
                "mcp.servers.#{server_id}.base_url",
                "https://example.com/mcp",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -798,7 +799,7 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
              Settings.put(
                "mcp.servers.#{server_id}.tool_allowlist",
                tool_allowlist,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -807,14 +808,14 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
              Settings.put(
                "mcp.servers.#{server_id}.confirmation",
                "required",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.servers.#{server_id}.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -912,7 +913,9 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
   end
 
   defp action_context do
-    ContextBuilder.live_view_context(%{user_id: "local"}, surface: "/workspace")
+    ReadyEffectContext.attach(
+      ContextBuilder.live_view_context(%{user_id: "local"}, surface: "/workspace")
+    )
   end
 
   defp persist_discovery_suggestion(manifest) do

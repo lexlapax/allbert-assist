@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
@@ -596,8 +597,14 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     %{
       active_objectives: [%{id: "obj-1", status: "running", title: "Sample objective"}],
       canvas_tiles: [%{id: "tile-1"}],
-      ephemeral_surfaces: [%{id: "surface-1"}]
+      ephemeral_surfaces: [%{id: "surface-1"}],
+      allbert_pack_epoch: pack_epoch!()
     }
+  end
+
+  defp pack_epoch! do
+    assert {:ok, epoch} = EffectGuard.admit_ready()
+    epoch
   end
 
   defp workspace_state do

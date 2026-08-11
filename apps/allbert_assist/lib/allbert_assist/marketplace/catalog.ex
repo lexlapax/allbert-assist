@@ -363,10 +363,23 @@ defmodule AllbertAssist.Marketplace.Catalog do
   defp write_mirror(index_path, target) do
     with :ok <- File.mkdir_p(Path.dirname(target)),
          {:ok, body} <- File.read(index_path) do
-      tmp = target <> ".tmp"
-      File.write!(tmp, body)
-      File.rename!(tmp, target)
-      :ok
+      # Every reader of the catalog rewrites this mirror, so two concurrent
+      # readers -- two LiveViews mounting at once is enough -- both wrote the
+      # same `target <> ".tmp"` and both renamed it. The first rename moved the
+      # file away and the second raised File.RenameError on a path that no
+      # longer existed, taking the mounting session down with it. The temporary
+      # name is now unique per writer, so the writes cannot collide and the
+      # rename is atomic per writer; last writer wins, which is correct because
+      # every writer is mirroring identical bytes.
+      tmp = "#{target}.#{System.unique_integer([:positive])}.tmp"
+
+      try do
+        File.write!(tmp, body)
+        File.rename!(tmp, target)
+        :ok
+      after
+        File.rm(tmp)
+      end
     else
       {:error, reason} ->
         {:error,

@@ -9,8 +9,22 @@ defmodule AllbertAssistWeb.WorkspaceCanvasTilesTest do
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
+  alias AllbertAssist.Workspace.Fragment.Guard, as: FragmentGuard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
   alias AllbertAssistWeb.SignalBridge
+
+  # The Guard action-emitter cache is captured once at application boot,
+  # before Pack activation publishes the authoritative action catalog (see
+  # AllbertAssist.Workspace.FragmentTest, which carries the same reset). Test
+  # envelopes emitted with a registered-action emitter id (e.g.
+  # "AllbertAssist.Actions.Intent.DirectAnswer") need the cache refreshed
+  # against the now-finalized catalog, or Guard.emitter_allowed?/1 falls back
+  # to a name-only lookup that a module-inspect emitter id never satisfies.
+  setup do
+    FragmentGuard.reset_for_test()
+    on_exit(fn -> FragmentGuard.reset_for_test() end)
+    :ok
+  end
 
   test "renders emitted canvas fragments through the workspace shell", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace")
