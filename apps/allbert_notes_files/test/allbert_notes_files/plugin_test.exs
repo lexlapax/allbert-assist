@@ -61,7 +61,10 @@ defmodule AllbertNotesFiles.PluginTest do
            ]
 
     assert [skill_root] = AllbertNotesFiles.Plugin.skill_paths()
-    assert String.ends_with?(skill_root, "plugins/allbert.notes_files/skills")
+    # v1.4 M9: an extracted pack ships its skills in its own application's priv,
+    # not under plugins/. The pack addresses them through Application.app_dir/2,
+    # so this is the build tree in test and the release tree when packaged.
+    assert String.ends_with?(skill_root, "allbert_notes_files/priv/skills")
     assert AllbertNotesFiles.Plugin.child_spec([]) == :ignore
   end
 
@@ -172,9 +175,25 @@ defmodule AllbertNotesFiles.PluginTest do
 
     assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App, server: app_registry)
 
-    assert [fragment] = Fragments.app_fragments(app: [server: app_registry])
+    # v1.4 M9 moved settings OWNERSHIP from the App path to the pack, and this is
+    # the identity-preservation proof the milestone exists for: the App now
+    # contributes nothing, the pack contributes the fragment, and the id, keys,
+    # and defaults are byte-identical to what the App path produced. Asserting
+    # both halves is the point -- one alone would let the fragment disappear or
+    # be contributed twice without failing.
+    assert Fragments.app_fragments(app: [server: app_registry]) == []
+
+    fragment = AllbertNotesFiles.SettingsFragment.fragment()
     assert fragment.id == "app:notes_files"
+    assert fragment.owner == :notes_files
+    assert fragment.source == :app
     assert fragment.schema["apps.notes_files.notes_root"].default == "<ALLBERT_HOME>/notes"
+    assert fragment.schema["apps.notes_files.max_results"].default == 25
+
+    assert AllbertNotesFiles.Pack.settings_fragments() == [AllbertNotesFiles.SettingsFragment]
+
+    assert Enum.sort(Enum.map(AllbertNotesFiles.SettingsFragment.safe_write_rows(), &elem(&1, 1))) ==
+             Enum.sort(fragment.safe_write_keys)
 
     descriptors = ExtensionsRegistry.registered_intent_descriptors(app: [server: app_registry])
 

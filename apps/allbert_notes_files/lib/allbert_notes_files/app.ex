@@ -8,7 +8,6 @@ defmodule AllbertNotesFiles.App do
 
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
-  alias AllbertNotesFiles.SettingsFragment
 
   @list_panel_id :notes_files_list_panel
   @detail_panel_id :notes_files_detail_panel
@@ -32,8 +31,13 @@ defmodule AllbertNotesFiles.App do
   @impl AllbertAssist.App
   def skill_paths, do: AllbertNotesFiles.Plugin.skill_paths()
 
+  # v1.4 M9: the pack owns this fragment now, declared through
+  # AllbertNotesFiles.Pack.settings_fragments/0. The App path built a fragment
+  # with the SAME id ("app:notes_files") from these entries, so leaving it here
+  # contributed the fragment twice and composition rejected the pack with
+  # :duplicate_settings_fragment_id. The ownership moved; the identity did not.
   @impl AllbertAssist.App
-  def settings_schema, do: SettingsFragment.entries()
+  def settings_schema, do: []
 
   @impl AllbertAssist.App
   def memory_namespace do

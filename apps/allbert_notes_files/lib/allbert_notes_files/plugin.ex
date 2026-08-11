@@ -35,11 +35,14 @@ defmodule AllbertNotesFiles.Plugin do
 
   @impl true
   def skill_paths do
-    # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths).
-    [
-      AllbertAssist.Plugin.Paths.plugin_path("allbert.notes_files", "skills") ||
-        Path.expand("../../skills", __DIR__)
-    ]
+    # v1.4 M9: an extracted pack addresses its own assets through its
+    # application, not through the `plugins/<id>/` directory convention. The
+    # previous form resolved Plugin.Paths.plugin_path("allbert.notes_files",
+    # "skills"), which still pointed at plugins/ after the move, so the skills
+    # silently vanished from the registry. `app_dir/2` is release-safe and
+    # agrees with the root the manifest is discovered from, which is this
+    # application's priv.
+    [Application.app_dir(:allbert_notes_files, "priv/skills")]
   end
 
   @impl true

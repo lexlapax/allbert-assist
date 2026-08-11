@@ -1,0 +1,2 @@
+payload_sha256,milestone,reason
+7e49dbdc8d9da5e3453e909daede4b8010d02fe186d80d04e41054c31fdbb61a,M9,extracted the notes_files pack into apps/allbert_notes_files so its actions and app are contributed by an application-owned manifest rather than a plugins/ directory scan; no action or app identity changed

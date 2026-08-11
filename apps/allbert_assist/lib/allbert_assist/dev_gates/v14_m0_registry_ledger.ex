@@ -89,18 +89,57 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     if valid?, do: frozen, else: raise("invalid v1.4 M0 registry ledger fixture")
   end
 
-  @doc "Fail when the current public registry composition differs from frozen M0."
+  @doc """
+  Fail when the current public registry composition differs from frozen M0.
+
+  A milestone may legitimately change the registry -- M9 extracted the
+  notes_files pack, and M12 extracts two more. Re-freezing this fixture at each
+  one would retire the M0-versus-now comparison for the rest of the release and
+  let any later change be waved through by regenerating, so the M0 payload stays
+  immutable and an authorized change is recorded instead, in
+  `v1.4-m0-registry-deltas.csv`, with its milestone and reason. A live snapshot
+  matching a recorded delta passes; one matching neither M0 nor a recorded delta
+  is still drift. Same shape as the R2 post-move record, operator decision
+  2026-08-11.
+  """
   @spec check!() :: :ok
   def check! do
     frozen = load_frozen!()
     live = snapshot()
+    live_digest = live["digests"]["payload_sha256"]
 
-    if Map.drop(frozen, ["provenance"]) == live do
-      :ok
-    else
-      raise "v1.4 M0 registry ledger drift: " <>
-              "frozen=#{frozen["digests"]["payload_sha256"]} " <>
-              "live=#{live["digests"]["payload_sha256"]}"
+    cond do
+      Map.drop(frozen, ["provenance"]) == live ->
+        :ok
+
+      live_digest in recorded_delta_digests() ->
+        :ok
+
+      true ->
+        raise "v1.4 M0 registry ledger drift: " <>
+                "frozen=#{frozen["digests"]["payload_sha256"]} live=#{live_digest}"
+    end
+  end
+
+  @doc """
+  Payload digests of authorized post-M0 registry changes.
+
+  Empty when the record is absent, so a missing file fails closed rather than
+  admitting every change.
+  """
+  @spec recorded_delta_digests() :: [String.t()]
+  def recorded_delta_digests do
+    path = Path.expand("../../../../../docs/validation/v1.4-m0-registry-deltas.csv", __DIR__)
+
+    case File.read(path) do
+      {:ok, contents} ->
+        contents
+        |> String.split("\n", trim: true)
+        |> tl()
+        |> Enum.map(&(&1 |> String.split(",", parts: 3) |> hd()))
+
+      {:error, _reason} ->
+        []
     end
   end
 

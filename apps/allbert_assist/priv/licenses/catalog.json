@@ -93,6 +93,28 @@
       ]
     },
     {
+      "application": "allbert_notes_files",
+      "bundled": true,
+      "id": "beam-allbert-notes-files",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_notes_files",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertNotesFiles.Pack",
+        "id": "allbert_notes_files",
+        "registry_order": 200,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "application": "bandit",
       "bundled": true,
       "id": "beam-bandit",
@@ -1355,28 +1377,6 @@
     {
       "bundled": true,
       "file": {
-        "application": "crypto",
-        "relative_path": "priv/lib/libcrypto.3.dylib"
-      },
-      "id": "openssl-macos",
-      "kind": "managed_file",
-      "license_expression": "Apache-2.0",
-      "name": "OpenSSL library copied into macOS ERTS",
-      "presence": "observed",
-      "provenance": {
-        "reason": "conditional macOS ERTS closure",
-        "upstream": "https://openssl-library.org/"
-      },
-      "targets": [
-        "macos-arm64"
-      ],
-      "text_ids": [
-        "Apache-2.0"
-      ]
-    },
-    {
-      "bundled": true,
-      "file": {
         "path": "native/lib/libsctp.so.1.0.19"
       },
       "id": "lksctp-linux-runtime",
@@ -1405,6 +1405,28 @@
       ],
       "text_ids": [
         "LGPL-2.1-or-later"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "crypto",
+        "relative_path": "priv/lib/libcrypto.3.dylib"
+      },
+      "id": "openssl-macos",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "OpenSSL library copied into macOS ERTS",
+      "presence": "observed",
+      "provenance": {
+        "reason": "conditional macOS ERTS closure",
+        "upstream": "https://openssl-library.org/"
+      },
+      "targets": [
+        "macos-arm64"
+      ],
+      "text_ids": [
+        "Apache-2.0"
       ]
     },
     {

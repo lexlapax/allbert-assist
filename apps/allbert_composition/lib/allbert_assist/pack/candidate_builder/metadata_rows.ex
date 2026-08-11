@@ -563,12 +563,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
   end
 
   defp repository_skill_path(path) when is_binary(path) do
-    markers =
-      Path.split(path)
-      |> Enum.with_index()
-      |> Enum.filter(fn {segment, _} -> segment == "plugins" end)
-
-    case markers do
+    case Path.split(path) |> Enum.with_index() |> Enum.filter(&(elem(&1, 0) == "plugins")) do
       [{"plugins", index}] ->
         relative = path |> Path.split() |> Enum.drop(index) |> Path.join()
 
@@ -577,11 +572,39 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
           else: invalid(:invalid_repository_skill_path)
 
       _ ->
-        invalid(:invalid_repository_skill_path)
+        extracted_pack_skill_path(path)
     end
   end
 
   defp repository_skill_path(_), do: invalid(:invalid_repository_skill_path)
+
+  # v1.4 M9: an extracted pack ships its skills in its own application's `priv/`,
+  # so the path carries no `plugins` segment and the clause above cannot name it.
+  # Both layouts that reach here resolve through `Application.app_dir/2`: the
+  # build tree `_build/<env>/lib/<app>/priv/skills` and the release tree
+  # `<root>/lib/<app>-<vsn>/priv/skills`. Both are normalized to the SOURCE path
+  # `apps/<app>/priv/skills`, because this value is frozen into the
+  # `skill_root_v1` row and its projection digest -- it must identify the asset in
+  # the repository, not the machine-local tree it was read from.
+  defp extracted_pack_skill_path(path) do
+    case Enum.reverse(Path.split(path)) do
+      ["skills", "priv", application | rest] ->
+        if "lib" in rest,
+          do: {:ok, Path.join(["apps", strip_version(application), "priv", "skills"])},
+          else: invalid(:invalid_repository_skill_path)
+
+      _ ->
+        invalid(:invalid_repository_skill_path)
+    end
+  end
+
+  # A release names the directory `<app>-<vsn>`; the build tree does not.
+  defp strip_version(application) do
+    case String.split(application, "-", parts: 2) do
+      [name, _version] -> name
+      [name] -> name
+    end
+  end
 
   defp declared_skill_path(%{root_path: root_path, plugin_id: plugin_id}, path)
        when is_binary(root_path) and is_binary(path) do

@@ -39,7 +39,11 @@ defmodule AllbertComposition.MixProject do
   defp deps do
     [
       {:allbert_kernel, in_umbrella: true},
-      {:allbert_assist, in_umbrella: true}
+      {:allbert_assist, in_umbrella: true},
+      # R0 frozen DAG: the composition host depends on every required native
+      # pack. This edge is what starts the extracted pack, without any kernel
+      # edit, which M9's acceptance forbids.
+      {:allbert_notes_files, in_umbrella: true}
     ]
   end
 end

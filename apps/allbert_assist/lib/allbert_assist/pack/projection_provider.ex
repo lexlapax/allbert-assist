@@ -12,7 +12,16 @@ defmodule AllbertAssist.Pack.ProjectionProvider do
   alias AllbertAssist.Pack.OTPMetadata.{ReleaseApplication, ReleaseSpec}
   alias AllbertAssist.Pack.Projection
 
-  @applications [:allbert_kernel, :allbert_assist, :allbert_composition, :allbert_assist_web]
+  # Ordered to match the R0 frozen DAG: kernel, residual, then each extracted
+  # pack, then the composition host and Web. v1.4 M9 added :allbert_notes_files
+  # as the first pack to leave plugins/ and become an umbrella sibling.
+  @applications [
+    :allbert_kernel,
+    :allbert_assist,
+    :allbert_notes_files,
+    :allbert_composition,
+    :allbert_assist_web
+  ]
 
   @spec closed() :: {:ok, Projection.Closed.t()} | {:error, term()}
   def closed do

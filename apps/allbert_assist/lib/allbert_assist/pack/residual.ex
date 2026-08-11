@@ -175,12 +175,6 @@ defmodule AllbertAssist.Pack.Residual do
         "plugins/allbert.signal/test"
       ),
       owner(
-        :notes_files,
-        "apps/allbert_assist",
-        "plugins/allbert.notes_files/lib",
-        "plugins/allbert.notes_files/test"
-      ),
-      owner(
         :artifacts,
         "apps/allbert_assist",
         "plugins/allbert.artifacts/lib",

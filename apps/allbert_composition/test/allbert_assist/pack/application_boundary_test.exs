@@ -21,16 +21,20 @@ defmodule AllbertAssist.Pack.ApplicationBoundaryTest do
     assert Keyword.fetch!(spec, :mod) == {AllbertComposition.Application, []}
   end
 
-  test "release starts kernel, residual, composition, then Web" do
+  test "release starts kernel, residual, each pack, composition, then Web" do
     applications =
       MixProject.project()
       |> Keyword.fetch!(:releases)
       |> Keyword.fetch!(:allbert)
       |> Keyword.fetch!(:applications)
 
+    # Order follows the R0 frozen DAG: kernel and residual first, then each
+    # extracted pack, then the composition host, then Web. v1.4 M9 added
+    # allbert_notes_files as the first pack to leave plugins/.
     assert applications == [
              allbert_kernel: :permanent,
              allbert_assist: :permanent,
+             allbert_notes_files: :permanent,
              allbert_composition: :permanent,
              allbert_assist_web: :permanent
            ]

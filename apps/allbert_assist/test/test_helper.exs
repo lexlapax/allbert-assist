@@ -56,6 +56,28 @@ Application.put_env(:allbert_assist, AllbertAssist.Skills.Registry,
 # (Handoff.new!(app_id: :stocksage) -> {:invalid_app_id, :unknown_app}). Register
 # it ONCE for the whole suite (idempotent, never torn down) so every register-if-
 # absent guard goes inert and no teardown can race. See StockSageRegistryCase.
+# v1.4 M9: the compiled action catalog spans every application declaring
+# allbert_pack, and its registry_order sequence must be contiguous. The residual
+# does not depend on the extracted notes_files pack -- composition does -- so it
+# is absent here unless loaded explicitly, and its actions 261..263 then leave a
+# hole that fails the catalog closed with :invalid_action_registry_order. That is
+# exactly the hole Plugin.Discovery's extracted-manifest support exists to
+# prevent. It must be LOADED, not merely on the code path, because
+# CompiledInventory.default_applications/0 reads Application.loaded_applications/0,
+# and it must happen before the app registrations below, which validate their
+# action modules against that catalog.
+pack_ebin = Path.join([Mix.Project.build_path(), "lib", "allbert_notes_files", "ebin"])
+
+unless Code.prepend_path(pack_ebin) do
+  raise "could not add the notes_files pack code path: #{pack_ebin}"
+end
+
+case Application.load(:allbert_notes_files) do
+  :ok -> :ok
+  {:error, {:already_loaded, _}} -> :ok
+  {:error, reason} -> raise "could not load the notes_files pack: #{inspect(reason)}"
+end
+
 unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("stocksage")) do
   AllbertAssist.Plugin.Registry.register_module(StockSage.Plugin)
 end
