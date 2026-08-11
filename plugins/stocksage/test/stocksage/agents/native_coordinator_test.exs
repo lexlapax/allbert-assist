@@ -5,6 +5,7 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias StockSage.Agents.NativeCoordinator
   alias StockSage.Agents.NativeCoordinator.Commands.Analyze
 
@@ -127,11 +128,15 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
           status: "open",
           active_app: "stocksage"
         },
-        AllbertAssist.TestSupport.ReadyEffectContext.context()
+        ReadyEffectContext.context()
       )
 
     assert {:ok, report} =
-             NativeCoordinator.analyze(Map.put(@request, :objective_id, objective.id))
+             NativeCoordinator.analyze(
+               @request
+               |> Map.put(:objective_id, objective.id)
+               |> Map.put(:allbert_pack_epoch, ReadyEffectContext.epoch())
+             )
 
     assert report.status == :ok
     assert Map.has_key?(report.agent_reports, "stocksage.bull_thesis.round_1")

@@ -514,7 +514,8 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       fail_agent_id: field(params, :fail_agent_id),
       force_quality_reject: field(params, :force_quality_reject),
       max_debate_rounds: field(params, :max_debate_rounds),
-      max_risk_rounds: field(params, :max_risk_rounds)
+      max_risk_rounds: field(params, :max_risk_rounds),
+      allbert_pack_epoch: field(params, :allbert_pack_epoch)
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()

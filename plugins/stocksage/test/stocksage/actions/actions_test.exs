@@ -13,6 +13,7 @@ defmodule StockSage.ActionsTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias StockSage.{Analyses, Queue}
   alias StockSage.LegacyFixture
 
@@ -633,11 +634,14 @@ defmodule StockSage.ActionsTest do
 
   test "intent agent starts a StockSage objective and objective-bound confirmation" do
     assert {:ok, response} =
-             IntentAgent.respond(%{
-               text: "analyze AAPL",
-               user_id: "alice",
-               active_app: :stocksage
-             })
+             IntentAgent.respond(
+               %{
+                 text: "analyze AAPL",
+                 user_id: "alice",
+                 active_app: :stocksage
+               },
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             )
 
     assert response.decision.selected_action == "run_analysis"
     assert response.status == :needs_confirmation
