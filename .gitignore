@@ -1,11 +1,15 @@
 # The directory Mix will write compiled artifacts to.
-/_build/
+# Unanchored: running `mix` from inside an umbrella child (apps/<app>) creates a
+# nested _build there, which a root-anchored `/_build/` does not cover -- those
+# .beam files were untracked AND unignored, so `git add -A` could commit them.
+_build/
 
 # If you run "mix test --cover", coverage assets end up here.
-/cover/
+cover/
 
-# The directory Mix downloads your dependencies sources to.
-/deps/
+# The directory Mix downloads your dependencies sources to. Unanchored for the
+# same umbrella-child reason as _build/.
+deps/
 
 # Where 3rd-party dependencies like ExDoc output generated docs.
 /doc/
@@ -51,8 +55,11 @@ Thumbs.db
 *.plt.hash
 
 # Coverage reports
-/cover/
-/excoveralls/
+excoveralls/
+
+# Compiled BEAM artifacts, wherever a stray build lands them.
+*.beam
+*.app
 
 # Local Claude Code workspace (worktrees, local settings, agent scratch).
 # Keep the entire `.claude/` directory local to each machine; selectively
