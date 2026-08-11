@@ -54,16 +54,30 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
           required(String.t()) => String.t() | nonempty_list(row_schema_contract_entry()) | 1
         }
 
-  @doc "Build the sealed source projection used by the M1.a2 shadow gate."
-  @spec source_closed_projection!() :: Projection.Closed.t()
-  def source_closed_projection! do
+  @doc """
+  Build the sealed source projection used by the M1.a2 shadow gate.
+
+  Accepts a narrower application set than the full closure. A caller that
+  constructs a deliberately minimal candidate cannot satisfy a projection
+  carrying every pack -- v1.4 M9's extraction made that concrete -- and needs to
+  close over only the applications its fixture supports. Pack components outside
+  the requested set are dropped; third-party component rows are untouched,
+  because they belong to the catalog rather than to the closure.
+  """
+  @spec source_closed_projection!([atom()]) :: Projection.Closed.t()
+  def source_closed_projection!(closed_applications \\ @closed_applications) do
     catalog = Licenses.load_catalog(repo_root: @repo_root) |> value!(:source_catalog)
-    applications = Enum.map(@closed_applications, &read_source_application!/1)
+    applications = Enum.map(closed_applications, &read_source_application!/1)
     application_index = Map.new(applications, &{Atom.to_string(&1.application), &1})
+
+    in_closure? = MapSet.new(closed_applications, &Atom.to_string/1)
 
     components =
       catalog
       |> Map.fetch!("components")
+      |> Enum.reject(fn component ->
+        is_map(component["pack"]) and not MapSet.member?(in_closure?, component["application"])
+      end)
       |> Enum.map(fn component ->
         with %{"application" => application_name, "pack" => pack} when is_map(pack) <- component,
              {:ok, application} <- Map.fetch(application_index, application_name) do
@@ -90,7 +104,7 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
 
     Projection.reconcile_closed(components, applications, release,
       sealed: true,
-      closed_applications: @closed_applications,
+      closed_applications: closed_applications,
       effective_env_fetcher: source_env_fetcher(applications)
     )
     |> value!(:closed_pack_projection)

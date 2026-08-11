@@ -33,7 +33,7 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   # candidate legitimately changed; no contribution was added or removed, only
   # re-attributed to the application that owns it.
   @expected_behavior_digest "04eb89b609acb80a4395cfdd01760f9af2b137b9ab96327fdd61cc3b4080c1d2"
-  @expected_bytes_sha256 "6082ff7aea789882c2c9a810bbeddc5f760f0447bee392715325e385ff504dca"
+  @expected_bytes_sha256 "44a05fd47455b54093e0d22a0204a6aee1a8a8aa1e4b73e4aa71e4450be7a70b"
 
   defmodule AppMetadataSupervisor do
     use GenServer

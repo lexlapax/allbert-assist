@@ -9,6 +9,7 @@ defmodule AllbertNotesFiles.ActionsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_confirmations = Application.get_env(:allbert_assist, Confirmations)
@@ -40,7 +41,7 @@ defmodule AllbertNotesFiles.ActionsTest do
              Settings.put(
                "permissions.notes_file_write",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
@@ -133,7 +134,7 @@ defmodule AllbertNotesFiles.ActionsTest do
              Settings.put(
                "permissions.notes_file_write",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =

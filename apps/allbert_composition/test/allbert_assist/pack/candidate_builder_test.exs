@@ -112,8 +112,26 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
   end
 
   @tag :parity
-  test "Plugin metadata mutation classes change the candidate or fail closed", context do
-    baseline = candidate_for(context.closed, context.apps, plugin_entry(), [])
+  test "Plugin metadata mutation classes change the candidate or fail closed", _context do
+    # A deliberately minimal candidate -- empty snapshots, no static projection,
+    # one synthetic plugin -- so nothing else can dangle and the build is cheap
+    # enough to repeat once per mutation class.
+    #
+    # v1.4 M9 put the notes_files pack into the FULL closed projection, and its
+    # settings fragment is app-sourced, so it resolves its owner through the App
+    # snapshot and an empty one fails with :invalid_settings_fragment. Growing the
+    # fixture to satisfy the pack does not work: the full App snapshot dangles
+    # CoreApp's static actions, adding only the pack's App and plugin breaks the
+    # 1..N sequence with actions 261..263, and real snapshots with a derived
+    # static projection is correct but rebuilds the full candidate once per
+    # mutation and exceeds the budget.
+    #
+    # So the projection narrows rather than the fixture growing. This row tests
+    # whether plugin metadata participates in candidate assembly, not pack
+    # composition, and closes over only what its fixture can satisfy.
+    closed = ShadowParity.source_closed_projection!([:allbert_kernel, :allbert_assist])
+
+    baseline = candidate_for(closed, plugin_entry())
 
     for {field, value} <- [
           plugin_id: "candidate-plugin-changed",
@@ -121,7 +139,7 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
           trust_status: :untrusted,
           module: __MODULE__
         ] do
-      changed = candidate_for(context.closed, context.apps, struct!(plugin_entry(), %{field => value}), [])
+      changed = candidate_for(closed, struct!(plugin_entry(), %{field => value}))
 
       refute canonical_identity(baseline) == canonical_identity(changed),
              "expected #{field} to participate in Candidate assembly"
@@ -134,14 +152,13 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
       )
 
     refute canonical_identity(baseline) ==
-             canonical_identity(candidate_for(context.closed, context.apps, skill_plugin, []))
+             canonical_identity(candidate_for(closed, skill_plugin))
 
-    legacy_plugin = candidate_for(context.closed, context.apps, plugin_entry(module: __MODULE__), [])
+    legacy_plugin = candidate_for(closed, plugin_entry(module: __MODULE__))
 
     legacy_child =
       candidate_for(
-        context.closed,
-        context.apps,
+        closed,
         plugin_entry(
           module: __MODULE__,
           children: %{id: "candidate-child", start: {Task, :start_link, []}, restart: :temporary}
@@ -154,14 +171,13 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     assert {:ok, [static_action | _]} = ActionProjection.static()
 
     static_baseline =
-      candidate_for(context.closed, context.apps, plugin_entry(module: __MODULE__),
+      candidate_for(closed, plugin_entry(module: __MODULE__),
         static_projection: [static_action]
       )
 
     static_action_mutation =
       candidate_for(
-        context.closed,
-        context.apps,
+        closed,
         plugin_entry(module: __MODULE__, actions: [static_action.module]),
         static_projection: [static_action]
       )
@@ -169,11 +185,11 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     refute canonical_identity(static_baseline) == canonical_identity(static_action_mutation)
 
     settings_baseline =
-      candidate_for_with_derived_settings(context.closed, plugin_entry(module: __MODULE__))
+      candidate_for_with_derived_settings(closed, plugin_entry(module: __MODULE__))
 
     settings_mutation =
       candidate_for_with_derived_settings(
-        context.closed,
+        closed,
         plugin_entry(
           module: __MODULE__,
           settings_schema: [%{key: "plugins.candidate.enabled", type: :boolean, default: false}]
@@ -184,7 +200,7 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
 
     assert {:error, _diagnostics} =
              CandidateBuilder.build(
-               context.closed,
+               closed,
                %AppSnapshot{schema_version: 1, generation: 0, entries: []},
                %PluginSnapshot{
                  schema_version: 1,
@@ -243,20 +259,14 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     {bytes, snapshot.behavior_digest}
   end
 
-  # v1.4 M9: the closed projection now carries the extracted notes_files pack,
-  # whose settings fragment is app-sourced and resolves its owner through the App
-  # snapshot. An empty snapshot is therefore no longer a consistent input -- the
-  # build fails with :invalid_settings_fragment before any plugin field is even
-  # examined. The real snapshot is passed instead; the plugin remains the varying
-  # input, so what these rows prove is unchanged.
-  defp candidate_for(closed, apps, plugin, opts) do
+  defp candidate_for(closed, plugin, opts \\ []) do
     opts =
       Keyword.merge([static_projection: [], settings_fragments: [], intent_descriptors: []], opts)
 
     assert {:ok, candidate} =
              CandidateBuilder.build(
                closed,
-               apps,
+               %AppSnapshot{schema_version: 1, generation: 0, entries: []},
                %PluginSnapshot{schema_version: 1, generation: 0, entries: [plugin]},
                opts
              )
