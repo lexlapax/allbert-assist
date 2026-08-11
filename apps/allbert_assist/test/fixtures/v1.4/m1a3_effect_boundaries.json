@@ -4120,6 +4120,7 @@
     "apps/allbert_assist/lib/allbert_assist/objectives.ex",
     "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex",
     "apps/allbert_assist/lib/allbert_assist/objectives/commands/advance_objective.ex",
+    "apps/allbert_assist/lib/allbert_assist/objectives/commands/continue_objective.ex",
     "apps/allbert_assist/lib/allbert_assist/objectives/engine/agent.ex",
     "apps/allbert_assist/lib/allbert_assist/objectives/fanout.ex",
     "apps/allbert_assist/lib/allbert_assist/objectives/fanout/report_composer.ex",
@@ -4206,6 +4207,7 @@
     "plugins/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex",
     "plugins/stocksage/lib/mix/tasks/stocksage.queue.ex",
     "plugins/stocksage/lib/stocksage/actions/run_analysis.ex",
+    "plugins/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex",
     "plugins/stocksage/lib/stocksage/evidence.ex",
     "plugins/stocksage/lib/stocksage_web/analysis_live.ex"
   ],
@@ -4954,6 +4956,18 @@
       "owner": "AllbertAssist.Objectives.Commands.AdvanceObjective",
       "phase": "ready",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands/advance_objective.ex"
+    },
+    {
+      "admission_mode": "ready_carried",
+      "carrier_policy": "allbert_pack_epoch E1 is validated before the guarded effect",
+      "compatibility_provenance": null,
+      "entrypoint": "guarded effect boundary",
+      "focused_test": "AllbertAssist.Pack.EffectGuardSettingsChannelsTest",
+      "id": "guarded-source-apps-allbert-assist-lib-allbert-assist-objectives-commands-continue-objective-ex",
+      "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
+      "owner": "AllbertAssist.Objectives.Commands.ContinueObjective",
+      "phase": "ready",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands/continue_objective.ex"
     },
     {
       "admission_mode": "ready_carried",
