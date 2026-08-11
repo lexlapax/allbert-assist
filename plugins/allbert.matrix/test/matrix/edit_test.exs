@@ -6,6 +6,7 @@ defmodule AllbertMatrix.EditTest do
   import Plug.Conn
 
   alias AllbertAssist.Channels.Matrix.Client
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -31,7 +32,8 @@ defmodule AllbertMatrix.EditTest do
                "txn-2",
                "$event-1",
                "working",
-               plug: {Req.Test, __MODULE__}
+               plug: {Req.Test, __MODULE__},
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
   end
 

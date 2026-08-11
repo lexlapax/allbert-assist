@@ -10,6 +10,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
   alias AllbertAssist.Objectives.Proposer
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Jido.Signal.Bus
   alias StockSage.Analyses
   alias StockSage.TraderBridge
@@ -62,6 +63,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
 
     assert {:ok, %{objective: objective}} =
              EngineAgent.frame_objective(name, %{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                user_id: "alice",
                title: "Analyze AAPL",
                objective: "Complete one StockSage analysis for AAPL.",
@@ -85,13 +87,18 @@ defmodule StockSage.ObjectiveRuntimeTest do
 
     assert {:ok, %{steps: [step]}} =
              EngineAgent.propose_steps(name, %{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                objective_id: objective.id,
                text: "analyze AAPL",
                force_stub: true
              })
 
     assert {:ok, %{step: blocked_step, response: authorize_response}} =
-             EngineAgent.authorize_step(name, %{step_id: step.id, trace_id: trace_id})
+             EngineAgent.authorize_step(name, %{
+               step_id: step.id,
+               trace_id: trace_id,
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert authorize_response.status == :needs_confirmation
     assert blocked_step.status == "blocked"
@@ -107,18 +114,31 @@ defmodule StockSage.ObjectiveRuntimeTest do
              Runner.run(
                "approve_confirmation",
                %{id: authorize_response.confirmation_id, reason: "objective runtime test"},
-               %{actor: "alice", channel: :test, surface: "objective-runtime"}
+               %{
+                 actor: "alice",
+                 channel: :test,
+                 surface: "objective-runtime",
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
+               }
              )
 
     assert approval.status == :completed
 
     assert {:ok, %{step: completed_step}} =
-             EngineAgent.execute_step(name, %{step_id: step.id, trace_id: trace_id})
+             EngineAgent.execute_step(name, %{
+               step_id: step.id,
+               trace_id: trace_id,
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert completed_step.status == "completed"
 
     assert {:ok, %{objective: completed_objective, verdict: :met}} =
-             EngineAgent.observe_step(name, %{step_id: step.id, trace_id: trace_id})
+             EngineAgent.observe_step(name, %{
+               step_id: step.id,
+               trace_id: trace_id,
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert completed_objective.status == "completed"
     assert completed_objective.loop_count == 1
@@ -153,6 +173,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
   test "two-step StockSage objective continues from first approval to second confirmation and completion" do
     assert {:ok, %{objective: objective}} =
              EngineAgent.frame_objective(%{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                user_id: "alice",
                title: "Compare AAPL and MSFT",
                objective: "Complete StockSage analyses for AAPL and MSFT.",
@@ -182,13 +203,18 @@ defmodule StockSage.ObjectiveRuntimeTest do
 
     assert {:ok, %{steps: [first]}} =
              EngineAgent.propose_steps(%{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                objective_id: objective.id,
                text: "analyze AAPL and compare to MSFT",
                force_stub: true
              })
 
     assert {:ok, %{step: first_blocked, response: first_authorize}} =
-             EngineAgent.authorize_step(%{step_id: first.id, trace_id: "trace_compare_1"})
+             EngineAgent.authorize_step(%{
+               step_id: first.id,
+               trace_id: "trace_compare_1",
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert first_blocked.status == "blocked"
     assert first_authorize.status == :needs_confirmation
@@ -197,14 +223,26 @@ defmodule StockSage.ObjectiveRuntimeTest do
              Runner.run(
                "approve_confirmation",
                %{id: first_authorize.confirmation_id, reason: "first compare step"},
-               %{actor: "alice", user_id: "alice", channel: :test, trace_id: "trace_compare_1"}
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :test,
+                 trace_id: "trace_compare_1",
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
+               }
              )
 
     assert {:ok, continue_one} =
              Runner.run(
                "continue_objective",
                %{id: objective.id, user_id: "alice"},
-               %{actor: "alice", user_id: "alice", channel: :test, trace_id: "trace_compare_2"}
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :test,
+                 trace_id: "trace_compare_2",
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
+               }
              )
 
     assert continue_one.status == :needs_confirmation
@@ -226,14 +264,26 @@ defmodule StockSage.ObjectiveRuntimeTest do
              Runner.run(
                "approve_confirmation",
                %{id: continue_one.confirmation_id, reason: "second compare step"},
-               %{actor: "alice", user_id: "alice", channel: :test, trace_id: "trace_compare_2"}
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :test,
+                 trace_id: "trace_compare_2",
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
+               }
              )
 
     assert {:ok, continue_two} =
              Runner.run(
                "continue_objective",
                %{id: objective.id, user_id: "alice"},
-               %{actor: "alice", user_id: "alice", channel: :test, trace_id: "trace_compare_3"}
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :test,
+                 trace_id: "trace_compare_3",
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
+               }
              )
 
     assert continue_two.status == :completed
@@ -250,6 +300,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
   test "continue_objective is advisory when confirmation is still pending" do
     assert {:ok, %{objective: objective}} =
              EngineAgent.frame_objective(%{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                user_id: "alice",
                title: "Analyze AAPL",
                objective: "Complete one analysis.",
@@ -259,13 +310,18 @@ defmodule StockSage.ObjectiveRuntimeTest do
 
     assert {:ok, %{steps: [step]}} =
              EngineAgent.propose_steps(%{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                objective_id: objective.id,
                text: "analyze AAPL",
                force_stub: true
              })
 
     assert {:ok, %{response: authorization}} =
-             EngineAgent.authorize_step(%{step_id: step.id, trace_id: "trace_pending"})
+             EngineAgent.authorize_step(%{
+               step_id: step.id,
+               trace_id: "trace_pending",
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert authorization.status == :needs_confirmation
 
@@ -273,7 +329,12 @@ defmodule StockSage.ObjectiveRuntimeTest do
              Runner.run(
                "continue_objective",
                %{id: objective.id, user_id: "alice"},
-               %{actor: "alice", user_id: "alice", channel: :test}
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :test,
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
+               }
              )
 
     assert response.status == :still_blocked
@@ -286,6 +347,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
   test "cancel-then-approve keeps single-shot action result but does not advance objective" do
     assert {:ok, %{objective: objective}} =
              EngineAgent.frame_objective(%{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                user_id: "alice",
                title: "Analyze AAPL",
                objective: "Complete one analysis.",
@@ -295,13 +357,18 @@ defmodule StockSage.ObjectiveRuntimeTest do
 
     assert {:ok, %{steps: [step]}} =
              EngineAgent.propose_steps(%{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                objective_id: objective.id,
                text: "analyze AAPL",
                force_stub: true
              })
 
     assert {:ok, %{step: blocked_step, response: authorize_response}} =
-             EngineAgent.authorize_step(%{step_id: step.id, trace_id: "trace_cancel_approve"})
+             EngineAgent.authorize_step(%{
+               step_id: step.id,
+               trace_id: "trace_cancel_approve",
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert blocked_step.status == "blocked"
     assert authorize_response.status == :needs_confirmation
@@ -310,7 +377,13 @@ defmodule StockSage.ObjectiveRuntimeTest do
              Runner.run(
                "cancel_objective",
                %{id: objective.id, user_id: "alice", reason: "operator cancelled"},
-               %{actor: "alice", user_id: "alice", channel: :test, trace_id: "trace_cancel"}
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :test,
+                 trace_id: "trace_cancel",
+                 allbert_pack_epoch: ReadyEffectContext.epoch()
+               }
              )
 
     assert cancel_response.status == :cancelled
@@ -320,6 +393,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
                "approve_confirmation",
                %{id: authorize_response.confirmation_id, reason: "approve stale work"},
                %{
+                 allbert_pack_epoch: ReadyEffectContext.epoch(),
                  actor: "alice",
                  user_id: "alice",
                  channel: :test,
@@ -395,7 +469,11 @@ defmodule StockSage.ObjectiveRuntimeTest do
              )
 
     assert {:ok, %{objective: blocked, verdict: :needs_more_steps}} =
-             EngineAgent.observe_step(%{step_id: step.id, trace_id: "trace_impasse_loop"})
+             EngineAgent.observe_step(%{
+               step_id: step.id,
+               trace_id: "trace_impasse_loop",
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert blocked.status == "blocked"
     assert blocked.loop_count == 1
@@ -413,6 +491,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
 
     assert {:ok, %{objective: objective}} =
              EngineAgent.frame_objective(%{
+               allbert_pack_epoch: ReadyEffectContext.epoch(),
                user_id: "alice",
                title: "Too many",
                objective: "Return too many steps.",
@@ -420,7 +499,11 @@ defmodule StockSage.ObjectiveRuntimeTest do
              })
 
     assert {:ok, %{objective: blocked, steps: [], impasse: :max_steps_per_turn}} =
-             EngineAgent.propose_steps(%{objective_id: objective.id, text: "too many"})
+             EngineAgent.propose_steps(%{
+               objective_id: objective.id,
+               text: "too many",
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             })
 
     assert blocked.status == "blocked"
 

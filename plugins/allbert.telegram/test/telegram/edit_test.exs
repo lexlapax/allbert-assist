@@ -6,6 +6,7 @@ defmodule AllbertAssist.Plugins.Telegram.EditTest do
   import Plug.Conn
 
   alias AllbertAssist.Channels.Telegram.Client
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -28,7 +29,10 @@ defmodule AllbertAssist.Plugins.Telegram.EditTest do
     end)
 
     assert {:ok, %{"message_id" => 101}} =
-             Client.edit_message("token", "chat-1", 101, "working", plug: {Req.Test, __MODULE__})
+             Client.edit_message("token", "chat-1", 101, "working",
+               plug: {Req.Test, __MODULE__},
+               allbert_pack_epoch: ReadyEffectContext.epoch()
+             )
   end
 
   defp json(conn, body) do

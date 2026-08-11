@@ -98,11 +98,13 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
   end
 
   defp continue_with_hint(objective, params, context) do
-    proposer_params = %{
-      objective_id: objective.id,
-      text: objective.source_intent || objective.objective,
-      trace_id: trace_id(params, context)
-    }
+    proposer_params =
+      %{
+        objective_id: objective.id,
+        text: objective.source_intent || objective.objective,
+        trace_id: trace_id(params, context)
+      }
+      |> maybe_put_epoch(params)
 
     with {:ok, propose_patch, proposed, _directives} <-
            Commands.run_subcommand(Commands.ProposeSteps, proposer_params, context) do
@@ -121,7 +123,9 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
   end
 
   defp authorize_step(_objective, step, proposed, params, context) do
-    authorize_params = %{step_id: step.id, trace_id: trace_id(params, context)}
+    authorize_params =
+      %{step_id: step.id, trace_id: trace_id(params, context)}
+      |> maybe_put_epoch(params)
 
     with {:ok, _patch, %{objective: updated, step: authorized, response: response}, _directives} <-
            Commands.run_subcommand(Commands.AuthorizeStep, authorize_params, context) do
@@ -139,7 +143,9 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
   end
 
   defp advance_step(step, params, context) do
-    advance_params = %{step_id: step.id, trace_id: trace_id(params, context)}
+    advance_params =
+      %{step_id: step.id, trace_id: trace_id(params, context)}
+      |> maybe_put_epoch(params)
 
     with {:ok, _patch, result, _directives} <-
            Commands.run_subcommand(Commands.AdvanceObjective, advance_params, context) do
@@ -232,6 +238,15 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
   defp trace_id(params, context) do
     field(params, :trace_id) || field(context, :trace_id)
   end
+
+  # The carried epoch arrives in params and every subcommand is effect-gated, so
+  # dropping it here made `continue_objective` fail closed with
+  # :product_not_ready for any objective that actually had to advance a step.
+  # AdvanceObjective already threads it this way; this module did not.
+  defp maybe_put_epoch(subcommand_params, %{allbert_pack_epoch: epoch}),
+    do: Map.put(subcommand_params, :allbert_pack_epoch, epoch)
+
+  defp maybe_put_epoch(subcommand_params, _legacy), do: subcommand_params
 
   defp get_in_field(value, keys) do
     Enum.reduce_while(keys, value, fn key, acc ->

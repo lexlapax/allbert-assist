@@ -9,6 +9,7 @@ defmodule StockSage.Security.StockSageMarketDataEvalTest do
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -45,7 +46,8 @@ defmodule StockSage.Security.StockSageMarketDataEvalTest do
              Grants.remember(generic_ref,
                id: "grant-generic-external-request",
                reason: "operator remembered a generic API request",
-               audit?: false
+               audit?: false,
+               allbert_pack_epoch: ReadyEffectContext.epoch()
              )
 
     eval =
