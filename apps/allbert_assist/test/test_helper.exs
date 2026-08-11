@@ -102,12 +102,12 @@ unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("allbert.notes
   end)
 end
 
-# The plugin declares AllbertNotesFiles.App, so the App registry must carry it or
-# composition rejects the pack with :dangling_plugin_app. Same register-if-absent
-# shape the residual suite already uses for StockSage.
-unless AllbertAssist.App.Registry.known_app_id?(:notes_files) do
-  {:ok, :notes_files} = AllbertAssist.App.Registry.register(AllbertNotesFiles.App)
-end
+# The pack's actions were missing from the catalog when this VM booted, so every
+# App declaring a plugin-owned action deferred its registration -- CoreApp,
+# AllbertBrowser.App and StockSage.App among them, not just the pack's. Now that
+# the catalog is complete, retry them. Before v1.4 M9 those failures were dropped
+# and the VM ran with an incomplete App registry.
+{:ok, []} = AllbertAssist.App.Bootstrap.retry_pending()
 
 unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("stocksage")) do
   AllbertAssist.Plugin.Registry.register_module(StockSage.Plugin)

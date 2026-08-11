@@ -22,9 +22,14 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
   @normalization "v14_pack_row_schema_contract_v1"
   @row_schema_contract_domain "allbert.pack.row-schema-contract.v1\0"
   @repo_root Path.expand("../../../../..", __DIR__)
+  # Mirrors ProjectionProvider's list, in R0 frozen DAG order: kernel, residual,
+  # each extracted pack, the composition host, then Web. v1.4 M9 added
+  # :allbert_notes_files. A pack missing here seals without its app_sha256 and
+  # the projection is rejected with :pack_shape.
   @closed_applications [
     :allbert_kernel,
     :allbert_assist,
+    :allbert_notes_files,
     :allbert_composition,
     :allbert_assist_web
   ]
