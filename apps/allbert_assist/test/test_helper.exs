@@ -78,6 +78,37 @@ case Application.load(:allbert_notes_files) do
   {:error, reason} -> raise "could not load the notes_files pack: #{inspect(reason)}"
 end
 
+# Loading is necessary but not sufficient: the residual boots its plugin
+# registry before this file runs, so the pack's manifest was not on disk-visible
+# to that pass. Discovery is re-run now that the pack is loaded, and only its
+# entry is registered -- everything else is already present. Without this the
+# pack's actions 261..263 are claimed by no enabled plugin and the effective
+# registry_order sequence has a hole.
+unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("allbert.notes_files")) do
+  # Discovery yields the pack either as a compiled module -- its Plugin module is
+  # in the loaded application's module list -- or as a manifest entry read from
+  # the application's priv. Both forms are handled rather than assuming one.
+  AllbertAssist.Plugin.Discovery.discover()
+  |> Enum.each(fn
+    {:module, AllbertNotesFiles.Plugin, opts} ->
+      {:ok, "allbert.notes_files"} =
+        AllbertAssist.Plugin.Registry.register_module(AllbertNotesFiles.Plugin, opts)
+
+    {:entry, %{plugin_id: "allbert.notes_files"} = entry} ->
+      {:ok, "allbert.notes_files"} = AllbertAssist.Plugin.Registry.register_entry(entry)
+
+    _other ->
+      :ok
+  end)
+end
+
+# The plugin declares AllbertNotesFiles.App, so the App registry must carry it or
+# composition rejects the pack with :dangling_plugin_app. Same register-if-absent
+# shape the residual suite already uses for StockSage.
+unless AllbertAssist.App.Registry.known_app_id?(:notes_files) do
+  {:ok, :notes_files} = AllbertAssist.App.Registry.register(AllbertNotesFiles.App)
+end
+
 unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("stocksage")) do
   AllbertAssist.Plugin.Registry.register_module(StockSage.Plugin)
 end
