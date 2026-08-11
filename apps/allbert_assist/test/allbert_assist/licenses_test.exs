@@ -684,6 +684,14 @@ defmodule AllbertAssist.LicensesTest do
                "descriptor_module" => "Elixir.AllbertAssist.Pack.Residual",
                "startup_role" => "native_effectful",
                "registry_order" => 100
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_notes_files",
+               "application" => "allbert_notes_files",
+               "descriptor_module" => "Elixir.AllbertNotesFiles.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 200
              }
            ]
 

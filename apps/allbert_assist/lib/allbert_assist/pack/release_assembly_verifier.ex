@@ -21,6 +21,22 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   @repository "https://github.com/lexlapax/allbert-assist"
   @applications [:allbert_kernel, :allbert_assist, :allbert_composition, :allbert_assist_web]
   @pack_applications [:allbert_kernel, :allbert_assist]
+  # v1.4 M9 extracted :allbert_notes_files into its own umbrella application. It
+  # is a genuine first-party pack -- like allbert_kernel/allbert_assist -- and
+  # is legitimately loaded in the ambient BEAM performing checkpoint
+  # verification (the whole-suite test bootstrap loads it permanently so the
+  # compiled action catalog stays contiguous; a packaged release built after
+  # M9 carries it on the code path too). It is NOT part of the v14-m1a1/
+  # v14-m1a3 checkpoints' own frozen four-application closure (@applications)
+  # -- those checkpoints predate the extraction and continue to verify exactly
+  # that shape, so it must not be added to @applications or @pack_applications.
+  # validate_unexpected_loaded_pack_applications!/0 exists to catch an UNKNOWN
+  # pack-declaring application slipping into the ambient state; a known,
+  # reviewed, first-party extracted pack outside this checkpoint's own closure
+  # is not that threat. M12 extracts two more packs -- add each new pack atom
+  # here (not to @pack_applications/@applications) unless/until this file's
+  # checkpoints are bumped to include them in the verified closure itself.
+  @known_extracted_pack_applications [:allbert_notes_files]
   @component_ids %{
     allbert_kernel: "beam-allbert-kernel",
     allbert_assist: "beam-allbert-assist",
@@ -560,10 +576,12 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   end
 
   defp validate_unexpected_loaded_pack_applications! do
+    known = @pack_applications ++ @known_extracted_pack_applications
+
     unexpected =
       Application.loaded_applications()
       |> Enum.map(&elem(&1, 0))
-      |> Enum.reject(&(&1 in @pack_applications))
+      |> Enum.reject(&(&1 in known))
       |> Enum.filter(fn application ->
         match?({:ok, _value}, Application.fetch_env(application, :allbert_pack))
       end)

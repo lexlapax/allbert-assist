@@ -27,6 +27,16 @@ defmodule AllbertAssist.Settings.StoreCompositionRaceTest do
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   @app_key "apps.notes_files.notes_root"
+  # The marker proving a composition is genuinely PARTIAL must be a key the
+  # registries contribute. `@app_key` was that key until v1.4 M9 moved
+  # notes_files settings ownership from the App path to the pack: pack fragments
+  # compose from the closed projection rather than the registries, so
+  # `apps.notes_files.*` is now present even in a composition built from empty
+  # ones, and asserting its absence could never hold again. The user setting
+  # under test is still `@app_key` -- what changed is only how "partial" is
+  # detected.
+  @registry_sourced_key "browser.download.enabled"
+  @registry_sourced_group "browser"
   @cache_key {Fragments, :default_composition}
   @read_hook_key {Fragments, :composition_read_hook}
 
@@ -139,8 +149,9 @@ defmodule AllbertAssist.Settings.StoreCompositionRaceTest do
     }
 
     assert Map.has_key?(Fragments.schema(), app_key)
-    refute Map.has_key?(partial.schema, app_key)
-    refute Map.has_key?(partial.defaults, "apps")
+    assert Map.has_key?(Fragments.schema(), @registry_sourced_key)
+    refute Map.has_key?(partial.schema, @registry_sourced_key)
+    refute Map.has_key?(partial.defaults, @registry_sourced_group)
 
     partial
   end

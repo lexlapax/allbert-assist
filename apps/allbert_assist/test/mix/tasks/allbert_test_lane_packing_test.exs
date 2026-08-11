@@ -136,7 +136,7 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
              primary_lane: :pure_async
            } =
              by_path[
-               "plugins/allbert.notes_files/test/allbert_notes_files/intent_descriptors_test.exs"
+               "apps/allbert_notes_files/test/allbert_notes_files/intent_descriptors_test.exs"
              ]
 
     # M1.a3 added artifact_live_readiness_test.exs as a fourth artifacts-owned

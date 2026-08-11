@@ -3890,7 +3890,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 121,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/allbert.notes_files/lib/allbert_notes_files/actions/write_note.ex"
+      "source_path": "apps/allbert_notes_files/lib/allbert_notes_files/actions/write_note.ex"
     },
     {
       "boundary": "Task.Supervisor.start_child",

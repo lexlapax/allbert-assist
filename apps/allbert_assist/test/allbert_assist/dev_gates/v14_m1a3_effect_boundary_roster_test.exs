@@ -14,6 +14,11 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     "apps/allbert_assist_web/lib",
     "apps/allbert_composition/lib",
     "apps/allbert_kernel/lib",
+    # v1.4 M9 extracted the notes_files pack into its own application, so its
+    # carriers left plugins/ for apps/. A pack missing from these roots drops out
+    # of the inventories silently, which is the same way Actions.Runner left the
+    # roster's field of view at M8.
+    "apps/allbert_notes_files/lib",
     "plugins/*/lib"
   ]
   @required_fields ~w[
@@ -398,7 +403,16 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   end
 
   defp test_only_seam?(path) do
-    project_path(path) |> File.read!() |> String.starts_with?("if Mix.env() == :test do\n")
+    # The guard is the first CODE line, not necessarily the first line: these
+    # seams carry a comment explaining why they sit in lib/ at all, and matching
+    # only on a bare prefix silently stopped excluding one when its comment was
+    # added.
+    project_path(path)
+    |> File.read!()
+    |> String.split("\n")
+    |> Enum.drop_while(&(String.starts_with?(String.trim_leading(&1), "#") or &1 == ""))
+    |> List.first()
+    |> Kernel.==("if Mix.env() == :test do")
   end
 
   defp source_paths_matching(pattern) do

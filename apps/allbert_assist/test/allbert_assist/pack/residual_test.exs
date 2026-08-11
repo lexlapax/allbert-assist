@@ -45,7 +45,9 @@ defmodule AllbertAssist.Pack.ResidualTest do
              :matrix,
              :whatsapp,
              :signal,
-             :notes_files,
+             # notes_files left this list at v1.4 M9: the pack owns its test lane
+             # now, declared by AllbertNotesFiles.Pack.test_lanes/0. The residual
+             # answers only for owners whose code it still compiles.
              :artifacts
            ]
   end

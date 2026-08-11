@@ -250,7 +250,14 @@ defmodule AllbertAssist.Skills.RegistryTest do
         }
       )
 
-    assert [{:entry, entry}] = discoveries
+    # Scoping scan_paths to this temp root no longer scopes discovery to it:
+    # v1.4 M9 made discovery also read extracted packs from their own
+    # applications' priv, which no scan path controls, so allbert.notes_files is
+    # always present. Select this plugin's contribution rather than asserting it
+    # is the only one -- still exactly one entry, still this plugin's.
+    assert [{:entry, entry}] =
+             Enum.filter(discoveries, &match?({:entry, %{plugin_id: "example.skills"}}, &1))
+
     assert entry.trust_status == :trusted
     assert Fixtures.register_plugin!(context.registry, entry) == "example.skills"
 

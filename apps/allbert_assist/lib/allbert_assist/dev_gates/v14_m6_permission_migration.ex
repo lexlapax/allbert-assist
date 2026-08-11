@@ -61,8 +61,7 @@ defmodule AllbertAssist.DevGates.V14M6PermissionMigration do
     "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex" => "plan_build",
     "apps/allbert_assist/lib/allbert_assist/resources/grants.ex" => "resource_grants",
     "plugins/allbert.browser/lib/allbert_browser/actions.ex" => "allbert_browser_helper",
-    "plugins/allbert.notes_files/lib/allbert_notes_files/actions.ex" =>
-      "allbert_notes_files_helper",
+    "apps/allbert_notes_files/lib/allbert_notes_files/actions.ex" => "allbert_notes_files_helper",
     "plugins/stocksage/lib/stocksage/actions.ex" => "stocksage_helper"
   }
 

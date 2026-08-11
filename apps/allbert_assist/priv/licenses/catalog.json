@@ -1759,12 +1759,12 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.notes_files/allbert_plugin.json"
+        "path": "apps/allbert_notes_files/priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-notes_files",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.notes_files staged plugin",
+      "name": "allbert.notes_files umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"

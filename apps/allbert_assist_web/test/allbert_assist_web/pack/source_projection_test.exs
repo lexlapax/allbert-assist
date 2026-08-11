@@ -12,7 +12,8 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
     :allbert_kernel,
     :allbert_assist,
     :allbert_composition,
-    :allbert_assist_web
+    :allbert_assist_web,
+    :allbert_notes_files
   ]
   @repo_root Path.expand("../../../../..", __DIR__)
 
@@ -49,8 +50,10 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
     assert allbert_dependencies == %{
              allbert_kernel: MapSet.new(),
              allbert_assist: MapSet.new([:allbert_kernel]),
-             allbert_composition: MapSet.new([:allbert_kernel, :allbert_assist]),
-             allbert_assist_web: MapSet.new([:allbert_composition, :allbert_assist])
+             allbert_composition:
+               MapSet.new([:allbert_kernel, :allbert_assist, :allbert_notes_files]),
+             allbert_assist_web: MapSet.new([:allbert_composition, :allbert_assist]),
+             allbert_notes_files: MapSet.new([:allbert_kernel, :allbert_assist])
            }
 
     release = %ReleaseSpec{
@@ -75,7 +78,8 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
 
     assert Enum.map(projection, &{&1.application, &1.registry_order}) == [
              {:allbert_kernel, 0},
-             {:allbert_assist, 100}
+             {:allbert_assist, 100},
+             {:allbert_notes_files, 200}
            ]
   end
 end
