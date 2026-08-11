@@ -1008,13 +1008,13 @@ the offline drift check can pass.
 - Managed path: `plugins/allbert.matrix/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-notes_files` — allbert.notes_files staged plugin
+### `plugin-allbert-notes_files` — allbert.notes_files umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.notes_files/allbert_plugin.json`
+- Managed path: `apps/allbert_notes_files/priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-research` — allbert.research staged plugin

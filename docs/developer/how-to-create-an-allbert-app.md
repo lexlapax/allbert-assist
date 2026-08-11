@@ -16,8 +16,10 @@ workflow below.
 
 ## Worked Reference: `allbert.notes_files`
 
-v0.42 ships `./plugins/allbert.notes_files/` as the smallest complete native
-reference plugin. Read it before creating a hand-written app/plugin:
+v0.42 shipped the notes/files capability as the smallest complete native
+reference plugin. v1.4 M9 extracted it to `apps/allbert_notes_files/` as an umbrella
+application — the first pack extraction, proving the template. Read it before creating
+a hand-written app/plugin:
 
 - `AllbertNotesFiles.Plugin` contributes one app, three actions, and two skill
   roots through the normal shipped-plugin discovery path.

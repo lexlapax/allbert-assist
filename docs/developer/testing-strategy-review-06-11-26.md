@@ -126,7 +126,7 @@ All other core subsystems (`actions`, `agents`, `approval`, `artifacts`, `channe
 | `allbert.discord` | `test/allbert_assist/channels/discord_test.exs`, `actions/channels/discord_doctor_test.exs` | Two test files for a new v0.52 feature — thin; see recommendations below |
 | `allbert.slack` | Same pattern as Discord | Same thin coverage concern for v0.52 cross-channel threading |
 | `allbert.research` | No dedicated test directory found in plugins | Unclear coverage — see below |
-| `allbert.notes_files` | `plugins/allbert.notes_files/test/` | Has tests |
+| `allbert.notes_files` | `apps/allbert_notes_files/test/` | Has tests |
 | `allbert.telegram` | `test/allbert_assist/channels/telegram_test.exs` | Single file; channel plugin lane has only 12 tests total |
 | `allbert.email` | Same pattern | Same |
 

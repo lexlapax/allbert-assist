@@ -17,6 +17,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Pack.{ActionCatalog, ActionProjection}
   alias AllbertAssist.Pack.Contracts.ActionsOverlay, as: OverlayContract
@@ -26,6 +27,20 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   @schema_version 1
   @normalization "v14_m0_registry_ledger_v1"
   @generator_command "ALLBERT_HOME=<TEMP_HOME> MIX_ENV=test mix do allbert.ecto.migrate --quiet + run -e 'AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!()'"
+  @repo_root Path.expand("../../../../..", __DIR__)
+  # The DECLARED discovery inputs, pinned rather than read from the VM.
+  # Discovery consults live Settings for plugin enablement and resolves its scan
+  # paths against a cwd-relative project root, so the same source discovered a
+  # different set depending on which application's directory the VM ran from and
+  # what that VM's Settings held. The ledger records what the source declares, so
+  # it pins both to the shipped defaults.
+  @discovery_settings %{
+    "enabled" => [],
+    "disabled" => [],
+    "scan_paths" => ["./plugins", "<ALLBERT_HOME>/plugins"],
+    "trusted_project_roots" => [],
+    "load_policy" => "shipped_and_skill_only"
+  }
   @temporary_plugin_registry :v14_m0_temporary_plugin_registry
   @temporary_plugin_table :v14_m0_temporary_plugin_registry_table
   @temporary_actions_overlay :v14_m0_temporary_actions_overlay
@@ -42,16 +57,44 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   def snapshot do
     :ok = AppBootstrap.await_ready()
 
+    # The four registry-shaped sections are built from registries seeded FROM
+    # DECLARATIONS, not from this VM's global ones.
+    #
+    # Reading the global registries made the payload a property of
+    # (source x environment) rather than of source alone. It went unnoticed while
+    # every plugin compiled into the residual and boot discovery registered an
+    # identical set in every VM. v1.4 M9 extracted a pack into its own
+    # application, so the loaded set now varies by VM and the same authorized
+    # source produced different digests in the residual and composition VMs --
+    # which would have meant recording one delta per environment, forever, with
+    # each row a place drift could hide. M12 extracts two more packs.
+    #
+    # Seeding from declarations makes the digest environment-independent by
+    # construction. `explicit_server_parity` and `isolated_mutation_diagnostics`
+    # need no such treatment: the first yields parity booleans and the second
+    # already builds its own temporary registries.
+    #
+    # Operator decision 2026-08-11 (Option A).
+    declarative =
+      with_declared_registries(fn opts ->
+        %{
+          "actions" => actions_snapshot(opts),
+          "settings" => settings_snapshot(opts),
+          "plugins" => plugins_snapshot(opts),
+          "apps" => apps_snapshot(opts),
+          "extensions" => extensions_snapshot(opts)
+        }
+      end)
+
+    # Outside the seeded block on purpose: `isolated_mutation_snapshot/0` starts
+    # its own temporary registries under the same names, so nesting the two
+    # raises "temporary registry already running". `explicit_server_parity/0`
+    # deliberately compares the DEFAULT servers against the explicit ones, so it
+    # must see the global registries rather than the seeded pair.
     payload =
-      %{
-        "actions" => actions_snapshot(),
-        "settings" => settings_snapshot(),
-        "plugins" => plugins_snapshot(),
-        "apps" => apps_snapshot(),
-        "extensions" => extensions_snapshot(),
-        "explicit_server_parity" => explicit_server_parity(),
-        "isolated_mutation_diagnostics" => isolated_mutation_snapshot()
-      }
+      declarative
+      |> Map.put("explicit_server_parity", explicit_server_parity())
+      |> Map.put("isolated_mutation_diagnostics", isolated_mutation_snapshot())
       |> normalize()
 
     %{
@@ -208,8 +251,8 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     |> Map.put("payload_sha256", digest(payload))
   end
 
-  defp actions_snapshot do
-    capabilities = legacy_action_capabilities([])
+  defp actions_snapshot(opts) do
+    capabilities = legacy_action_capabilities(opts)
     modules = Enum.map(capabilities, & &1.module)
     static_modules = ActionCatalog.residual_modules() |> value!(:compiled_static_actions)
     dynamic_modules = ActionsOverlay.modules()
@@ -283,10 +326,10 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     }
   end
 
-  defp settings_snapshot do
-    fragments = Fragments.registered_fragments()
-    schema = Fragments.schema()
-    safe_write_rows = Fragments.safe_write_keys()
+  defp settings_snapshot(opts) do
+    fragments = Fragments.registered_fragments(opts)
+    schema = Fragments.schema(opts)
+    safe_write_rows = Fragments.safe_write_keys(opts)
     safe_write_keys = safe_write_rows |> Enum.uniq() |> Enum.sort()
 
     writable_keys =
@@ -337,8 +380,9 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     }
   end
 
-  defp plugins_snapshot do
-    entries = PluginRegistry.registered_plugins()
+  defp plugins_snapshot(opts) do
+    plugin_opts = Keyword.fetch!(opts, :plugin)
+    entries = PluginRegistry.registered_plugins(plugin_opts)
 
     %{
       "entries" =>
@@ -349,13 +393,14 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         Enum.map(entries, fn entry ->
           %{
             "plugin_id" => entry.plugin_id,
-            "matches" => PluginRegistry.lookup(entry.plugin_id) == {:ok, entry}
+            "matches" => PluginRegistry.lookup(entry.plugin_id, plugin_opts) == {:ok, entry}
           }
         end),
-      "apps" => PluginRegistry.registered_apps(),
-      "channels" => Enum.map(PluginRegistry.registered_channels(), &channel_reference/1),
-      "actions" => PluginRegistry.registered_actions(),
-      "skill_paths" => PluginRegistry.registered_skill_paths(),
+      "apps" => PluginRegistry.registered_apps(plugin_opts),
+      "channels" =>
+        Enum.map(PluginRegistry.registered_channels(plugin_opts), &channel_reference/1),
+      "actions" => PluginRegistry.registered_actions(plugin_opts),
+      "skill_paths" => PluginRegistry.registered_skill_paths(plugin_opts),
       "settings_keys" =>
         Enum.flat_map(entries, fn entry ->
           Enum.map(entry.settings_schema, fn row ->
@@ -363,7 +408,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
           end)
         end),
       "child_specs" =>
-        Enum.map(PluginRegistry.registered_child_specs(), fn contribution ->
+        Enum.map(PluginRegistry.registered_child_specs(plugin_opts), fn contribution ->
           spec = Supervisor.child_spec(contribution.child_spec, [])
 
           %{
@@ -373,12 +418,13 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
             "type" => spec.type
           }
         end),
-      "diagnostics" => PluginRegistry.diagnostics()
+      "diagnostics" => PluginRegistry.diagnostics(plugin_opts)
     }
   end
 
-  defp apps_snapshot do
-    entries = AppRegistry.registered_apps()
+  defp apps_snapshot(opts) do
+    app_opts = Keyword.fetch!(opts, :app)
+    entries = AppRegistry.registered_apps(app_opts)
 
     %{
       "entries" =>
@@ -388,7 +434,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
       "lookup_matches_entry" =>
         Enum.map(entries, fn entry ->
           looked_up =
-            case AppRegistry.lookup(entry.app_id) do
+            case AppRegistry.lookup(entry.app_id, app_opts) do
               {:ok, found} -> stable_app_entry(found)
               other -> other
             end
@@ -398,7 +444,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
             "matches" => looked_up == stable_app_entry(entry)
           }
         end),
-      "surfaces" => Enum.map(AppRegistry.registered_surfaces(), &surface_reference/1),
+      "surfaces" => Enum.map(AppRegistry.registered_surfaces(app_opts), &surface_reference/1),
       "agents" => AppRegistry.registered_agents(),
       "signals" => AppRegistry.registered_signals(),
       "settings_keys" =>
@@ -407,38 +453,41 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
             %{"app_id" => entry.app_id, "key" => field(row, :key)}
           end)
         end),
-      "memory_namespaces" => AppRegistry.registered_memory_namespaces(),
+      "memory_namespaces" => AppRegistry.registered_memory_namespaces(app_opts),
       "surface_providers" =>
         Enum.map(AppRegistry.registered_surface_providers(), &surface_provider_reference/1),
-      "skill_paths" => AppRegistry.registered_skill_paths(),
+      "skill_paths" => AppRegistry.registered_skill_paths(app_opts),
       "actions_by_app" =>
         Enum.map(entries, fn entry ->
           %{"app_id" => entry.app_id, "actions" => AppRegistry.actions_for(entry.app_id)}
         end),
-      "diagnostics" => AppRegistry.diagnostics()
+      "diagnostics" => AppRegistry.diagnostics(app_opts)
     }
   end
 
-  defp extensions_snapshot do
+  defp extensions_snapshot(opts) do
     %{
-      "apps" => Enum.map(ExtensionsRegistry.registered_apps(), & &1.app_id),
-      "plugins" => Enum.map(ExtensionsRegistry.registered_plugins(), & &1.plugin_id),
-      "surfaces" => Enum.map(ExtensionsRegistry.registered_surfaces(), &surface_reference/1),
+      "apps" => Enum.map(ExtensionsRegistry.registered_apps(opts), & &1.app_id),
+      "plugins" => Enum.map(ExtensionsRegistry.registered_plugins(opts), & &1.plugin_id),
+      "surfaces" => Enum.map(ExtensionsRegistry.registered_surfaces(opts), &surface_reference/1),
       "surface_providers" =>
-        Enum.map(ExtensionsRegistry.registered_surface_providers(), &surface_provider_reference/1),
-      "intent_descriptors" => ExtensionsRegistry.registered_intent_descriptors(),
-      "actions" => ExtensionsRegistry.registered_actions(),
-      "skill_paths" => ExtensionsRegistry.registered_skill_paths(),
+        Enum.map(
+          ExtensionsRegistry.registered_surface_providers(opts),
+          &surface_provider_reference/1
+        ),
+      "intent_descriptors" => ExtensionsRegistry.registered_intent_descriptors(opts),
+      "actions" => ExtensionsRegistry.registered_actions(opts),
+      "skill_paths" => ExtensionsRegistry.registered_skill_paths(opts),
       "settings_schema" =>
-        Enum.map(ExtensionsRegistry.registered_settings_schema(), fn row ->
+        Enum.map(ExtensionsRegistry.registered_settings_schema(opts), fn row ->
           %{"key" => field(row, :key), "row_sha256" => digest(row)}
         end),
       "child_specs" =>
-        Enum.map(ExtensionsRegistry.registered_child_specs(), fn contribution ->
+        Enum.map(ExtensionsRegistry.registered_child_specs(opts), fn contribution ->
           spec = Supervisor.child_spec(contribution.child_spec, [])
           %{"plugin_id" => contribution.plugin_id, "id" => spec.id}
         end),
-      "diagnostics" => ExtensionsRegistry.diagnostics()
+      "diagnostics" => ExtensionsRegistry.diagnostics(opts)
     }
   end
 
@@ -611,6 +660,39 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
       "extensions_actions" => length(contributions.actions),
       "settings_fragments" => length(Fragments.registered_fragments(context))
     }
+  end
+
+  # Temporary App and Plugin registries seeded from what the source DECLARES:
+  # every discovered plugin contribution -- compiled modules and the extracted
+  # packs' own manifests alike -- and then every App those plugins declare, plus
+  # the residual CoreApp. Nothing here reads the VM's global registries, so two
+  # VMs with different applications started produce the same payload.
+  defp with_declared_registries(fun) when is_function(fun, 1) do
+    with_isolated_registries(fn app_server, plugin_server, _overlay_server ->
+      declared = PluginDiscovery.discover(settings: @discovery_settings, project_root: @repo_root)
+
+      Enum.each(declared, fn
+        {:module, module, opts} ->
+          PluginRegistry.register_module(module, Keyword.put(opts, :server, plugin_server))
+
+        {:entry, entry} ->
+          PluginRegistry.register_entry(entry, server: plugin_server)
+
+        _diagnostic ->
+          :ok
+      end)
+
+      declared_apps =
+        [server: plugin_server]
+        |> PluginRegistry.registered_plugins()
+        |> Enum.flat_map(& &1.apps)
+
+      Enum.each([AllbertAssist.App.CoreApp | declared_apps] |> Enum.uniq(), fn module ->
+        AppRegistry.register_metadata(module, server: app_server)
+      end)
+
+      fun.(app: [server: app_server], plugin: [server: plugin_server])
+    end)
   end
 
   defp with_isolated_registries(fun) when is_function(fun, 3) do

@@ -38,8 +38,8 @@ The launch loop is five concrete steps:
 
 ## As-Built Substrate (what v0.65 documents, not re-implements)
 
-- **Native action plugin, not MCP.** `plugins/allbert.notes_files/` is an in-process
-  `AllbertAssist.Action` plugin registered in the shipped-module map, not an MCP server.
+- **Native action pack, not MCP.** `apps/allbert_notes_files/` is an in-process
+  umbrella application contributing an `AllbertAssist.Action` pack, not an MCP server.
   "Connect a notes root" is therefore a native settings-root concern, not MCP-server
   configuration. (The v0.65 request-flow previously mis-cited MCP trust ADRs; corrected.)
 - **Three actions.** `search_notes` / `read_note` (`:read_only`, no confirmation);
