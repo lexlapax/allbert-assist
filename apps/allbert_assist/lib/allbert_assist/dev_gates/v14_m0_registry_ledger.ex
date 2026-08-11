@@ -28,6 +28,23 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   @normalization "v14_m0_registry_ledger_v1"
   @generator_command "ALLBERT_HOME=<TEMP_HOME> MIX_ENV=test mix do allbert.ecto.migrate --quiet + run -e 'AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!()'"
   @repo_root Path.expand("../../../../..", __DIR__)
+  # The one authorized regeneration of this fixture, kept in the artifact so the
+  # change is auditable from the artifact alone rather than from a commit
+  # message. v1.4 M9 both MOVED a pack (its manifest and skills now live in an
+  # application's priv, so its recorded paths legitimately changed) and changed
+  # how the four registry-shaped sections are DERIVED (from declarations rather
+  # than from whichever global registries a VM had accumulated). The second is a
+  # representation change: it is what makes the payload environment-independent,
+  # and it is why this digest supersedes one that could never have been stable
+  # across VMs again. Operator decision 2026-08-11.
+  @superseded_provenance %{
+    "payload_sha256" => "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
+    "milestone" => "M9",
+    "reason" =>
+      "notes_files extracted to apps/allbert_notes_files, and the registry-shaped " <>
+        "sections re-derived from declarations so the payload no longer depends on " <>
+        "which applications the checking VM has loaded"
+  }
   # The DECLARED discovery inputs, pinned rather than read from the VM.
   # Discovery consults live Settings for plugin enablement and resolves its scan
   # paths against a cwd-relative project root, so the same source discovered a
@@ -135,54 +152,26 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   @doc """
   Fail when the current public registry composition differs from frozen M0.
 
-  A milestone may legitimately change the registry -- M9 extracted the
-  notes_files pack, and M12 extracts two more. Re-freezing this fixture at each
-  one would retire the M0-versus-now comparison for the rest of the release and
-  let any later change be waved through by regenerating, so the M0 payload stays
-  immutable and an authorized change is recorded instead, in
-  `v1.4-m0-registry-deltas.csv`, with its milestone and reason. A live snapshot
-  matching a recorded delta passes; one matching neither M0 nor a recorded delta
-  is still drift. Same shape as the R2 post-move record, operator decision
-  2026-08-11.
+  The payload is environment-independent: the registry-shaped sections are built
+  from registries seeded from what the source DECLARES, so this holds identically
+  in a residual-only VM and in one running the whole composition. It did not
+  always -- reading the global registries made the digest a property of
+  (source x environment), which stayed invisible only while every plugin compiled
+  into the residual and registered identically everywhere. v1.4 M9's extraction
+  broke that, and the alternative was recording one authorized delta per
+  environment forever, each row a place drift could hide.
   """
   @spec check!() :: :ok
   def check! do
     frozen = load_frozen!()
     live = snapshot()
-    live_digest = live["digests"]["payload_sha256"]
 
-    cond do
-      Map.drop(frozen, ["provenance"]) == live ->
-        :ok
-
-      live_digest in recorded_delta_digests() ->
-        :ok
-
-      true ->
-        raise "v1.4 M0 registry ledger drift: " <>
-                "frozen=#{frozen["digests"]["payload_sha256"]} live=#{live_digest}"
-    end
-  end
-
-  @doc """
-  Payload digests of authorized post-M0 registry changes.
-
-  Empty when the record is absent, so a missing file fails closed rather than
-  admitting every change.
-  """
-  @spec recorded_delta_digests() :: [String.t()]
-  def recorded_delta_digests do
-    path = Path.expand("../../../../../docs/validation/v1.4-m0-registry-deltas.csv", __DIR__)
-
-    case File.read(path) do
-      {:ok, contents} ->
-        contents
-        |> String.split("\n", trim: true)
-        |> tl()
-        |> Enum.map(&(&1 |> String.split(",", parts: 3) |> hd()))
-
-      {:error, _reason} ->
-        []
+    if Map.drop(frozen, ["provenance"]) == live do
+      :ok
+    else
+      raise "v1.4 M0 registry ledger drift: " <>
+              "frozen=#{frozen["digests"]["payload_sha256"]} " <>
+              "live=#{live["digests"]["payload_sha256"]}"
     end
   end
 
@@ -192,7 +181,8 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
       snapshot()
       |> Map.put("provenance", %{
         "source_sha" => source_sha!(),
-        "generator_command" => @generator_command
+        "generator_command" => @generator_command,
+        "superseded" => @superseded_provenance
       })
 
     path |> Path.dirname() |> File.mkdir_p!()
@@ -360,11 +350,11 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
       "writable_effective_keys" => writable_keys,
       "safe_and_writable_effective_keys" => safe_and_writable_keys,
       "raw_app_schema" =>
-        Enum.map(AppRegistry.registered_apps(), fn app ->
+        Enum.map(AppRegistry.registered_apps(Keyword.fetch!(opts, :app)), fn app ->
           %{"app_id" => app.app_id, "schema" => Map.get(app, :settings_schema, [])}
         end),
       "raw_plugin_schema" =>
-        Enum.map(PluginRegistry.registered_plugins(), fn plugin ->
+        Enum.map(PluginRegistry.registered_plugins(Keyword.fetch!(opts, :plugin)), fn plugin ->
           %{"plugin_id" => plugin.plugin_id, "schema" => plugin.settings_schema}
         end),
       "counts" => %{
@@ -446,7 +436,7 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         end),
       "surfaces" => Enum.map(AppRegistry.registered_surfaces(app_opts), &surface_reference/1),
       "agents" => AppRegistry.registered_agents(),
-      "signals" => AppRegistry.registered_signals(),
+      "signals" => AppRegistry.registered_signals(app_opts),
       "settings_keys" =>
         Enum.flat_map(entries, fn entry ->
           Enum.map(Map.get(entry, :settings_schema, []), fn row ->
@@ -455,7 +445,10 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         end),
       "memory_namespaces" => AppRegistry.registered_memory_namespaces(app_opts),
       "surface_providers" =>
-        Enum.map(AppRegistry.registered_surface_providers(), &surface_provider_reference/1),
+        Enum.map(
+          AppRegistry.registered_surface_providers(app_opts),
+          &surface_provider_reference/1
+        ),
       "skill_paths" => AppRegistry.registered_skill_paths(app_opts),
       "actions_by_app" =>
         Enum.map(entries, fn entry ->

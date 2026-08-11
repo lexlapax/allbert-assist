@@ -1,13 +1,13 @@
 {
   "digests": {
     "actions_sha256": "9fb84a5b5fef5874fbaca205dcfaf3f9f1baa9f2c8f57ed92821fd18fcda5a7f",
-    "apps_sha256": "399ed0332af3b0b7cf68c036c2b56ad6491e258ed661bfeaadbfef41b0d52e90",
+    "apps_sha256": "89711d5cae275a54ec1cb3d82d67efb62e033c4cfe61f2eded6ced9720c1f06c",
     "explicit_server_parity_sha256": "69eba632ad70ef8dd9d140a736b7e9e435257cfe6b31e7f287c4c0f5493d76d2",
-    "extensions_sha256": "d745aae7edbc94edac2c26a94b0dd1634bab172b4934451377d6267776ffd89a",
-    "isolated_mutation_diagnostics_sha256": "acfa01da563a92944892d22330ed0b16753a8fd0ab074fc0ed33f5f547be572b",
-    "payload_sha256": "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
-    "plugins_sha256": "9f57961306a9110714cf0d07c69e4699f5df18052e7ec565b420453948579c08",
-    "settings_sha256": "235f35ef3097bd87a958249d40fa7763059028edf2a5b877bca9a515d825047c"
+    "extensions_sha256": "da64e2969bbbbba1a59618db01ae2f133442f62db7d5c7fb30669a77816f2dc0",
+    "isolated_mutation_diagnostics_sha256": "ad81b1e40f2ed894e3633c286eb8c40c0cfa091d4425b25608a9d9f14bfb88c4",
+    "payload_sha256": "0f1e55be8417e37d9745fb06d0f916c975af7889d846d326788042eb27cec84f",
+    "plugins_sha256": "4b8c1b9eb327c6cbfd5465ca88b951cd2078384e4641642d5011d186c9344037",
+    "settings_sha256": "e80f3ea39157aef32957e904c717f9d78fd8f62f6f606a4f86f00395e9eca1ec"
   },
   "normalization": "v14_m0_registry_ledger_v1",
   "payload": {
@@ -32725,16 +32725,13 @@
               "zone": "canvas_panels"
             }
           ],
-          "settings_keys": [
-            "apps.notes_files.notes_root",
-            "apps.notes_files.max_results"
-          ],
+          "settings_keys": [],
           "signals": {
             "emits": [],
             "subscribes": []
           },
           "skill_paths": [
-            "<REPO_ROOT>/plugins/allbert.notes_files/skills"
+            "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills"
           ],
           "surface_catalog": [
             {
@@ -33051,16 +33048,7 @@
           "writable": true
         }
       ],
-      "settings_keys": [
-        {
-          "app_id": "notes_files",
-          "key": "apps.notes_files.notes_root"
-        },
-        {
-          "app_id": "notes_files",
-          "key": "apps.notes_files.max_results"
-        }
-      ],
+      "settings_keys": [],
       "signals": [
         {
           "app_id": "allbert",
@@ -33099,7 +33087,7 @@
       "skill_paths": [
         {
           "app_id": "notes_files",
-          "path": "<REPO_ROOT>/plugins/allbert.notes_files/skills"
+          "path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills"
         },
         {
           "app_id": "stocksage",
@@ -33983,18 +33971,7 @@
       ],
       "diagnostics": {
         "apps": {},
-        "plugins": {
-          "<ALLBERT_HOME>/plugins": [
-            {
-              "detail": {
-                "path": "<ALLBERT_HOME>/plugins"
-              },
-              "kind": "plugin_scan_path_missing",
-              "message": "Plugin scan path is missing.",
-              "severity": "info"
-            }
-          ]
-        }
+        "plugins": {}
       },
       "intent_descriptors": [
         {
@@ -37127,14 +37104,6 @@
       ],
       "settings_schema": [
         {
-          "key": "apps.notes_files.notes_root",
-          "row_sha256": "3ff585c680fbd1a637f336c0caedb83f6828b5d88d49fd5e33f4977c7e4598c0"
-        },
-        {
-          "key": "apps.notes_files.max_results",
-          "row_sha256": "42b5e468a9f643fe8c4afc55c7c9ded0dd40c90f223c1299696f43c626ed7fd2"
-        },
-        {
           "key": "browser.enabled",
           "row_sha256": "e30cb22c459f473658e33a2dada70b4ecad6cb4c6e34f62c6bd43a1b815403ed"
         },
@@ -37798,14 +37767,14 @@
       "skill_paths": [
         {
           "app_id": "notes_files",
-          "path": "<REPO_ROOT>/plugins/allbert.notes_files/skills"
+          "path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills"
         },
         {
           "app_id": "stocksage",
           "path": "<REPO_ROOT>/plugins/stocksage/skills"
         },
         {
-          "path": "<REPO_ROOT>/plugins/allbert.notes_files/skills",
+          "path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills",
           "plugin_id": "allbert.notes_files",
           "source": "shipped",
           "trust_status": "trusted"
@@ -38314,7 +38283,7 @@
           "apps": 0,
           "extensions_actions": 0,
           "plugins": 0,
-          "settings_fragments": 44
+          "settings_fragments": 45
         },
         "plugin_diagnostics": {}
       },
@@ -38323,7 +38292,7 @@
         "apps": 0,
         "extensions_actions": 0,
         "plugins": 0,
-        "settings_fragments": 44
+        "settings_fragments": 45
       },
       "mutated": {
         "action_collision": {
@@ -38381,7 +38350,7 @@
           "apps": 1,
           "extensions_actions": 4,
           "plugins": 1,
-          "settings_fragments": 45
+          "settings_fragments": 46
         },
         "plugin_diagnostics": {
           "allbert.telegram": [
@@ -38569,18 +38538,7 @@
           "type": "supervisor"
         }
       ],
-      "diagnostics": {
-        "<ALLBERT_HOME>/plugins": [
-          {
-            "detail": {
-              "path": "<ALLBERT_HOME>/plugins"
-            },
-            "kind": "plugin_scan_path_missing",
-            "message": "Plugin scan path is missing.",
-            "severity": "info"
-          }
-        ]
-      },
+      "diagnostics": {},
       "entries": [
         {
           "actions": [],
@@ -38959,14 +38917,14 @@
           "display_name": "Allbert Notes/Files",
           "index": 6,
           "kind": "app",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.notes_files/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/allbert_plugin.json",
           "module": "AllbertNotesFiles.Plugin",
           "plugin_id": "allbert.notes_files",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.notes_files",
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv",
           "settings_keys": [],
           "skill_paths": [
-            "<REPO_ROOT>/plugins/allbert.notes_files/skills"
+            "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills"
           ],
           "source": "shipped",
           "status": "enabled",
@@ -40264,7 +40222,7 @@
       ],
       "skill_paths": [
         {
-          "path": "<REPO_ROOT>/plugins/allbert.notes_files/skills",
+          "path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills",
           "plugin_id": "allbert.notes_files",
           "source": "shipped",
           "trust_status": "trusted"
@@ -40281,7 +40239,7 @@
       "counts": {
         "effective_keys": 624,
         "fragments": 56,
-        "raw_app_rows": 2,
+        "raw_app_rows": 0,
         "raw_plugin_rows": 165,
         "safe_and_writable_effective_keys": 586,
         "safe_write_rows": 625,
@@ -46639,7 +46597,8 @@
           "id": "app:notes_files",
           "index": 45,
           "metadata": {
-            "display_name": "Notes/files"
+            "display_name": "Allbert Notes/Files",
+            "reference_scaffold?": true
           },
           "owner": "notes_files",
           "safe_write_keys": [
@@ -48430,24 +48389,7 @@
         },
         {
           "app_id": "notes_files",
-          "schema": [
-            {
-              "app_id": "notes_files",
-              "default": "<ALLBERT_HOME>/notes",
-              "description": "Root directory for notes/files plugin reads and confirmed writes.",
-              "key": "apps.notes_files.notes_root",
-              "secret?": false,
-              "type": "string"
-            },
-            {
-              "app_id": "notes_files",
-              "default": 25,
-              "description": "Maximum notes returned by search_notes and workspace panels.",
-              "key": "apps.notes_files.max_results",
-              "secret?": false,
-              "type": "positive_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "app_id": "allbert_research",
@@ -50699,8 +50641,8 @@
         "workspace.accessibility.reduce_motion",
         "workspace.agui_bridge.enabled",
         "workspace.signal_bridge.log_dropped_fragments",
-        "apps.notes_files.max_results",
         "apps.notes_files.notes_root",
+        "apps.notes_files.max_results",
         "browser.form_fill.enabled",
         "browser.driver.binary_path",
         "browser.routing.dynamic_hosts",
@@ -52072,7 +52014,12 @@
   },
   "provenance": {
     "generator_command": "ALLBERT_HOME=<TEMP_HOME> MIX_ENV=test mix do allbert.ecto.migrate --quiet + run -e 'AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!()'",
-    "source_sha": "1739a402834310f996dc3649cb5a2979a6757af1"
+    "source_sha": "e06fa17bf82dd953ff4aad6ed50974be34bc41e5",
+    "superseded": {
+      "milestone": "M9",
+      "payload_sha256": "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
+      "reason": "notes_files extracted to apps/allbert_notes_files, and the registry-shaped sections re-derived from declarations so the payload no longer depends on which applications the checking VM has loaded"
+    }
   },
   "schema_version": 1
 }
