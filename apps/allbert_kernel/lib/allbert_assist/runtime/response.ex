@@ -76,6 +76,13 @@ defmodule AllbertAssist.Runtime.Response do
     raise "action status outcome inventory must classify every admitted status"
   end
 
+  # This assertion binds the two module attributes to each other, but NOT the
+  # `action_status_outcomes/0` type below, which enumerates the same keys a third
+  # time. That type went stale twice without anyone noticing -- once when
+  # :rejected was admitted and again for :conflict and :steered -- because only
+  # Dialyzer catches it, and Dialyzer runs in `release.v1` rather than on commit.
+  # Adding a status means editing three places here; the third is the type.
+
   @type status ::
           :completed
           | :answer
@@ -129,6 +136,7 @@ defmodule AllbertAssist.Runtime.Response do
           required(:cancelled) => :success,
           required(:clarification) => :success,
           required(:completed) => :success,
+          required(:conflict) => :success,
           required(:degraded) => :success,
           required(:denied) => :denied,
           required(:disabled) => :success,
@@ -142,7 +150,9 @@ defmodule AllbertAssist.Runtime.Response do
           required(:objective_cancelled) => :success,
           required(:objective_failed) => :success,
           required(:queued) => :success,
+          required(:rejected) => :denied,
           required(:running) => :success,
+          required(:steered) => :success,
           required(:still_blocked) => :success,
           required(:stopped) => :success,
           required(:timed_out) => :success,
