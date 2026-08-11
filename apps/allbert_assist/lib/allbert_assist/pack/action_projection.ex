@@ -245,9 +245,23 @@ defmodule AllbertAssist.Pack.ActionProjection do
         Map.put(declaration, :disposition, disposition)
       end)
 
+    # Ordered by the declared registry_order, NOT by position in the plugin-entry
+    # list. Indexing by position coupled this projection to plugin *registration*
+    # order, which nothing declares as a contract: it held only because the
+    # shipped registration order happens to be ascending above the residual
+    # boundary. A pack that registers from its own application lands elsewhere in
+    # the entry list and the sequence assertion below then fails with
+    # :invalid_registry_order -- reproducible by reordering the entry list alone,
+    # with no extraction and no token changed. That is what reverted the first
+    # notes_files extraction, and telegram and email would have hit it too.
+    #
+    # The assertion keeps its full strength: the tokens must still form an exact
+    # contiguous 1..N. Only the accidental dependency on registration order goes.
+    # Operator decision, 2026-08-11 (v1.4 M9).
     effective_plugins =
       declarations
       |> Enum.filter(&(&1.disposition == :effective))
+      |> Enum.sort_by(& &1.registry_order)
       |> Enum.with_index(length(effective_static) + 1)
       |> Enum.map(fn {projection, legacy_index} ->
         Map.put(projection, :legacy_index, legacy_index)
