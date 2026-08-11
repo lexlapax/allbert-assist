@@ -1,2 +1,3 @@
 payload_sha256,milestone,reason
 7e49dbdc8d9da5e3453e909daede4b8010d02fe186d80d04e41054c31fdbb61a,M9,extracted the notes_files pack into apps/allbert_notes_files so its actions and app are contributed by an application-owned manifest rather than a plugins/ directory scan; no action or app identity changed
+41d628c6284ccd07ba32fb67cd67ea0ca1adfb8f4212f98910c37caf0fe003cd,M9,same M9 extraction observed from the composition VM; the ledger snapshot spans registries whose contents depend on which applications that VM has loaded so each environment yields its own payload digest and each authorized one is recorded

@@ -26,7 +26,13 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   # isolated before it was accepted: reverting only the lane declaration
   # restores the previous digest exactly, which proves the relocated files
   # themselves changed no contribution.
-  @expected_behavior_digest "2a3195c0749edcb21dc9552ef62c30c2dad97d1a9aea70166fc50850152b2100"
+  # v1.4 M9 re-froze this digest. The notes_files pack became an umbrella sibling,
+  # so its descriptor is a third row in the closed projection and its
+  # contributions -- gate owner lane, settings fragment owner, skill root -- now
+  # reach the candidate through the pack rather than through the residual. The
+  # candidate legitimately changed; no contribution was added or removed, only
+  # re-attributed to the application that owns it.
+  @expected_behavior_digest "04eb89b609acb80a4395cfdd01760f9af2b137b9ab96327fdd61cc3b4080c1d2"
   @expected_bytes_sha256 "6082ff7aea789882c2c9a810bbeddc5f760f0447bee392715325e385ff504dca"
 
   defmodule AppMetadataSupervisor do

@@ -27,8 +27,14 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
   # isolated before it was accepted: reverting only the lane declaration
   # restores the previous digest exactly, which proves the relocated files
   # themselves changed no contribution.
-  @expected_behavior_digest "2a3195c0749edcb21dc9552ef62c30c2dad97d1a9aea70166fc50850152b2100"
-  @expected_bytes_sha256 "6082ff7aea789882c2c9a810bbeddc5f760f0447bee392715325e385ff504dca"
+  # v1.4 M9 re-froze this digest. The notes_files pack became an umbrella sibling,
+  # so its descriptor is a third row in the closed projection and its
+  # contributions -- gate owner lane, settings fragment owner, skill root -- now
+  # reach the candidate through the pack rather than through the residual. The
+  # candidate legitimately changed; no contribution was added or removed, only
+  # re-attributed to the application that owns it.
+  @expected_behavior_digest "04eb89b609acb80a4395cfdd01760f9af2b137b9ab96327fdd61cc3b4080c1d2"
+  @expected_bytes_sha256 "44a05fd47455b54093e0d22a0204a6aee1a8a8aa1e4b73e4aa71e4450be7a70b"
 
   setup context do
     if context[:parity] do
@@ -107,7 +113,7 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
 
   @tag :parity
   test "Plugin metadata mutation classes change the candidate or fail closed", context do
-    baseline = candidate_for(context.closed, plugin_entry())
+    baseline = candidate_for(context.closed, context.apps, plugin_entry(), [])
 
     for {field, value} <- [
           plugin_id: "candidate-plugin-changed",
@@ -115,7 +121,7 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
           trust_status: :untrusted,
           module: __MODULE__
         ] do
-      changed = candidate_for(context.closed, struct!(plugin_entry(), %{field => value}))
+      changed = candidate_for(context.closed, context.apps, struct!(plugin_entry(), %{field => value}), [])
 
       refute canonical_identity(baseline) == canonical_identity(changed),
              "expected #{field} to participate in Candidate assembly"
@@ -128,17 +134,19 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
       )
 
     refute canonical_identity(baseline) ==
-             canonical_identity(candidate_for(context.closed, skill_plugin))
+             canonical_identity(candidate_for(context.closed, context.apps, skill_plugin, []))
 
-    legacy_plugin = candidate_for(context.closed, plugin_entry(module: __MODULE__))
+    legacy_plugin = candidate_for(context.closed, context.apps, plugin_entry(module: __MODULE__), [])
 
     legacy_child =
       candidate_for(
         context.closed,
+        context.apps,
         plugin_entry(
           module: __MODULE__,
           children: %{id: "candidate-child", start: {Task, :start_link, []}, restart: :temporary}
-        )
+        ),
+        []
       )
 
     refute canonical_identity(legacy_plugin) == canonical_identity(legacy_child)
@@ -146,13 +154,14 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     assert {:ok, [static_action | _]} = ActionProjection.static()
 
     static_baseline =
-      candidate_for(context.closed, plugin_entry(module: __MODULE__),
+      candidate_for(context.closed, context.apps, plugin_entry(module: __MODULE__),
         static_projection: [static_action]
       )
 
     static_action_mutation =
       candidate_for(
         context.closed,
+        context.apps,
         plugin_entry(module: __MODULE__, actions: [static_action.module]),
         static_projection: [static_action]
       )
@@ -234,14 +243,20 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     {bytes, snapshot.behavior_digest}
   end
 
-  defp candidate_for(closed, plugin, opts \\ []) do
+  # v1.4 M9: the closed projection now carries the extracted notes_files pack,
+  # whose settings fragment is app-sourced and resolves its owner through the App
+  # snapshot. An empty snapshot is therefore no longer a consistent input -- the
+  # build fails with :invalid_settings_fragment before any plugin field is even
+  # examined. The real snapshot is passed instead; the plugin remains the varying
+  # input, so what these rows prove is unchanged.
+  defp candidate_for(closed, apps, plugin, opts) do
     opts =
       Keyword.merge([static_projection: [], settings_fragments: [], intent_descriptors: []], opts)
 
     assert {:ok, candidate} =
              CandidateBuilder.build(
                closed,
-               %AppSnapshot{schema_version: 1, generation: 0, entries: []},
+               apps,
                %PluginSnapshot{schema_version: 1, generation: 0, entries: [plugin]},
                opts
              )
