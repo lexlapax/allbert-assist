@@ -13,9 +13,8 @@ defmodule AllbertAssist.Settings.StoreCompositionRaceTest do
   #
   # Owns the settings-root app env for the test; also swaps the shared
   # persistent_term composition cache (restored via clear_cache) and seeds the
-  # global registries (ProviderPreconditions / ShippedRegistries.restore!) —
-  # the checker's primary-lane adjudication for this mix is app_env_serial
-  # (the gate_test precedent).
+  # notes_files descriptors (ProviderPreconditions) — the checker's primary-lane
+  # adjudication for this mix is app_env_serial (the gate_test precedent).
   use ExUnit.Case, async: false
 
   @moduletag :app_env_serial
@@ -23,20 +22,8 @@ defmodule AllbertAssist.Settings.StoreCompositionRaceTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.TestSupport.ProviderPreconditions
-  alias AllbertAssist.TestSupport.RegistryIsolationFixtures
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @app_key "apps.notes_files.notes_root"
-  # The marker proving a composition is genuinely PARTIAL must be a key the
-  # registries contribute. `@app_key` was that key until v1.4 M9 moved
-  # notes_files settings ownership from the App path to the pack: pack fragments
-  # compose from the closed projection rather than the registries, so
-  # `apps.notes_files.*` is now present even in a composition built from empty
-  # ones, and asserting its absence could never hold again. The user setting
-  # under test is still `@app_key` -- what changed is only how "partial" is
-  # detected.
-  @registry_sourced_key "browser.download.enabled"
-  @registry_sourced_group "browser"
   @cache_key {Fragments, :default_composition}
   @read_hook_key {Fragments, :composition_read_hook}
 
@@ -132,26 +119,43 @@ defmodule AllbertAssist.Settings.StoreCompositionRaceTest do
     notes_root
   end
 
-  # Build a core-only composition from empty private registries — the shape a
-  # mid-invalidation rebuild sees while the global registry is transiently
-  # partial. Precondition-asserted: the full composition knows the app key,
-  # the partial one does not.
+  # Build a composition that is genuinely missing the key under test — the shape
+  # a mid-invalidation rebuild sees while the composition is transiently partial.
+  # Precondition-asserted: the full composition knows the app key, this one does
+  # not, so a Store call that re-read the cache between its reads would validate
+  # against a composition without the key and fail with `{:error,
+  # {:unknown_setting, _}}` — the exact M8.2 symptom.
+  #
+  # v1.4 M13.1 derives the partial composition from the full one by subtraction.
+  # It used to build one from EMPTY private registries and detect partialness
+  # through a key only the registries contributed, which decayed twice as
+  # extraction progressed: M9 moved notes_files settings to the pack, so the app
+  # key itself was no longer absent, and M13 extracted the last plugin, so NO key
+  # is registry-sourced any more. Measured at M13.1, the full and empty-registry
+  # compositions are byte-identical at 624 keys — the swap had become a no-op and
+  # the regression proof silently proved nothing. Subtracting the key under test
+  # restores the original guarantee and does not care where a fragment comes
+  # from, so the next extraction cannot quietly disarm it again.
   defp partial_composition!, do: partial_composition!(@app_key)
 
   defp partial_composition!(app_key) do
-    context = RegistryIsolationFixtures.start_isolated_registries(:composition_race)
-
-    partial = %{
-      fragments: Fragments.registered_fragments(context),
-      schema: Fragments.schema(context),
-      defaults: Fragments.defaults(context),
-      safe_write_keys: Fragments.safe_write_keys(context)
+    full = %{
+      fragments: Fragments.registered_fragments(),
+      schema: Fragments.schema(),
+      defaults: Fragments.defaults(),
+      safe_write_keys: Fragments.safe_write_keys()
     }
 
-    assert Map.has_key?(Fragments.schema(), app_key)
-    assert Map.has_key?(Fragments.schema(), @registry_sourced_key)
-    refute Map.has_key?(partial.schema, @registry_sourced_key)
-    refute Map.has_key?(partial.defaults, @registry_sourced_group)
+    assert Map.has_key?(full.schema, app_key)
+
+    partial = %{
+      full
+      | schema: Map.delete(full.schema, app_key),
+        safe_write_keys: List.delete(full.safe_write_keys, app_key)
+    }
+
+    refute Map.has_key?(partial.schema, app_key)
+    refute app_key in partial.safe_write_keys
 
     partial
   end
