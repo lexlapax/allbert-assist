@@ -1759,7 +1759,8 @@
     {
       "bundled": true,
       "file": {
-        "path": "apps/allbert_notes_files/priv/allbert_plugin.json"
+        "application": "allbert_notes_files",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-notes_files",
       "kind": "managed_file",

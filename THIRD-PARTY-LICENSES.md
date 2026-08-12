@@ -1023,7 +1023,8 @@ the offline drift check can pass.
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `apps/allbert_notes_files/priv/allbert_plugin.json`
+- Managed application: `allbert_notes_files`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-research` — allbert.research staged plugin
