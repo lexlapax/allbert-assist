@@ -24,6 +24,25 @@ defmodule AllbertAssist.Plugin do
   @callback release_availability() :: [map()]
   @callback child_spec(opts :: keyword() | map()) :: Supervisor.child_spec() | :ignore
 
+  @doc """
+  Whether this module is one of the product's own plugins.
+
+  Implementing this behaviour used to be the same statement as being a product
+  plugin, because for the product's whole history the only modules that did were
+  the shipped ones. v1.4 M13 broke that coincidence: the M0 registry ledger needs
+  a subject to register twice, and a gate fixture that implements the behaviour
+  is not a plugin the product ships. Inferring product membership from the
+  behaviour alone silently admitted that fixture to
+  `AllbertAssist.Pack.CompiledInventory.plugin_modules/1`, and from there to
+  `AllbertAssist.Plugin.Discovery.shipped_modules/0`, which is production code.
+
+  So a module states its intent rather than having it inferred. The default is
+  `true`, which keeps adding a plugin a one-file change with nothing to register
+  here, and means a missing declaration can never hide a real plugin -- only a
+  fixture opting out deliberately is excluded.
+  """
+  @callback product?() :: boolean()
+
   defmacro __using__(_opts) do
     quote do
       @behaviour AllbertAssist.Plugin
@@ -49,13 +68,17 @@ defmodule AllbertAssist.Plugin do
       @impl AllbertAssist.Plugin
       def child_spec(_opts), do: :ignore
 
+      @impl AllbertAssist.Plugin
+      def product?, do: true
+
       defoverridable apps: 0,
                      channels: 0,
                      actions: 0,
                      skill_paths: 0,
                      settings_schema: 0,
                      release_availability: 0,
-                     child_spec: 1
+                     child_spec: 1,
+                     product?: 0
     end
   end
 end

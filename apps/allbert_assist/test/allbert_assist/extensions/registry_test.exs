@@ -4,6 +4,7 @@ defmodule AllbertAssist.Extensions.RegistryTest do
 
   alias AllbertAssist.DevGates.V14M0RegistryLedger
   alias AllbertAssist.Extensions.Registry
+  alias AllbertAssist.Pack.CompiledInventory
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
@@ -81,12 +82,23 @@ defmodule AllbertAssist.Extensions.RegistryTest do
            )
   end
 
+  # Derived, not hardcoded. The counts here were 13 and 6, so every pack
+  # extraction had to come back and edit them, and a count says nothing about
+  # WHICH plugin restoration dropped. What the test is named for is completeness:
+  # restoration must reproduce the compiled inventory exactly. Asserting that
+  # directly catches a dropped or duplicated owner by name, and adding a pack
+  # needs no edit here.
   test "shipped restoration preserves the complete frozen registry projection" do
     context = Fixtures.start_shipped_registries(:extensions_shipped_projection)
     contributions = Registry.contributions(context)
 
-    assert length(contributions.apps) == 6
-    assert length(contributions.plugins) == 13
+    {:ok, inventory} = CompiledInventory.plugin_modules()
+
+    assert Enum.sort(Enum.map(contributions.plugins, & &1.plugin_id)) ==
+             Enum.sort(Map.keys(inventory))
+
+    assert contributions.apps != []
+    assert Enum.uniq(contributions.apps) == contributions.apps
     assert :ok = V14M0RegistryLedger.check!()
   end
 end

@@ -4,8 +4,8 @@
     "apps_sha256": "79ddd7de63ea698dcf3577740a751aaa101b7bd1ab5dbfd0b5e91e615c2aff14",
     "explicit_server_parity_sha256": "69eba632ad70ef8dd9d140a736b7e9e435257cfe6b31e7f287c4c0f5493d76d2",
     "extensions_sha256": "ef2712b3759c92727c5596e2f68a52c9032d9dc40b88361610fa950bcbf7a4c5",
-    "isolated_mutation_diagnostics_sha256": "23c8634086c1afa0d50adf317d715587da72cca699c9c157f87dda52d57ef428",
-    "payload_sha256": "e86e805c0ee1441728282a9fe540d63cd59cc36ad9d3f532479abfac49932560",
+    "isolated_mutation_diagnostics_sha256": "0793e2f8008e50b9022ea1f2e7e044952013f42cea1ab6e97b912e59e1afc276",
+    "payload_sha256": "5b90c666c9cfbf390d924f89b9abccc3eadbab984e29c9f1d7fccad2a6fee039",
     "plugins_sha256": "ac7d4581ea77e0591fbb87b9f2e1945b59b4a3bb70c03fe777939597b758ea3d",
     "settings_sha256": "2f1ac6a742e86c1f64df40447f3dff80ed4a8e02f64ddf95b86158964946510d"
   },
@@ -37692,7 +37692,7 @@
           "settings_fragments": 56
         },
         "plugin_diagnostics": {
-          "allbert.v14_m0_ledger": [
+          "allbert.m0_ledger_subject": [
             {
               "detail": {},
               "kind": "duplicate_plugin_id",
@@ -37707,7 +37707,7 @@
             {
               "$tuple": [
                 "plugin_id_taken",
-                "allbert.v14_m0_ledger"
+                "allbert.m0_ledger_subject"
               ]
             }
           ]
@@ -37721,7 +37721,7 @@
         "plugin_registration": {
           "$tuple": [
             "ok",
-            "allbert.v14_m0_ledger"
+            "allbert.m0_ledger_subject"
           ]
         }
       }
@@ -49422,8 +49422,13 @@
       {
         "milestone": "M13",
         "payload_sha256": "b572065b01a489f0693af322ed1e9ae32d6c03fa8b1c026ca50b60b4066b6889",
-        "reason": "the last ten plugins extracted to their own applications, plugins/ is now empty, and the isolated-mutation registration subject moved onto the gate-owned V14M0LedgerPlugin because no residual-compiled plugin remained to borrow",
-        "refrozen_at_sha": "cfda1ae7489bef6382080e30c8bee6372a12c1e4"
+        "reason": "the last ten plugins extracted to their own applications, plugins/ is now empty, and the isolated-mutation registration subject moved onto a gate-owned subject because no residual-compiled plugin remained to borrow"
+      },
+      {
+        "milestone": "M13.1",
+        "payload_sha256": "5b90c666c9cfbf390d924f89b9abccc3eadbab984e29c9f1d7fccad2a6fee039",
+        "reason": "the ledger subject left production for test/support and declares product?: false, so the compiled plugin inventory no longer mistakes a gate fixture for a shipped plugin",
+        "refrozen_at_sha": "ba5011fedfa3a97e1411bfbf1276a5801a29eb38"
       }
     ]
   },

@@ -37,17 +37,29 @@ defmodule AllbertAssist.Pack.CompiledInventoryTest do
              "allbert.slack",
              "allbert.telegram",
              "allbert.tui",
-             # v1.4 M13: the M0 ledger's registration subject. It implements the
-             # Plugin behaviour so the ledger can register it twice, so the
-             # compiled inventory names it -- but it ships no manifest, so
-             # discovery never registers it as a product plugin.
-             "allbert.v14_m0_ledger",
              "allbert.whatsapp",
              "stocksage"
            ]
 
     assert plugins["allbert.browser"] == AllbertBrowser.Plugin
     assert plugins["stocksage"] == StockSage.Plugin
+  end
+
+  # v1.4 M13.1. Implementing the behaviour used to be the whole test for product
+  # membership, so the M0 ledger's subject -- which implements it in order to be
+  # registered twice -- entered this inventory, and through it the production
+  # `Plugin.Discovery.shipped_modules/0`. The subject declares `product?: false`
+  # now, and this asserts the declaration is what the inventory honours rather
+  # than the module's location or its lack of a manifest.
+  test "a module that implements the behaviour but declares itself non-product is excluded" do
+    subject = AllbertAssist.TestSupport.M0LedgerSubject
+
+    assert AllbertAssist.Plugin in subject.__info__(:attributes)[:behaviour]
+    refute subject.product?()
+
+    assert {:ok, plugins} = CompiledInventory.plugin_modules()
+    refute subject.plugin_id() in Map.keys(plugins)
+    refute subject in Map.values(plugins)
   end
 
   test "App owners carry default and reserved declarations" do

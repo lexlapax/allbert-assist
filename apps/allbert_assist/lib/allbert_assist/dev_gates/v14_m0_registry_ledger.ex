@@ -14,7 +14,6 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.DevGates.V14M0LedgerPlugin
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Pack.Contracts.ActionsOverlay, as: OverlayContract
@@ -84,18 +83,33 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     # notes_files's CLI area, discord, matrix, signal, slack, telegram, whatsapp,
     # stocksage) out of plugins/, which is now empty. The residual compiles no
     # plugin implementation of its own, so the isolated-mutation proof's
-    # registration/duplicate/lookup subject moved onto the gate-owned
-    # V14M0LedgerPlugin (see its moduledoc) instead of the last extracted pack's
-    # module -- the same kind of move M12 made when it ran out of a residual-
-    # compiled channel plugin to borrow.
+    # registration/duplicate/lookup subject moved onto a gate-owned subject
+    # instead of the last extracted pack's module -- the same kind of move M12
+    # made when it ran out of a residual-compiled channel plugin to borrow.
     %{
       "payload_sha256" => "b572065b01a489f0693af322ed1e9ae32d6c03fa8b1c026ca50b60b4066b6889",
       "milestone" => "M13",
       "reason" =>
         "the last ten plugins extracted to their own applications, plugins/ is now " <>
-          "empty, and the isolated-mutation registration subject moved onto the " <>
-          "gate-owned V14M0LedgerPlugin because no residual-compiled plugin remained " <>
-          "to borrow"
+          "empty, and the isolated-mutation registration subject moved onto a " <>
+          "gate-owned subject because no residual-compiled plugin remained to borrow"
+    },
+    # v1.4 M13.1 is a SUBJECT change, not a move or a derivation change. M13's
+    # gate-owned subject lived in `lib` and implemented the Plugin behaviour,
+    # which was the whole test the compiled inventory applied -- so a gate fixture
+    # entered `CompiledInventory.plugin_modules/1` and through it the production
+    # `Plugin.Discovery.shipped_modules/0`. The behaviour now carries `product?/0`
+    # so a module declares whether it is one of the product's own, the subject
+    # declares `false`, and it moved to test/support where a non-test build cannot
+    # compile it at all. Its plugin id changed with it, which is the whole of this
+    # payload delta. Operator decision 2026-08-12.
+    %{
+      "payload_sha256" => "5b90c666c9cfbf390d924f89b9abccc3eadbab984e29c9f1d7fccad2a6fee039",
+      "milestone" => "M13.1",
+      "reason" =>
+        "the ledger subject left production for test/support and declares " <>
+          "product?: false, so the compiled plugin inventory no longer mistakes a " <>
+          "gate fixture for a shipped plugin"
     }
   ]
 
@@ -634,15 +648,17 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
       # M12 extracted it, then discord -- and M13 extracted every remaining
       # plugin, so there is no shipped plugin left in the residual to borrow and
       # borrowing one from a pack is the return edge the R0 DAG forbids. A gate
-      # that needs a subject owns one; V14M0LedgerPlugin is inert by design.
+      # that needs a subject owns one; the subject is inert by design.
+      subject = subject_module!()
+
       plugin_registration =
-        PluginRegistry.register_module(V14M0LedgerPlugin,
+        PluginRegistry.register_module(subject,
           server: plugin_server,
           side_effects: false
         )
 
       plugin_duplicate =
-        PluginRegistry.register_module(V14M0LedgerPlugin,
+        PluginRegistry.register_module(subject,
           server: plugin_server,
           side_effects: false
         )
@@ -710,6 +726,22 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         }
       }
     end)
+  end
+
+  # Resolved by name rather than aliased. The subject is a test-support module,
+  # because a gate fixture is not part of the product -- an earlier version of it
+  # lived in `lib` and leaked into the compiled plugin inventory. A compile-time
+  # reference from here would put a `lib` module's dependency on a `test/support`
+  # module, which fails a non-test build; every caller of this ledger is a test
+  # or a gate step, and those all run under MIX_ENV=test.
+  defp subject_module! do
+    module = Module.concat(["AllbertAssist", "TestSupport", "M0LedgerSubject"])
+
+    if Code.ensure_loaded?(module) do
+      module
+    else
+      raise "M0 ledger subject unavailable: #{inspect(module)} is compiled only under MIX_ENV=test"
+    end
   end
 
   defp isolated_counts(context) do

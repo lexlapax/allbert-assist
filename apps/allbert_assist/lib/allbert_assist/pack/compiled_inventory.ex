@@ -75,6 +75,7 @@ defmodule AllbertAssist.Pack.CompiledInventory do
     with {:ok, modules} <- application_modules(applications) do
       modules
       |> Enum.filter(&implements?(&1, AllbertAssist.Plugin))
+      |> Enum.filter(&product_plugin?/1)
       |> Enum.reduce_while({:ok, %{}}, fn module, {:ok, plugins} ->
         with true <- function_exported?(module, :plugin_id, 0),
              plugin_id when is_binary(plugin_id) and plugin_id != "" <- module.plugin_id(),
@@ -216,6 +217,20 @@ defmodule AllbertAssist.Pack.CompiledInventory do
     _exception -> false
   catch
     _kind, _reason -> false
+  end
+
+  # Product membership is declared by the module, not inferred from the fact that
+  # it implements the behaviour -- see `AllbertAssist.Plugin.product?/0` for the
+  # M13 fixture that made the difference matter. A module that predates the
+  # callback, or implements the behaviour without `use`, is treated as a product
+  # plugin: the failure this filter must never have is silently dropping a real
+  # one, and only a deliberate `product?: false` excludes anything.
+  defp product_plugin?(module) do
+    not function_exported?(module, :product?, 0) or module.product?()
+  rescue
+    _exception -> true
+  catch
+    _kind, _reason -> true
   end
 
   defp implements?(module, behaviour) do
