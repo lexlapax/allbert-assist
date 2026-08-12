@@ -38,8 +38,14 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   # CLI group it now declares through cli_groups/0 -- reach the candidate through
   # the pack rather than through the residual. As at M9, no contribution was
   # added or removed, only re-attributed to the application that owns it.
-  @expected_behavior_digest "2046202bfaa3e1bf65240d43d22d82bf810660439ca3a748d9720eb0f8473a00"
-  @expected_bytes_sha256 "223e969e6fe89f6d187aacc974c1022cbd35c28acc2e386954af3185d6383f65"
+  # v1.4 M13 re-froze this digest. The extraction completed: fifteen
+  # descriptor-bearing applications instead of five, and each pack now
+  # contributes its own gate owner lane, settings fragment owner, CLI group and
+  # -- for the seven channels -- an effect subtree it supervises itself. As at M9
+  # and M12, no contribution was added or removed, only re-attributed to the
+  # application that owns it.
+  @expected_behavior_digest "54b857368f86459639693cdcc1879f65866c318061d34a4df780e034aa21ed79"
+  @expected_bytes_sha256 "5b3f5d5a44b0917bad16e938cf006cb164386e68d0727ce09c01eb59880d99a1"
 
   defmodule AppMetadataSupervisor do
     use GenServer

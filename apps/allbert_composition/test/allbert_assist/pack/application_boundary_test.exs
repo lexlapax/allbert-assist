@@ -33,12 +33,25 @@ defmodule AllbertAssist.Pack.ApplicationBoundaryTest do
     # allbert_notes_files as the first pack to leave plugins/; M12 added telegram
     # and email, which take registry_order 300 and 400 and sit between it and the
     # host for the same reason.
+    # v1.4 M13 completed the extraction: fifteen applications in R0 DAG order --
+    # kernel, residual, the eleven packs composition depends on, the host, Web,
+    # then the two packs that contribute web surfaces and therefore sit above it.
     assert applications == [
              allbert_kernel: :permanent,
              allbert_assist: :permanent,
              allbert_notes_files: :permanent,
              allbert_telegram: :permanent,
              allbert_email: :permanent,
+             allbert_research: :permanent,
+             allbert_browser: :permanent,
+             allbert_discord: :permanent,
+             allbert_matrix: :permanent,
+             allbert_signal: :permanent,
+             allbert_slack: :permanent,
+             allbert_tui: :permanent,
+             allbert_whatsapp: :permanent,
+             allbert_artifacts: :permanent,
+             stocksage: :permanent,
              allbert_composition: :permanent,
              allbert_assist_web: :permanent
            ]
