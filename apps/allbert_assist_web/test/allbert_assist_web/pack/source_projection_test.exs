@@ -11,11 +11,21 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
   @allbert_applications [
     :allbert_kernel,
     :allbert_assist,
-    :allbert_composition,
-    :allbert_assist_web,
     :allbert_notes_files,
     :allbert_telegram,
-    :allbert_email
+    :allbert_email,
+    :allbert_research,
+    :allbert_browser,
+    :allbert_discord,
+    :allbert_matrix,
+    :allbert_signal,
+    :allbert_slack,
+    :allbert_tui,
+    :allbert_whatsapp,
+    :allbert_composition,
+    :allbert_assist_web,
+    :allbert_artifacts,
+    :stocksage
   ]
   @repo_root Path.expand("../../../../..", __DIR__)
 
@@ -50,22 +60,39 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
       end)
 
     assert allbert_dependencies == %{
-             allbert_kernel: MapSet.new(),
+             allbert_artifacts:
+               MapSet.new([:allbert_assist, :allbert_assist_web, :allbert_kernel]),
              allbert_assist: MapSet.new([:allbert_kernel]),
+             allbert_assist_web: MapSet.new([:allbert_assist, :allbert_composition]),
+             allbert_browser: MapSet.new([:allbert_assist, :allbert_kernel, :allbert_research]),
              allbert_composition:
                MapSet.new([
-                 :allbert_kernel,
                  :allbert_assist,
+                 :allbert_browser,
+                 :allbert_discord,
+                 :allbert_email,
+                 :allbert_kernel,
+                 :allbert_matrix,
                  :allbert_notes_files,
+                 :allbert_research,
+                 :allbert_signal,
+                 :allbert_slack,
                  :allbert_telegram,
-                 :allbert_email
+                 :allbert_tui,
+                 :allbert_whatsapp
                ]),
-             allbert_assist_web: MapSet.new([:allbert_composition, :allbert_assist]),
-             allbert_notes_files: MapSet.new([:allbert_kernel, :allbert_assist]),
-             # Both M12 packs take the same two direct dependencies notes_files
-             # does. Composition depends on them; they depend on nothing above.
-             allbert_telegram: MapSet.new([:allbert_kernel, :allbert_assist]),
-             allbert_email: MapSet.new([:allbert_kernel, :allbert_assist])
+             allbert_discord: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_email: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_kernel: MapSet.new([]),
+             allbert_matrix: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_notes_files: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_research: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_signal: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_slack: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_telegram: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_tui: MapSet.new([:allbert_assist, :allbert_kernel]),
+             allbert_whatsapp: MapSet.new([:allbert_assist, :allbert_kernel]),
+             stocksage: MapSet.new([:allbert_assist, :allbert_assist_web, :allbert_kernel])
            }
 
     release = %ReleaseSpec{
@@ -93,7 +120,17 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
              {:allbert_assist, 100},
              {:allbert_notes_files, 200},
              {:allbert_telegram, 300},
-             {:allbert_email, 400}
+             {:allbert_email, 400},
+             {:allbert_research, 500},
+             {:allbert_browser, 600},
+             {:allbert_discord, 700},
+             {:allbert_matrix, 800},
+             {:allbert_signal, 900},
+             {:allbert_slack, 1000},
+             {:allbert_tui, 1100},
+             {:allbert_whatsapp, 1200},
+             {:allbert_artifacts, 1300},
+             {:stocksage, 1400}
            ]
   end
 end

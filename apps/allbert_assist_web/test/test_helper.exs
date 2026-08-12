@@ -14,6 +14,13 @@ ExUnit.start()
 AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([:allbert_artifacts, :stocksage])
 AllbertAssist.TestSupport.PackBootstrap.ensure_registered!()
 
+# A pack's migrations live in its own priv, and the residual runs migrations
+# while IT starts -- before this file loads the packs. A packaged release loads
+# every application before starting any, so `Application.app_dir/2` resolves
+# there and the ordering never bites; an owner-scoped test VM loads them late, so
+# the pack's tables would be absent. Re-run after the packs are loaded.
+AllbertAssist.Database.migrate_repo(AllbertAssist.Repo, :up, all: true)
+
 # v1.0.2 M2 drift-fix (v0.63 F5 oversight): F5 hides capability-gated and demo
 # (StockSage) intents from the default shortlist and bypassed the gate in the
 # CORE test_helper only — the web suite never got the same bypass, so every
