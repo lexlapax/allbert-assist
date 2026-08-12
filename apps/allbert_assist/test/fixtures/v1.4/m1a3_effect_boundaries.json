@@ -3800,7 +3800,7 @@
       "boundary": "Supervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 514,
+      "line": 526,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime/attach/tui_session.ex"
     },

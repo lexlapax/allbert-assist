@@ -476,8 +476,13 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
     if Map.get(settings, "enabled", false), do: :ok, else: {:error, :channel_disabled}
   end
 
+  # No is_atom/1 check here: the only caller is `prepare_adapter/1`, which admits
+  # this module through `ensure_pack_module/1` first, and that clause's guard
+  # already establishes it. M13 introduced that upstream check when the adapter
+  # module moved from a compile-time alias to a runtime descriptor lookup, which
+  # left the guard duplicated -- and dialyzer proved the second one unreachable.
   defp adapter_slot_available(supervisor, adapter_module) do
-    registered_pid = if is_atom(adapter_module), do: Process.whereis(adapter_module)
+    registered_pid = Process.whereis(adapter_module)
 
     if is_pid(registered_pid) do
       {:error, :already_attached}
