@@ -10,7 +10,15 @@
           "apps/*/web/",
           "config/",
           "scripts/release/*.exs",
-          "plugins/allbert.browser/lib/allbert_browser/driver/playwright.ex"
+          # v1.4 M13 prep: plugin source was never scanned, so every extraction
+          # imported its plugin's latent findings as a surprise -- M12 moved two
+          # and the gate went red on code nobody had touched. Scanning
+          # `plugins/` now makes that debt a measurement taken once, before ten
+          # more packs move, instead of a gate failure discovered during each.
+          # The single browser driver file this list used to name is covered by
+          # the glob and no longer needs its own entry.
+          "plugins/*/lib/",
+          "plugins/*/test/"
         ],
         excluded: [~r"/_build/", ~r"/deps/", ~r"/priv/static/"]
       },
