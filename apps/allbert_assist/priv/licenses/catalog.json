@@ -71,6 +71,28 @@
       ]
     },
     {
+      "application": "allbert_email",
+      "bundled": true,
+      "id": "beam-allbert-email",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_email",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertEmail.Pack",
+        "id": "allbert_email",
+        "registry_order": 400,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "application": "allbert_kernel",
       "bundled": true,
       "id": "beam-allbert-kernel",
@@ -103,6 +125,28 @@
         "descriptor_module": "Elixir.AllbertNotesFiles.Pack",
         "id": "allbert_notes_files",
         "registry_order": 200,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_telegram",
+      "bundled": true,
+      "id": "beam-allbert-telegram",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_telegram",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertTelegram.Pack",
+        "id": "allbert_telegram",
+        "registry_order": 300,
         "schema_version": 1,
         "startup_role": "native_passive"
       },
@@ -1725,12 +1769,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.email/allbert_plugin.json"
+        "application": "allbert_email",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-email",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.email staged plugin",
+      "name": "allbert.email umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1828,12 +1873,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.telegram/allbert_plugin.json"
+        "application": "allbert_telegram",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-telegram",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.telegram staged plugin",
+      "name": "allbert.telegram umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"

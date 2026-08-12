@@ -1,4 +1,4 @@
-defmodule AllbertAssist.CLI.Areas.Notes do
+defmodule AllbertNotesFiles.CLI do
   @moduledoc """
   Release-safe `notes` admin dispatch (v0.65 M2).
 
@@ -10,6 +10,8 @@ defmodule AllbertAssist.CLI.Areas.Notes do
   `allbert admin settings set apps.notes_files.notes_root PATH` remains a low-level
   fallback.
   """
+
+  @behaviour AllbertAssist.CLI.Area
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
@@ -25,6 +27,7 @@ defmodule AllbertAssist.CLI.Areas.Notes do
   set-root connects a local notes folder (PATH must be an existing directory).
   """
 
+  @impl true
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
   def dispatch(argv, context \\ nil) do
     argv

@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Allbert.Notes do
       mix allbert.notes show            # print the current notes root
 
   The dispatch logic is shared with the packaged `allbert admin notes` command
-  (`AllbertAssist.CLI.Areas.Notes`); this task is a thin Mix-shell wrapper.
+  (`AllbertNotesFiles.CLI`); this task is a thin Mix-shell wrapper.
   """
 
   use Mix.Task
@@ -20,6 +20,6 @@ defmodule Mix.Tasks.Allbert.Notes do
   @impl true
   def run(args) do
     Mix.Task.run("app.start")
-    Areas.run(Areas.Notes, args)
+    Areas.run(AllbertNotesFiles.CLI, args)
   end
 end

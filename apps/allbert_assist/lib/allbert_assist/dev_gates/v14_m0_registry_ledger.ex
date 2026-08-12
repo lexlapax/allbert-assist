@@ -570,14 +570,22 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
           existing_names: legacy_action_names(context)
         )
 
+      # v1.4 M12: the subject is incidental -- this exercises register-then-
+      # duplicate-register mechanics in an isolated server, and any shipped
+      # plugin proves the same thing. It was AllbertTelegram.Plugin until that
+      # channel became its own application, which made this the residual's last
+      # compile-time reference into a pack and so a return edge the R0 DAG
+      # forbids. Discord is still compiled into the residual through
+      # shipped_plugin_paths/0, and is a channel plugin like the old subject, so
+      # the recorded shape drifts as little as the swap allows.
       plugin_registration =
-        PluginRegistry.register_module(AllbertTelegram.Plugin,
+        PluginRegistry.register_module(AllbertAssist.Plugins.Discord,
           server: plugin_server,
           side_effects: false
         )
 
       plugin_duplicate =
-        PluginRegistry.register_module(AllbertTelegram.Plugin,
+        PluginRegistry.register_module(AllbertAssist.Plugins.Discord,
           server: plugin_server,
           side_effects: false
         )

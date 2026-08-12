@@ -1,8 +1,8 @@
-defmodule AllbertAssist.CLI.Areas.NotesTest do
+defmodule AllbertNotesFiles.CLITest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
-  alias AllbertAssist.CLI.Areas.Notes, as: Area
+  alias AllbertNotesFiles.CLI, as: Area
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ProviderPreconditions

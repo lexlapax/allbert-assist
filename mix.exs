@@ -36,6 +36,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
           allbert_kernel: :permanent,
           allbert_assist: :permanent,
           allbert_notes_files: :permanent,
+          allbert_telegram: :permanent,
+          allbert_email: :permanent,
           allbert_composition: :permanent,
           allbert_assist_web: :permanent
         ],

@@ -1575,14 +1575,14 @@ defmodule Mix.Tasks.Allbert.Test do
         "mix",
         [
           "test",
-          "../../plugins/allbert.telegram/test",
-          "../../plugins/allbert.email/test",
+          "../../apps/allbert_telegram/test",
+          "../../apps/allbert_email/test",
           "../../plugins/allbert.discord/test",
           "../../plugins/allbert.slack/test",
           "../../plugins/allbert.matrix/test",
           "../../plugins/allbert.whatsapp/test",
           "../../plugins/allbert.signal/test",
-          "../../plugins/allbert.notes_files/test",
+          "../../apps/allbert_notes_files/test",
           "../../plugins/allbert.artifacts/test"
         ],
         env
@@ -1712,8 +1712,8 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "../../plugins/allbert.notes_files/test/allbert_notes_files/actions_test.exs",
-        "../../plugins/allbert.notes_files/test/allbert_notes_files/plugin_test.exs"
+        "../../apps/allbert_notes_files/test/allbert_notes_files/actions_test.exs",
+        "../../apps/allbert_notes_files/test/allbert_notes_files/plugin_test.exs"
       ],
       coverage: [
         "search_notes and read_note read-only refs",
@@ -11307,8 +11307,7 @@ defmodule Mix.Tasks.Allbert.Test do
     # The notes-files contract suite mutates the live App/Plugin registries and
     # restores their ordered contents. Its repository/skill reads are bounded
     # fixtures; the singleton registry lifecycle is the binding resource.
-    "plugins/allbert.notes_files/test/allbert_notes_files/plugin_test.exs" =>
-      :global_process_serial,
+    "apps/allbert_notes_files/test/allbert_notes_files/plugin_test.exs" => :global_process_serial,
     # The M0 registry ledger owns bounded fixture reads, but its mutation proof
     # also starts fixed-name temporary App/Plugin/Actions registries. Those VM
     # names are the binding resource, so this suite must remain globally serial.

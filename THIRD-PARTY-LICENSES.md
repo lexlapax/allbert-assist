@@ -118,6 +118,15 @@ the offline drift check can pass.
 - Application: `allbert_composition`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
+### `beam-allbert-email` — allbert_email
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_email`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
 ### `beam-allbert-kernel` — allbert_kernel
 
 - Kind: `beam_app`
@@ -134,6 +143,15 @@ the offline drift check can pass.
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
 - Application: `allbert_notes_files`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
+### `beam-allbert-telegram` — allbert_telegram
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_telegram`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `beam-bandit` — bandit
@@ -999,13 +1017,14 @@ the offline drift check can pass.
 - Managed path: `plugins/allbert.discord/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-email` — allbert.email staged plugin
+### `plugin-allbert-email` — allbert.email umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.email/allbert_plugin.json`
+- Managed application: `allbert_email`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-matrix` — allbert.matrix staged plugin
@@ -1054,13 +1073,14 @@ the offline drift check can pass.
 - Managed path: `plugins/allbert.slack/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-telegram` — allbert.telegram staged plugin
+### `plugin-allbert-telegram` — allbert.telegram umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.telegram/allbert_plugin.json`
+- Managed application: `allbert_telegram`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-tui` — allbert.tui staged plugin

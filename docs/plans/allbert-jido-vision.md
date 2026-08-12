@@ -315,7 +315,12 @@ The default local plugin roots are `./plugins` for source-tree
 project/developer plugins and `<ALLBERT_HOME>/plugins` for user-owned plugin
 folders. Allbert's own Telegram and email channels move into
 `./plugins/allbert.telegram` and `./plugins/allbert.email` first so shipped
-features use the same package shape as later developer extensions. Code-bearing
+features use the same package shape as later developer extensions. (Superseded
+for those two channels by v1.4 M12, which extracted them again -- out of
+`./plugins` and into the umbrella applications `apps/allbert_telegram` and
+`apps/allbert_email` -- once ADR 0098 gave first-party code a pack tier that
+`./plugins` was never meant to carry. The paragraph stands as the rationale for
+the plugin roots themselves, which are unchanged.) Code-bearing
 source-tree plugins are compiled only by explicit project/release
 configuration. Home plugins may contribute manifests and skill roots first,
 but Allbert should not compile or load arbitrary code from

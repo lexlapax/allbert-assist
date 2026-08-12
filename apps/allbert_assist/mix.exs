@@ -37,8 +37,6 @@ defmodule AllbertAssist.MixProject do
 
   defp shipped_plugin_paths do
     [
-      Path.expand("../../plugins/allbert.telegram/lib", __DIR__),
-      Path.expand("../../plugins/allbert.email/lib", __DIR__),
       Path.expand("../../plugins/allbert.discord/lib", __DIR__),
       Path.expand("../../plugins/allbert.slack/lib", __DIR__),
       Path.expand("../../plugins/allbert.matrix/lib", __DIR__),
@@ -72,7 +70,6 @@ defmodule AllbertAssist.MixProject do
       {:ecto_sqlite3, ">= 0.0.0"},
       {:jason, "~> 1.2"},
       {:swoosh, "~> 1.16"},
-      {:gen_smtp, "~> 1.0"},
       {:req, "~> 0.5"},
       # v0.63 M8.2: bundle a CA trust store so hosted-provider HTTPS works in the packaged
       # release even when the host OS store is empty/unloadable (see External.TLS).

@@ -551,6 +551,19 @@ rather than assigning the same foundation to a later release.
    remaining pack extraction and accumulated Tier-1 cleanup. Deliberately a
    **bounded** major, not a renumbering event that absorbs the 1.x remainder.
 
+   **Carries channel effect ownership** (operator decision 2026-08-11, from
+   v1.4 M12). The telegram and email packs ship `native_passive` because M12
+   moved code and declarations but no supervision: their adapters are still
+   started from the channel descriptor's `child_spec` by the residual's
+   `Plugin.ChildSupervisor`. Making a channel pack `native_effectful` means
+   giving it an OTP supervision tree, its own effect supervisor, and its own
+   `Pack.ActivationGate` (already generic, parameterised by `pack_id`), and
+   moving the adapter `child_spec` off the residual -- which also makes the pack
+   responsible for its own enabled-state and settings reads. That is done for
+   **all seven channels at once, here**, rather than twice: two at M12 and five
+   at the remaining extraction. The M12 decision record is in
+   `docs/plans/v1.4-plan.md`.
+
 17. **2.1 horizon — Self-Hosting Development.** Allbert develops Allbert
    (pi-mode target on its own checkout; plan/build/test/document roles
    in-product, supervised). Its OAuth hosted-LLM providers sub-capability

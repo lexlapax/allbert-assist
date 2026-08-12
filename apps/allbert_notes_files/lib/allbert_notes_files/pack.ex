@@ -31,7 +31,6 @@ defmodule AllbertNotesFiles.Pack do
     :stores,
     :prompt_rules,
     :intent_descriptors,
-    :cli_groups,
     :release_assets
   ]
 
@@ -63,6 +62,22 @@ defmodule AllbertNotesFiles.Pack do
   # the property M9 exists to prove, and it is asserted rather than assumed.
   @impl true
   def settings_fragments, do: [AllbertNotesFiles.SettingsFragment]
+
+  # v1.4 M12: the pack owns its `allbert admin notes` surface. M9 left this area
+  # in the residual, hand-registered in `CLI.Commands`, because `cli_groups/0`
+  # had no consumer at the time. Now that M12 built one for telegram and email,
+  # leaving notes_files hand-registered would be the only pack whose CLI someone
+  # else declares -- so it moves here rather than banking the inconsistency.
+  @impl true
+  def cli_groups do
+    [
+      %{
+        group_id: "allbert_notes_files.notes",
+        command_path: ["admin", "notes"],
+        module: AllbertNotesFiles.CLI
+      }
+    ]
+  end
 
   # Operator decision 2026-08-11: keep :allbert_test_raw. The move's acceptance
   # is that observable behaviour is preserved, and this owner has always used it.

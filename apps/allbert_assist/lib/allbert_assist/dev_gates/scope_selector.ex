@@ -138,14 +138,14 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       class: "product_subsystem",
       exact: [],
       prefixes: [
-        "plugins/allbert.telegram/",
-        "plugins/allbert.email/",
+        "apps/allbert_telegram/",
+        "apps/allbert_email/",
         "plugins/allbert.discord/",
         "plugins/allbert.slack/",
         "plugins/allbert.matrix/",
         "plugins/allbert.whatsapp/",
         "plugins/allbert.signal/",
-        "plugins/allbert.notes_files/"
+        "apps/allbert_notes_files/"
       ],
       owners: ["channel_plugins"],
       lanes: ["external_runtime_serial"],

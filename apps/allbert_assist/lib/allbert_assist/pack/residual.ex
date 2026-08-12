@@ -133,18 +133,6 @@ defmodule AllbertAssist.Pack.Residual do
         support: ["plugins/stocksage/test/support"]
       ),
       owner(
-        :telegram,
-        "apps/allbert_assist",
-        "plugins/allbert.telegram/lib",
-        "plugins/allbert.telegram/test"
-      ),
-      owner(
-        :email,
-        "apps/allbert_assist",
-        "plugins/allbert.email/lib",
-        "plugins/allbert.email/test"
-      ),
-      owner(
         :discord,
         "apps/allbert_assist",
         "plugins/allbert.discord/lib",

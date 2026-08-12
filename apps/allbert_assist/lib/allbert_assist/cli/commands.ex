@@ -21,6 +21,7 @@ defmodule AllbertAssist.CLI.Commands do
   """
 
   alias AllbertAssist.CLI.Areas
+  alias AllbertAssist.CLI.PackGroups
 
   @typedoc ~S(One dispatcher path, e.g. `["admin", "status"]` or `["ask"]`.)
   @type path :: [String.t()]
@@ -78,7 +79,6 @@ defmodule AllbertAssist.CLI.Commands do
     ["admin", "objectives"] => {:area, Areas.Objectives},
     ["admin", "models"] => {:area, Areas.Model},
     ["admin", "memory"] => {:area, Areas.Memory},
-    ["admin", "notes"] => {:area, Areas.Notes},
     ["admin", "sessions"] => {:area, Areas.Sessions},
     ["admin", "skills"] => {:area, Areas.Skills},
     ["admin", "threads"] => {:area, Areas.Threads},
@@ -168,17 +168,41 @@ defmodule AllbertAssist.CLI.Commands do
     "gen.support" => :mix_only
   }
 
-  @doc "The full operator dispatch table (path -> disposition)."
+  @doc """
+  The full operator dispatch table (path -> disposition).
+
+  The literal table above plus the groups packs contribute through
+  `AllbertAssist.Pack.cli_groups/0` (v1.4 M12). The merge order is the security
+  property: contributed paths go UNDER `@operator`, so a pack that claims
+  `["admin", "security"]` cannot intercept the built-in — the built-in wins by
+  construction rather than by a check that a later refactor could reorder away.
+  `contributed_conflicts/0` reports any such attempt for the gate to fail on.
+  """
   @spec operator_table() :: %{path() => disposition()}
-  def operator_table, do: @operator
+  def operator_table, do: Map.merge(PackGroups.contributed(), @operator)
 
   @doc "Look up one dispatch path."
   @spec lookup(path()) :: {:ok, disposition()} | :error
   def lookup(path) when is_list(path) do
-    case Map.fetch(@operator, path) do
+    case Map.fetch(operator_table(), path) do
       {:ok, disposition} -> {:ok, disposition}
       :error -> :error
     end
+  end
+
+  @doc """
+  Contributed paths that collide with a built-in command.
+
+  Empty in a sound tree. A non-empty result means a pack tried to claim a path
+  the residual already owns; the built-in still wins, so this is a packaging
+  fault to fix rather than a live exposure.
+  """
+  @spec contributed_conflicts() :: [path()]
+  def contributed_conflicts do
+    PackGroups.contributed()
+    |> Map.keys()
+    |> Enum.filter(&Map.has_key?(@operator, &1))
+    |> Enum.sort()
   end
 
   @doc "Mix-task -> `allbert` mapping (the reverse doc deliverable)."

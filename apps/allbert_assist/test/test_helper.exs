@@ -58,49 +58,96 @@ Application.put_env(:allbert_assist, AllbertAssist.Skills.Registry,
 # absent guard goes inert and no teardown can race. See StockSageRegistryCase.
 # v1.4 M9: the compiled action catalog spans every application declaring
 # allbert_pack, and its registry_order sequence must be contiguous. The residual
-# does not depend on the extracted notes_files pack -- composition does -- so it
-# is absent here unless loaded explicitly, and its actions 261..263 then leave a
-# hole that fails the catalog closed with :invalid_action_registry_order. That is
-# exactly the hole Plugin.Discovery's extracted-manifest support exists to
-# prevent. It must be LOADED, not merely on the code path, because
+# does not depend on the extracted packs -- composition does -- so they are
+# absent here unless loaded explicitly, and their actions then leave a hole that
+# fails the catalog closed with :invalid_action_registry_order. That is exactly
+# the hole Plugin.Discovery's extracted-manifest support exists to prevent. Each
+# pack must be LOADED, not merely on the code path, because
 # CompiledInventory.default_applications/0 reads Application.loaded_applications/0,
-# and it must happen before the app registrations below, which validate their
-# action modules against that catalog.
-pack_ebin = Path.join([Mix.Project.build_path(), "lib", "allbert_notes_files", "ebin"])
+# and they must be loaded before the app registrations below, which validate
+# their action modules against that catalog.
+pack_dependency_closure = fn walk, application, seen ->
+  if MapSet.member?(seen, application) do
+    seen
+  else
+    seen = MapSet.put(seen, application)
 
-unless Code.prepend_path(pack_ebin) do
-  raise "could not add the notes_files pack code path: #{pack_ebin}"
+    ebin = Path.join([Mix.Project.build_path(), "lib", Atom.to_string(application), "ebin"])
+
+    if :code.lib_dir(application) == {:error, :bad_name} and File.dir?(ebin) do
+      Code.prepend_path(ebin)
+      Application.load(application)
+    end
+
+    Enum.reduce(
+      Application.spec(application, :applications) || [],
+      seen,
+      &walk.(walk, &1, &2)
+    )
+  end
 end
 
-case Application.load(:allbert_notes_files) do
-  :ok -> :ok
-  {:error, {:already_loaded, _}} -> :ok
-  {:error, reason} -> raise "could not load the notes_files pack: #{inspect(reason)}"
-end
+Enum.each([:allbert_notes_files, :allbert_telegram, :allbert_email], fn pack_app ->
+  pack_ebin = Path.join([Mix.Project.build_path(), "lib", Atom.to_string(pack_app), "ebin"])
+
+  unless Code.prepend_path(pack_ebin) do
+    raise "could not add the #{pack_app} pack code path: #{pack_ebin}"
+  end
+
+  case Application.load(pack_app) do
+    :ok -> :ok
+    {:error, {:already_loaded, _}} -> :ok
+    {:error, reason} -> raise "could not load the #{pack_app} pack: #{inspect(reason)}"
+  end
+
+  # A pack may depend on a library the residual does not. `allbert_email` needs
+  # gen_smtp, which v1.4 M12 moved out of the residual's deps because
+  # AllbertEmail.SmtpClient is its only caller. Running from this application's
+  # directory builds the code path from the RESIDUAL's dependency closure, so
+  # that library is absent and starting the pack fails with
+  # {:gen_smtp, {'no such file or directory', 'gen_smtp.app'}}.
+  #
+  # The closure is walked TRANSITIVELY and read from each .app rather than
+  # listed here: gen_smtp itself pulls ranch, so resolving only direct
+  # dependencies just moves the same failure one level down. Adding a dependency
+  # to a pack must not mean editing this file. Deliberately NOT a blanket
+  # prepend of every built ebin -- that would also satisfy a dependency a pack
+  # forgot to declare, hiding in the test VM exactly the mistake the release
+  # boundary checks exist to catch.
+  pack_dependency_closure.(pack_dependency_closure, pack_app, MapSet.new())
+end)
 
 # Loading is necessary but not sufficient: the residual boots its plugin
-# registry before this file runs, so the pack's manifest was not on disk-visible
-# to that pass. Discovery is re-run now that the pack is loaded, and only its
-# entry is registered -- everything else is already present. Without this the
-# pack's actions 261..263 are claimed by no enabled plugin and the effective
-# registry_order sequence has a hole.
-unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("allbert.notes_files")) do
-  # Discovery yields the pack either as a compiled module -- its Plugin module is
-  # in the loaded application's module list -- or as a manifest entry read from
-  # the application's priv. Both forms are handled rather than assuming one.
-  AllbertAssist.Plugin.Discovery.discover()
-  |> Enum.each(fn
-    {:module, AllbertNotesFiles.Plugin, opts} ->
-      {:ok, "allbert.notes_files"} =
-        AllbertAssist.Plugin.Registry.register_module(AllbertNotesFiles.Plugin, opts)
+# registry before this file runs, so each pack's manifest was not on disk-visible
+# to that pass. Discovery is re-run now that the packs are loaded, and only their
+# entries are registered -- everything else is already present. Without this the
+# packs' actions are claimed by no enabled plugin and the effective registry_order
+# sequence has holes.
+packs_to_register = [
+  {"allbert.notes_files", AllbertNotesFiles.Plugin},
+  {"allbert.telegram", AllbertTelegram.Plugin},
+  {"allbert.email", AllbertEmail.Plugin}
+]
 
-    {:entry, %{plugin_id: "allbert.notes_files"} = entry} ->
-      {:ok, "allbert.notes_files"} = AllbertAssist.Plugin.Registry.register_entry(entry)
+Enum.each(packs_to_register, fn {plugin_id, expected_module} ->
+  unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup(plugin_id)) do
+    # Discovery yields each pack either as a compiled module -- its Plugin module is
+    # in the loaded application's module list -- or as a manifest entry read from
+    # the application's priv. Both forms are handled rather than assuming one.
+    AllbertAssist.Plugin.Discovery.discover()
+    |> Enum.each(fn
+      {:module, ^expected_module, opts} ->
+        {:ok, ^plugin_id} =
+          AllbertAssist.Plugin.Registry.register_module(expected_module, opts)
 
-    _other ->
-      :ok
-  end)
-end
+      {:entry, %{plugin_id: ^plugin_id} = entry} ->
+        {:ok, ^plugin_id} = AllbertAssist.Plugin.Registry.register_entry(entry)
+
+      _other ->
+        :ok
+    end)
+  end
+end)
 
 # The pack's actions were missing from the catalog when this VM booted, so every
 # App declaring a plugin-owned action deferred its registration -- CoreApp,

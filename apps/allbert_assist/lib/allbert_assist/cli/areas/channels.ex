@@ -12,22 +12,49 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   Argument-guard failures that the Mix task raised via `Mix.raise/1` are surfaced
   as `throw({:channels_guard, message})`, caught in `dispatch/2`, and rendered as
   errors (exit 1); the trailing usage fall-through renders as usage (exit 2).
+
+  v1.4 M12 moved `telegram` and `email` out to `AllbertTelegram.CLI` and
+  `AllbertEmail.CLI`: those channels were extracted into their own packs, and
+  the residual calling `Telegram.Adapter`/`Email.Adapter` through compile-time
+  aliases would have been a residual-to-pack dependency the R0 frozen DAG
+  forbids. This module still owns discord/slack/matrix/whatsapp/signal and the
+  cross-channel `list`/`status`/`show`/`setup-check`/`identity-links` reads.
+  The argument-parsing and gated-action helpers those routes share with the
+  extracted packs now live in `AllbertAssist.CLI.Channels.Support`, imported
+  below, so the implementation exists once rather than once per module.
   """
 
   import Ecto.Query
 
-  alias AllbertAssist.Actions.Helper, as: ActionHelper
+  import AllbertAssist.CLI.Channels.Support,
+    only: [
+      parse!: 1,
+      reject_invalid!: 1,
+      required!: 2,
+      single_arg!: 2,
+      guard_error!: 1,
+      prompt_text: 1,
+      carried_epoch: 1,
+      completed_action: 3,
+      configure_secret: 4,
+      configure_setting: 4,
+      put_identity!: 4,
+      remove_identity!: 3,
+      simulate_metadata: 4,
+      mark_simulated_event: 5
+    ]
+
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ChannelParity
   alias AllbertAssist.Channels.Discord
-  alias AllbertAssist.Channels.Email
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Matrix
   alias AllbertAssist.Channels.Signal
   alias AllbertAssist.Channels.Slack
-  alias AllbertAssist.Channels.Telegram
   alias AllbertAssist.Channels.WhatsApp
   alias AllbertAssist.CLI.Areas.Render
+  alias AllbertAssist.CLI.Channels.Support
+  alias AllbertAssist.CLI.PackGroups
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
@@ -38,31 +65,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   @surface "allbert admin channels"
   @simulate_gateway_timeout_ms 120_000
 
-  @switches [
-    action_id: :string,
-    account: :string,
-    aci: :string,
-    bad_signature: :boolean,
-    button_id: :string,
-    chat: :string,
-    channel: :string,
-    custom_id: :string,
-    device_name: :string,
-    external_user: :string,
-    guild: :string,
-    link: :string,
-    from: :string,
-    message_id: :string,
-    new_thread: :boolean,
-    receiver: :string,
-    room: :string,
-    thread_ts: :string,
-    thread_channel: :string,
-    type: :string,
-    url: :string,
-    user: :string
-  ]
-
   @usage """
   Usage:
     allbert admin channels list
@@ -70,18 +72,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     allbert admin channels --parity
     allbert admin channels show telegram|email|discord|slack|matrix|whatsapp|signal
     allbert admin channels setup-check matrix|whatsapp|signal
-    allbert admin channels telegram set-token TOKEN
-    allbert admin channels telegram map --external-user EXTERNAL --user USER
-    allbert admin channels telegram unmap --external-user EXTERNAL
-    allbert admin channels telegram simulate --external-user EXTERNAL --chat CHAT "prompt"
-    allbert admin channels telegram poll-once
-    allbert admin channels telegram doctor
-    allbert admin channels email set-password --type imap|smtp PASSWORD
-    allbert admin channels email map --external-user EMAIL --user USER
-    allbert admin channels email unmap --external-user EMAIL
-    allbert admin channels email simulate --external-user EMAIL [--new-thread] "prompt"
-    allbert admin channels email poll-once
-    allbert admin channels email doctor
     allbert admin channels identity-links add --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL --user USER
     allbert admin channels identity-links list [--link LINK] [--user USER]
     allbert admin channels identity-links remove --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL
@@ -132,15 +122,39 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   def dispatch(argv, context \\ nil) do
     ctx = context || default_context()
 
-    result =
-      try do
-        route(argv, ctx)
-      catch
-        {:channels_guard, message} -> {:error, {:guard, message}}
-      end
+    case delegated(argv) do
+      {:ok, module, rest} ->
+        module.dispatch(rest, ctx)
 
-    render(result)
+      :none ->
+        result =
+          try do
+            route(argv, ctx)
+          catch
+            {:channels_guard, message} -> {:error, {:guard, message}}
+          end
+
+        render(result)
+    end
   end
+
+  # `mix allbert.channels telegram poll-once` reaches this module directly --
+  # `Mix.Tasks.Allbert.Channels` calls `Areas.run(Areas.Channels, args)`, which
+  # bypasses the CLI table and with it the contributed-group resolution that
+  # makes the binary path work. Without this, extracting the telegram and email
+  # routes into their packs would have left `allbert admin channels telegram
+  # poll-once` working and the documented Mix equivalent falling through to
+  # usage. The module is resolved from the sealed projection at runtime, so the
+  # Mix surface is restored without reintroducing the compile-time dependency on
+  # a pack that the extraction exists to remove.
+  defp delegated([channel | rest]) when is_binary(channel) do
+    case Map.fetch(PackGroups.contributed(), ["admin", "channels", channel]) do
+      {:ok, {:area, module}} -> {:ok, module, rest}
+      :error -> :none
+    end
+  end
+
+  defp delegated(_argv), do: :none
 
   defp default_context, do: ContextBuilder.cli_context(surface: @surface)
 
@@ -177,88 +191,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   defp route(["setup-check", channel], ctx) do
     with {:ok, response} <- completed_action("channel_setup_check", %{channel: channel}, ctx) do
       {:ok, {:setup_check, response.setup}}
-    end
-  end
-
-  defp route(["telegram", "set-token", token], ctx) do
-    with {:ok, _response} <- configure_secret(ctx, "telegram", "bot_token", token) do
-      {:ok, {:secret, "telegram", "bot_token"}}
-    end
-  end
-
-  defp route(["telegram", "map" | rest], ctx) do
-    {opts, [], invalid} = parse!(rest)
-    reject_invalid!(invalid)
-    put_identity!(ctx, "telegram", required!(opts, :external_user), required!(opts, :user))
-  end
-
-  defp route(["telegram", "unmap" | rest], ctx) do
-    {opts, [], invalid} = parse!(rest)
-    reject_invalid!(invalid)
-    remove_identity!(ctx, "telegram", required!(opts, :external_user))
-  end
-
-  defp route(["telegram", "simulate" | rest], ctx) do
-    {opts, args, invalid} = parse!(rest)
-    reject_invalid!(invalid)
-
-    simulate_telegram!(
-      ctx,
-      required!(opts, :external_user),
-      required!(opts, :chat),
-      single_arg!(args, "Prompt is required")
-    )
-  end
-
-  defp route(["telegram", "poll-once"], _ctx) do
-    {:ok, {:poll, "telegram", Telegram.Adapter.poll_once()}}
-  end
-
-  defp route(["telegram", "doctor"], ctx) do
-    with {:ok, response} <- completed_action("telegram_doctor", %{}, ctx) do
-      {:ok, {:doctor, "telegram", response.doctor}}
-    end
-  end
-
-  defp route(["email", "set-password" | rest], ctx) do
-    {opts, args, invalid} = parse!(rest)
-    reject_invalid!(invalid)
-    type = required!(opts, :type)
-    password = single_arg!(args, "Password is required")
-    set_email_password!(ctx, type, password)
-  end
-
-  defp route(["email", "map" | rest], ctx) do
-    {opts, [], invalid} = parse!(rest)
-    reject_invalid!(invalid)
-    put_identity!(ctx, "email", required!(opts, :external_user), required!(opts, :user))
-  end
-
-  defp route(["email", "unmap" | rest], ctx) do
-    {opts, [], invalid} = parse!(rest)
-    reject_invalid!(invalid)
-    remove_identity!(ctx, "email", required!(opts, :external_user))
-  end
-
-  defp route(["email", "simulate" | rest], ctx) do
-    {opts, args, invalid} = parse!(rest)
-    reject_invalid!(invalid)
-
-    simulate_email!(
-      ctx,
-      required!(opts, :external_user),
-      single_arg!(args, "Prompt is required"),
-      Keyword.get(opts, :new_thread, false)
-    )
-  end
-
-  defp route(["email", "poll-once"], _ctx) do
-    {:ok, {:poll, "email", Email.Adapter.poll_once()}}
-  end
-
-  defp route(["email", "doctor"], ctx) do
-    with {:ok, response} <- completed_action("email_doctor", %{}, ctx) do
-      {:ok, {:doctor, "email", response.doctor}}
     end
   end
 
@@ -661,29 +593,27 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     )
   end
 
-  defp render({:ok, {:secret, channel, secret_name}}) do
-    Render.ok("#{channel} #{secret_name}=stored")
-  end
+  # `:secret`, `:setting`, `:identity`, `:unmapped`, `:poll`, `:doctor`, and
+  # `:simulate` are tags every channel route can emit (not just the ones still
+  # routed here), so their rendering lives once in `Support` and this
+  # dispatcher delegates rather than keeping a second copy.
+  defp render({:ok, {:secret, _channel, _secret_name}} = result), do: Support.render(result)
 
   defp render({:ok, {:secret_ref, channel, secret_name}}) do
     Render.ok("#{channel} #{secret_name}_ref=stored")
   end
 
-  defp render({:ok, {:setting, channel, key, _value}}) do
-    Render.ok("#{channel} #{key}=stored")
-  end
+  defp render({:ok, {:setting, _channel, _key, _value}} = result), do: Support.render(result)
 
   defp render({:ok, {:list_setting, channel, key, values}}) do
     Render.ok("#{channel} #{key}=#{Enum.join(values, ",")}")
   end
 
-  defp render({:ok, {:identity, channel, external_user_id, user_id}}) do
-    Render.ok("#{channel} #{external_user_id} -> #{user_id}")
-  end
+  defp render({:ok, {:identity, _channel, _external_user_id, _user_id}} = result),
+    do: Support.render(result)
 
-  defp render({:ok, {:unmapped, channel, external_user_id}}) do
-    Render.ok("#{channel} #{external_user_id} unmapped")
-  end
+  defp render({:ok, {:unmapped, _channel, _external_user_id}} = result),
+    do: Support.render(result)
 
   defp render({:ok, {:identity_link, link}}) do
     Render.ok(identity_link_line(link, "linked"))
@@ -701,40 +631,11 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     Render.ok(Enum.map(links, &identity_link_line(&1, "link")))
   end
 
-  defp render({:ok, {:simulate, event, rendered}}) do
-    Render.ok(
-      [
-        "Event: #{event.channel}/#{event.external_event_id} status=#{event.status}",
-        "User: #{event.user_id}",
-        "Thread: #{event.thread_id}",
-        "Response:"
-      ] ++ List.wrap(rendered)
-    )
-  end
+  defp render({:ok, {:simulate, _event, _rendered}} = result), do: Support.render(result)
 
-  defp render({:ok, {:poll, channel, result}}) do
-    Render.ok("#{channel} poll_once: #{inspect(result)}")
-  end
+  defp render({:ok, {:poll, _channel, _result}} = result), do: Support.render(result)
 
-  defp render({:ok, {:doctor, channel, result}}) do
-    Render.ok(
-      [
-        "#{channel} doctor status=#{Map.get(result, :status)}",
-        "auth_ok=#{Map.get(result, :auth_ok)} endpoint_ok=#{Map.get(result, :endpoint_ok)}"
-      ] ++
-        doctor_field_line("gateway", Map.get(result, :gateway_status)) ++
-        doctor_field_line("socket_mode", Map.get(result, :socket_mode_status)) ++
-        doctor_field_line("poller", Map.get(result, :poller_status)) ++
-        doctor_field_line("adapter", Map.get(result, :adapter_status)) ++
-        doctor_field_line("control", Map.get(result, :control_mode)) ++
-        doctor_field_line("local_only", Map.get(result, :control_local_only)) ++
-        doctor_field_line("imap", Map.get(result, :imap_endpoint_ok)) ++
-        doctor_field_line("smtp", Map.get(result, :smtp_endpoint_ok)) ++
-        doctor_field_line("bot", Map.get(result, :bot_username)) ++
-        doctor_field_line("user", Map.get(result, :user_id)) ++
-        doctor_field_line("rooms", Map.get(result, :allowed_room_count))
-    )
-  end
+  defp render({:ok, {:doctor, _channel, _result}} = result), do: Support.render(result)
 
   defp render({:ok, {:webhook_post, status, body, expected, bad_signature?}}) do
     label =
@@ -773,77 +674,22 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     ])
   end
 
-  defp render({:error, {:guard, message}}), do: Render.error(message)
+  defp render({:error, {:guard, _message}} = result), do: Support.render(result)
 
-  defp render({:error, reason}) do
-    Render.error("Channels command failed: #{inspect(reason)}")
-  end
+  defp render({:error, _reason} = result), do: Support.render(result)
 
-  defp render({:usage, usage}), do: Render.usage(usage)
+  defp render({:usage, _usage} = result), do: Support.render(result)
 
   # ── Actions / read helpers ───────────────────────────────────────────────────
 
-  defp completed_action(action_name, params, ctx) do
-    ActionHelper.completed_action(action_name, params, ctx)
-  end
-
   defp operator_report_params do
     %{render_mode: "operator_report", surface_policy_affordance: true}
-  end
-
-  # The identity-map read stays direct (a pure read); only the mutation is routed
-  # through the gated `configure_channel_setting` action.
-  defp put_identity!(ctx, channel, external_user_id, user_id) do
-    key = "channels.#{channel}.identity_map"
-    {:ok, identity_map} = Settings.get(key)
-
-    entry = %{
-      external_user_id: external_user_id,
-      user_id: user_id,
-      enabled: true
-    }
-
-    updated =
-      identity_map
-      |> Enum.reject(&(identity_field(&1, "external_user_id") == external_user_id))
-      |> Kernel.++([entry])
-
-    with {:ok, _response} <- configure_setting(ctx, channel, "identity_map", updated) do
-      {:ok, {:identity, channel, external_user_id, user_id}}
-    end
   end
 
   defp put_signal_identity!(ctx, aci, user_id) do
     aci = normalize_signal_aci!(aci)
     put_identity!(ctx, "signal", aci, user_id)
   end
-
-  defp remove_identity!(ctx, channel, external_user_id) do
-    key = "channels.#{channel}.identity_map"
-    {:ok, identity_map} = Settings.get(key)
-
-    updated =
-      Enum.reject(identity_map, &(identity_field(&1, "external_user_id") == external_user_id))
-
-    with {:ok, _response} <- configure_setting(ctx, channel, "identity_map", updated) do
-      {:ok, {:unmapped, channel, external_user_id}}
-    end
-  end
-
-  defp set_email_password!(ctx, "imap", password) do
-    with {:ok, _response} <- configure_secret(ctx, "email", "imap_password", password) do
-      {:ok, {:secret, "email", "imap_password"}}
-    end
-  end
-
-  defp set_email_password!(ctx, "smtp", password) do
-    with {:ok, _response} <- configure_secret(ctx, "email", "smtp_password", password) do
-      {:ok, {:secret, "email", "smtp_password"}}
-    end
-  end
-
-  defp set_email_password!(_ctx, type, _password),
-    do: {:error, {:unknown_email_password_type, type}}
 
   defp add_setting_list_value!(ctx, channel, key, value) do
     setting_key = "channels.#{channel}.#{key}"
@@ -862,116 +708,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
 
     with {:ok, _response} <- configure_setting(ctx, channel, key, updated) do
       {:ok, {:list_setting, channel, key, updated}}
-    end
-  end
-
-  # Gated-action seams: every channel store/secret mutation goes through the
-  # Runner (Security Central + audit), never a direct store call.
-  defp configure_setting(ctx, channel, key, value) do
-    completed_action(
-      "configure_channel_setting",
-      %{channel: channel, key: key, value: value},
-      ctx
-    )
-  end
-
-  defp configure_secret(ctx, channel, credential, value) do
-    completed_action(
-      "configure_channel_secret",
-      %{channel: channel, credential: credential, secret_value: value},
-      ctx
-    )
-  end
-
-  defp simulate_telegram!(ctx, external_user_id, chat_id, text) do
-    with {:ok, epoch} <- carried_epoch(ctx),
-         {:ok, settings} <- Channels.channel_settings("telegram"),
-         {:ok, user_id} <-
-           Identity.resolve("telegram", external_user_id, Map.get(settings, "identity_map", [])),
-         session_id <- Channels.derive_session_id("telegram", external_user_id, chat_id),
-         {prompt, new_thread?} <- prompt_text(text),
-         {:ok, event} <-
-           Channels.create_event(
-             %{
-               channel: "telegram",
-               provider: "telegram_bot_api",
-               direction: "inbound",
-               external_event_id: "sim_#{Ecto.UUID.generate()}",
-               external_user_id: external_user_id,
-               external_chat_id: chat_id,
-               status: "received",
-               payload_summary: "telegram simulate"
-             },
-             %{allbert_pack_epoch: epoch}
-           ),
-         {:ok, response} <-
-           Runtime.submit_user_input(
-             %{
-               text: prompt,
-               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
-               channel: "telegram",
-               user_id: user_id,
-               operator_id: user_id,
-               session_id: session_id,
-               new_thread: new_thread?,
-               metadata: simulate_metadata("telegram", "telegram_bot_api", event, nil)
-             },
-             allbert_pack_epoch: epoch
-           ),
-         {:ok, rendered, _keyboard} <- Telegram.Renderer.render_response(response),
-         :ok <- EffectGuard.validate(epoch),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
-         :ok <- EffectGuard.validate(epoch),
-         :ok <-
-           Runtime.acknowledge_deliveries(response, %{
-             channel: "telegram",
-             allbert_pack_epoch: epoch
-           }) do
-      {:ok, {:simulate, event, rendered}}
-    end
-  end
-
-  defp simulate_email!(ctx, external_user_id, text, forced_new_thread?) do
-    with {:ok, epoch} <- carried_epoch(ctx),
-         {:ok, settings} <- Channels.channel_settings("email"),
-         {:ok, user_id} <-
-           Identity.resolve("email", external_user_id, Map.get(settings, "identity_map", [])),
-         session_id <- Channels.derive_session_id("email", external_user_id, nil),
-         {prompt, prompted_new_thread?} <- prompt_text(text),
-         {:ok, event} <-
-           Channels.create_event(
-             %{
-               channel: "email",
-               provider: "email_imap",
-               direction: "inbound",
-               external_event_id: "sim_#{Ecto.UUID.generate()}",
-               external_user_id: external_user_id,
-               status: "received",
-               payload_summary: "email simulate"
-             },
-             %{allbert_pack_epoch: epoch}
-           ),
-         {:ok, response} <-
-           Runtime.submit_user_input(
-             %{
-               text: prompt,
-               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
-               channel: "email",
-               user_id: user_id,
-               operator_id: user_id,
-               session_id: session_id,
-               new_thread: forced_new_thread? or prompted_new_thread?,
-               metadata: simulate_metadata("email", "email_imap", event, nil)
-             },
-             allbert_pack_epoch: epoch
-           ),
-         {:ok, _subject, body, _html} <- Email.Renderer.render_response(response),
-         :ok <- EffectGuard.validate(epoch),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
-         :ok <- EffectGuard.validate(epoch),
-         :ok <-
-           Runtime.acknowledge_deliveries(response, %{channel: "email", allbert_pack_epoch: epoch}) do
-      {:ok, {:simulate, event, [body]}}
     end
   end
 
@@ -1299,62 +1035,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp carried_epoch(%{allbert_pack_epoch: epoch}) do
-    case EffectGuard.validate(epoch) do
-      :ok -> {:ok, epoch}
-      {:error, _reason} -> {:error, :product_not_ready}
-    end
-  end
-
-  defp carried_epoch(_ctx), do: {:error, :product_not_ready}
-
-  defp mark_simulated_event(event, response, user_id, session_id, epoch) do
-    Channels.update_event(
-      event,
-      %{
-        status: "processed",
-        user_id: user_id,
-        session_id: session_id,
-        thread_id: response_value(response, :thread_id),
-        input_signal_id: response_value(response, :input_signal_id),
-        trace_id: response_value(response, :trace_id)
-      },
-      %{allbert_pack_epoch: epoch}
-    )
-  end
-
-  defp simulate_metadata(channel, provider, event, message_id) do
-    %{
-      channel: channel,
-      provider: provider,
-      external_event_id: event.external_event_id,
-      external_user_id: event.external_user_id,
-      external_chat_id: event.external_chat_id,
-      external_message_id: message_id
-    }
-  end
-
-  defp prompt_text("/new " <> text), do: {String.trim(text), true}
-  defp prompt_text(text), do: {text, false}
-
-  defp required!(opts, key) do
-    case opts[key] do
-      value when is_binary(value) and value != "" -> value
-      _value -> guard_error!("--#{String.replace(Atom.to_string(key), "_", "-")} is required")
-    end
-  end
-
-  defp single_arg!([value], _message), do: value
-  defp single_arg!([], message), do: guard_error!(message)
-
-  defp single_arg!(args, _message),
-    do: guard_error!("Expected one argument, got: #{inspect(args)}")
-
-  defp parse!(args), do: OptionParser.parse(args, switches: @switches)
-
-  defp reject_invalid!([]), do: :ok
-  defp reject_invalid!(invalid), do: guard_error!("Invalid option(s): #{inspect(invalid)}")
-
   defp validate_discord_token_ref("secret://channels/discord/" <> rest) when rest != "",
     do: :ok
 
@@ -1370,12 +1050,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
   defp validate_slack_token_ref(_token_ref, :app),
     do: guard_error!("Slack set-app-token accepts only secret://channels/slack/... refs")
 
-  # Raise a Mix-task-equivalent argument-guard failure; caught in `dispatch/2` and
-  # rendered as an error (exit 1). Replaces the Mix task's `Mix.raise/1` guards so
-  # the area module stays free of `Mix.*`.
-  @spec guard_error!(String.t()) :: no_return()
-  defp guard_error!(message), do: throw({:channels_guard, message})
-
   defp first_setting(settings, key) do
     case Map.get(settings, key, []) do
       [value | _rest] -> value
@@ -1389,8 +1063,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     |> Enum.reject(fn {_key, value} -> value in [nil, %{}, []] end)
     |> Map.new()
   end
-
-  defp identity_field(map, key), do: Map.get(map, key, Map.get(map, String.to_atom(key)))
 
   defp credential_status(statuses) when is_map(statuses) do
     statuses
@@ -1455,9 +1127,6 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       _command -> []
     end
   end
-
-  defp doctor_field_line(_label, nil), do: []
-  defp doctor_field_line(label, value), do: ["#{label}=#{value}"]
 
   defp doctor_status(doctor) do
     Map.get(doctor, "status", Map.get(doctor, :status, "unknown"))

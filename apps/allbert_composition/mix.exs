@@ -43,7 +43,9 @@ defmodule AllbertComposition.MixProject do
       # R0 frozen DAG: the composition host depends on every required native
       # pack. This edge is what starts the extracted pack, without any kernel
       # edit, which M9's acceptance forbids.
-      {:allbert_notes_files, in_umbrella: true}
+      {:allbert_notes_files, in_umbrella: true},
+      {:allbert_telegram, in_umbrella: true},
+      {:allbert_email, in_umbrella: true}
     ]
   end
 end

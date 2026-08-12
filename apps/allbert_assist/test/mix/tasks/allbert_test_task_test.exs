@@ -826,7 +826,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert {"channel_plugin_tests", _cwd, plugin_test_args} =
              Enum.find(phases, fn {id, _cwd, _args} -> id == "channel_plugin_tests" end)
 
-    assert "../../plugins/allbert.notes_files/test" in plugin_test_args
+    assert "../../apps/allbert_notes_files/test" in plugin_test_args
     assert "../../plugins/allbert.artifacts/test" in plugin_test_args
 
     refute Enum.any?(phases, fn {_id, _cwd, args} -> args == ["precommit"] end)

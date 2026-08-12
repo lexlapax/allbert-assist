@@ -43,11 +43,24 @@ defmodule AllbertTelegram.Plugin do
   @impl true
   def actions, do: [AllbertTelegram.Actions.Doctor]
 
+  # v1.4 M12: settings ownership moved to AllbertTelegram.SettingsFragment (a
+  # pack FragmentOwner, declared by AllbertTelegram.Pack.settings_fragments/0),
+  # which is why this returns []: AllbertAssist.Settings.Fragments.
+  # plugin_fragments/1 rejects an empty schema rather than producing a second,
+  # duplicate "plugin:allbert.telegram" fragment.
+  #
+  # The two base-key entries this used to declare -- "channels.telegram.enabled"
+  # and "channels.telegram.bot_token_ref" -- are gone, not moved: they never
+  # reached the composed schema in the first place.
+  # AllbertAssist.Settings.Schema.normalize_schema_entry/1 silently drops any
+  # plugin schema entry without a `:default`, and neither of those two carried
+  # one. Core already owns both keys, with defaults, through
+  # AllbertAssist.Settings.FragmentOwners.Channels. Adding a `:default` here
+  # later would make the entry reach composition and collide with that core
+  # claim -- AllbertAssist.Settings.Fragments.unique_fragment_keys/1 rejects a
+  # key claimed twice as :duplicate_settings_key. The remaining 3 keys (the
+  # `autonomous_notify.*` triple, which DID always reach composition) now live
+  # in AllbertTelegram.SettingsFragment instead.
   @impl true
-  def settings_schema do
-    [
-      %{key: "channels.telegram.enabled", type: :boolean},
-      %{key: "channels.telegram.bot_token_ref", type: :channel_secret_ref}
-    ] ++ AllbertAssist.Channels.Notify.settings_schema("telegram")
-  end
+  def settings_schema, do: []
 end
