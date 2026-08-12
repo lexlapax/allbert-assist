@@ -15,9 +15,6 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
-  alias AllbertAssist.Channels.TUI.Adapter
-  alias AllbertAssist.Channels.TUI.IdentityBootstrap
-  alias AllbertAssist.Channels.TUI.InputReceipt
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.Runtime.Redactor
@@ -78,11 +75,12 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
         adapter_child_id: "tui",
         channels_supervisor:
           Keyword.get(opts, :channels_supervisor, AllbertAssist.Channels.Supervisor),
-        bootstrap_fun:
-          Keyword.get(opts, :bootstrap_fun, &IdentityBootstrap.prepare_local_launch/1),
+        bootstrap_fun: Keyword.get(opts, :bootstrap_fun, tui_bootstrap_fun()),
         channel_settings_fun:
           Keyword.get(opts, :channel_settings_fun, &Channels.channel_settings/1),
-        adapter_module: Keyword.get(opts, :adapter_module, Adapter),
+        adapter_module: Keyword.get(opts, :adapter_module, tui_pack_module(:adapter)),
+        input_receipt_module:
+          Keyword.get(opts, :input_receipt_module, tui_pack_module(:input_receipt)),
         verified_operator_id: nil,
         max_text_bytes: TUIProtocol.limits().default_max_text_bytes,
         render_revision: 0,
@@ -167,7 +165,9 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       |> Map.put(:render_state, :thinking)
 
     state =
-      case InputReceipt.mark_in_progress(event, %{allbert_pack_epoch: state.allbert_pack_epoch}) do
+      case state.input_receipt_module.mark_in_progress(event, %{
+             allbert_pack_epoch: state.allbert_pack_epoch
+           }) do
         {:ok, _event} ->
           enqueue_protocol(
             state,
@@ -204,7 +204,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       |> Map.put(:render_state, :idle)
 
     state =
-      case InputReceipt.mark_terminal(event, outcome, safe_refs, %{
+      case state.input_receipt_module.mark_terminal(event, outcome, safe_refs, %{
              allbert_pack_epoch: state.allbert_pack_epoch
            }) do
         {:ok, terminal_event} ->
@@ -345,7 +345,14 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   end
 
   defp prepare_adapter(state) do
-    with {:ok, profile} <- effective_profile(state.profile, state.channel_settings_fun),
+    with {:ok, adapter_module} <- ensure_pack_module(state.adapter_module),
+         {:ok, input_receipt_module} <- ensure_pack_module(state.input_receipt_module),
+         state = %{
+           state
+           | adapter_module: adapter_module,
+             input_receipt_module: input_receipt_module
+         },
+         {:ok, profile} <- effective_profile(state.profile, state.channel_settings_fun),
          state = %{state | profile: profile},
          {:ok, bootstrap} <- safe_bootstrap(state.bootstrap_fun, state.profile),
          :ok <- bootstrap_allowed(bootstrap),
@@ -380,6 +387,35 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
         {:error, :runtime_unavailable, "TUI runtime preparation failed.", state}
     end
   end
+
+  # v1.4 M13 extracted the TUI channel into its own pack; the R0 frozen DAG
+  # forbids a compile-time residual-to-pack alias, so this daemon-owned
+  # lifecycle resolves the pack's adapter/bootstrap/receipt modules from the
+  # same channel descriptor every pack publishes through
+  # `AllbertAssist.Plugin.channels/0` (see `AllbertTUI.Plugin.channels/0` and
+  # the parallel doctor resolution in `AllbertAssist.Actions.Channels.ShowChannel`).
+  # This process is still the lifecycle owner -- only the module identity
+  # moves from compile time to runtime, and it is re-validated in
+  # `prepare_adapter/1` before any adapter or receipt call is made.
+  defp tui_pack_module(key) do
+    case Channels.channel_descriptor(@channel) do
+      {:ok, descriptor} -> Map.get(descriptor, key)
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp tui_bootstrap_fun do
+    case tui_pack_module(:identity_bootstrap) do
+      module when is_atom(module) and not is_nil(module) ->
+        Function.capture(module, :prepare_local_launch, 1)
+
+      _unavailable ->
+        fn _profile -> {:error, :tui_identity_bootstrap_unavailable} end
+    end
+  end
+
+  defp ensure_pack_module(module) when is_atom(module) and not is_nil(module), do: {:ok, module}
+  defp ensure_pack_module(_invalid), do: {:error, :tui_pack_module_unavailable}
 
   # The terminal process cannot read Settings Central without becoming a
   # second application/runtime owner. Keep the existing operator-tunable
@@ -677,6 +713,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
     context = %{
       adapter_module: state.adapter_module,
       adapter_pid: state.adapter_pid,
+      input_receipt_module: state.input_receipt_module,
       duplicate_owner: if(receipt_was_live?, do: :live, else: :orphaned),
       max_text_bytes: state.max_text_bytes,
       profile: state.profile,
@@ -727,7 +764,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       allbert_pack_epoch: context.allbert_pack_epoch
     }
 
-    case InputReceipt.gate(attrs, duplicate_owner: context.duplicate_owner) do
+    case context.input_receipt_module.gate(attrs, duplicate_owner: context.duplicate_owner) do
       {:ok, %{disposition: :dispatch, event: event, normalized_text: text}} ->
         admit_input(context, payload.input_receipt_id, text, event)
 
@@ -751,7 +788,9 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   end
 
   defp admit_input(context, receipt_id, text, event) do
-    case InputReceipt.mark_admitted(event, %{}, %{allbert_pack_epoch: context.allbert_pack_epoch}) do
+    case context.input_receipt_module.mark_admitted(event, %{}, %{
+           allbert_pack_epoch: context.allbert_pack_epoch
+         }) do
       {:ok, admitted_event} ->
         case context.adapter_module.submit_admitted(
                context.adapter_pid,
@@ -764,7 +803,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
 
           {:error, reason} ->
             _ =
-              InputReceipt.mark_terminal(admitted_event, :failed, %{}, %{
+              context.input_receipt_module.mark_terminal(admitted_event, :failed, %{}, %{
                 allbert_pack_epoch: context.allbert_pack_epoch
               })
 

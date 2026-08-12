@@ -19,6 +19,28 @@
       ]
     },
     {
+      "application": "allbert_artifacts",
+      "bundled": true,
+      "id": "beam-allbert-artifacts",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert artifacts",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertArtifacts.Pack",
+        "id": "allbert_artifacts",
+        "registry_order": 1300,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "application": "allbert_assist",
       "bundled": true,
       "id": "beam-allbert-assist",
@@ -93,6 +115,28 @@
       ]
     },
     {
+      "application": "allbert_discord",
+      "bundled": true,
+      "id": "beam-allbert-discord",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_discord",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertDiscord.Pack",
+        "id": "allbert_discord",
+        "registry_order": 700,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "application": "allbert_email",
       "bundled": true,
       "id": "beam-allbert-email",
@@ -127,6 +171,28 @@
         "registry_order": 0,
         "schema_version": 1,
         "startup_role": "kernel_prerequisite"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_matrix",
+      "bundled": true,
+      "id": "beam-allbert-matrix",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_matrix",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertMatrix.Pack",
+        "id": "allbert_matrix",
+        "registry_order": 800,
+        "schema_version": 1,
+        "startup_role": "native_passive"
       },
       "provenance": {
         "ecosystem": "allbert",
@@ -181,6 +247,50 @@
       ]
     },
     {
+      "application": "allbert_signal",
+      "bundled": true,
+      "id": "beam-allbert-signal",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_signal",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertSignal.Pack",
+        "id": "allbert_signal",
+        "registry_order": 900,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_slack",
+      "bundled": true,
+      "id": "beam-allbert-slack",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_slack",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertSlack.Pack",
+        "id": "allbert_slack",
+        "registry_order": 1000,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "application": "allbert_telegram",
       "bundled": true,
       "id": "beam-allbert-telegram",
@@ -191,6 +301,50 @@
         "descriptor_module": "Elixir.AllbertTelegram.Pack",
         "id": "allbert_telegram",
         "registry_order": 300,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_tui",
+      "bundled": true,
+      "id": "beam-allbert-tui",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_tui",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertTUI.Pack",
+        "id": "allbert_tui",
+        "registry_order": 1100,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_whatsapp",
+      "bundled": true,
+      "id": "beam-allbert-whatsapp",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_whatsapp",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertWhatsApp.Pack",
+        "id": "allbert_whatsapp",
+        "registry_order": 1200,
         "schema_version": 1,
         "startup_role": "native_passive"
       },
@@ -1080,6 +1234,28 @@
       ]
     },
     {
+      "application": "stocksage",
+      "bundled": true,
+      "id": "beam-stocksage",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "stocksage",
+      "pack": {
+        "descriptor_module": "Elixir.StockSage.Pack",
+        "id": "stocksage",
+        "registry_order": 1400,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "application": "swoosh",
       "bundled": true,
       "id": "beam-swoosh",
@@ -1763,12 +1939,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.artifacts/allbert_plugin.json"
+        "application": "allbert_artifacts",
+        "relative_path": "allbert_plugin.json"
       },
       "id": "plugin-allbert-artifacts",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.artifacts staged plugin",
+      "name": "allbert.artifacts umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1798,12 +1975,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.discord/allbert_plugin.json"
+        "application": "allbert_discord",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-discord",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.discord staged plugin",
+      "name": "allbert.discord umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1833,12 +2011,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.matrix/allbert_plugin.json"
+        "application": "allbert_matrix",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-matrix",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.matrix staged plugin",
+      "name": "allbert.matrix umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1886,12 +2065,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.signal/allbert_plugin.json"
+        "application": "allbert_signal",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-signal",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.signal staged plugin",
+      "name": "allbert.signal umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1903,12 +2083,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.slack/allbert_plugin.json"
+        "application": "allbert_slack",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-slack",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.slack staged plugin",
+      "name": "allbert.slack umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1938,12 +2119,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.tui/allbert_plugin.json"
+        "application": "allbert_tui",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-tui",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.tui staged plugin",
+      "name": "allbert.tui umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1955,12 +2137,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.whatsapp/allbert_plugin.json"
+        "application": "allbert_whatsapp",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-whatsapp",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.whatsapp staged plugin",
+      "name": "allbert.whatsapp umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1972,12 +2155,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/stocksage/allbert_plugin.json"
+        "application": "stocksage",
+        "relative_path": "allbert_plugin.json"
       },
       "id": "plugin-stocksage",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "stocksage staged plugin",
+      "name": "stocksage umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"

@@ -2,7 +2,7 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Channels.ListChannels
-  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
+  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
   setup do

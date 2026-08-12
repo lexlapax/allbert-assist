@@ -5,7 +5,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
-  alias AllbertAssist.Channels.TUI.Adapter
+  alias AllbertTUI.Adapter
   alias AllbertAssist.Health
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Paths
@@ -22,7 +22,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   defmodule ReadyInputReceipt do
     @moduledoc false
 
-    alias AllbertAssist.Channels.TUI.InputReceipt
+    alias AllbertTUI.InputReceipt
     alias AllbertAssist.TestSupport.ReadyEffectContext
 
     def gate(attrs, opts),

@@ -2,7 +2,7 @@ defmodule AllbertAssist.CLI.TuiTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
-  alias AllbertAssist.Channels.TUI.InputDriver
+  alias AllbertTUI.InputDriver
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Objectives.Fanout.Report

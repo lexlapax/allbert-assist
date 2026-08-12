@@ -36,7 +36,21 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   # is not that threat. M12 extracts two more packs -- add each new pack atom
   # here (not to @pack_applications/@applications) unless/until this file's
   # checkpoints are bumped to include them in the verified closure itself.
-  @known_extracted_pack_applications [:allbert_notes_files, :allbert_telegram, :allbert_email, :allbert_research, :allbert_browser]
+  @known_extracted_pack_applications [
+    :allbert_notes_files,
+    :allbert_telegram,
+    :allbert_email,
+    :allbert_research,
+    :allbert_browser,
+    :allbert_discord,
+    :allbert_matrix,
+    :allbert_signal,
+    :allbert_slack,
+    :allbert_tui,
+    :allbert_whatsapp,
+    :allbert_artifacts,
+    :stocksage
+  ]
   @component_ids %{
     allbert_kernel: "beam-allbert-kernel",
     allbert_assist: "beam-allbert-assist",

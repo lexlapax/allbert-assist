@@ -8,12 +8,12 @@ defmodule AllbertAssist.Channels.ChannelParityTest do
   @shipped_plugins [
     AllbertTelegram.Plugin,
     AllbertEmail.Plugin,
-    AllbertAssist.Plugins.Discord,
-    AllbertAssist.Plugins.Slack,
-    AllbertAssist.Plugins.Matrix,
-    AllbertAssist.Plugins.WhatsApp,
-    AllbertAssist.Plugins.Signal,
-    AllbertAssist.Plugins.TUI
+    AllbertDiscord.Plugin,
+    AllbertSlack.Plugin,
+    AllbertMatrix.Plugin,
+    AllbertWhatsApp.Plugin,
+    AllbertSignal.Plugin,
+    AllbertTUI.Plugin
   ]
 
   defmodule InvalidStreamingPlugin do

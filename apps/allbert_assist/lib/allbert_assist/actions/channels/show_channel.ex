@@ -111,7 +111,7 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
       max_text_bytes: Map.get(settings, "max_text_bytes"),
       render_approval_buttons: Map.get(settings, "render_approval_buttons"),
       credential_status: summary.credential_status,
-      doctor: discord_doctor_state(),
+      doctor: doctor_state("discord"),
       last_event: summary.last_event
     }
   end
@@ -131,7 +131,7 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
       max_text_bytes: Map.get(settings, "max_text_bytes"),
       render_approval_buttons: Map.get(settings, "render_approval_buttons"),
       credential_status: summary.credential_status,
-      doctor: slack_doctor_state(),
+      doctor: doctor_state("slack"),
       last_event: summary.last_event
     }
   end
@@ -150,7 +150,7 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
       sync_timeout_ms: Map.get(settings, "sync_timeout_ms"),
       max_text_bytes: Map.get(settings, "max_text_bytes"),
       credential_status: summary.credential_status,
-      doctor: matrix_doctor_state(),
+      doctor: doctor_state("matrix"),
       last_event: summary.last_event
     }
   end
@@ -170,7 +170,7 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
       render_approval_buttons: Map.get(settings, "render_approval_buttons"),
       quote_ttl_ms: Map.get(settings, "quote_ttl_ms"),
       credential_status: summary.credential_status,
-      doctor: whatsapp_doctor_state(),
+      doctor: doctor_state("whatsapp"),
       last_event: summary.last_event
     }
   end
@@ -189,7 +189,7 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
       allowed_aci_count: length(Map.get(settings, "allowed_aci_ids", [])),
       max_text_bytes: Map.get(settings, "max_text_bytes"),
       credential_status: summary.credential_status,
-      doctor: signal_doctor_state(),
+      doctor: doctor_state("signal"),
       last_event: summary.last_event
     }
   end
@@ -220,38 +220,26 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     |> String.trim()
   end
 
-  defp discord_doctor_state do
-    case AllbertAssist.Channels.Discord.Doctor.read_state() do
-      {:ok, state} -> state
-      {:error, :not_found} -> %{"status" => "not_run"}
-    end
-  end
-
-  defp slack_doctor_state do
-    case AllbertAssist.Channels.Slack.Doctor.read_state() do
-      {:ok, state} -> state
-      {:error, :not_found} -> %{"status" => "not_run"}
-    end
-  end
-
-  defp matrix_doctor_state do
-    case AllbertAssist.Channels.Matrix.Doctor.read_state() do
-      {:ok, state} -> state
-      {:error, :not_found} -> %{"status" => "not_run"}
-    end
-  end
-
-  defp whatsapp_doctor_state do
-    case AllbertAssist.Channels.WhatsApp.Doctor.read_state() do
-      {:ok, state} -> state
-      {:error, :not_found} -> %{"status" => "not_run"}
-    end
-  end
-
-  defp signal_doctor_state do
-    case AllbertAssist.Channels.Signal.Doctor.read_state() do
-      {:ok, state} -> state
-      {:error, :not_found} -> %{"status" => "not_run"}
+  # v1.4 M13 extracted every channel plugin into its own pack; the R0 frozen
+  # DAG forbids the residual from referencing a pack module at compile time,
+  # so the doctor module can no longer be named by alias here. Each pack now
+  # publishes its doctor through the `doctor:` key on the `channels/0`
+  # descriptor it registers (see `AllbertDiscord.Plugin.channels/0` and its
+  # siblings), and this resolves that module at runtime the same way
+  # `AllbertAssist.CLI.PackGroups` resolves a pack's `cli_groups/0` module.
+  # A channel with no `doctor:` key (telegram, email, and any future channel
+  # that never registers one) degrades to the same "not_run" reading a
+  # missing doctor run produces today -- this does not add a new state.
+  defp doctor_state(channel) do
+    with {:ok, descriptor} <- Channels.channel_descriptor(channel),
+         module when is_atom(module) and not is_nil(module) <- Map.get(descriptor, :doctor),
+         true <- Code.ensure_loaded?(module) and function_exported?(module, :read_state, 0) do
+      case module.read_state() do
+        {:ok, state} -> state
+        {:error, :not_found} -> %{"status" => "not_run"}
+      end
+    else
+      _other -> %{"status" => "not_run"}
     end
   end
 

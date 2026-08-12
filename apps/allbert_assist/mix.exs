@@ -30,25 +30,10 @@ defmodule AllbertAssist.MixProject do
 
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test) do
-    ["lib" | shipped_plugin_paths()] ++ ["test/support" | shipped_plugin_test_support_paths()]
+    ["lib", "test/support" | shipped_plugin_test_support_paths()]
   end
 
-  defp elixirc_paths(_), do: ["lib" | shipped_plugin_paths()]
-
-  defp shipped_plugin_paths do
-    [
-      Path.expand("../../plugins/allbert.discord/lib", __DIR__),
-      Path.expand("../../plugins/allbert.slack/lib", __DIR__),
-      Path.expand("../../plugins/allbert.matrix/lib", __DIR__),
-      Path.expand("../../plugins/allbert.whatsapp/lib", __DIR__),
-      Path.expand("../../plugins/allbert.signal/lib", __DIR__),
-      Path.expand("../../plugins/allbert.tui/lib", __DIR__),
-      Path.expand("../../plugins/allbert.artifacts/lib/allbert_artifacts", __DIR__),
-      Path.expand("../../plugins/allbert.artifacts/lib/mix", __DIR__),
-      Path.expand("../../plugins/stocksage/lib/stocksage", __DIR__),
-      Path.expand("../../plugins/stocksage/lib/mix", __DIR__)
-    ]
-  end
+  defp elixirc_paths(_), do: ["lib"]
 
   defp shipped_plugin_test_support_paths do
     [

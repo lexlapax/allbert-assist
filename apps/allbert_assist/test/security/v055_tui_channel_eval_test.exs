@@ -8,9 +8,9 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ChannelParity
   alias AllbertAssist.Channels.Event
-  alias AllbertAssist.Channels.Matrix.Adapter, as: MatrixAdapter
-  alias AllbertAssist.Channels.TUI.Adapter, as: TUIAdapter
-  alias AllbertAssist.Channels.TUI.Renderer, as: TUIRenderer
+  alias AllbertMatrix.Adapter, as: MatrixAdapter
+  alias AllbertTUI.Adapter, as: TUIAdapter
+  alias AllbertTUI.Renderer, as: TUIRenderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Paths
@@ -404,12 +404,12 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
     modules = [
       AllbertTelegram.Plugin,
       AllbertEmail.Plugin,
-      AllbertAssist.Plugins.Discord,
-      AllbertAssist.Plugins.Slack,
-      AllbertAssist.Plugins.Matrix,
-      AllbertAssist.Plugins.WhatsApp,
-      AllbertAssist.Plugins.Signal,
-      AllbertAssist.Plugins.TUI
+      AllbertDiscord.Plugin,
+      AllbertSlack.Plugin,
+      AllbertMatrix.Plugin,
+      AllbertWhatsApp.Plugin,
+      AllbertSignal.Plugin,
+      AllbertTUI.Plugin
     ]
 
     # The setup no longer clears the registry first, so these are already

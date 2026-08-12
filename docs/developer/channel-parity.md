@@ -31,7 +31,7 @@ Current matrix dimensions:
 - release/live-use decision.
 
 M1 closes the v0.54-deferred Matrix generic outbound gap: Matrix now implements
-`AllbertAssist.Channels.Matrix.Adapter.deliver_outbound/3`, so
+`AllbertMatrix.Adapter.deliver_outbound/3`, so
 `send_channel_message` reaches Matrix through the same `Channels.Outbound`
 boundary as Telegram, Slack, Discord, WhatsApp, and Signal. The mapped Matrix
 target for outbound is the Matrix room id, and it must also appear in

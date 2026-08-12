@@ -6,14 +6,14 @@ defmodule AllbertAssist.Channels.SignalTest do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
-  alias AllbertAssist.Channels.Signal.Adapter
-  alias AllbertAssist.Channels.Signal.Client
-  alias AllbertAssist.Channels.Signal.Daemon
-  alias AllbertAssist.Channels.Signal.Parser
-  alias AllbertAssist.Channels.Signal.Supervisor, as: SignalSupervisor
+  alias AllbertSignal.Adapter
+  alias AllbertSignal.Client
+  alias AllbertSignal.Daemon
+  alias AllbertSignal.Parser
+  alias AllbertSignal.Supervisor, as: SignalSupervisor
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugins.Signal, as: SignalPlugin
+  alias AllbertSignal.Plugin, as: SignalPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings

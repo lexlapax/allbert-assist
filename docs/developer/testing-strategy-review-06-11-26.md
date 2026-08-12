@@ -275,7 +275,7 @@ defmodule AllbertAssist.Channels.DiscordThreadRoutingTest do
       {:ok, session} = start_session(user, channel: :discord, thread_id: "T123")
       # Simulate a second message arriving on the same thread
       event = build_discord_message_event(user_id: user.id, thread_id: "T123")
-      result = AllbertAssist.Channels.Discord.handle_message(event)
+      result = AllbertDiscord.handle_message(event)
       # Assert the session is the same, not a new one
       assert {:ok, ^session} = result
     end

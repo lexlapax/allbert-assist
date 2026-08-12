@@ -2,7 +2,7 @@ defmodule AllbertAssist.Coding.M0ContractsTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  alias AllbertAssist.Channels.TUI.Renderer
+  alias AllbertTUI.Renderer
   alias AllbertAssist.Coding.StreamEvent
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings.Schema
@@ -56,11 +56,11 @@ defmodule AllbertAssist.Coding.M0ContractsTest do
   end
 
   test "v0.55 TUI channel and static split payload substrate are present" do
-    assert {:module, AllbertAssist.Channels.TUI.Adapter} =
-             Code.ensure_loaded(AllbertAssist.Channels.TUI.Adapter)
+    assert {:module, AllbertTUI.Adapter} =
+             Code.ensure_loaded(AllbertTUI.Adapter)
 
-    assert {:module, AllbertAssist.Channels.TUI.Renderer} =
-             Code.ensure_loaded(AllbertAssist.Channels.TUI.Renderer)
+    assert {:module, AllbertTUI.Renderer} =
+             Code.ensure_loaded(AllbertTUI.Renderer)
 
     response =
       Response.normalize(%{

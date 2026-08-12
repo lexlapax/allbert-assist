@@ -4,9 +4,9 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
-  alias AllbertAssist.Channels.Matrix.Parser, as: MatrixParser
-  alias AllbertAssist.Channels.Signal.Daemon, as: SignalDaemon
-  alias AllbertAssist.Channels.Signal.Parser, as: SignalParser
+  alias AllbertMatrix.Parser, as: MatrixParser
+  alias AllbertSignal.Daemon, as: SignalDaemon
+  alias AllbertSignal.Parser, as: SignalParser
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread

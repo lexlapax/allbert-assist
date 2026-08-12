@@ -102,7 +102,10 @@ fi
 VSN="$(run_cli eval 'IO.puts(AllbertAssist.App.CoreApp.version())' 2>/dev/null | tail -n1)"
 [ -n "$VSN" ] && echo "smoke:version PASS version=$VSN" || fail version "no version reported"
 
-# 3) Plugins register from the packaged plugins root (RELEASE_ROOT/plugins).
+# 3) Capabilities register from their own applications. Before v1.4 M13 this
+# read from a staged RELEASE_ROOT/plugins tree; every plugin is now an OTP
+# application and contributes through its own priv, so the assertion below is
+# unchanged -- what moved is where the registrations come from.
 # Bare `eval` only LOADS the apps; start them so the App.Registry GenServer is
 # up and plugin registration has run (else registered_apps/0 catches the dead
 # GenServer and returns []).

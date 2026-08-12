@@ -40,6 +40,14 @@ defmodule AllbertAssist.Umbrella.MixProject do
           allbert_email: :permanent,
           allbert_research: :permanent,
           allbert_browser: :permanent,
+          allbert_discord: :permanent,
+          allbert_matrix: :permanent,
+          allbert_signal: :permanent,
+          allbert_slack: :permanent,
+          allbert_tui: :permanent,
+          allbert_whatsapp: :permanent,
+          allbert_artifacts: :permanent,
+          stocksage: :permanent,
           allbert_composition: :permanent,
           allbert_assist_web: :permanent
         ],
@@ -48,8 +56,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
         steps: [
           &build_web_assets/1,
           :assemble,
-          &stage_plugins/1,
           &prune_browser_bridge_node_modules/1,
+          &assert_external_browser_boundary/1,
           &patch_macos_openssl/1,
           &patch_linux_sctp/1,
           &install_dispatcher/1,
@@ -97,40 +105,14 @@ defmodule AllbertAssist.Umbrella.MixProject do
   # M0-proven packaged layout; AllbertAssist.Plugin.Paths) — stage each
   # plugin's runtime folders (manifest + priv + skills, no source) into the
   # assembled release so registration is cwd-independent.
-  defp stage_plugins(release) do
-    target = Path.join(release.path, "plugins")
-    File.mkdir_p!(target)
-
-    "plugins"
-    |> File.ls!()
-    |> Enum.each(fn plugin_id ->
-      source = Path.join("plugins", plugin_id)
-
-      if File.dir?(source) do
-        dest = Path.join(target, plugin_id)
-        File.mkdir_p!(dest)
-
-        for item <- ["allbert_plugin.json", "priv", "skills"],
-            path = Path.join(source, item),
-            File.exists?(path) do
-          stage_plugin_item!(plugin_id, item, path, Path.join(dest, item))
-        end
-      end
-    end)
-
-    assert_external_browser_boundary!(release.path)
-
-    Mix.shell().info("==> staged shipped plugins into " <> target)
-    release
-  end
 
   # v1.4 M13: the browser bridge's node_modules must not ship. That used to be a
   # plugin-id special case inside stage_plugins, excluding the tree while copying
   # plugins/allbert.browser/priv. Once the browser became an OTP application the
   # copy stopped going through that path -- `:assemble` brings the whole priv/ of
-  # every application -- so the exclusion had to move here, after assembly, or
-  # 900-odd vendored files would silently start shipping. The runtime boundary
-  # smoke asserts the same property from the outside.
+  # every application -- so the exclusion moved here, after assembly, or 900-odd
+  # vendored files would silently start shipping. The boundary smoke below
+  # asserts the same property from the outside.
   defp prune_browser_bridge_node_modules(release) do
     release.path
     |> Path.join("lib/allbert_browser-*/priv/playwright_bridge/node_modules")
@@ -140,15 +122,18 @@ defmodule AllbertAssist.Umbrella.MixProject do
     release
   end
 
-  defp stage_plugin_item!(_plugin_id, _item, source, dest) do
-    File.cp_r!(source, dest)
-  end
-
-  defp assert_external_browser_boundary!(release_root) do
+  # v1.4 M13 promoted this to a release step of its own. It used to run at the tail
+  # of `stage_plugins/1`, and M13 retired that step: every plugin became an OTP
+  # application, so there is nothing left to stage into `RELEASE_ROOT/plugins`.
+  # Deleting the step wholesale would have taken this assertion with it -- Node,
+  # Playwright and Chromium are host dependencies that must never be copied into
+  # the artifact, and that is worth its own line in the pipeline rather than a
+  # tail call inside something unrelated.
+  defp assert_external_browser_boundary(release) do
     script = Path.join(["scripts", "smoke", "browser_runtime_boundary_smoke.sh"])
 
-    case System.cmd("bash", [script, release_root], into: IO.stream(:stdio, :line)) do
-      {_output, 0} -> :ok
+    case System.cmd("bash", [script, release.path], into: IO.stream(:stdio, :line)) do
+      {_output, 0} -> release
       {_output, status} -> Mix.raise("external browser runtime boundary failed (#{status})")
     end
   end

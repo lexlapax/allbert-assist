@@ -6,7 +6,7 @@ defmodule AllbertAssist.TestSupport.ProviderPreconditions do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
+  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
 

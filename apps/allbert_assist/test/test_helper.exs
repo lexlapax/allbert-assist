@@ -71,7 +71,15 @@ AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
   :allbert_telegram,
   :allbert_email,
   :allbert_research,
-  :allbert_browser
+  :allbert_browser,
+  :allbert_discord,
+  :allbert_matrix,
+  :allbert_signal,
+  :allbert_slack,
+  :allbert_tui,
+  :allbert_whatsapp,
+  :allbert_artifacts,
+  :stocksage
 ])
 
 # Loading is necessary but not sufficient: the residual boots its plugin

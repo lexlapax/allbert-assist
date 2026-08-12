@@ -4420,7 +4420,7 @@
       "focused_test": "AllbertAssist.Channels.DiscordTest",
       "id": "discord-adapter",
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
-      "owner": "AllbertAssist.Channels.Discord.Adapter",
+      "owner": "AllbertDiscord.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
     },
@@ -4528,7 +4528,7 @@
       "focused_test": "AllbertAssist.Pack.EffectGuardSettingsChannelsTest",
       "id": "guarded-source-apps-allbert-assist-lib-allbert-assist-actions-channels-matrix-doctor-ex",
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
-      "owner": "AllbertAssist.Actions.Channels.MatrixDoctor",
+      "owner": "AllbertMatrix.Actions.Doctor",
       "phase": "ready",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/channels/matrix_doctor.ex"
     },
@@ -5272,7 +5272,7 @@
       "focused_test": "AllbertAssist.Pack.EffectGuardSettingsChannelsTest",
       "id": "guarded-source-plugins-allbert-matrix-lib-allbert-assist-channels-matrix-doctor-ex",
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
-      "owner": "AllbertAssist.Channels.Matrix.Doctor",
+      "owner": "AllbertMatrix.Doctor",
       "phase": "ready",
       "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/doctor.ex"
     },
@@ -5308,7 +5308,7 @@
       "focused_test": "AllbertAssist.Pack.EffectGuardSettingsChannelsTest",
       "id": "guarded-source-plugins-allbert-tui-lib-allbert-assist-channels-tui-input-receipt-ex",
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
-      "owner": "AllbertAssist.Channels.TUI.InputReceipt",
+      "owner": "AllbertTUI.InputReceipt",
       "phase": "ready",
       "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
     },
@@ -5428,7 +5428,7 @@
       "focused_test": "AllbertAssist.Channels.MatrixTest",
       "id": "matrix-adapter",
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
-      "owner": "AllbertAssist.Channels.Matrix.Adapter",
+      "owner": "AllbertMatrix.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
     },
@@ -5968,7 +5968,7 @@
       "focused_test": "AllbertAssist.Channels.SignalTest",
       "id": "signal-adapter",
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
-      "owner": "AllbertAssist.Channels.Signal.Adapter",
+      "owner": "AllbertSignal.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
     },
@@ -5980,7 +5980,7 @@
       "focused_test": "AllbertAssist.Channels.SlackTest",
       "id": "slack-adapter",
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
-      "owner": "AllbertAssist.Channels.Slack.Adapter",
+      "owner": "AllbertSlack.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
     },
@@ -6100,7 +6100,7 @@
       "focused_test": "AllbertAssist.Channels.TUITest",
       "id": "tui-adapter",
       "missing_or_stale_result": "product_not_ready before runtime or later delivery effect",
-      "owner": "AllbertAssist.Channels.TUI.Adapter",
+      "owner": "AllbertTUI.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
     },
@@ -6316,7 +6316,7 @@
       "focused_test": "AllbertAssist.Channels.WhatsAppTest",
       "id": "whatsapp-adapter",
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
-      "owner": "AllbertAssist.Channels.WhatsApp.Adapter",
+      "owner": "AllbertWhatsApp.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
     },

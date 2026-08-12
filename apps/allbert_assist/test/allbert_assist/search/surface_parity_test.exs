@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Search.SurfaceParityTest do
   use AllbertAssist.DataCase, async: false
-  alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.Corpus

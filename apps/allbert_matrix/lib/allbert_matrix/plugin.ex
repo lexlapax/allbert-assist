@@ -1,0 +1,52 @@
+defmodule AllbertMatrix.Plugin do
+  @moduledoc false
+
+  use AllbertAssist.Plugin
+
+  @impl true
+  def plugin_id, do: "allbert.matrix"
+
+  @impl true
+  def display_name, do: "Allbert Matrix Channel"
+
+  @impl true
+  def version, do: "0.53.0"
+
+  @impl true
+  def validate(_opts), do: :ok
+
+  @impl true
+  def channels do
+    [
+      %{
+        channel_id: "matrix",
+        provider: "matrix_client_server",
+        adapter: AllbertMatrix.Adapter,
+        doctor: AllbertMatrix.Doctor,
+        child_spec: {AllbertMatrix.Adapter, []},
+        secret_refs: ["channels.matrix.access_token_ref"],
+        summary_fields: ["enabled", "homeserver_url", "allowed_room_ids"],
+        settings_prefix: "channels.matrix",
+        identity_map_key: "channels.matrix.identity_map",
+        session_strategy: {:matrix_room, prefix: "ch_mx_"},
+        primitives: [:typed_command, :link, :list],
+        threading: :native_threads,
+        streaming: :progress_messages,
+        status_update_mode: :edit_in_place,
+        trust_class: :server_readable,
+        can_create_thread: false,
+        reply_key_type: :opaque_id,
+        plugin_id: plugin_id(),
+        source: :shipped,
+        status: :enabled
+      }
+    ]
+  end
+
+  @impl true
+  def actions, do: [AllbertMatrix.Actions.Doctor]
+
+  @impl true
+  # v1.4 M13: settings ownership moved to the pack FragmentOwner.
+  def settings_schema, do: []
+end

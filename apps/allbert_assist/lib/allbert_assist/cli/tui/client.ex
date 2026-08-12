@@ -9,7 +9,7 @@ defmodule AllbertAssist.CLI.Tui.Client do
   `AllbertAssist.Runtime.Attach.TUISession`.
   """
 
-  alias AllbertAssist.Channels.TUI.InputDriver
+  alias AllbertAssist.Channels
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.Security.Redactor
@@ -1036,6 +1036,7 @@ defmodule AllbertAssist.CLI.Tui.Client do
 
   defp callbacks(opts) do
     output = Keyword.get(opts, :output_fun, &default_output/1)
+    driver = tui_input_driver_module()
 
     defaults = %{
       terminal_info: &terminal_info/0,
@@ -1055,7 +1056,7 @@ defmodule AllbertAssist.CLI.Tui.Client do
       start_resize_poll: fn -> :timer.send_interval(@resize_poll_ms, :tui_resize_poll) end,
       stop_resize_poll: &stop_resize_poll/1,
       start_input: fn owner, terminal ->
-        InputDriver.start(owner,
+        driver.start(owner,
           output_fun: output,
           live_region?: true,
           single_submission?: true,
@@ -1064,15 +1065,34 @@ defmodule AllbertAssist.CLI.Tui.Client do
         )
       end,
       stop_input: &stop_input/1,
-      prompt_input: &InputDriver.prompt/2,
-      write_input: &InputDriver.write/2,
-      write_live: &InputDriver.update_live/3,
-      pause_input: &InputDriver.pause/1,
-      resume_input: &InputDriver.resume/1,
+      prompt_input: fn input_driver, prompt -> driver.prompt(input_driver, prompt) end,
+      write_input: fn input_driver, data -> driver.write(input_driver, data) end,
+      write_live: fn input_driver, columns, lines ->
+        driver.update_live(input_driver, columns, lines)
+      end,
+      pause_input: fn input_driver -> driver.pause(input_driver) end,
+      resume_input: fn input_driver -> driver.resume(input_driver) end,
       reconnect: &ask_reconnect/2
     }
 
     Map.merge(defaults, Keyword.get(opts, :callbacks, %{}))
+  end
+
+  # v1.4 M13 extracted the TUI channel into its own pack; the R0 frozen DAG
+  # forbids a compile-time residual-to-pack alias, so this client-side
+  # terminal driver is resolved from the same "tui" channel descriptor
+  # `AllbertTUI.Plugin.channels/0` publishes for the daemon-side adapter (see
+  # the parallel resolution in `AllbertAssist.Runtime.Attach.TUISession`).
+  # This module remains the terminal I/O owner; only the module identity
+  # moves from compile time to runtime.
+  defp tui_input_driver_module do
+    case Channels.channel_descriptor("tui") do
+      {:ok, %{input_driver: module}} when is_atom(module) and not is_nil(module) ->
+        module
+
+      _other ->
+        raise "AllbertTUI.InputDriver is not registered on the \"tui\" channel descriptor"
+    end
   end
 
   defp terminal_info do

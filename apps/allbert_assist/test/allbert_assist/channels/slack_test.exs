@@ -4,15 +4,15 @@ defmodule AllbertAssist.Channels.SlackTest do
   import Ecto.Query
 
   alias AllbertAssist.Channels
-  alias AllbertAssist.Channels.Slack.Adapter
-  alias AllbertAssist.Channels.Slack.Client
-  alias AllbertAssist.Channels.Slack.Client.SocketModePort
-  alias AllbertAssist.Channels.Slack.Parser
+  alias AllbertSlack.Adapter
+  alias AllbertSlack.Client
+  alias AllbertSlack.Client.SocketModePort
+  alias AllbertSlack.Parser
   alias AllbertAssist.Confirmations
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugins.Slack, as: SlackPlugin
+  alias AllbertSlack.Plugin, as: SlackPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Security.Redactor

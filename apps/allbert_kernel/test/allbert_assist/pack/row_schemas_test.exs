@@ -777,7 +777,7 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
       "status_update_mode" => nil,
       "child_spec" => %{
         "kind" => "module_options",
-        "module" => "AllbertAssist.Channels.TUI.Supervisor",
+        "module" => "AllbertTUI.Supervisor",
         "options" => []
       }
     }

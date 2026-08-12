@@ -1,11 +1,11 @@
-defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
+defmodule AllbertWhatsApp.Actions.DoctorTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertAssist.Actions.Channels.WhatsAppDoctor
+  alias AllbertWhatsApp.Actions.Doctor
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.Channels.WhatsApp.Doctor
+  alias AllbertWhatsApp.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

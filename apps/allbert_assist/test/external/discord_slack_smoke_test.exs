@@ -7,8 +7,8 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
                  "set ALLBERT_DISCORD_SLACK_EXTERNAL_SMOKE=1 to run the real Discord/Slack channel delivery smoke"
   end
 
-  alias AllbertAssist.Channels.Discord.Client, as: DiscordClient
-  alias AllbertAssist.Channels.Slack.Client, as: SlackClient
+  alias AllbertDiscord.Client, as: DiscordClient
+  alias AllbertSlack.Client, as: SlackClient
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Paths

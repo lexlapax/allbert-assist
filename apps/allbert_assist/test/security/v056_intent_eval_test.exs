@@ -10,7 +10,7 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner, as: ActionsRunner
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Intent.Eval.{Corpus, Gate, Runner, Scorer}
   alias AllbertAssist.Intent.Learning.Miner
   alias AllbertAssist.Intent.Router.DescriptorResolver

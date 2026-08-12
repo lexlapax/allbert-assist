@@ -7,8 +7,8 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Event
-  alias AllbertAssist.Channels.TUI.Adapter, as: TUIAdapter
-  alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertTUI.Adapter, as: TUIAdapter
+  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Coding.Prompt
   alias AllbertAssist.Coding.Session, as: CodingSession
@@ -20,7 +20,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
+  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.PublicProtocol.ExposureFilter
   alias AllbertAssist.Repo
   alias AllbertAssist.Resources.Grants

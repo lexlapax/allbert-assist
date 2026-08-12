@@ -32,7 +32,7 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsContextTest do
   alias AllbertAssist.Actions.Channels.ListChannels
   alias AllbertAssist.Channels
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
+  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 

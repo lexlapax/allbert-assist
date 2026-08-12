@@ -6,14 +6,14 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
-  alias AllbertAssist.Channels.WhatsApp.Adapter
-  alias AllbertAssist.Channels.WhatsApp.Client
-  alias AllbertAssist.Channels.WhatsApp.Parser
+  alias AllbertWhatsApp.Adapter
+  alias AllbertWhatsApp.Client
+  alias AllbertWhatsApp.Parser
   alias AllbertAssist.Confirmations
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugins.WhatsApp, as: WhatsAppPlugin
+  alias AllbertWhatsApp.Plugin, as: WhatsAppPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings

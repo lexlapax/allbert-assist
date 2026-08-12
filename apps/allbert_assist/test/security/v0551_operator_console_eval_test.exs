@@ -6,8 +6,8 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Event
-  alias AllbertAssist.Channels.TUI.Adapter, as: TUIAdapter
-  alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertTUI.Adapter, as: TUIAdapter
+  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Paths
@@ -288,12 +288,12 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
     modules = [
       AllbertTelegram.Plugin,
       AllbertEmail.Plugin,
-      AllbertAssist.Plugins.Discord,
-      AllbertAssist.Plugins.Slack,
-      AllbertAssist.Plugins.Matrix,
-      AllbertAssist.Plugins.WhatsApp,
-      AllbertAssist.Plugins.Signal,
-      AllbertAssist.Plugins.TUI
+      AllbertDiscord.Plugin,
+      AllbertSlack.Plugin,
+      AllbertMatrix.Plugin,
+      AllbertWhatsApp.Plugin,
+      AllbertSignal.Plugin,
+      AllbertTUI.Plugin
     ]
 
     # The setup no longer clears the registry first, so these are already

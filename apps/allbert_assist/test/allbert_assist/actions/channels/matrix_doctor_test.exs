@@ -1,11 +1,11 @@
-defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
+defmodule AllbertMatrix.Actions.DoctorTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
   import Plug.Conn
 
-  alias AllbertAssist.Actions.Channels.MatrixDoctor
-  alias AllbertAssist.Channels.Matrix.Doctor
+  alias AllbertMatrix.Actions.Doctor
+  alias AllbertMatrix.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

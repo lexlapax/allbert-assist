@@ -8,7 +8,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
 
   use AllbertAssistWeb, :controller
 
-  alias AllbertAssist.Channels.WhatsApp.Adapter, as: WhatsAppAdapter
+  alias AllbertAssist.Channels
   alias AllbertAssistWeb.PackReadiness
   alias AllbertAssistWeb.PackReadiness.HTTPGate
 
@@ -40,10 +40,16 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
       auth = conn.assigns[:public_protocol_auth] || %{}
 
       adapter_result =
-        WhatsAppAdapter.handle_webhook_payload(params, auth,
-          allbert_pack_epoch: conn.private[:allbert_pack_epoch]
-        )
-        |> normalize_adapter_result()
+        case whatsapp_adapter() do
+          {:ok, module} ->
+            module.handle_webhook_payload(params, auth,
+              allbert_pack_epoch: conn.private[:allbert_pack_epoch]
+            )
+            |> normalize_adapter_result()
+
+          :error ->
+            normalize_adapter_result({:error, :whatsapp_adapter_unavailable})
+        end
 
       conn
       |> put_status(202)
@@ -57,6 +63,22 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
       })
     else
       HTTPGate.unavailable(conn)
+    end
+  end
+
+  # v1.4 M13 made packs depend on Web (that is how a pack's own web surface
+  # gets routed), so a Web-to-pack compile-time edge here would be the cycle
+  # the R0 frozen DAG forbids. The adapter module is published on the
+  # `adapter:` key of the channel descriptor `AllbertWhatsApp.Plugin.channels/0`
+  # registers, and resolved from the registry at request time -- the same
+  # runtime-lookup shape the residual now uses for pack CLI groups and
+  # doctors, so no hardcoded roster of channels is needed here either.
+  defp whatsapp_adapter do
+    with {:ok, descriptor} <- Channels.channel_descriptor("whatsapp"),
+         module when is_atom(module) and not is_nil(module) <- Map.get(descriptor, :adapter) do
+      {:ok, module}
+    else
+      _other -> :error
     end
   end
 

@@ -23,6 +23,14 @@ defmodule AllbertAssist.Pack.ProjectionProvider do
     :allbert_email,
     :allbert_research,
     :allbert_browser,
+    :allbert_discord,
+    :allbert_matrix,
+    :allbert_signal,
+    :allbert_slack,
+    :allbert_tui,
+    :allbert_whatsapp,
+    :allbert_artifacts,
+    :stocksage,
     :allbert_composition,
     :allbert_assist_web
   ]

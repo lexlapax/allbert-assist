@@ -339,7 +339,7 @@ Open is serialized in this order:
    denial. The verified operator returned by Settings Central, never the
    profile asserted by the client, becomes channel identity.
 4. Start exactly one temporary (`restart: :temporary`)
-   `AllbertAssist.Channels.TUI.Adapter` child under the existing
+   `AllbertTUI.Adapter` child under the existing
    `Channels.Supervisor`, with automatic local stdin disabled and its input/
    output bridged to the session owner. Only then accept the session.
 

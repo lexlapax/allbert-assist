@@ -62,8 +62,13 @@ defmodule AllbertAssistWeb.Router do
     scope "/" do
       pipe_through :browser
 
-      live "/apps/artifacts/:sha", AllbertArtifactsWeb.ArtifactLive, :show
-      live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
+      # v1.4 M13: Web routes pack surfaces without naming a pack. `live/4`
+      # resolves its target while the router compiles, so naming a pack module
+      # here made Web depend on a pack that depends on Web. The `:pack` segment
+      # now selects a contributed surface at mount instead; see
+      # AllbertAssist.Pack.WebSurface. The two former literals become surface ids
+      # "artifacts" and "stocksage", so the operator-facing paths are unchanged.
+      live "/apps/:pack/*surface_path", AllbertAssistWeb.PackSurfaceLive, :show
     end
   end
 

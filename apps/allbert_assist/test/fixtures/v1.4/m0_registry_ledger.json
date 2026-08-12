@@ -88,18 +88,18 @@
         "AllbertAssist.Actions.Calendar.CreateCalendarEvent",
         "AllbertAssist.Actions.Channels.ConfigureChannelSecret",
         "AllbertAssist.Actions.Channels.ConfigureChannelSetting",
-        "AllbertAssist.Actions.Channels.DiscordDoctor",
+        "AllbertDiscord.Actions.Doctor",
         "AllbertAssist.Actions.Channels.LinkChannelIdentity",
         "AllbertAssist.Actions.Channels.ListChannels",
-        "AllbertAssist.Actions.Channels.MatrixDoctor",
+        "AllbertMatrix.Actions.Doctor",
         "AllbertAssist.Actions.Channels.SendChannelMessage",
         "AllbertAssist.Actions.Channels.SetupCheck",
         "AllbertAssist.Actions.Channels.ShowChannel",
-        "AllbertAssist.Actions.Channels.SignalDoctor",
-        "AllbertAssist.Actions.Channels.SignalLinkDevice",
-        "AllbertAssist.Actions.Channels.SlackDoctor",
+        "AllbertSignal.Actions.Doctor",
+        "AllbertSignal.Actions.LinkDevice",
+        "AllbertSlack.Actions.Doctor",
         "AllbertAssist.Actions.Channels.UnlinkChannelIdentity",
-        "AllbertAssist.Actions.Channels.WhatsAppDoctor",
+        "AllbertWhatsApp.Actions.Doctor",
         "AllbertAssist.Actions.Coding.Bash",
         "AllbertAssist.Actions.Coding.Edit",
         "AllbertAssist.Actions.Coding.Glob",
@@ -14527,8 +14527,8 @@
         "AllbertAssist.Actions.Search.RebuildSearchIndex",
         "AllbertAssist.Actions.Conversations.DeleteConversationContent",
         "AllbertAssist.Actions.Objectives.StartFanout",
-        "AllbertAssist.Actions.Channels.WhatsAppDoctor",
-        "AllbertAssist.Actions.Channels.SignalDoctor",
+        "AllbertWhatsApp.Actions.Doctor",
+        "AllbertSignal.Actions.Doctor",
         "AllbertAssist.Actions.Mcp.DoctorServer",
         "AllbertAssist.Actions.Mcp.ListTools",
         "AllbertAssist.Actions.Mcp.ListResources",
@@ -14692,7 +14692,7 @@
         "AllbertAssist.Actions.Templates.ValidateTemplate",
         "AllbertAssist.Actions.Templates.ScaffoldTemplate",
         "AllbertAssist.Actions.Templates.CreateFromTemplate",
-        "AllbertAssist.Actions.Channels.SignalLinkDevice",
+        "AllbertSignal.Actions.LinkDevice",
         "AllbertAssist.Actions.Channels.ConfigureChannelSecret",
         "AllbertAssist.Actions.Channels.ConfigureChannelSetting",
         "AllbertAssist.Actions.Channels.LinkChannelIdentity",
@@ -14716,10 +14716,10 @@
         "AllbertBrowser.Actions.ListSessions",
         "AllbertBrowser.Actions.CloseSession",
         "AllbertBrowser.Actions.SweepCache",
-        "AllbertAssist.Actions.Channels.DiscordDoctor",
+        "AllbertDiscord.Actions.Doctor",
         "AllbertEmail.Actions.Doctor",
-        "AllbertAssist.Actions.Channels.MatrixDoctor",
-        "AllbertAssist.Actions.Channels.SlackDoctor",
+        "AllbertMatrix.Actions.Doctor",
+        "AllbertSlack.Actions.Doctor",
         "AllbertTelegram.Actions.Doctor",
         "StockSage.Actions.ResolveOutcomes",
         "StockSage.Actions.GenerateReflection",
@@ -26606,7 +26606,7 @@
           },
           "index": 68,
           "input_schema_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-          "module": "AllbertAssist.Actions.Channels.WhatsAppDoctor",
+          "module": "AllbertWhatsApp.Actions.Doctor",
           "name": "whatsapp_doctor",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "static"
@@ -26626,7 +26626,7 @@
           },
           "index": 69,
           "input_schema_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-          "module": "AllbertAssist.Actions.Channels.SignalDoctor",
+          "module": "AllbertSignal.Actions.Doctor",
           "name": "signal_doctor",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "static"
@@ -29906,7 +29906,7 @@
           },
           "index": 233,
           "input_schema_sha256": "9a60590b56844ae65b841633c5d2211d1261024ae54edd7e56df83f50157c911",
-          "module": "AllbertAssist.Actions.Channels.SignalLinkDevice",
+          "module": "AllbertSignal.Actions.LinkDevice",
           "name": "signal_link_device",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "static"
@@ -30406,7 +30406,7 @@
           },
           "index": 258,
           "input_schema_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-          "module": "AllbertAssist.Actions.Channels.DiscordDoctor",
+          "module": "AllbertDiscord.Actions.Doctor",
           "name": "discord_doctor",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "plugin_append"
@@ -30446,7 +30446,7 @@
           },
           "index": 260,
           "input_schema_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-          "module": "AllbertAssist.Actions.Channels.MatrixDoctor",
+          "module": "AllbertMatrix.Actions.Doctor",
           "name": "matrix_doctor",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "plugin_append"
@@ -30526,7 +30526,7 @@
           },
           "index": 264,
           "input_schema_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-          "module": "AllbertAssist.Actions.Channels.SlackDoctor",
+          "module": "AllbertSlack.Actions.Doctor",
           "name": "slack_doctor",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "plugin_append"
@@ -33785,7 +33785,7 @@
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.DiscordDoctor",
+          "module": "AllbertDiscord.Actions.Doctor",
           "plugin_id": "allbert.discord",
           "source": "plugin",
           "trust_status": "trusted"
@@ -33797,7 +33797,7 @@
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.MatrixDoctor",
+          "module": "AllbertMatrix.Actions.Doctor",
           "plugin_id": "allbert.matrix",
           "source": "plugin",
           "trust_status": "trusted"
@@ -33821,19 +33821,19 @@
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.SignalDoctor",
+          "module": "AllbertSignal.Actions.Doctor",
           "plugin_id": "allbert.signal",
           "source": "plugin",
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.SignalLinkDevice",
+          "module": "AllbertSignal.Actions.LinkDevice",
           "plugin_id": "allbert.signal",
           "source": "plugin",
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.SlackDoctor",
+          "module": "AllbertSlack.Actions.Doctor",
           "plugin_id": "allbert.slack",
           "source": "plugin",
           "trust_status": "trusted"
@@ -33845,7 +33845,7 @@
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.WhatsAppDoctor",
+          "module": "AllbertWhatsApp.Actions.Doctor",
           "plugin_id": "allbert.whatsapp",
           "source": "plugin",
           "trust_status": "trusted"
@@ -38358,17 +38358,17 @@
         "AllbertBrowser.Actions.CloseSession",
         "AllbertBrowser.Actions.SweepCache",
         "AllbertBrowser.Actions.ResearchHandoff",
-        "AllbertAssist.Actions.Channels.DiscordDoctor",
+        "AllbertDiscord.Actions.Doctor",
         "AllbertEmail.Actions.Doctor",
-        "AllbertAssist.Actions.Channels.MatrixDoctor",
+        "AllbertMatrix.Actions.Doctor",
         "AllbertNotesFiles.Actions.SearchNotes",
         "AllbertNotesFiles.Actions.ReadNote",
         "AllbertNotesFiles.Actions.WriteNote",
-        "AllbertAssist.Actions.Channels.SignalDoctor",
-        "AllbertAssist.Actions.Channels.SignalLinkDevice",
-        "AllbertAssist.Actions.Channels.SlackDoctor",
+        "AllbertSignal.Actions.Doctor",
+        "AllbertSignal.Actions.LinkDevice",
+        "AllbertSlack.Actions.Doctor",
         "AllbertTelegram.Actions.Doctor",
-        "AllbertAssist.Actions.Channels.WhatsAppDoctor",
+        "AllbertWhatsApp.Actions.Doctor",
         "StockSage.Actions.ListAnalyses",
         "StockSage.Actions.ShowAnalysis",
         "StockSage.Actions.GetTrends",
@@ -38396,7 +38396,7 @@
       "channels": [
         {
           "channel_id": "discord",
-          "child_id": "AllbertAssist.Channels.Discord.Adapter",
+          "child_id": "AllbertDiscord.Adapter",
           "plugin_id": "allbert.discord",
           "row_sha256": "217155701228cb8446c07d56ba7359c4a7be44fa51e06ecb53e2e06756ad9cf0",
           "status": "enabled"
@@ -38410,21 +38410,21 @@
         },
         {
           "channel_id": "matrix",
-          "child_id": "AllbertAssist.Channels.Matrix.Adapter",
+          "child_id": "AllbertMatrix.Adapter",
           "plugin_id": "allbert.matrix",
           "row_sha256": "9cdfe63e517766329d98b302dac6f73801a8a80749770d765670cf7f5183ba3d",
           "status": "enabled"
         },
         {
           "channel_id": "signal",
-          "child_id": "AllbertAssist.Channels.Signal.Supervisor",
+          "child_id": "AllbertSignal.Supervisor",
           "plugin_id": "allbert.signal",
           "row_sha256": "3146ec6dada326fc888001cba61508985e36a6b84725d689634c4f5d68c520a8",
           "status": "enabled"
         },
         {
           "channel_id": "slack",
-          "child_id": "AllbertAssist.Channels.Slack.Adapter",
+          "child_id": "AllbertSlack.Adapter",
           "plugin_id": "allbert.slack",
           "row_sha256": "f8d7ca72ab7597bfb5f7904c76ee2d332ff5fc148aadde312c596cc13870a189",
           "status": "enabled"
@@ -38438,14 +38438,14 @@
         },
         {
           "channel_id": "tui",
-          "child_id": "AllbertAssist.Channels.TUI.Adapter",
+          "child_id": "AllbertTUI.Adapter",
           "plugin_id": "allbert.tui",
           "row_sha256": "6de15385f5a694c11ad7e89637e919f183513671c18aa6a6d15cdb81e24818d2",
           "status": "enabled"
         },
         {
           "channel_id": "whatsapp",
-          "child_id": "AllbertAssist.Channels.WhatsApp.Adapter",
+          "child_id": "AllbertWhatsApp.Adapter",
           "plugin_id": "allbert.whatsapp",
           "row_sha256": "56fa6fdbaa46ba585dcc6bf2c6f40308ffe357e4e442f9962991a8fc526a97ba",
           "status": "enabled"
@@ -38605,17 +38605,17 @@
         },
         {
           "actions": [
-            "AllbertAssist.Actions.Channels.DiscordDoctor"
+            "AllbertDiscord.Actions.Doctor"
           ],
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.Discord.Adapter",
+              "adapter": "AllbertDiscord.Adapter",
               "can_create_thread": false,
               "channel_id": "discord",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.Discord.Adapter",
+                  "AllbertDiscord.Adapter",
                   []
                 ]
               },
@@ -38667,7 +38667,7 @@
           "index": 3,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.discord/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.Discord",
+          "module": "AllbertDiscord.Plugin",
           "plugin_id": "allbert.discord",
           "release_availability": [],
           "root_path": "<REPO_ROOT>/plugins/allbert.discord",
@@ -38767,17 +38767,17 @@
         },
         {
           "actions": [
-            "AllbertAssist.Actions.Channels.MatrixDoctor"
+            "AllbertMatrix.Actions.Doctor"
           ],
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.Matrix.Adapter",
+              "adapter": "AllbertMatrix.Adapter",
               "can_create_thread": false,
               "channel_id": "matrix",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.Matrix.Adapter",
+                  "AllbertMatrix.Adapter",
                   []
                 ]
               },
@@ -38826,7 +38826,7 @@
           "index": 5,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.matrix/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.Matrix",
+          "module": "AllbertMatrix.Plugin",
           "plugin_id": "allbert.matrix",
           "release_availability": [],
           "root_path": "<REPO_ROOT>/plugins/allbert.matrix",
@@ -38924,18 +38924,18 @@
         },
         {
           "actions": [
-            "AllbertAssist.Actions.Channels.SignalDoctor",
-            "AllbertAssist.Actions.Channels.SignalLinkDevice"
+            "AllbertSignal.Actions.Doctor",
+            "AllbertSignal.Actions.LinkDevice"
           ],
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.Signal.Adapter",
+              "adapter": "AllbertSignal.Adapter",
               "can_create_thread": false,
               "channel_id": "signal",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.Signal.Supervisor",
+                  "AllbertSignal.Supervisor",
                   []
                 ]
               },
@@ -38984,7 +38984,7 @@
           "index": 8,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.signal/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.Signal",
+          "module": "AllbertSignal.Plugin",
           "plugin_id": "allbert.signal",
           "release_availability": [
             {
@@ -39025,17 +39025,17 @@
         },
         {
           "actions": [
-            "AllbertAssist.Actions.Channels.SlackDoctor"
+            "AllbertSlack.Actions.Doctor"
           ],
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.Slack.Adapter",
+              "adapter": "AllbertSlack.Adapter",
               "can_create_thread": false,
               "channel_id": "slack",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.Slack.Adapter",
+                  "AllbertSlack.Adapter",
                   []
                 ]
               },
@@ -39087,7 +39087,7 @@
           "index": 9,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.slack/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.Slack",
+          "module": "AllbertSlack.Plugin",
           "plugin_id": "allbert.slack",
           "release_availability": [],
           "root_path": "<REPO_ROOT>/plugins/allbert.slack",
@@ -39190,12 +39190,12 @@
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.TUI.Adapter",
+              "adapter": "AllbertTUI.Adapter",
               "can_create_thread": true,
               "channel_id": "tui",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.TUI.Adapter",
+                  "AllbertTUI.Adapter",
                   []
                 ]
               },
@@ -39238,7 +39238,7 @@
           "index": 11,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.tui/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.TUI",
+          "module": "AllbertTUI.Plugin",
           "plugin_id": "allbert.tui",
           "release_availability": [],
           "root_path": "<REPO_ROOT>/plugins/allbert.tui",
@@ -39259,17 +39259,17 @@
         },
         {
           "actions": [
-            "AllbertAssist.Actions.Channels.WhatsAppDoctor"
+            "AllbertWhatsApp.Actions.Doctor"
           ],
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.WhatsApp.Adapter",
+              "adapter": "AllbertWhatsApp.Adapter",
               "can_create_thread": false,
               "channel_id": "whatsapp",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.WhatsApp.Adapter",
+                  "AllbertWhatsApp.Adapter",
                   []
                 ]
               },
@@ -39322,7 +39322,7 @@
           "index": 12,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.whatsapp/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.WhatsApp",
+          "module": "AllbertWhatsApp.Plugin",
           "plugin_id": "allbert.whatsapp",
           "release_availability": [
             {

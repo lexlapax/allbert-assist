@@ -1,10 +1,10 @@
-defmodule AllbertAssist.Actions.Channels.SlackDoctorTest do
+defmodule AllbertSlack.Actions.DoctorTest do
   use AllbertAssist.DataCase, async: false
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertAssist.Actions.Channels.SlackDoctor
-  alias AllbertAssist.Channels.Slack.Doctor
+  alias AllbertSlack.Actions.Doctor
+  alias AllbertSlack.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

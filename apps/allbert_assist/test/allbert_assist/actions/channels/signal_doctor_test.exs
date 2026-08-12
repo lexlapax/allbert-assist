@@ -1,11 +1,11 @@
-defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
+defmodule AllbertSignal.Actions.DoctorTest do
   use AllbertAssist.DataCase, async: false
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertAssist.Actions.Channels.SignalDoctor
+  alias AllbertSignal.Actions.Doctor
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.Channels.Signal.Doctor
+  alias AllbertSignal.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

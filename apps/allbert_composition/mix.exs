@@ -47,7 +47,20 @@ defmodule AllbertComposition.MixProject do
       {:allbert_telegram, in_umbrella: true},
       {:allbert_email, in_umbrella: true},
       {:allbert_research, in_umbrella: true},
-      {:allbert_browser, in_umbrella: true}
+      {:allbert_browser, in_umbrella: true},
+      {:allbert_discord, in_umbrella: true},
+      {:allbert_matrix, in_umbrella: true},
+      {:allbert_signal, in_umbrella: true},
+      {:allbert_slack, in_umbrella: true},
+      {:allbert_tui, in_umbrella: true},
+      {:allbert_whatsapp, in_umbrella: true}
+      # allbert_artifacts and stocksage are deliberately ABSENT. Both contribute a
+      # routed web surface, so both depend on allbert_assist_web -- and Web depends
+      # on this host. Naming them here closes the loop
+      # web -> composition -> pack -> web. They sit ABOVE Web in the DAG instead,
+      # started by the release `applications:` list, and their metadata reaches the
+      # projection through ProjectionProvider's application roster, which reads
+      # `.app` files and needs no dependency edge.
     ]
   end
 end

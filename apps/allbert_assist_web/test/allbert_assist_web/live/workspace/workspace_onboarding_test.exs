@@ -5,8 +5,8 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Channels.Event
-  alias AllbertAssist.Channels.TUI.Adapter
-  alias AllbertAssist.Channels.TUI.IdentityBootstrap
+  alias AllbertTUI.Adapter
+  alias AllbertTUI.IdentityBootstrap
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths

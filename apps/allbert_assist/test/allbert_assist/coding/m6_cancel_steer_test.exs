@@ -1,12 +1,12 @@
 defmodule AllbertAssist.Coding.M6CancelSteerTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.Channels.TUI.Adapter
+  alias AllbertTUI.Adapter
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
+  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

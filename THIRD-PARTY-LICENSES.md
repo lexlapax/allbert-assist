@@ -91,6 +91,15 @@ the offline drift check can pass.
 - Application: `abnf_parsec`
 - Provenance: `{"ecosystem":"hex","license_source":"deps/abnf_parsec/LICENSE","package":"abnf_parsec","url":"https://hex.pm/packages/abnf_parsec"}`
 
+### `beam-allbert-artifacts` — allbert artifacts
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_artifacts`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
 ### `beam-allbert-assist` — allbert_assist
 
 - Kind: `beam_app`
@@ -127,6 +136,15 @@ the offline drift check can pass.
 - Application: `allbert_composition`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
+### `beam-allbert-discord` — allbert_discord
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_discord`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
 ### `beam-allbert-email` — allbert_email
 
 - Kind: `beam_app`
@@ -143,6 +161,15 @@ the offline drift check can pass.
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
 - Application: `allbert_kernel`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
+### `beam-allbert-matrix` — allbert_matrix
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_matrix`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `beam-allbert-notes-files` — allbert_notes_files
@@ -163,6 +190,24 @@ the offline drift check can pass.
 - Application: `allbert_research`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
+### `beam-allbert-signal` — allbert_signal
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_signal`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
+### `beam-allbert-slack` — allbert_slack
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_slack`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
 ### `beam-allbert-telegram` — allbert_telegram
 
 - Kind: `beam_app`
@@ -170,6 +215,24 @@ the offline drift check can pass.
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
 - Application: `allbert_telegram`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
+### `beam-allbert-tui` — allbert_tui
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_tui`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
+### `beam-allbert-whatsapp` — allbert_whatsapp
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `allbert_whatsapp`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `beam-bandit` — bandit
@@ -640,6 +703,15 @@ the offline drift check can pass.
 - Application: `splode`
 - Provenance: `{"ecosystem":"hex","license_source":"apps/allbert_assist/priv/licenses/upstream/splode-0.3.1-MIT.txt","package":"splode","url":"https://hex.pm/packages/splode"}`
 
+### `beam-stocksage` — stocksage
+
+- Kind: `beam_app`
+- License expression: `Apache-2.0`
+- Disposition: bundled when selected for the target
+- Required texts: `Apache-2.0`
+- Application: `stocksage`
+- Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
+
 ### `beam-swoosh` — swoosh
 
 - Kind: `beam_app`
@@ -1009,13 +1081,14 @@ the offline drift check can pass.
 - Managed relative path: `priv/playwright_bridge/bridge.js`
 - Provenance: `{"boundary":"node_modules and browser binaries are forbidden","ecosystem":"allbert"}`
 
-### `plugin-allbert-artifacts` — allbert.artifacts staged plugin
+### `plugin-allbert-artifacts` — allbert.artifacts umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.artifacts/allbert_plugin.json`
+- Managed application: `allbert_artifacts`
+- Managed relative path: `allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-browser` — allbert.browser umbrella pack
@@ -1028,13 +1101,14 @@ the offline drift check can pass.
 - Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-discord` — allbert.discord staged plugin
+### `plugin-allbert-discord` — allbert.discord umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.discord/allbert_plugin.json`
+- Managed application: `allbert_discord`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-email` — allbert.email umbrella pack
@@ -1047,13 +1121,14 @@ the offline drift check can pass.
 - Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-matrix` — allbert.matrix staged plugin
+### `plugin-allbert-matrix` — allbert.matrix umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.matrix/allbert_plugin.json`
+- Managed application: `allbert_matrix`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-notes_files` — allbert.notes_files umbrella pack
@@ -1076,22 +1151,24 @@ the offline drift check can pass.
 - Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-signal` — allbert.signal staged plugin
+### `plugin-allbert-signal` — allbert.signal umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.signal/allbert_plugin.json`
+- Managed application: `allbert_signal`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-slack` — allbert.slack staged plugin
+### `plugin-allbert-slack` — allbert.slack umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.slack/allbert_plugin.json`
+- Managed application: `allbert_slack`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-telegram` — allbert.telegram umbrella pack
@@ -1104,31 +1181,34 @@ the offline drift check can pass.
 - Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-tui` — allbert.tui staged plugin
+### `plugin-allbert-tui` — allbert.tui umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.tui/allbert_plugin.json`
+- Managed application: `allbert_tui`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-allbert-whatsapp` — allbert.whatsapp staged plugin
+### `plugin-allbert-whatsapp` — allbert.whatsapp umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/allbert.whatsapp/allbert_plugin.json`
+- Managed application: `allbert_whatsapp`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
-### `plugin-stocksage` — stocksage staged plugin
+### `plugin-stocksage` — stocksage umbrella pack
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
-- Managed path: `plugins/stocksage/allbert_plugin.json`
+- Managed application: `stocksage`
+- Managed relative path: `allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `release-launcher` — Mix release launcher

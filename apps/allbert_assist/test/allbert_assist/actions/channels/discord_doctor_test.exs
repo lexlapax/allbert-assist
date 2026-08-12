@@ -1,10 +1,10 @@
-defmodule AllbertAssist.Actions.Channels.DiscordDoctorTest do
+defmodule AllbertDiscord.Actions.DoctorTest do
   use AllbertAssist.DataCase, async: false
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertAssist.Actions.Channels.DiscordDoctor
-  alias AllbertAssist.Channels.Discord.Doctor
+  alias AllbertDiscord.Actions.Doctor
+  alias AllbertDiscord.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

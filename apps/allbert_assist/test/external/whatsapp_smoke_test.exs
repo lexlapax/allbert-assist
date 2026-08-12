@@ -6,7 +6,7 @@ defmodule AllbertAssist.External.WhatsAppSmokeTest do
     @moduletag skip: "set ALLBERT_WHATSAPP_EXTERNAL_SMOKE=1 to run the real WhatsApp smoke"
   end
 
-  alias AllbertAssist.Channels.WhatsApp.Client
+  alias AllbertWhatsApp.Client
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings

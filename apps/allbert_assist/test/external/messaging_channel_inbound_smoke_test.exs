@@ -11,10 +11,10 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
                  "set ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE=1 to run the real messaging-channel inbound smoke"
   end
 
-  alias AllbertAssist.Channels.Discord.Adapter, as: DiscordAdapter
-  alias AllbertAssist.Channels.Discord.Client, as: DiscordClient
-  alias AllbertAssist.Channels.Slack.Adapter, as: SlackAdapter
-  alias AllbertAssist.Channels.Slack.Client, as: SlackClient
+  alias AllbertDiscord.Adapter, as: DiscordAdapter
+  alias AllbertDiscord.Client, as: DiscordClient
+  alias AllbertSlack.Adapter, as: SlackAdapter
+  alias AllbertSlack.Client, as: SlackClient
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime

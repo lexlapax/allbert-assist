@@ -26,8 +26,8 @@ defmodule Mix.Tasks.Allbert.ConversationsTest do
 
     ensure_plugin!("allbert.telegram", AllbertTelegram.Plugin)
     ensure_plugin!("allbert.email", AllbertEmail.Plugin)
-    ensure_plugin!("allbert.discord", AllbertAssist.Plugins.Discord)
-    ensure_plugin!("allbert.slack", AllbertAssist.Plugins.Slack)
+    ensure_plugin!("allbert.discord", AllbertDiscord.Plugin)
+    ensure_plugin!("allbert.slack", AllbertSlack.Plugin)
 
     on_exit(fn ->
       Mix.Task.reenable("allbert.conversations")

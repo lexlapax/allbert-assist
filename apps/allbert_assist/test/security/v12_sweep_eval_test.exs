@@ -6,7 +6,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Identity
-  alias AllbertAssist.Channels.TUI.IdentityBootstrap
+  alias AllbertTUI.IdentityBootstrap
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.FirstRun.Enablement

@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Channels.TUISubscriptionsTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
-  alias AllbertAssist.Channels.TUI.Subscriptions
+  alias AllbertTUI.Subscriptions
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture

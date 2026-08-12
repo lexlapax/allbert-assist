@@ -6,13 +6,13 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   alias AllbertAssist.Approval.Handoff
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
-  alias AllbertAssist.Channels.Discord.Adapter, as: DiscordAdapter
-  alias AllbertAssist.Channels.Discord.Client, as: DiscordClient
-  alias AllbertAssist.Channels.Discord.Parser, as: DiscordParser
+  alias AllbertDiscord.Adapter, as: DiscordAdapter
+  alias AllbertDiscord.Client, as: DiscordClient
+  alias AllbertDiscord.Parser, as: DiscordParser
   alias AllbertAssist.Channels.Identity
-  alias AllbertAssist.Channels.Slack.Adapter, as: SlackAdapter
-  alias AllbertAssist.Channels.Slack.Client, as: SlackClient
-  alias AllbertAssist.Channels.Slack.Parser, as: SlackParser
+  alias AllbertSlack.Adapter, as: SlackAdapter
+  alias AllbertSlack.Client, as: SlackClient
+  alias AllbertSlack.Parser, as: SlackParser
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
@@ -159,9 +159,9 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
 
     ensure_plugin!("allbert.email", AllbertEmail.Plugin)
 
-    ensure_plugin!("allbert.discord", AllbertAssist.Plugins.Discord)
+    ensure_plugin!("allbert.discord", AllbertDiscord.Plugin)
 
-    ensure_plugin!("allbert.slack", AllbertAssist.Plugins.Slack)
+    ensure_plugin!("allbert.slack", AllbertSlack.Plugin)
     Fragments.clear_cache()
 
     configure_channels!()

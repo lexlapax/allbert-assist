@@ -123,42 +123,11 @@ defmodule AllbertAssist.Pack.Residual do
         support: ["apps/allbert_assist/test/support"],
         aliases: ["core", "serial-core"],
         production_roots: [
-          "apps/allbert_assist/lib",
-          "plugins/allbert.tui/lib"
+          "apps/allbert_assist/lib"
         ]
       ),
       owner(:stocksage, "apps/allbert_assist", "plugins/stocksage/lib", "plugins/stocksage/test",
         support: ["plugins/stocksage/test/support"]
-      ),
-      owner(
-        :discord,
-        "apps/allbert_assist",
-        "plugins/allbert.discord/lib",
-        "plugins/allbert.discord/test"
-      ),
-      owner(
-        :slack,
-        "apps/allbert_assist",
-        "plugins/allbert.slack/lib",
-        "plugins/allbert.slack/test"
-      ),
-      owner(
-        :matrix,
-        "apps/allbert_assist",
-        "plugins/allbert.matrix/lib",
-        "plugins/allbert.matrix/test"
-      ),
-      owner(
-        :whatsapp,
-        "apps/allbert_assist",
-        "plugins/allbert.whatsapp/lib",
-        "plugins/allbert.whatsapp/test"
-      ),
-      owner(
-        :signal,
-        "apps/allbert_assist",
-        "plugins/allbert.signal/lib",
-        "plugins/allbert.signal/test"
       ),
       owner(
         :artifacts,

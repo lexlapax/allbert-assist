@@ -9,7 +9,7 @@ defmodule AllbertAssist.Channels.TUIConvergenceTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Registry
-  alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertTUI.SlashCommands
 
   # slash -> backing registered action
   @m6_reads %{
