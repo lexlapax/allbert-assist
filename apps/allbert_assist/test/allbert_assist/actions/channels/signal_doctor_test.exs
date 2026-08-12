@@ -7,7 +7,7 @@ defmodule AllbertSignal.Actions.DoctorTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
-  alias AllbertSignal.Actions.Doctor
+  alias AllbertSignal.Actions.Doctor, as: SignalDoctor
   alias AllbertSignal.Doctor
 
   @aci "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001"

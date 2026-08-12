@@ -157,7 +157,16 @@ defmodule AllbertAssist.DatabaseTest do
                  String.ends_with?(&1, "priv/repo/migrations"))
            )
 
-    assert Enum.any?(paths, &String.ends_with?(&1, "apps/stocksage/priv/repo/migrations"))
+    # Asserted by application name, not by source-tree layout. v1.4 M13 resolves a
+    # pack's migrations through `Application.app_dir/2` first, so the path is the
+    # loaded application's priv directory -- which is what a release has, and
+    # which in a Mix build symlinks to the same files under `apps/`. Pinning
+    # `apps/stocksage/...` asserted a layout no packaged release ever has.
+    assert Enum.any?(
+             paths,
+             &(String.contains?(&1, "stocksage") and
+                 String.ends_with?(&1, "priv/repo/migrations"))
+           )
   end
 
   defp configure_repo_database(database_path) do

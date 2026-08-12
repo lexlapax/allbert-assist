@@ -8,7 +8,7 @@ defmodule AllbertMatrix.Actions.DoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertMatrix.Actions.Doctor
+  alias AllbertMatrix.Actions.Doctor, as: MatrixDoctor
   alias AllbertMatrix.Doctor
 
   setup {Req.Test, :verify_on_exit!}

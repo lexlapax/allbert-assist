@@ -8,7 +8,7 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertWhatsApp.Actions.Doctor
+  alias AllbertWhatsApp.Actions.Doctor, as: WhatsAppDoctor
   alias AllbertWhatsApp.Doctor
 
   setup {Req.Test, :verify_on_exit!}

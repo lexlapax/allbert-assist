@@ -6,7 +6,7 @@ defmodule AllbertSlack.Actions.DoctorTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
-  alias AllbertSlack.Actions.Doctor
+  alias AllbertSlack.Actions.Doctor, as: SlackDoctor
   alias AllbertSlack.Doctor
 
   setup do
