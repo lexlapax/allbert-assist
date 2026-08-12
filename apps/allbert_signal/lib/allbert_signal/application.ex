@@ -19,6 +19,11 @@ defmodule AllbertSignal.Application do
        name: AllbertSignal.ActivationGate}
     ]
 
-    Supervisor.start_link(children, strategy: :one_for_one, name: AllbertSignal.Supervisor)
+    # Named AppSupervisor, not `AllbertSignal.Supervisor`: that name is already
+    # taken by the adapter's own Supervisor (apps/allbert_signal/lib/allbert_signal/supervisor.ex),
+    # which the channel descriptor's `child_spec` starts as an effect child.
+    # Reusing it here would make the two start_link/1 calls race for one
+    # registered name and the second one would fail with `{:already_started, _}`.
+    Supervisor.start_link(children, strategy: :one_for_one, name: AllbertSignal.AppSupervisor)
   end
 end
