@@ -75,13 +75,16 @@ defmodule AllbertAssist.Runtime.FanoutCallersTest do
     # one of these three declarations and each pack CLI holds another. The total
     # is what the invariant is about -- every simulation path declares the closed
     # capability -- so it stays 3 rather than being lowered to match one file.
+    # Counted across every owner of a simulate path, not a fixed list. M12 moved
+    # two out of the residual channels area and M13 moved the rest, so naming
+    # files here means this assertion silently narrows each time one moves. The
+    # invariant is the total: every simulation path declares the closed
+    # capability, wherever it now lives.
     simulations =
-      [
-        "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex",
-        "apps/allbert_telegram/lib/allbert_telegram/cli.ex",
-        "apps/allbert_email/lib/allbert_email/cli.ex"
-      ]
-      |> Enum.map_join("\n", &File.read!(Path.join(@root, &1)))
+      [Path.join(@root, "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex")]
+      |> Enum.concat(Path.wildcard(Path.join(@root, "apps/allbert_*/lib/*/cli.ex")))
+      |> Enum.filter(&File.regular?/1)
+      |> Enum.map_join("\n", &File.read!/1)
 
     assert length(Regex.scan(~r/delivery_ack_capability:/, simulations)) == 3
   end
