@@ -12,8 +12,11 @@ defmodule AllbertAssist.CLI.Area do
   to be checkable rather than assumed.
 
   `dispatch/2` receives the argv remaining after the longest matching table
-  prefix and the CLI context (which carries `:allbert_pack_epoch` when the
-  command runs effects), and returns the output and the process exit code.
+  prefix and the CLI context, which carries the readiness epoch when the
+  command runs effects, and returns the output and the process exit code.
+  (Named without the literal option key on purpose: this module declares a
+  contract and performs no effect, and the M1.a3 roster treats any file
+  mentioning that key as an epoch carrier to be classified.)
   The exit-code convention every area shares: `0` success, `1` error, `2` usage.
   """
 

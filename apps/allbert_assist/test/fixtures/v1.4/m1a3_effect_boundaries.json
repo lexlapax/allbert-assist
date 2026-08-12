@@ -865,94 +865,6 @@
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
     },
     {
-      "boundary": "AllbertAssist.Channels.create_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 894,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.submit_user_input",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 908,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 926,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.create_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 942,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.submit_user_input",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 955,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 973,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.create_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 986,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.submit_user_input",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1000,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1018,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "Req.post",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1106,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.update_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1312,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
@@ -1023,14 +935,6 @@
       "line": 715,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/memory.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Actions.Runner.run",
-      "disposition": "inherited_context",
-      "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 94,
-      "roster_id": "mix-area-ingress",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/notes.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -4188,7 +4092,6 @@
     "apps/allbert_assist/lib/allbert_assist/channels/notify_consent_callback.ex",
     "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex",
     "apps/allbert_assist/lib/allbert_assist/cli.ex",
-    "apps/allbert_assist/lib/allbert_assist/cli/area.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas/jobs.ex",
@@ -4424,18 +4327,6 @@
       "owner": "AllbertAssist.CLI.Channels.Support",
       "phase": "ready",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/channels/support.ex"
-    },
-    {
-      "admission_mode": "ready_carried",
-      "carrier_policy": "documents dispatch/2 receives :allbert_pack_epoch",
-      "compatibility_provenance": null,
-      "entrypoint": "behavior contract",
-      "focused_test": "AllbertAssist.CLI.AreaTest",
-      "id": "cli-area",
-      "missing_or_stale_result": "no area dispatch effect",
-      "owner": "AllbertAssist.CLI.Area",
-      "phase": "ready",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/area.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5639,12 +5530,12 @@
     },
     {
       "admission_mode": "ready_carried",
-      "carrier_policy": "carries notes CLI E1 for simulation",
+      "carrier_policy": "carries notes CLI E1 for the set-root write",
       "compatibility_provenance": null,
-      "entrypoint": "notes simulation routes",
+      "entrypoint": "notes root connect and read routes",
       "focused_test": "AllbertNotesFiles.CLITest",
       "id": "notes-cli",
-      "missing_or_stale_result": "{:error, :product_not_ready} before notes simulation effect",
+      "missing_or_stale_result": "{:error, :product_not_ready} before the notes root write",
       "owner": "AllbertNotesFiles.CLI",
       "phase": "ready",
       "source_path": "apps/allbert_notes_files/lib/allbert_notes_files/cli.ex"
