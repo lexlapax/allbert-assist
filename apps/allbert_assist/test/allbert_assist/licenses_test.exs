@@ -698,7 +698,7 @@ defmodule AllbertAssist.LicensesTest do
                "id" => "allbert_telegram",
                "application" => "allbert_telegram",
                "descriptor_module" => "Elixir.AllbertTelegram.Pack",
-               "startup_role" => "native_passive",
+               "startup_role" => "native_effectful",
                "registry_order" => 300
              },
              %{
@@ -706,7 +706,7 @@ defmodule AllbertAssist.LicensesTest do
                "id" => "allbert_email",
                "application" => "allbert_email",
                "descriptor_module" => "Elixir.AllbertEmail.Pack",
-               "startup_role" => "native_passive",
+               "startup_role" => "native_effectful",
                "registry_order" => 400
              },
              %{
@@ -730,7 +730,7 @@ defmodule AllbertAssist.LicensesTest do
                "id" => "allbert_discord",
                "application" => "allbert_discord",
                "descriptor_module" => "Elixir.AllbertDiscord.Pack",
-               "startup_role" => "native_passive",
+               "startup_role" => "native_effectful",
                "registry_order" => 700
              },
              %{
@@ -738,7 +738,7 @@ defmodule AllbertAssist.LicensesTest do
                "id" => "allbert_matrix",
                "application" => "allbert_matrix",
                "descriptor_module" => "Elixir.AllbertMatrix.Pack",
-               "startup_role" => "native_passive",
+               "startup_role" => "native_effectful",
                "registry_order" => 800
              },
              %{
@@ -746,7 +746,7 @@ defmodule AllbertAssist.LicensesTest do
                "id" => "allbert_signal",
                "application" => "allbert_signal",
                "descriptor_module" => "Elixir.AllbertSignal.Pack",
-               "startup_role" => "native_passive",
+               "startup_role" => "native_effectful",
                "registry_order" => 900
              },
              %{
@@ -754,7 +754,7 @@ defmodule AllbertAssist.LicensesTest do
                "id" => "allbert_slack",
                "application" => "allbert_slack",
                "descriptor_module" => "Elixir.AllbertSlack.Pack",
-               "startup_role" => "native_passive",
+               "startup_role" => "native_effectful",
                "registry_order" => 1000
              },
              %{
@@ -770,7 +770,7 @@ defmodule AllbertAssist.LicensesTest do
                "id" => "allbert_whatsapp",
                "application" => "allbert_whatsapp",
                "descriptor_module" => "Elixir.AllbertWhatsApp.Pack",
-               "startup_role" => "native_passive",
+               "startup_role" => "native_effectful",
                "registry_order" => 1200
              },
              %{

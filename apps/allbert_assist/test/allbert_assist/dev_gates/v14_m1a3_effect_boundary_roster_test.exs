@@ -19,11 +19,22 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     # of the inventories silently, which is the same way Actions.Runner left the
     # roster's field of view at M8.
     "apps/allbert_notes_files/lib",
-    # v1.4 M12 extracted telegram and email the same way. `plugins/*/lib` below
-    # still covers the five channels that have not moved.
+    # v1.4 M12 extracted telegram and email the same way.
     "apps/allbert_telegram/lib",
     "apps/allbert_email/lib",
-    "plugins/*/lib"
+    # v1.4 M13 extracted every remaining first-party plugin. plugins/ is now
+    # empty, so the `plugins/*/lib` wildcard that used to cover these stopped
+    # matching anything -- the same silent drop-out M8 and M9 hit before it.
+    "apps/allbert_browser/lib",
+    "apps/allbert_research/lib",
+    "apps/allbert_discord/lib",
+    "apps/allbert_matrix/lib",
+    "apps/allbert_signal/lib",
+    "apps/allbert_slack/lib",
+    "apps/allbert_whatsapp/lib",
+    "apps/allbert_artifacts/lib",
+    "apps/allbert_tui/lib",
+    "apps/stocksage/lib"
   ]
   @required_fields ~w[
     id owner entrypoint source_path phase admission_mode carrier_policy
@@ -533,13 +544,13 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     end
   end
 
+  defp alias_targets(_other), do: []
+
   defp grouped_alias_target(prefix, {:__aliases__, _member_meta, member}) do
     if resolvable?(member), do: [Enum.join(prefix ++ member, ".")], else: []
   end
 
   defp grouped_alias_target(_prefix, _other), do: []
-
-  defp alias_targets(_other), do: []
 
   defp alias_name({:__aliases__, _meta, parts}), do: Enum.join(parts, ".")
   defp alias_name(_other), do: nil

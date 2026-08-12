@@ -79,6 +79,23 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
           "with their modules renamed out of the AllbertAssist namespace, and the " <>
           "registration mutation subject moved to a residual-compiled plugin so the " <>
           "residual keeps no compile-time reference into a pack"
+    },
+    # v1.4 M13 extracted every remaining first-party plugin (browser, research,
+    # notes_files's CLI area, discord, matrix, signal, slack, telegram, whatsapp,
+    # stocksage) out of plugins/, which is now empty. The residual compiles no
+    # plugin implementation of its own, so the isolated-mutation proof's
+    # registration/duplicate/lookup subject moved onto the gate-owned
+    # V14M0LedgerPlugin (see its moduledoc) instead of the last extracted pack's
+    # module -- the same kind of move M12 made when it ran out of a residual-
+    # compiled channel plugin to borrow.
+    %{
+      "payload_sha256" => "b572065b01a489f0693af322ed1e9ae32d6c03fa8b1c026ca50b60b4066b6889",
+      "milestone" => "M13",
+      "reason" =>
+        "the last ten plugins extracted to their own applications, plugins/ is now " <>
+          "empty, and the isolated-mutation registration subject moved onto the " <>
+          "gate-owned V14M0LedgerPlugin because no residual-compiled plugin remained " <>
+          "to borrow"
     }
   ]
 

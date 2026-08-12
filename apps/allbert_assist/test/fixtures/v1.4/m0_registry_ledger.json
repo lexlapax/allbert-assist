@@ -1,13 +1,13 @@
 {
   "digests": {
-    "actions_sha256": "2502b1d63f7804e0417ee98e43425520e234340877b673dddb616cc0094c3b53",
-    "apps_sha256": "89711d5cae275a54ec1cb3d82d67efb62e033c4cfe61f2eded6ced9720c1f06c",
+    "actions_sha256": "50aa7795a5b4b0150601f8eed4eb34e016ce48374709feb8083c9146847a56f8",
+    "apps_sha256": "79ddd7de63ea698dcf3577740a751aaa101b7bd1ab5dbfd0b5e91e615c2aff14",
     "explicit_server_parity_sha256": "69eba632ad70ef8dd9d140a736b7e9e435257cfe6b31e7f287c4c0f5493d76d2",
-    "extensions_sha256": "7c7994bc5b46d67c4d3fe037e60a4eb4a177a6d5fbeba59d2f38bb1e7255f730",
-    "isolated_mutation_diagnostics_sha256": "423a5d6d6d2a04b98e5ca58428333fc94a280334001b8c27b29769dadf51a7e3",
-    "payload_sha256": "b572065b01a489f0693af322ed1e9ae32d6c03fa8b1c026ca50b60b4066b6889",
-    "plugins_sha256": "6c4c0e1deecd7d24b837dc015f9a869f64df25c0764c079407392d22139b8c80",
-    "settings_sha256": "b2906cfaffe227addc2632cba2d0a183dc57b942667778e0e9e5f3b3d61ad623"
+    "extensions_sha256": "ef2712b3759c92727c5596e2f68a52c9032d9dc40b88361610fa950bcbf7a4c5",
+    "isolated_mutation_diagnostics_sha256": "23c8634086c1afa0d50adf317d715587da72cca699c9c157f87dda52d57ef428",
+    "payload_sha256": "08a7719406c1a5f5bd233c3a0254b22dee39f25db7f8518fbf15cca84cdc5416",
+    "plugins_sha256": "b6b5db55888c8741ad981275a9baceed1398c5e28ac2fea737c70066555eaebb",
+    "settings_sha256": "2f1ac6a742e86c1f64df40447f3dff80ed4a8e02f64ddf95b86158964946510d"
   },
   "normalization": "v14_m0_registry_ledger_v1",
   "payload": {
@@ -88,18 +88,12 @@
         "AllbertAssist.Actions.Calendar.CreateCalendarEvent",
         "AllbertAssist.Actions.Channels.ConfigureChannelSecret",
         "AllbertAssist.Actions.Channels.ConfigureChannelSetting",
-        "AllbertDiscord.Actions.Doctor",
         "AllbertAssist.Actions.Channels.LinkChannelIdentity",
         "AllbertAssist.Actions.Channels.ListChannels",
-        "AllbertMatrix.Actions.Doctor",
         "AllbertAssist.Actions.Channels.SendChannelMessage",
         "AllbertAssist.Actions.Channels.SetupCheck",
         "AllbertAssist.Actions.Channels.ShowChannel",
-        "AllbertSignal.Actions.Doctor",
-        "AllbertSignal.Actions.LinkDevice",
-        "AllbertSlack.Actions.Doctor",
         "AllbertAssist.Actions.Channels.UnlinkChannelIdentity",
-        "AllbertWhatsApp.Actions.Doctor",
         "AllbertAssist.Actions.Coding.Bash",
         "AllbertAssist.Actions.Coding.Edit",
         "AllbertAssist.Actions.Coding.Glob",
@@ -336,12 +330,18 @@
         "AllbertBrowser.Actions.Screenshot",
         "AllbertBrowser.Actions.StartSession",
         "AllbertBrowser.Actions.SweepCache",
+        "AllbertDiscord.Actions.Doctor",
         "AllbertEmail.Actions.Doctor",
         "AllbertEmail.Actions.SendEmail",
+        "AllbertMatrix.Actions.Doctor",
         "AllbertNotesFiles.Actions.ReadNote",
         "AllbertNotesFiles.Actions.SearchNotes",
         "AllbertNotesFiles.Actions.WriteNote",
+        "AllbertSignal.Actions.Doctor",
+        "AllbertSignal.Actions.LinkDevice",
+        "AllbertSlack.Actions.Doctor",
         "AllbertTelegram.Actions.Doctor",
+        "AllbertWhatsApp.Actions.Doctor",
         "StockSage.Actions.Agents.ListAgents",
         "StockSage.Actions.Agents.ShowAgent",
         "StockSage.Actions.Evidence.FetchFinancials",
@@ -32979,7 +32979,7 @@
             "subscribes": []
           },
           "skill_paths": [
-            "<REPO_ROOT>/plugins/stocksage/skills"
+            "<REPO_ROOT>/_build/test/lib/stocksage/priv/skills"
           ],
           "surface_catalog": [
             {
@@ -33091,7 +33091,7 @@
         },
         {
           "app_id": "stocksage",
-          "path": "<REPO_ROOT>/plugins/stocksage/skills"
+          "path": "<REPO_ROOT>/_build/test/lib/stocksage/priv/skills"
         }
       ],
       "surface_providers": [
@@ -37102,624 +37102,7 @@
         "allbert.whatsapp",
         "stocksage"
       ],
-      "settings_schema": [
-        {
-          "key": "browser.enabled",
-          "row_sha256": "e30cb22c459f473658e33a2dada70b4ecad6cb4c6e34f62c6bd43a1b815403ed"
-        },
-        {
-          "key": "browser.driver.kind",
-          "row_sha256": "46df2100c1ab6e235ac5fafe72846038617f8f19d5a87cd0a0ad45678b0c28a7"
-        },
-        {
-          "key": "browser.driver.node_path",
-          "row_sha256": "084f569dbd58cefe11957111d27d5c33bfb8481aad03d2fcf421612f7bad800a"
-        },
-        {
-          "key": "browser.driver.node_module_path",
-          "row_sha256": "25835f0203ac42e991b2710a3785844a6e5adb927c431c8f76576c7e628b2443"
-        },
-        {
-          "key": "browser.driver.binary_path",
-          "row_sha256": "2b0495a03a664a50cf354658998ca59d50aa437dc308ce598c2e9b8725aa2136"
-        },
-        {
-          "key": "browser.driver.version_pin",
-          "row_sha256": "e16cae65f4a479aeef8a26be41c3cd543647be2a0fc63da24b7ab1b31e24b964"
-        },
-        {
-          "key": "browser.driver.host_resolver_rules",
-          "row_sha256": "105ad888c83f4d2850065c2a9e753828295a3d5be7207d4d6f9f3ca80f93c05e"
-        },
-        {
-          "key": "browser.session.max_concurrent",
-          "row_sha256": "290b20abb8ebbe7231c82b7f6587e828c664a5017da621286412de20c202ba68"
-        },
-        {
-          "key": "browser.session.max_lifetime_ms",
-          "row_sha256": "5c22933280fa2623c1df9fb3f4c3403a97600a331c243d2b5920d4cab4aa9c05"
-        },
-        {
-          "key": "browser.session.idle_timeout_ms",
-          "row_sha256": "fec02d64610f8b8d82133de282faa90e8eaa76bad00e5ba3b88eaec6dd61c997"
-        },
-        {
-          "key": "browser.session.max_pages",
-          "row_sha256": "6547b349635002341e07d6f81c56bb000b60c860a3f280495377a23c02dabd6f"
-        },
-        {
-          "key": "browser.session.headless",
-          "row_sha256": "1612affd985dab26e440222ac12eb3b11d5717ba9cd6000ebc902cff50a8143b"
-        },
-        {
-          "key": "browser.session.profile_mode",
-          "row_sha256": "6c11fc68af58496c033e817168153ee507e1ece572f8ac9a0a6a692fce485e4c"
-        },
-        {
-          "key": "browser.session.javascript_enabled",
-          "row_sha256": "c50c47246b98247019bff5df47edf3f641785265573ee2900111bd271143f6a8"
-        },
-        {
-          "key": "browser.session.user_agent",
-          "row_sha256": "cddbc84416bf463c5616398f98e09637a366c6755b5ad19da36baea2f53af884"
-        },
-        {
-          "key": "browser.navigation.allowed_domains",
-          "row_sha256": "268cd46e31b48e897096da4418b3dc64ea8c7746f4c7da78c114e74afc527b35"
-        },
-        {
-          "key": "browser.navigation.denied_domains",
-          "row_sha256": "ec22ac91e49c574e9498867de5ce91df22a13562d773c8acbbab828430c21a65"
-        },
-        {
-          "key": "browser.navigation.timeout_ms",
-          "row_sha256": "89a74f006f59319349413de53bc362f82dc95823ae58c0bf3c65b65ae79b56dd"
-        },
-        {
-          "key": "browser.navigation.max_redirects",
-          "row_sha256": "c773fb4839c9594ef1a81f1976f5d0adcc99be1be36aed7ae5eec3feceec80ae"
-        },
-        {
-          "key": "browser.navigation.subresource_cdn_allowlist",
-          "row_sha256": "9e13fcf9c9332dfe3befb681ded1f26800c172b62c1b605f88f48403dcaa8e45"
-        },
-        {
-          "key": "browser.extraction.max_bytes",
-          "row_sha256": "8d8c55e82ca18a25eee212f426fdf9e7fbe48c8fb9a78ec43693b5919ab40ff4"
-        },
-        {
-          "key": "browser.extraction.pdf_max_pages",
-          "row_sha256": "4a34cde85e46bbaa17cf627f5a9cd0a8b9155c6331b343201b7ba5e42bae8a4a"
-        },
-        {
-          "key": "browser.extraction.pdf_parse_timeout_ms",
-          "row_sha256": "334f96a66e883140fb975e93548a0cf52795ebc8eafca970c310a027ad71382b"
-        },
-        {
-          "key": "browser.screenshot.max_bytes",
-          "row_sha256": "e375545630474c7d00afad0c7652433e86ea005ab5155740f95e9f84109d90d3"
-        },
-        {
-          "key": "browser.screenshot.full_page",
-          "row_sha256": "53b1aea50567dc9716e2633fac373c704849876e2ed47a388e63fed5a3b17fcc"
-        },
-        {
-          "key": "browser.screenshot.redact_credential_inputs",
-          "row_sha256": "cae65b8fb92fd6237e84fed2d6f39cddf0019a48f341dd32427fc4308651663f"
-        },
-        {
-          "key": "browser.form_fill.enabled",
-          "row_sha256": "73911724439fd76edd9373813c60c967655e72e036352c6b70f96098cf4ce5b1"
-        },
-        {
-          "key": "browser.download.enabled",
-          "row_sha256": "eebddd7459d0a1eda15e68ebb5805b68686e42c1b04f6bdb59982f1c6aa85f60"
-        },
-        {
-          "key": "browser.cache.max_bytes",
-          "row_sha256": "18d9e21f7dbefbadc53b85e5c7dac325add3d42e9806996976a3900214b83f3b"
-        },
-        {
-          "key": "browser.cache.max_age_ms",
-          "row_sha256": "bd6504c6411071ff663a30d7a5761fa99c0f8a07e4017ffd63e188379d81be97"
-        },
-        {
-          "key": "browser.cache.sweep.schedule",
-          "row_sha256": "2f48bd009d353bfd18c928aae56dc0369f504aeee271e76bb7f7ef849c28bc14"
-        },
-        {
-          "key": "browser.doctor.max_age_ms",
-          "row_sha256": "64fa48783245fb80f92614f5d2d8e1de1ec76215f96bdf175b78ad98d5c767e6"
-        },
-        {
-          "key": "browser.routing.dynamic_hosts",
-          "row_sha256": "6b2cad86b73ac2ca4a3b01c04bb296224048711d9e7607de9984ad9caa76d55c"
-        },
-        {
-          "key": "channels.discord.enabled",
-          "row_sha256": "a4790a092bb6967e50d92eacd3c863c78524b21eb68ad3f3d4b5cab874483ffe"
-        },
-        {
-          "key": "channels.discord.bot_token_ref",
-          "row_sha256": "20c65e0282e3489f6799ca3c899604b6d8d15bf9412629b814805bc9cd56e930"
-        },
-        {
-          "key": "channels.discord.application_id",
-          "row_sha256": "15f072fa17e4dc7a86d9aec1093176d5c8c44323075809e29e97d259d7213f9c"
-        },
-        {
-          "key": "channels.discord.allowed_guild_ids",
-          "row_sha256": "7b04c22ed0c68d25229659dd6338c0ed94abae6349b3a0899fd59d978ff30bdc"
-        },
-        {
-          "key": "channels.discord.allowed_channel_ids",
-          "row_sha256": "1c39c98612f6fe56fee77d606acb460a4115345e546dcbf54b21ffef0d1db06a"
-        },
-        {
-          "key": "channels.discord.response_style",
-          "row_sha256": "9a723278c0371a2fdecd84731e0b0fa584ebe9f7b946f19f037ce66d0a1fb1b5"
-        },
-        {
-          "key": "channels.discord.max_text_bytes",
-          "row_sha256": "34fa267ae3089ae17a48d7aa55f03426e58b24c9701d081a92290bc244e7151f"
-        },
-        {
-          "key": "channels.discord.render_approval_buttons",
-          "row_sha256": "7c724396f8ec6b6db68db71560f438070e7a08c8e8c426e4a53e3199cff882ee"
-        },
-        {
-          "key": "channels.discord.identity_map",
-          "row_sha256": "0f03730ff9755327f0126f095257f2a5cb652bdbab629276341b7e1de0152f2c"
-        },
-        {
-          "key": "channels.discord.gateway_intents",
-          "row_sha256": "f48eadfe8505285e5c8f754e314c9e72698656f7d6c69558f408a826e9f7bf61"
-        },
-        {
-          "key": "channels.discord.gateway.reconnect_max_backoff_ms",
-          "row_sha256": "bbf7c79a859379dbeb27bcd3d2fa5fda1680603f8d7035179d4891c5e64602be"
-        },
-        {
-          "key": "channels.discord.gateway.heartbeat_jitter",
-          "row_sha256": "072d389a598ebf0f484bfed6e2e0f92083db2725b34a49e042a34ada1c6699db"
-        },
-        {
-          "key": "channels.discord.autonomous_notify.enabled",
-          "row_sha256": "593d017e005b1e7a70b06fe2524dd6174973f037f9d97f138bb52115463642a8"
-        },
-        {
-          "key": "channels.discord.autonomous_notify.level",
-          "row_sha256": "31829ff657150e57f064de115e2de7ad393670a9c668055dc9f55d09a7f551f2"
-        },
-        {
-          "key": "channels.discord.autonomous_notify.min_interval_seconds",
-          "row_sha256": "6e960c49fc420615fc3003b62cef4d64040b152fea3fd67fa11c0152ffc84741"
-        },
-        {
-          "key": "channels.matrix.enabled",
-          "row_sha256": "629377424ee072406210d1e35c0610f7257b573ecf975009edd133e8c0665eb2"
-        },
-        {
-          "key": "channels.matrix.homeserver_url",
-          "row_sha256": "636d7804e1f8138239b4ad713f2310a22d15e1739d58da4bfbb76a675bcb5221"
-        },
-        {
-          "key": "channels.matrix.access_token_ref",
-          "row_sha256": "f8ad02bf0025cdb079e20514ae1526d7b30d2360f8d0c2e3fd0cff4301d73c92"
-        },
-        {
-          "key": "channels.matrix.user_id",
-          "row_sha256": "c112257be269d940ca0b25b697d242e26955a61b67b185bd5cfb9881730f312c"
-        },
-        {
-          "key": "channels.matrix.allowed_room_ids",
-          "row_sha256": "c2e8555bd59d64d28e9c15ad86877a8d5129ea8064149cae38f814ac8f8ec308"
-        },
-        {
-          "key": "channels.matrix.response_style",
-          "row_sha256": "d7ce543572156ae740785b11175a2b2641e026c879550130c359e3b35ae07432"
-        },
-        {
-          "key": "channels.matrix.max_text_bytes",
-          "row_sha256": "9bb82f49f864540556774bb5720cc054fd95341f220b0552289eeeb525787275"
-        },
-        {
-          "key": "channels.matrix.identity_map",
-          "row_sha256": "fc5d0a291ff2c64c6ce4422a69fc68bf76b4ea3920b12231f87b2a84f7cb3229"
-        },
-        {
-          "key": "channels.matrix.sync_poll_interval_ms",
-          "row_sha256": "621cd16501578886d0db8df07d2183334aea009b3111138e83e9dc0828d7cc8e"
-        },
-        {
-          "key": "channels.matrix.sync_timeout_ms",
-          "row_sha256": "96024ec40d32eceb2380bd8680ec61e8fec1649edf2d420a76489035f6e2b8fb"
-        },
-        {
-          "key": "channels.matrix.sync_timeline_limit",
-          "row_sha256": "3bbbd40231bdbccce240c864c6341e1e17c139e1a1ffcae115d4e43bbe21b74b"
-        },
-        {
-          "key": "channels.matrix.autonomous_notify.enabled",
-          "row_sha256": "d62a87c00f125acce15d1c8e049d107074862e10697d28cb597baf87c9ab8555"
-        },
-        {
-          "key": "channels.matrix.autonomous_notify.level",
-          "row_sha256": "ddefcc608e5dc49ee32049b38c7ebd11086ed87b4c794b98860180a2feca7e55"
-        },
-        {
-          "key": "channels.matrix.autonomous_notify.min_interval_seconds",
-          "row_sha256": "1b5476600504ed8a966624ab381d4c094c34c90ec9e76c81d69eb9ae021ed9eb"
-        },
-        {
-          "key": "research.enabled",
-          "row_sha256": "f29ba0016866bf1fde180dd66506283d610a7ff4212428754a69cdc1bbfd4dc3"
-        },
-        {
-          "key": "research.schema_version",
-          "row_sha256": "d239964c020d40b61e7d79b566aa910c92d088833a0bf4e8b3e2ca942324b1aa"
-        },
-        {
-          "key": "research.max_sources",
-          "row_sha256": "1ea32d8e2a3d7a698628b83d92d6a6d2ab073057bf14d6c665a7741ed100dc0a"
-        },
-        {
-          "key": "research.max_extract_bytes_per_source",
-          "row_sha256": "614563f270dd9cfa6498a821b3523651cc2cde584a942537dcbfcca73f83fe9b"
-        },
-        {
-          "key": "research.summary.engine",
-          "row_sha256": "a0297b5536f32ec44a1d58fa33ac9f94b68868a4bda11907867d6b1ecddffacc"
-        },
-        {
-          "key": "channels.signal.enabled",
-          "row_sha256": "d2b577fbb2f4263c00296907904ed36372931c9268f38c2784a390a986e3aa8e"
-        },
-        {
-          "key": "channels.signal.account_identifier",
-          "row_sha256": "7b416c9a98e2d8d5b1fca36e62a7ed95802a26f2241341ee4d2d978a97ed2fd4"
-        },
-        {
-          "key": "channels.signal.local_aci",
-          "row_sha256": "2116acc51144379494d0bc24b0ca0f51520cae4b4fac58c875b29b6f8a7226b8"
-        },
-        {
-          "key": "channels.signal.daemon_path",
-          "row_sha256": "3f9a541ac7c71cf04d54f96675121671ef0fa5a33800757afc13c4cbbdd4c050"
-        },
-        {
-          "key": "channels.signal.data_dir",
-          "row_sha256": "c2e239d37ebfd538b5bf618117015096fbd204b8c5cb58f05df4db2a555a497f"
-        },
-        {
-          "key": "channels.signal.control_mode",
-          "row_sha256": "c79b8617e8ba72299c9119cf38f8a0710ca4b7857f64540f79adb829757f77fb"
-        },
-        {
-          "key": "channels.signal.socket_path",
-          "row_sha256": "673438dc346800e86fe7725f50ee70c45af9db7b7e364dc6dfb6cdb25a8f317f"
-        },
-        {
-          "key": "channels.signal.loopback_http_base_url",
-          "row_sha256": "2c7197cb313c63b07d95952fd9059c022c83295a036a50f0cee33d4313d2ab84"
-        },
-        {
-          "key": "channels.signal.control_auth_ref",
-          "row_sha256": "c59c1a539c02c7828632cda49c8c475afb2496ff2214ab697b0354ca3c656c90"
-        },
-        {
-          "key": "channels.signal.allowed_aci_ids",
-          "row_sha256": "8b5b15394f26f5029b2c8411eb6d8bd6dd6dc85621b03f605a531d176f73bdd0"
-        },
-        {
-          "key": "channels.signal.identity_map",
-          "row_sha256": "686e7883818233ba43ad43c3bd0d9d1c1554d87a9b79ff29c653a4f69c85a04d"
-        },
-        {
-          "key": "channels.signal.response_style",
-          "row_sha256": "7b42819d932b155969bab3813cb18d322163a410e622befd800844f87464174d"
-        },
-        {
-          "key": "channels.signal.max_text_bytes",
-          "row_sha256": "8b4259921a94a15898353d89a2581b78b99cb530050633ec20a4e1c7b89d9b8d"
-        },
-        {
-          "key": "channels.signal.receive_mode",
-          "row_sha256": "79ae7b91b5407145c14d3ca9b691df2dc2bfc13c562fa673905301a747ef9f3a"
-        },
-        {
-          "key": "channels.signal.autonomous_notify.enabled",
-          "row_sha256": "85149849cc590c1a16b4f43a2c9a5762781282f4ffee777e53d2322781d7574c"
-        },
-        {
-          "key": "channels.signal.autonomous_notify.level",
-          "row_sha256": "4124d9aa50ca9f446abe01f654c2f407c05d2e5ce5080e6dbc8b8fb390dfbee7"
-        },
-        {
-          "key": "channels.signal.autonomous_notify.min_interval_seconds",
-          "row_sha256": "e2fb6588e6cd7194ab2e7fb816b9d6e4cbd5c78664830dcc3d7b3497037676ca"
-        },
-        {
-          "key": "channels.slack.enabled",
-          "row_sha256": "7976bf2a5f7293bf8ea1ede30e617ee575588800248dd9e1442e0c7b3906c1b2"
-        },
-        {
-          "key": "channels.slack.bot_token_ref",
-          "row_sha256": "edc24916b357c22599d88d88cb671543cc16b9b64396d6917c0896c38230d8bc"
-        },
-        {
-          "key": "channels.slack.app_token_ref",
-          "row_sha256": "3e8b3ff6722dbe99a2bbdf1749a06de896127b03bac6789f6a86d9dc79b0d789"
-        },
-        {
-          "key": "channels.slack.signing_secret_ref",
-          "row_sha256": "d74ef66e78e1a7aaceaad6604ab96b967b09bd391f670dc1b562f7f268835ded"
-        },
-        {
-          "key": "channels.slack.workspace_team_id",
-          "row_sha256": "34f7fd30104dbdfd5c5a446c2be20de762b95ba7e91524a1e455dc6244ad4be7"
-        },
-        {
-          "key": "channels.slack.allowed_channel_ids",
-          "row_sha256": "0329c6d8c4a55c5065bd9c49fcb900466e7e000638fb53489d600537fe51165c"
-        },
-        {
-          "key": "channels.slack.response_style",
-          "row_sha256": "35592be39ea7cdfdd332deadbdd9b1e492245e382e5b883c046444db0562cbae"
-        },
-        {
-          "key": "channels.slack.max_text_bytes",
-          "row_sha256": "c9409d1aac4bbead081df6446b95ab49c672d63e90e3005e1df83cb3a0e043f0"
-        },
-        {
-          "key": "channels.slack.render_approval_buttons",
-          "row_sha256": "03634af54fcf16264ed54ee5934a74957f4af312f015e2e4c90a239cee7d2bd6"
-        },
-        {
-          "key": "channels.slack.identity_map",
-          "row_sha256": "1e794fe27b803ead8af8533ba591aeae78d4c074d7491ee4b37c66b113bf9ea2"
-        },
-        {
-          "key": "channels.slack.socket_mode.enabled",
-          "row_sha256": "e5b18a81757dff18e83dffb50b0b42fb51b909b1f203d745960c06f9ac6316eb"
-        },
-        {
-          "key": "channels.slack.socket_mode.reconnect_max_backoff_ms",
-          "row_sha256": "1ef969191bc8ea101bd49a3b18d62df1e991fbb7c4ecd45a514fe1e3bec75bdf"
-        },
-        {
-          "key": "channels.slack.autonomous_notify.enabled",
-          "row_sha256": "fa9ea58afafda40c746eef21fb252b0112890d2edd3709d9bf10d7978a11201d"
-        },
-        {
-          "key": "channels.slack.autonomous_notify.level",
-          "row_sha256": "37cb72ddb9aa94edb0f6bfb2187f4ffa52f0a460543ea13d20b6e99175b0d360"
-        },
-        {
-          "key": "channels.slack.autonomous_notify.min_interval_seconds",
-          "row_sha256": "c10263e4cf697c74b1eb806db8cee93e3e140e1d1124d93184d8ecbde80397b9"
-        },
-        {
-          "key": "channels.tui.enabled",
-          "row_sha256": "f498c076b504086688244fb4e32b1b91f5567a686fd27cf5abefc120b4e2f1c2"
-        },
-        {
-          "key": "channels.tui.profile",
-          "row_sha256": "dc4cf6aa54b016c5a255ce82ea17e498ee3f22f8ec718f9acef89bb337d4545f"
-        },
-        {
-          "key": "channels.tui.identity_map",
-          "row_sha256": "5b5632d8a84f0240f29c8d331f1154790d51ed1afe0a0d6bd3e01046d10c3cbf"
-        },
-        {
-          "key": "channels.tui.max_text_bytes",
-          "row_sha256": "3e26a45e9924f838f8b602d70103ad5133db5cf3349adb92abe8bbbc9ae8ed41"
-        },
-        {
-          "key": "channels.tui.autonomous_notify.enabled",
-          "row_sha256": "2e8041f9c09b2f2ffbb746f4e0e1c4eefceff82cce1d1a85cc65642df3425a8b"
-        },
-        {
-          "key": "channels.tui.autonomous_notify.level",
-          "row_sha256": "e73fc68a5c3bc6c9a9308dce26eb34d6877ae1975837c7ec402381fb98bf565d"
-        },
-        {
-          "key": "channels.tui.autonomous_notify.min_interval_seconds",
-          "row_sha256": "a85dab9aae21edc82c46cb017abfc1c94c8cf6eaa40e5d148aacd8b9f467e516"
-        },
-        {
-          "key": "channels.whatsapp.enabled",
-          "row_sha256": "645d9fb832bf1a6f9f5f597cd847d9779245765982f22e726ce7a209b8f0d289"
-        },
-        {
-          "key": "channels.whatsapp.access_token_ref",
-          "row_sha256": "3d99f2b21be1e221275cb418291730b18bf496b438ad2af0fa7d34720008abc2"
-        },
-        {
-          "key": "channels.whatsapp.identity_map",
-          "row_sha256": "41515f19bd90798bc26e91ab2ba392d148bf7e173dcba0486ba133de4fcc6db4"
-        },
-        {
-          "key": "channels.whatsapp.response_style",
-          "row_sha256": "5f8ee8ab3e478338529eae1acb6706ac4aab135038ba5057dfc99006f1682725"
-        },
-        {
-          "key": "channels.whatsapp.max_text_bytes",
-          "row_sha256": "65e0ada1e0a845e6896887f8d6f4a6c6f2ce10e3ea59195090c6f5366e87f280"
-        },
-        {
-          "key": "channels.whatsapp.render_approval_buttons",
-          "row_sha256": "7f31ad412ed4ee382814e5b6a4a9e65a45901f63fd09ace297dcb25d11225360"
-        },
-        {
-          "key": "channels.whatsapp.quote_ttl_ms",
-          "row_sha256": "44d42226710fa339523692cdb0bf03b6b54a2f8a949d16011e118ce4ff029466"
-        },
-        {
-          "key": "channels.whatsapp.graph_api_version",
-          "row_sha256": "a2ad7af60c04e47bc35b480db47af6ba7ee02180b899479da0ba09102aa8fa4c"
-        },
-        {
-          "key": "channels.whatsapp.autonomous_notify.enabled",
-          "row_sha256": "6c1694e06c322f21de74881ec36987fedc8332d19ec5e549e2bb87ce95a1efb3"
-        },
-        {
-          "key": "channels.whatsapp.autonomous_notify.level",
-          "row_sha256": "ad443ab3aabe39536cd39949847fd40eabf757d6db78a3c7e4d93e937539f373"
-        },
-        {
-          "key": "channels.whatsapp.autonomous_notify.min_interval_seconds",
-          "row_sha256": "80c348f5c908cbece073a51f3ba5de9175642b71fba61ecc0396aec1b80f8227"
-        },
-        {
-          "key": "stocksage.web.enabled",
-          "row_sha256": "3aeb410afebfde3487e97303d5285ca23f6c977dd2b306d4fc9041143c9a79ab"
-        },
-        {
-          "key": "stocksage.web.progress_stream_enabled",
-          "row_sha256": "b6f0b8468a13ac814e09aa0f79b09f48443c125520d77f6d966c9dc15b4c5c37"
-        },
-        {
-          "key": "stocksage.import.default_user",
-          "row_sha256": "5c4e463a57af5dfd20a93f29a8ee1a4a747c97d1a9ea4c1a2ec93f020d259aa1"
-        },
-        {
-          "key": "stocksage.import.batch_size",
-          "row_sha256": "c673b7a594ee27bd6ed8c47d68196d717e415e003feeabcdb414c49c816815b4"
-        },
-        {
-          "key": "stocksage.import.unknown_tables_as_warnings",
-          "row_sha256": "78393bf4a4e6e86f09191303c5af9aa55f1cecf080bcd1c9782a19541c8043d3"
-        },
-        {
-          "key": "stocksage.list.max_results",
-          "row_sha256": "097d4dadaedcae3811f80c905ca01b05008c8da8f594eee91d9d3d7c9b799a62"
-        },
-        {
-          "key": "stocksage.queue.default_priority",
-          "row_sha256": "9917fb902f5dc9a878e197bb4221981690a9fe210d044c52d05c1b23ad58d41a"
-        },
-        {
-          "key": "stocksage.outcomes.default_holding_period_days",
-          "row_sha256": "bfc83acc17e35d86b58e9dd8c460924019f133897fb0b7db0261ac91dfbc34dc"
-        },
-        {
-          "key": "stocksage.outcomes.resolver_cadence",
-          "row_sha256": "d7219d23102bb6783aae4c3e6c07b079cb04b94c522894002639e1ab0445e6b8"
-        },
-        {
-          "key": "stocksage.outcomes.neutral_return_threshold_pct",
-          "row_sha256": "739af74612859494dc1e248149f71fd50caddcf7aa3d5ff289c10a4a00354109"
-        },
-        {
-          "key": "stocksage.reflections.enabled",
-          "row_sha256": "01c192b87b0ac6f6142e9f361488e0b806c70592d904dab2b7f0c81720356740"
-        },
-        {
-          "key": "stocksage.reflections.max_chars",
-          "row_sha256": "dcaf11f1a2c7a9708bc28b40b6bbad7c600e9aa257b38790d52e7918f85a9d1f"
-        },
-        {
-          "key": "stocksage.bridge_enabled",
-          "row_sha256": "d64d73a0aace9e566a6a1cc222eef74965a34614da163ebcea6761bf441720d8"
-        },
-        {
-          "key": "stocksage.python_path",
-          "row_sha256": "8ad7b3c408175cb091a38155c2eceafe64776e96e70f0b1196562e7ac0a6635e"
-        },
-        {
-          "key": "stocksage.bridge_timeout_ms",
-          "row_sha256": "e521819914b42ec1f5a25af18a5aa35f698075cd5d153da1f7272144294875da"
-        },
-        {
-          "key": "stocksage.bridge_max_output_bytes",
-          "row_sha256": "8b0b27cf27575094f87f00721ec13cd73d4cd45d2e074dbef4209471e2d6ec37"
-        },
-        {
-          "key": "stocksage.analysis_engine",
-          "row_sha256": "e94f8eb17ab8287c5c45531a8274704d6a04e4179fc17ee859283e59d9d899f2"
-        },
-        {
-          "key": "stocksage.native_engine_enabled",
-          "row_sha256": "95d9d9924697c6d3155023b08c76d233ec359296ad179cdd2112e0b39fd193f6"
-        },
-        {
-          "key": "stocksage.native_model_profile",
-          "row_sha256": "655afbc9248dac10eba742f98f63574d94c8c1c362f5ef4760737fba66b6c215"
-        },
-        {
-          "key": "stocksage.native_llm_enabled",
-          "row_sha256": "f30235df891bdf7faaa581fa3d8af35f795b38e563f2c7062a737b31539c12cb"
-        },
-        {
-          "key": "stocksage.native_model_profile_market_context",
-          "row_sha256": "26a860f96681622447ba8af88164789ea853db651e626823fd2a65ed9e0cad51"
-        },
-        {
-          "key": "stocksage.native_model_profile_news_sentiment",
-          "row_sha256": "68e8117c6bf5635b7e631baa7f6efad5333e0e0fd7eb0499525db64f6db9d12a"
-        },
-        {
-          "key": "stocksage.native_model_profile_fundamentals",
-          "row_sha256": "9d56fc2fa21ab3bde8daf3c33ef02df7e47d7fe030b5560d66bfadb1d337cc84"
-        },
-        {
-          "key": "stocksage.native_model_profile_bull_thesis",
-          "row_sha256": "704c2e39172ac7e10a1893197bdff8d71dce15883db8d215d58317e1336fb606"
-        },
-        {
-          "key": "stocksage.native_model_profile_bear_thesis",
-          "row_sha256": "8631c6e7f7930993d6ed3665665dc96584ab783877d39d21cc071ff5d8e70e10"
-        },
-        {
-          "key": "stocksage.native_model_profile_risk_aggressive",
-          "row_sha256": "5dd2bb85a9b0157fa045082264bb204b4c378fa3a656bf9286692d10b9a6cb38"
-        },
-        {
-          "key": "stocksage.native_model_profile_risk_conservative",
-          "row_sha256": "f71267f0264c078b623c4616767ac8324d3270bfead3ea2875da8eb7e6451db7"
-        },
-        {
-          "key": "stocksage.native_model_profile_risk_neutral",
-          "row_sha256": "71351c0a9b16efe33d8c03f4f3cc9e79e825d7adc11ed62c55c0abec9b1b167f"
-        },
-        {
-          "key": "stocksage.native_model_profile_research_manager",
-          "row_sha256": "a4a31688f9130c8103a4ea5ef60542f874fccb56aab523f0c0664b8e15661fd5"
-        },
-        {
-          "key": "stocksage.native_model_profile_trader_plan",
-          "row_sha256": "3f6c4c3896fffc9df1bf2ace804ddbd7a505ca48b76853cf013a51debb82cef9"
-        },
-        {
-          "key": "stocksage.native_model_profile_decision_synthesizer",
-          "row_sha256": "e732e8c4bc28182a3f6d54b7450130b06ed5a09199caa241dfcd8a919d95ad72"
-        },
-        {
-          "key": "stocksage.native_agent_timeout_ms",
-          "row_sha256": "c9758fd3c72602af72c255fe26999cc144f158399d5fdd35e7ddf6147cf7b53a"
-        },
-        {
-          "key": "stocksage.native_max_debate_rounds",
-          "row_sha256": "b98d1ff90e0337d1906c02ea4c51882b88223acc864942a6e31fc8d4fb75e1d1"
-        },
-        {
-          "key": "stocksage.native_max_risk_rounds",
-          "row_sha256": "94314fd506506cc743164b4909c163401fc8f5f53ec415ae8dc8b1f98d7490cb"
-        },
-        {
-          "key": "stocksage.native_evidence_mode",
-          "row_sha256": "057176b80e342c18c11041ffcba80ebad2f360bcce5594b55deba6ebeece5d2f"
-        },
-        {
-          "key": "stocksage.native_parity_variance",
-          "row_sha256": "992d98da400f5eef9e4399b68e61272e333a6d1725f45e27f6bf37b58c09cc4b"
-        },
-        {
-          "key": "stocksage.python_comparison_enabled",
-          "row_sha256": "9a99b897b81cf40d1cbf185ff59b2cdff48fdd961729ae42c6dfcefe21ee62ae"
-        }
-      ],
+      "settings_schema": [],
       "skill_paths": [
         {
           "app_id": "notes_files",
@@ -37727,7 +37110,7 @@
         },
         {
           "app_id": "stocksage",
-          "path": "<REPO_ROOT>/plugins/stocksage/skills"
+          "path": "<REPO_ROOT>/_build/test/lib/stocksage/priv/skills"
         },
         {
           "path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills",
@@ -37736,7 +37119,7 @@
           "trust_status": "trusted"
         },
         {
-          "path": "<REPO_ROOT>/plugins/stocksage/skills",
+          "path": "<REPO_ROOT>/_build/test/lib/stocksage/priv/skills",
           "plugin_id": "stocksage",
           "source": "shipped",
           "trust_status": "trusted"
@@ -38239,7 +37622,7 @@
           "apps": 0,
           "extensions_actions": 0,
           "plugins": 0,
-          "settings_fragments": 47
+          "settings_fragments": 56
         },
         "plugin_diagnostics": {}
       },
@@ -38248,7 +37631,7 @@
         "apps": 0,
         "extensions_actions": 0,
         "plugins": 0,
-        "settings_fragments": 47
+        "settings_fragments": 56
       },
       "mutated": {
         "action_collision": {
@@ -38302,14 +37685,14 @@
           ]
         },
         "counts": {
-          "actions": 245,
+          "actions": 244,
           "apps": 1,
-          "extensions_actions": 4,
+          "extensions_actions": 3,
           "plugins": 1,
-          "settings_fragments": 48
+          "settings_fragments": 56
         },
         "plugin_diagnostics": {
-          "allbert.discord": [
+          "allbert.v14_m0_ledger": [
             {
               "detail": {},
               "kind": "duplicate_plugin_id",
@@ -38324,7 +37707,7 @@
             {
               "$tuple": [
                 "plugin_id_taken",
-                "allbert.discord"
+                "allbert.v14_m0_ledger"
               ]
             }
           ]
@@ -38338,7 +37721,7 @@
         "plugin_registration": {
           "$tuple": [
             "ok",
-            "allbert.discord"
+            "allbert.v14_m0_ledger"
           ]
         }
       }
@@ -38398,56 +37781,56 @@
           "channel_id": "discord",
           "child_id": "AllbertDiscord.Adapter",
           "plugin_id": "allbert.discord",
-          "row_sha256": "217155701228cb8446c07d56ba7359c4a7be44fa51e06ecb53e2e06756ad9cf0",
+          "row_sha256": "b151fbd3dd39095993780dd135ce43d2f06b964028d4c32b23e6eebdfb3e2202",
           "status": "enabled"
         },
         {
           "channel_id": "email",
           "child_id": "AllbertEmail.Adapter",
           "plugin_id": "allbert.email",
-          "row_sha256": "f0b6b36c80314d6e4d0adb3e7de0a1e7bad26f154ec792054b2ae02e97cff200",
+          "row_sha256": "33729591dd7f22222e31a8ae9f5b083c3ebfc91d20bf0a9d716406c98cc0ec67",
           "status": "enabled"
         },
         {
           "channel_id": "matrix",
           "child_id": "AllbertMatrix.Adapter",
           "plugin_id": "allbert.matrix",
-          "row_sha256": "9cdfe63e517766329d98b302dac6f73801a8a80749770d765670cf7f5183ba3d",
+          "row_sha256": "af2db1627615f77ae6d741e4710f7ab0be0b2da23b83d01d42f2b25ece75275f",
           "status": "enabled"
         },
         {
           "channel_id": "signal",
           "child_id": "AllbertSignal.Supervisor",
           "plugin_id": "allbert.signal",
-          "row_sha256": "3146ec6dada326fc888001cba61508985e36a6b84725d689634c4f5d68c520a8",
+          "row_sha256": "de75a8f1ce00031b77b24d55f50f101ec53155319f7db30ae604f8bb02728f3c",
           "status": "enabled"
         },
         {
           "channel_id": "slack",
           "child_id": "AllbertSlack.Adapter",
           "plugin_id": "allbert.slack",
-          "row_sha256": "f8d7ca72ab7597bfb5f7904c76ee2d332ff5fc148aadde312c596cc13870a189",
+          "row_sha256": "1a72acfe8f6a216ed28bc27fbd158e5ee5d89197160fb03f71c93a1563a1550b",
           "status": "enabled"
         },
         {
           "channel_id": "telegram",
           "child_id": "AllbertTelegram.Adapter",
           "plugin_id": "allbert.telegram",
-          "row_sha256": "c2a89fcd93fd9f59ca531d9d3d2a02bd194596251b25937d1205ae013afd0740",
+          "row_sha256": "62a115f7b7767168c77c907a9faa22d492e5d1e3a8c185d3ba7d089c340d78dd",
           "status": "enabled"
         },
         {
           "channel_id": "tui",
           "child_id": "AllbertTUI.Adapter",
           "plugin_id": "allbert.tui",
-          "row_sha256": "6de15385f5a694c11ad7e89637e919f183513671c18aa6a6d15cdb81e24818d2",
+          "row_sha256": "81177e7592d3244bab56056c35953d311555eb1ad4fd6cf29249700ff5cd51bb",
           "status": "enabled"
         },
         {
           "channel_id": "whatsapp",
           "child_id": "AllbertWhatsApp.Adapter",
           "plugin_id": "allbert.whatsapp",
-          "row_sha256": "56fa6fdbaa46ba585dcc6bf2c6f40308ffe357e4e442f9962991a8fc526a97ba",
+          "row_sha256": "7020ed307c7c21801911c0f88c5325ac4809a2b363cb7d8f555e462ad1ef640a",
           "status": "enabled"
         }
       ],
@@ -38508,11 +37891,11 @@
           "display_name": "Artifacts Browser",
           "index": 1,
           "kind": "app",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.artifacts/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_artifacts/priv/allbert_plugin.json",
           "module": "AllbertArtifacts.Plugin",
           "plugin_id": "allbert.artifacts",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.artifacts",
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_artifacts/priv",
           "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
@@ -38557,46 +37940,12 @@
           "display_name": "Allbert Browser",
           "index": 2,
           "kind": "app",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.browser/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_browser/priv/allbert_plugin.json",
           "module": "AllbertBrowser.Plugin",
           "plugin_id": "allbert.browser",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.browser",
-          "settings_keys": [
-            "browser.enabled",
-            "browser.driver.kind",
-            "browser.driver.node_path",
-            "browser.driver.node_module_path",
-            "browser.driver.binary_path",
-            "browser.driver.version_pin",
-            "browser.driver.host_resolver_rules",
-            "browser.session.max_concurrent",
-            "browser.session.max_lifetime_ms",
-            "browser.session.idle_timeout_ms",
-            "browser.session.max_pages",
-            "browser.session.headless",
-            "browser.session.profile_mode",
-            "browser.session.javascript_enabled",
-            "browser.session.user_agent",
-            "browser.navigation.allowed_domains",
-            "browser.navigation.denied_domains",
-            "browser.navigation.timeout_ms",
-            "browser.navigation.max_redirects",
-            "browser.navigation.subresource_cdn_allowlist",
-            "browser.extraction.max_bytes",
-            "browser.extraction.pdf_max_pages",
-            "browser.extraction.pdf_parse_timeout_ms",
-            "browser.screenshot.max_bytes",
-            "browser.screenshot.full_page",
-            "browser.screenshot.redact_credential_inputs",
-            "browser.form_fill.enabled",
-            "browser.download.enabled",
-            "browser.cache.max_bytes",
-            "browser.cache.max_age_ms",
-            "browser.cache.sweep.schedule",
-            "browser.doctor.max_age_ms",
-            "browser.routing.dynamic_hosts"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_browser/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -38619,6 +37968,7 @@
                   []
                 ]
               },
+              "doctor": "AllbertDiscord.Doctor",
               "identity_map_key": "channels.discord.identity_map",
               "plugin_id": "allbert.discord",
               "primitives": [
@@ -38657,6 +38007,7 @@
                 "allowed_guild_ids",
                 "allowed_channel_ids"
               ],
+              "supervised_by": "pack",
               "threading": "native_threads",
               "trust_class": "server_readable"
             }
@@ -38666,28 +38017,12 @@
           "display_name": "Allbert Discord Channel",
           "index": 3,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.discord/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_discord/priv/allbert_plugin.json",
           "module": "AllbertDiscord.Plugin",
           "plugin_id": "allbert.discord",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.discord",
-          "settings_keys": [
-            "channels.discord.enabled",
-            "channels.discord.bot_token_ref",
-            "channels.discord.application_id",
-            "channels.discord.allowed_guild_ids",
-            "channels.discord.allowed_channel_ids",
-            "channels.discord.response_style",
-            "channels.discord.max_text_bytes",
-            "channels.discord.render_approval_buttons",
-            "channels.discord.identity_map",
-            "channels.discord.gateway_intents",
-            "channels.discord.gateway.reconnect_max_backoff_ms",
-            "channels.discord.gateway.heartbeat_jitter",
-            "channels.discord.autonomous_notify.enabled",
-            "channels.discord.autonomous_notify.level",
-            "channels.discord.autonomous_notify.min_interval_seconds"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_discord/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -38744,6 +38079,7 @@
                 "smtp_host",
                 "from_address"
               ],
+              "supervised_by": "pack",
               "threading": "reply_chain",
               "trust_class": "server_readable"
             }
@@ -38781,6 +38117,7 @@
                   []
                 ]
               },
+              "doctor": "AllbertMatrix.Doctor",
               "identity_map_key": "channels.matrix.identity_map",
               "plugin_id": "allbert.matrix",
               "primitives": [
@@ -38816,6 +38153,7 @@
                 "homeserver_url",
                 "allowed_room_ids"
               ],
+              "supervised_by": "pack",
               "threading": "native_threads",
               "trust_class": "server_readable"
             }
@@ -38825,27 +38163,12 @@
           "display_name": "Allbert Matrix Channel",
           "index": 5,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.matrix/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_matrix/priv/allbert_plugin.json",
           "module": "AllbertMatrix.Plugin",
           "plugin_id": "allbert.matrix",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.matrix",
-          "settings_keys": [
-            "channels.matrix.enabled",
-            "channels.matrix.homeserver_url",
-            "channels.matrix.access_token_ref",
-            "channels.matrix.user_id",
-            "channels.matrix.allowed_room_ids",
-            "channels.matrix.response_style",
-            "channels.matrix.max_text_bytes",
-            "channels.matrix.identity_map",
-            "channels.matrix.sync_poll_interval_ms",
-            "channels.matrix.sync_timeout_ms",
-            "channels.matrix.sync_timeline_limit",
-            "channels.matrix.autonomous_notify.enabled",
-            "channels.matrix.autonomous_notify.level",
-            "channels.matrix.autonomous_notify.min_interval_seconds"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_matrix/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -38904,18 +38227,12 @@
           "display_name": "Allbert Research",
           "index": 7,
           "kind": "app",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.research/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_research/priv/allbert_plugin.json",
           "module": "AllbertResearch.Plugin",
           "plugin_id": "allbert.research",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.research",
-          "settings_keys": [
-            "research.enabled",
-            "research.schema_version",
-            "research.max_sources",
-            "research.max_extract_bytes_per_source",
-            "research.summary.engine"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_research/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -38939,6 +38256,7 @@
                   []
                 ]
               },
+              "doctor": "AllbertSignal.Doctor",
               "identity_map_key": "channels.signal.identity_map",
               "plugin_id": "allbert.signal",
               "primitives": [
@@ -38974,6 +38292,7 @@
                 "control_mode",
                 "socket_path"
               ],
+              "supervised_by": "pack",
               "threading": "reply_chain",
               "trust_class": "e2ee_origin"
             }
@@ -38983,40 +38302,12 @@
           "display_name": "Allbert Signal Channel",
           "index": 8,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.signal/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_signal/priv/allbert_plugin.json",
           "module": "AllbertSignal.Plugin",
           "plugin_id": "allbert.signal",
-          "release_availability": [
-            {
-              "decision": "Implemented in v0.53 as a signal-cli JSON-RPC bridge, but not released for live channel use. v0.53 live validation was deferred because Signal requires operator-managed daemon/link-device onboarding; future advanced-bridge onboarding is parked in future-features.",
-              "decision_ref": "docs/plans/v0.53-plan.md",
-              "future_features_ref": "docs/plans/future-features.md",
-              "id": "signal",
-              "kind": "channel",
-              "live_use_allowed?": false,
-              "release_status": "implemented_not_released"
-            }
-          ],
-          "root_path": "<REPO_ROOT>/plugins/allbert.signal",
-          "settings_keys": [
-            "channels.signal.enabled",
-            "channels.signal.account_identifier",
-            "channels.signal.local_aci",
-            "channels.signal.daemon_path",
-            "channels.signal.data_dir",
-            "channels.signal.control_mode",
-            "channels.signal.socket_path",
-            "channels.signal.loopback_http_base_url",
-            "channels.signal.control_auth_ref",
-            "channels.signal.allowed_aci_ids",
-            "channels.signal.identity_map",
-            "channels.signal.response_style",
-            "channels.signal.max_text_bytes",
-            "channels.signal.receive_mode",
-            "channels.signal.autonomous_notify.enabled",
-            "channels.signal.autonomous_notify.level",
-            "channels.signal.autonomous_notify.min_interval_seconds"
-          ],
+          "release_availability": [],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_signal/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -39039,6 +38330,7 @@
                   []
                 ]
               },
+              "doctor": "AllbertSlack.Doctor",
               "identity_map_key": "channels.slack.identity_map",
               "plugin_id": "allbert.slack",
               "primitives": [
@@ -39077,6 +38369,7 @@
                 "workspace_team_id",
                 "allowed_channel_ids"
               ],
+              "supervised_by": "pack",
               "threading": "native_threads",
               "trust_class": "server_readable"
             }
@@ -39086,28 +38379,12 @@
           "display_name": "Allbert Slack Channel",
           "index": 9,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.slack/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_slack/priv/allbert_plugin.json",
           "module": "AllbertSlack.Plugin",
           "plugin_id": "allbert.slack",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.slack",
-          "settings_keys": [
-            "channels.slack.enabled",
-            "channels.slack.bot_token_ref",
-            "channels.slack.app_token_ref",
-            "channels.slack.signing_secret_ref",
-            "channels.slack.workspace_team_id",
-            "channels.slack.allowed_channel_ids",
-            "channels.slack.response_style",
-            "channels.slack.max_text_bytes",
-            "channels.slack.render_approval_buttons",
-            "channels.slack.identity_map",
-            "channels.slack.socket_mode.enabled",
-            "channels.slack.socket_mode.reconnect_max_backoff_ms",
-            "channels.slack.autonomous_notify.enabled",
-            "channels.slack.autonomous_notify.level",
-            "channels.slack.autonomous_notify.min_interval_seconds"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_slack/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -39164,6 +38441,7 @@
                 "allowed_chat_ids",
                 "allow_group_chats"
               ],
+              "supervised_by": "pack",
               "threading": "reply_chain",
               "trust_class": "server_readable"
             }
@@ -39199,7 +38477,10 @@
                   []
                 ]
               },
+              "identity_bootstrap": "AllbertTUI.IdentityBootstrap",
               "identity_map_key": "channels.tui.identity_map",
+              "input_driver": "AllbertTUI.InputDriver",
+              "input_receipt": "AllbertTUI.InputReceipt",
               "plugin_id": "allbert.tui",
               "primitives": [
                 "typed_command",
@@ -39237,20 +38518,12 @@
           "display_name": "Allbert Terminal TUI Channel",
           "index": 11,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.tui/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_tui/priv/allbert_plugin.json",
           "module": "AllbertTUI.Plugin",
           "plugin_id": "allbert.tui",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.tui",
-          "settings_keys": [
-            "channels.tui.enabled",
-            "channels.tui.profile",
-            "channels.tui.identity_map",
-            "channels.tui.max_text_bytes",
-            "channels.tui.autonomous_notify.enabled",
-            "channels.tui.autonomous_notify.level",
-            "channels.tui.autonomous_notify.min_interval_seconds"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_tui/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -39273,6 +38546,7 @@
                   []
                 ]
               },
+              "doctor": "AllbertWhatsApp.Doctor",
               "identity_map_key": "channels.whatsapp.identity_map",
               "plugin_id": "allbert.whatsapp",
               "primitives": [
@@ -39312,6 +38586,7 @@
                 "phone_number_id",
                 "waba_id"
               ],
+              "supervised_by": "pack",
               "threading": "reply_chain",
               "trust_class": "server_readable"
             }
@@ -39321,34 +38596,12 @@
           "display_name": "Allbert WhatsApp Channel",
           "index": 12,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.whatsapp/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_whatsapp/priv/allbert_plugin.json",
           "module": "AllbertWhatsApp.Plugin",
           "plugin_id": "allbert.whatsapp",
-          "release_availability": [
-            {
-              "decision": "Implemented in v0.53 as the WhatsApp Cloud API adapter, but not released for live channel use. v0.53 live validation was provider-blocked by Meta setup/object/registration failures; future WhatsApp Cloud API or WhatsApp Web/Baileys onboarding is parked in future-features.",
-              "decision_ref": "docs/plans/v0.53-plan.md",
-              "future_features_ref": "docs/plans/future-features.md",
-              "id": "whatsapp",
-              "kind": "channel",
-              "live_use_allowed?": false,
-              "release_status": "implemented_not_released"
-            }
-          ],
-          "root_path": "<REPO_ROOT>/plugins/allbert.whatsapp",
-          "settings_keys": [
-            "channels.whatsapp.enabled",
-            "channels.whatsapp.access_token_ref",
-            "channels.whatsapp.identity_map",
-            "channels.whatsapp.response_style",
-            "channels.whatsapp.max_text_bytes",
-            "channels.whatsapp.render_approval_buttons",
-            "channels.whatsapp.quote_ttl_ms",
-            "channels.whatsapp.graph_api_version",
-            "channels.whatsapp.autonomous_notify.enabled",
-            "channels.whatsapp.autonomous_notify.level",
-            "channels.whatsapp.autonomous_notify.min_interval_seconds"
-          ],
+          "release_availability": [],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_whatsapp/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -39395,52 +38648,14 @@
           "display_name": "StockSage",
           "index": 13,
           "kind": "app",
-          "manifest_path": "<REPO_ROOT>/plugins/stocksage/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/stocksage/priv/allbert_plugin.json",
           "module": "StockSage.Plugin",
           "plugin_id": "stocksage",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/stocksage",
-          "settings_keys": [
-            "stocksage.web.enabled",
-            "stocksage.web.progress_stream_enabled",
-            "stocksage.import.default_user",
-            "stocksage.import.batch_size",
-            "stocksage.import.unknown_tables_as_warnings",
-            "stocksage.list.max_results",
-            "stocksage.queue.default_priority",
-            "stocksage.outcomes.default_holding_period_days",
-            "stocksage.outcomes.resolver_cadence",
-            "stocksage.outcomes.neutral_return_threshold_pct",
-            "stocksage.reflections.enabled",
-            "stocksage.reflections.max_chars",
-            "stocksage.bridge_enabled",
-            "stocksage.python_path",
-            "stocksage.bridge_timeout_ms",
-            "stocksage.bridge_max_output_bytes",
-            "stocksage.analysis_engine",
-            "stocksage.native_engine_enabled",
-            "stocksage.native_model_profile",
-            "stocksage.native_llm_enabled",
-            "stocksage.native_model_profile_market_context",
-            "stocksage.native_model_profile_news_sentiment",
-            "stocksage.native_model_profile_fundamentals",
-            "stocksage.native_model_profile_bull_thesis",
-            "stocksage.native_model_profile_bear_thesis",
-            "stocksage.native_model_profile_risk_aggressive",
-            "stocksage.native_model_profile_risk_conservative",
-            "stocksage.native_model_profile_risk_neutral",
-            "stocksage.native_model_profile_research_manager",
-            "stocksage.native_model_profile_trader_plan",
-            "stocksage.native_model_profile_decision_synthesizer",
-            "stocksage.native_agent_timeout_ms",
-            "stocksage.native_max_debate_rounds",
-            "stocksage.native_max_risk_rounds",
-            "stocksage.native_evidence_mode",
-            "stocksage.native_parity_variance",
-            "stocksage.python_comparison_enabled"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/stocksage/priv",
+          "settings_keys": [],
           "skill_paths": [
-            "<REPO_ROOT>/plugins/stocksage/skills"
+            "<REPO_ROOT>/_build/test/lib/stocksage/priv/skills"
           ],
           "source": "shipped",
           "status": "enabled",
@@ -39502,624 +38717,7 @@
           "plugin_id": "stocksage"
         }
       ],
-      "settings_keys": [
-        {
-          "key": "browser.enabled",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.driver.kind",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.driver.node_path",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.driver.node_module_path",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.driver.binary_path",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.driver.version_pin",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.driver.host_resolver_rules",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.max_concurrent",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.max_lifetime_ms",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.idle_timeout_ms",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.max_pages",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.headless",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.profile_mode",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.javascript_enabled",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.session.user_agent",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.navigation.allowed_domains",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.navigation.denied_domains",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.navigation.timeout_ms",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.navigation.max_redirects",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.navigation.subresource_cdn_allowlist",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.extraction.max_bytes",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.extraction.pdf_max_pages",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.extraction.pdf_parse_timeout_ms",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.screenshot.max_bytes",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.screenshot.full_page",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.screenshot.redact_credential_inputs",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.form_fill.enabled",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.download.enabled",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.cache.max_bytes",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.cache.max_age_ms",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.cache.sweep.schedule",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.doctor.max_age_ms",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "browser.routing.dynamic_hosts",
-          "plugin_id": "allbert.browser"
-        },
-        {
-          "key": "channels.discord.enabled",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.bot_token_ref",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.application_id",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.allowed_guild_ids",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.allowed_channel_ids",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.response_style",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.max_text_bytes",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.render_approval_buttons",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.identity_map",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.gateway_intents",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.gateway.reconnect_max_backoff_ms",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.gateway.heartbeat_jitter",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.autonomous_notify.enabled",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.autonomous_notify.level",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.discord.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.discord"
-        },
-        {
-          "key": "channels.matrix.enabled",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.homeserver_url",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.access_token_ref",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.user_id",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.allowed_room_ids",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.response_style",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.max_text_bytes",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.identity_map",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.sync_poll_interval_ms",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.sync_timeout_ms",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.sync_timeline_limit",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.autonomous_notify.enabled",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.autonomous_notify.level",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "channels.matrix.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.matrix"
-        },
-        {
-          "key": "research.enabled",
-          "plugin_id": "allbert.research"
-        },
-        {
-          "key": "research.schema_version",
-          "plugin_id": "allbert.research"
-        },
-        {
-          "key": "research.max_sources",
-          "plugin_id": "allbert.research"
-        },
-        {
-          "key": "research.max_extract_bytes_per_source",
-          "plugin_id": "allbert.research"
-        },
-        {
-          "key": "research.summary.engine",
-          "plugin_id": "allbert.research"
-        },
-        {
-          "key": "channels.signal.enabled",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.account_identifier",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.local_aci",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.daemon_path",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.data_dir",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.control_mode",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.socket_path",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.loopback_http_base_url",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.control_auth_ref",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.allowed_aci_ids",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.identity_map",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.response_style",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.max_text_bytes",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.receive_mode",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.autonomous_notify.enabled",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.autonomous_notify.level",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.signal.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.signal"
-        },
-        {
-          "key": "channels.slack.enabled",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.bot_token_ref",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.app_token_ref",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.signing_secret_ref",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.workspace_team_id",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.allowed_channel_ids",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.response_style",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.max_text_bytes",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.render_approval_buttons",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.identity_map",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.socket_mode.enabled",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.socket_mode.reconnect_max_backoff_ms",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.autonomous_notify.enabled",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.autonomous_notify.level",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.slack.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.tui.enabled",
-          "plugin_id": "allbert.tui"
-        },
-        {
-          "key": "channels.tui.profile",
-          "plugin_id": "allbert.tui"
-        },
-        {
-          "key": "channels.tui.identity_map",
-          "plugin_id": "allbert.tui"
-        },
-        {
-          "key": "channels.tui.max_text_bytes",
-          "plugin_id": "allbert.tui"
-        },
-        {
-          "key": "channels.tui.autonomous_notify.enabled",
-          "plugin_id": "allbert.tui"
-        },
-        {
-          "key": "channels.tui.autonomous_notify.level",
-          "plugin_id": "allbert.tui"
-        },
-        {
-          "key": "channels.tui.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.tui"
-        },
-        {
-          "key": "channels.whatsapp.enabled",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.access_token_ref",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.identity_map",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.response_style",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.max_text_bytes",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.render_approval_buttons",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.quote_ttl_ms",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.graph_api_version",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.autonomous_notify.enabled",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.autonomous_notify.level",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "channels.whatsapp.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.whatsapp"
-        },
-        {
-          "key": "stocksage.web.enabled",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.web.progress_stream_enabled",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.import.default_user",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.import.batch_size",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.import.unknown_tables_as_warnings",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.list.max_results",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.queue.default_priority",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.outcomes.default_holding_period_days",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.outcomes.resolver_cadence",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.outcomes.neutral_return_threshold_pct",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.reflections.enabled",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.reflections.max_chars",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.bridge_enabled",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.python_path",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.bridge_timeout_ms",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.bridge_max_output_bytes",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.analysis_engine",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_engine_enabled",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_llm_enabled",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_market_context",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_news_sentiment",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_fundamentals",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_bull_thesis",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_bear_thesis",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_risk_aggressive",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_risk_conservative",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_risk_neutral",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_research_manager",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_trader_plan",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_model_profile_decision_synthesizer",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_agent_timeout_ms",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_max_debate_rounds",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_max_risk_rounds",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_evidence_mode",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.native_parity_variance",
-          "plugin_id": "stocksage"
-        },
-        {
-          "key": "stocksage.python_comparison_enabled",
-          "plugin_id": "stocksage"
-        }
-      ],
+      "settings_keys": [],
       "skill_paths": [
         {
           "path": "<REPO_ROOT>/_build/test/lib/allbert_notes_files/priv/skills",
@@ -40128,7 +38726,7 @@
           "trust_status": "trusted"
         },
         {
-          "path": "<REPO_ROOT>/plugins/stocksage/skills",
+          "path": "<REPO_ROOT>/_build/test/lib/stocksage/priv/skills",
           "plugin_id": "stocksage",
           "source": "shipped",
           "trust_status": "trusted"
@@ -40140,7 +38738,7 @@
         "effective_keys": 624,
         "fragments": 56,
         "raw_app_rows": 0,
-        "raw_plugin_rows": 154,
+        "raw_plugin_rows": 0,
         "safe_and_writable_effective_keys": 586,
         "safe_write_rows": 625,
         "safe_write_unique_keys": 625,
@@ -40773,7 +39371,7 @@
         "workspace.theme.mode",
         "workspace.theme.snippets_enabled"
       ],
-      "effective_schema_sha256": "0322544a9998d37af5084339a9b17a05864b4e0382abf14a67c6a31e9931784a",
+      "effective_schema_sha256": "e5ed920afebcc038847e7b9681c6868adc038f5ec246dd5c41020ea6ae43648d",
       "fragments": [
         {
           "defaults": {
@@ -46633,6 +45231,74 @@
         },
         {
           "defaults": {
+            "research": {
+              "enabled": false,
+              "max_extract_bytes_per_source": 524288,
+              "max_sources": 3,
+              "schema_version": 1,
+              "summary": {
+                "engine": "extractive_fallback"
+              }
+            }
+          },
+          "group": "plugins",
+          "id": "plugin:allbert.research",
+          "index": 48,
+          "metadata": {
+            "display_name": "Allbert Research",
+            "source": "shipped",
+            "trust_status": "trusted"
+          },
+          "owner": "allbert.research",
+          "safe_write_keys": [
+            "research.enabled",
+            "research.max_sources",
+            "research.max_extract_bytes_per_source"
+          ],
+          "schema": {
+            "research.enabled": {
+              "default": false,
+              "sensitive?": false,
+              "type": "boolean",
+              "writable?": true
+            },
+            "research.max_extract_bytes_per_source": {
+              "default": 524288,
+              "max": 1048576,
+              "min": 1024,
+              "sensitive?": false,
+              "type": "bounded_integer",
+              "writable?": true
+            },
+            "research.max_sources": {
+              "default": 3,
+              "max": 8,
+              "min": 1,
+              "sensitive?": false,
+              "type": "bounded_integer",
+              "writable?": true
+            },
+            "research.schema_version": {
+              "default": 1,
+              "sensitive?": false,
+              "type": "positive_integer",
+              "writable?": false
+            },
+            "research.summary.engine": {
+              "allowed_values": [
+                "extractive_fallback"
+              ],
+              "default": "extractive_fallback",
+              "sensitive?": false,
+              "type": "enum",
+              "writable?": false
+            }
+          },
+          "schema_version": 1,
+          "source": "plugin"
+        },
+        {
+          "defaults": {
             "browser": {
               "cache": {
                 "max_age_ms": 86400000,
@@ -46693,7 +45359,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.browser",
-          "index": 48,
+          "index": 49,
           "metadata": {
             "display_name": "Allbert Browser",
             "source": "shipped",
@@ -46701,34 +45367,34 @@
           },
           "owner": "allbert.browser",
           "safe_write_keys": [
-            "browser.form_fill.enabled",
-            "browser.driver.binary_path",
-            "browser.routing.dynamic_hosts",
-            "browser.session.max_concurrent",
-            "browser.driver.node_module_path",
-            "browser.cache.max_bytes",
             "browser.enabled",
-            "browser.cache.max_age_ms",
-            "browser.session.max_lifetime_ms",
-            "browser.doctor.max_age_ms",
-            "browser.navigation.timeout_ms",
-            "browser.screenshot.max_bytes",
-            "browser.extraction.pdf_parse_timeout_ms",
-            "browser.download.enabled",
-            "browser.session.user_agent",
-            "browser.navigation.subresource_cdn_allowlist",
-            "browser.navigation.allowed_domains",
-            "browser.session.javascript_enabled",
-            "browser.cache.sweep.schedule",
-            "browser.navigation.max_redirects",
             "browser.driver.node_path",
+            "browser.driver.node_module_path",
+            "browser.driver.binary_path",
             "browser.driver.version_pin",
+            "browser.driver.host_resolver_rules",
+            "browser.session.max_concurrent",
+            "browser.session.max_lifetime_ms",
             "browser.session.idle_timeout_ms",
             "browser.session.max_pages",
+            "browser.session.javascript_enabled",
+            "browser.session.user_agent",
+            "browser.navigation.allowed_domains",
+            "browser.navigation.denied_domains",
+            "browser.navigation.timeout_ms",
+            "browser.navigation.max_redirects",
+            "browser.navigation.subresource_cdn_allowlist",
             "browser.extraction.max_bytes",
-            "browser.driver.host_resolver_rules",
             "browser.extraction.pdf_max_pages",
-            "browser.navigation.denied_domains"
+            "browser.extraction.pdf_parse_timeout_ms",
+            "browser.screenshot.max_bytes",
+            "browser.form_fill.enabled",
+            "browser.download.enabled",
+            "browser.cache.max_bytes",
+            "browser.cache.max_age_ms",
+            "browser.cache.sweep.schedule",
+            "browser.doctor.max_age_ms",
+            "browser.routing.dynamic_hosts"
           ],
           "schema": {
             "browser.cache.max_age_ms": {
@@ -46997,7 +45663,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.discord",
-          "index": 49,
+          "index": 50,
           "metadata": {
             "display_name": "Allbert Discord Channel",
             "source": "shipped",
@@ -47005,21 +45671,21 @@
           },
           "owner": "allbert.discord",
           "safe_write_keys": [
-            "channels.discord.allowed_channel_ids",
-            "channels.discord.allowed_guild_ids",
-            "channels.discord.application_id",
-            "channels.discord.autonomous_notify.enabled",
-            "channels.discord.autonomous_notify.level",
-            "channels.discord.autonomous_notify.min_interval_seconds",
-            "channels.discord.bot_token_ref",
             "channels.discord.enabled",
-            "channels.discord.gateway.heartbeat_jitter",
-            "channels.discord.gateway.reconnect_max_backoff_ms",
-            "channels.discord.gateway_intents",
-            "channels.discord.identity_map",
+            "channels.discord.bot_token_ref",
+            "channels.discord.application_id",
+            "channels.discord.allowed_guild_ids",
+            "channels.discord.allowed_channel_ids",
+            "channels.discord.response_style",
             "channels.discord.max_text_bytes",
             "channels.discord.render_approval_buttons",
-            "channels.discord.response_style"
+            "channels.discord.identity_map",
+            "channels.discord.gateway_intents",
+            "channels.discord.gateway.reconnect_max_backoff_ms",
+            "channels.discord.gateway.heartbeat_jitter",
+            "channels.discord.autonomous_notify.enabled",
+            "channels.discord.autonomous_notify.level",
+            "channels.discord.autonomous_notify.min_interval_seconds"
           ],
           "schema": {
             "channels.discord.allowed_channel_ids": {
@@ -47160,7 +45826,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.matrix",
-          "index": 50,
+          "index": 51,
           "metadata": {
             "display_name": "Allbert Matrix Channel",
             "source": "shipped",
@@ -47168,20 +45834,20 @@
           },
           "owner": "allbert.matrix",
           "safe_write_keys": [
-            "channels.matrix.access_token_ref",
-            "channels.matrix.allowed_room_ids",
-            "channels.matrix.autonomous_notify.enabled",
-            "channels.matrix.autonomous_notify.level",
-            "channels.matrix.autonomous_notify.min_interval_seconds",
             "channels.matrix.enabled",
             "channels.matrix.homeserver_url",
-            "channels.matrix.identity_map",
-            "channels.matrix.max_text_bytes",
+            "channels.matrix.access_token_ref",
+            "channels.matrix.user_id",
+            "channels.matrix.allowed_room_ids",
             "channels.matrix.response_style",
+            "channels.matrix.max_text_bytes",
+            "channels.matrix.identity_map",
             "channels.matrix.sync_poll_interval_ms",
-            "channels.matrix.sync_timeline_limit",
             "channels.matrix.sync_timeout_ms",
-            "channels.matrix.user_id"
+            "channels.matrix.sync_timeline_limit",
+            "channels.matrix.autonomous_notify.enabled",
+            "channels.matrix.autonomous_notify.level",
+            "channels.matrix.autonomous_notify.min_interval_seconds"
           ],
           "schema": {
             "channels.matrix.access_token_ref": {
@@ -47291,74 +45957,6 @@
         },
         {
           "defaults": {
-            "research": {
-              "enabled": false,
-              "max_extract_bytes_per_source": 524288,
-              "max_sources": 3,
-              "schema_version": 1,
-              "summary": {
-                "engine": "extractive_fallback"
-              }
-            }
-          },
-          "group": "plugins",
-          "id": "plugin:allbert.research",
-          "index": 51,
-          "metadata": {
-            "display_name": "Allbert Research",
-            "source": "shipped",
-            "trust_status": "trusted"
-          },
-          "owner": "allbert.research",
-          "safe_write_keys": [
-            "research.enabled",
-            "research.max_extract_bytes_per_source",
-            "research.max_sources"
-          ],
-          "schema": {
-            "research.enabled": {
-              "default": false,
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            "research.max_extract_bytes_per_source": {
-              "default": 524288,
-              "max": 1048576,
-              "min": 1024,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            "research.max_sources": {
-              "default": 3,
-              "max": 8,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            "research.schema_version": {
-              "default": 1,
-              "sensitive?": false,
-              "type": "positive_integer",
-              "writable?": false
-            },
-            "research.summary.engine": {
-              "allowed_values": [
-                "extractive_fallback"
-              ],
-              "default": "extractive_fallback",
-              "sensitive?": false,
-              "type": "enum",
-              "writable?": false
-            }
-          },
-          "schema_version": 1,
-          "source": "plugin"
-        },
-        {
-          "defaults": {
             "channels": {
               "signal": {
                 "account_identifier": "",
@@ -47393,23 +45991,23 @@
           },
           "owner": "allbert.signal",
           "safe_write_keys": [
+            "channels.signal.enabled",
             "channels.signal.account_identifier",
-            "channels.signal.allowed_aci_ids",
-            "channels.signal.autonomous_notify.enabled",
-            "channels.signal.autonomous_notify.level",
-            "channels.signal.autonomous_notify.min_interval_seconds",
-            "channels.signal.control_auth_ref",
-            "channels.signal.control_mode",
+            "channels.signal.local_aci",
             "channels.signal.daemon_path",
             "channels.signal.data_dir",
-            "channels.signal.enabled",
-            "channels.signal.identity_map",
-            "channels.signal.local_aci",
+            "channels.signal.control_mode",
+            "channels.signal.socket_path",
             "channels.signal.loopback_http_base_url",
+            "channels.signal.control_auth_ref",
+            "channels.signal.allowed_aci_ids",
+            "channels.signal.identity_map",
+            "channels.signal.response_style",
             "channels.signal.max_text_bytes",
             "channels.signal.receive_mode",
-            "channels.signal.response_style",
-            "channels.signal.socket_path"
+            "channels.signal.autonomous_notify.enabled",
+            "channels.signal.autonomous_notify.level",
+            "channels.signal.autonomous_notify.min_interval_seconds"
           ],
           "schema": {
             "channels.signal.account_identifier": {
@@ -47574,19 +46172,19 @@
           },
           "owner": "allbert.slack",
           "safe_write_keys": [
-            "channels.slack.allowed_channel_ids",
-            "channels.slack.app_token_ref",
-            "channels.slack.autonomous_notify.enabled",
-            "channels.slack.autonomous_notify.level",
-            "channels.slack.autonomous_notify.min_interval_seconds",
-            "channels.slack.bot_token_ref",
             "channels.slack.enabled",
-            "channels.slack.identity_map",
+            "channels.slack.bot_token_ref",
+            "channels.slack.app_token_ref",
+            "channels.slack.workspace_team_id",
+            "channels.slack.allowed_channel_ids",
+            "channels.slack.response_style",
             "channels.slack.max_text_bytes",
             "channels.slack.render_approval_buttons",
-            "channels.slack.response_style",
+            "channels.slack.identity_map",
             "channels.slack.socket_mode.reconnect_max_backoff_ms",
-            "channels.slack.workspace_team_id"
+            "channels.slack.autonomous_notify.enabled",
+            "channels.slack.autonomous_notify.level",
+            "channels.slack.autonomous_notify.min_interval_seconds"
           ],
           "schema": {
             "channels.slack.allowed_channel_ids": {
@@ -47718,19 +46316,19 @@
           "id": "plugin:allbert.tui",
           "index": 54,
           "metadata": {
-            "display_name": "Allbert Terminal TUI Channel",
+            "display_name": "Allbert TUI Channel",
             "source": "shipped",
             "trust_status": "trusted"
           },
           "owner": "allbert.tui",
           "safe_write_keys": [
-            "channels.tui.autonomous_notify.enabled",
-            "channels.tui.autonomous_notify.level",
-            "channels.tui.autonomous_notify.min_interval_seconds",
             "channels.tui.enabled",
+            "channels.tui.profile",
             "channels.tui.identity_map",
             "channels.tui.max_text_bytes",
-            "channels.tui.profile"
+            "channels.tui.autonomous_notify.enabled",
+            "channels.tui.autonomous_notify.level",
+            "channels.tui.autonomous_notify.min_interval_seconds"
           ],
           "schema": {
             "channels.tui.autonomous_notify.enabled": {
@@ -47817,17 +46415,17 @@
           },
           "owner": "allbert.whatsapp",
           "safe_write_keys": [
+            "channels.whatsapp.enabled",
             "channels.whatsapp.access_token_ref",
+            "channels.whatsapp.identity_map",
+            "channels.whatsapp.response_style",
+            "channels.whatsapp.max_text_bytes",
+            "channels.whatsapp.render_approval_buttons",
+            "channels.whatsapp.quote_ttl_ms",
+            "channels.whatsapp.graph_api_version",
             "channels.whatsapp.autonomous_notify.enabled",
             "channels.whatsapp.autonomous_notify.level",
-            "channels.whatsapp.autonomous_notify.min_interval_seconds",
-            "channels.whatsapp.enabled",
-            "channels.whatsapp.graph_api_version",
-            "channels.whatsapp.identity_map",
-            "channels.whatsapp.max_text_bytes",
-            "channels.whatsapp.quote_ttl_ms",
-            "channels.whatsapp.render_approval_buttons",
-            "channels.whatsapp.response_style"
+            "channels.whatsapp.autonomous_notify.min_interval_seconds"
           ],
           "schema": {
             "channels.whatsapp.access_token_ref": {
@@ -47871,7 +46469,7 @@
                 "v23.0"
               ],
               "default": "v23.0",
-              "sensitive?": true,
+              "sensitive?": false,
               "type": "enum",
               "writable?": true
             },
@@ -47980,42 +46578,42 @@
           },
           "owner": "stocksage",
           "safe_write_keys": [
-            "stocksage.import.batch_size",
-            "stocksage.native_model_profile_bear_thesis",
-            "stocksage.outcomes.default_holding_period_days",
-            "stocksage.bridge_timeout_ms",
-            "stocksage.native_agent_timeout_ms",
-            "stocksage.native_engine_enabled",
+            "stocksage.web.enabled",
             "stocksage.web.progress_stream_enabled",
-            "stocksage.native_max_debate_rounds",
+            "stocksage.import.default_user",
+            "stocksage.import.batch_size",
+            "stocksage.import.unknown_tables_as_warnings",
+            "stocksage.list.max_results",
+            "stocksage.queue.default_priority",
+            "stocksage.outcomes.default_holding_period_days",
+            "stocksage.outcomes.resolver_cadence",
+            "stocksage.outcomes.neutral_return_threshold_pct",
+            "stocksage.reflections.enabled",
+            "stocksage.reflections.max_chars",
+            "stocksage.bridge_enabled",
+            "stocksage.python_path",
+            "stocksage.bridge_timeout_ms",
             "stocksage.bridge_max_output_bytes",
             "stocksage.analysis_engine",
-            "stocksage.native_model_profile_research_manager",
-            "stocksage.native_model_profile_risk_aggressive",
-            "stocksage.python_path",
-            "stocksage.native_model_profile_trader_plan",
-            "stocksage.reflections.max_chars",
-            "stocksage.web.enabled",
-            "stocksage.native_model_profile_fundamentals",
-            "stocksage.native_model_profile_risk_neutral",
-            "stocksage.reflections.enabled",
-            "stocksage.import.unknown_tables_as_warnings",
-            "stocksage.native_parity_variance",
+            "stocksage.native_engine_enabled",
             "stocksage.native_model_profile",
-            "stocksage.native_model_profile_bull_thesis",
-            "stocksage.outcomes.resolver_cadence",
-            "stocksage.import.default_user",
-            "stocksage.native_model_profile_risk_conservative",
-            "stocksage.native_evidence_mode",
             "stocksage.native_llm_enabled",
-            "stocksage.list.max_results",
-            "stocksage.native_model_profile_decision_synthesizer",
             "stocksage.native_model_profile_market_context",
-            "stocksage.native_max_risk_rounds",
-            "stocksage.bridge_enabled",
-            "stocksage.queue.default_priority",
             "stocksage.native_model_profile_news_sentiment",
-            "stocksage.outcomes.neutral_return_threshold_pct",
+            "stocksage.native_model_profile_fundamentals",
+            "stocksage.native_model_profile_bull_thesis",
+            "stocksage.native_model_profile_bear_thesis",
+            "stocksage.native_model_profile_risk_aggressive",
+            "stocksage.native_model_profile_risk_conservative",
+            "stocksage.native_model_profile_risk_neutral",
+            "stocksage.native_model_profile_research_manager",
+            "stocksage.native_model_profile_trader_plan",
+            "stocksage.native_model_profile_decision_synthesizer",
+            "stocksage.native_agent_timeout_ms",
+            "stocksage.native_max_debate_rounds",
+            "stocksage.native_max_risk_rounds",
+            "stocksage.native_evidence_mode",
+            "stocksage.native_parity_variance",
             "stocksage.python_comparison_enabled"
           ],
           "schema": {
@@ -48307,371 +46905,11 @@
         },
         {
           "plugin_id": "allbert.browser",
-          "schema": [
-            {
-              "default": false,
-              "key": "browser.enabled",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            {
-              "allowed_values": [
-                "playwright_chromium"
-              ],
-              "default": "playwright_chromium",
-              "key": "browser.driver.kind",
-              "sensitive?": false,
-              "type": "enum",
-              "writable?": false
-            },
-            {
-              "default": null,
-              "key": "browser.driver.node_path",
-              "sensitive?": false,
-              "type": "string_or_nil",
-              "writable?": true
-            },
-            {
-              "default": null,
-              "key": "browser.driver.node_module_path",
-              "sensitive?": false,
-              "type": "string_or_nil",
-              "writable?": true
-            },
-            {
-              "default": null,
-              "key": "browser.driver.binary_path",
-              "sensitive?": false,
-              "type": "string_or_nil",
-              "writable?": true
-            },
-            {
-              "default": null,
-              "key": "browser.driver.version_pin",
-              "sensitive?": false,
-              "type": "string_or_nil",
-              "writable?": true
-            },
-            {
-              "default": null,
-              "key": "browser.driver.host_resolver_rules",
-              "sensitive?": false,
-              "type": "string_or_nil",
-              "writable?": true
-            },
-            {
-              "default": 1,
-              "key": "browser.session.max_concurrent",
-              "max": 1,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": 300000,
-              "key": "browser.session.max_lifetime_ms",
-              "max": 900000,
-              "min": 1000,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": 60000,
-              "key": "browser.session.idle_timeout_ms",
-              "max": 900000,
-              "min": 1000,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": 20,
-              "key": "browser.session.max_pages",
-              "max": 100,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": true,
-              "key": "browser.session.headless",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": false
-            },
-            {
-              "allowed_values": [
-                "ephemeral"
-              ],
-              "default": "ephemeral",
-              "key": "browser.session.profile_mode",
-              "sensitive?": false,
-              "type": "enum",
-              "writable?": false
-            },
-            {
-              "default": true,
-              "key": "browser.session.javascript_enabled",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            {
-              "default": "AllbertBrowser/0.43 (+local research)",
-              "key": "browser.session.user_agent",
-              "sensitive?": false,
-              "type": "string",
-              "writable?": true
-            },
-            {
-              "default": [],
-              "key": "browser.navigation.allowed_domains",
-              "sensitive?": false,
-              "type": "string_list",
-              "writable?": true
-            },
-            {
-              "default": [],
-              "key": "browser.navigation.denied_domains",
-              "sensitive?": false,
-              "type": "string_list",
-              "writable?": true
-            },
-            {
-              "default": 30000,
-              "key": "browser.navigation.timeout_ms",
-              "sensitive?": false,
-              "type": "timeout_ms",
-              "writable?": true
-            },
-            {
-              "default": 0,
-              "key": "browser.navigation.max_redirects",
-              "max": 3,
-              "min": 0,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": [],
-              "key": "browser.navigation.subresource_cdn_allowlist",
-              "sensitive?": false,
-              "type": "string_list",
-              "writable?": true
-            },
-            {
-              "default": 1048576,
-              "key": "browser.extraction.max_bytes",
-              "max": 4194304,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": 50,
-              "key": "browser.extraction.pdf_max_pages",
-              "max": 100,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": 20000,
-              "key": "browser.extraction.pdf_parse_timeout_ms",
-              "sensitive?": false,
-              "type": "timeout_ms",
-              "writable?": true
-            },
-            {
-              "default": 524288,
-              "key": "browser.screenshot.max_bytes",
-              "max": 2097152,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": false,
-              "key": "browser.screenshot.full_page",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": false
-            },
-            {
-              "default": true,
-              "key": "browser.screenshot.redact_credential_inputs",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": false
-            },
-            {
-              "default": false,
-              "key": "browser.form_fill.enabled",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            {
-              "default": false,
-              "key": "browser.download.enabled",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            {
-              "default": 33554432,
-              "key": "browser.cache.max_bytes",
-              "max": 134217728,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": 86400000,
-              "key": "browser.cache.max_age_ms",
-              "max": 604800000,
-              "min": 1000,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "allowed_values": [
-                "paused",
-                "operator_approved"
-              ],
-              "default": "paused",
-              "key": "browser.cache.sweep.schedule",
-              "sensitive?": false,
-              "type": "enum",
-              "writable?": true
-            },
-            {
-              "default": 86400000,
-              "key": "browser.doctor.max_age_ms",
-              "max": 604800000,
-              "min": 1000,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": [],
-              "key": "browser.routing.dynamic_hosts",
-              "sensitive?": false,
-              "type": "string_list",
-              "writable?": true
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.discord",
-          "schema": [
-            {
-              "default": false,
-              "key": "channels.discord.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "secret://channels/discord/bot_token",
-              "key": "channels.discord.bot_token_ref",
-              "sensitive?": true,
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": "",
-              "key": "channels.discord.application_id",
-              "type": "string_or_empty"
-            },
-            {
-              "default": [],
-              "key": "channels.discord.allowed_guild_ids",
-              "type": "string_list"
-            },
-            {
-              "default": [],
-              "key": "channels.discord.allowed_channel_ids",
-              "type": "string_list"
-            },
-            {
-              "allowed_values": [
-                "mention",
-                "always",
-                "dm_only"
-              ],
-              "default": "mention",
-              "key": "channels.discord.response_style",
-              "type": "enum"
-            },
-            {
-              "default": 2000,
-              "key": "channels.discord.max_text_bytes",
-              "max": 2000,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "default": true,
-              "key": "channels.discord.render_approval_buttons",
-              "type": "boolean"
-            },
-            {
-              "default": [],
-              "key": "channels.discord.identity_map",
-              "type": "channel_identity_map"
-            },
-            {
-              "default": [
-                "guild_messages",
-                "direct_messages",
-                "message_content"
-              ],
-              "key": "channels.discord.gateway_intents",
-              "type": "string_list"
-            },
-            {
-              "default": 30000,
-              "key": "channels.discord.gateway.reconnect_max_backoff_ms",
-              "max": 300000,
-              "min": 250,
-              "type": "bounded_integer"
-            },
-            {
-              "default": true,
-              "key": "channels.discord.gateway.heartbeat_jitter",
-              "type": "boolean"
-            },
-            {
-              "default": false,
-              "key": "channels.discord.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "key": "channels.discord.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.discord.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.email",
@@ -48679,96 +46917,7 @@
         },
         {
           "plugin_id": "allbert.matrix",
-          "schema": [
-            {
-              "default": false,
-              "key": "channels.matrix.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "",
-              "key": "channels.matrix.homeserver_url",
-              "type": "string_or_empty"
-            },
-            {
-              "default": "secret://channels/matrix/access_token",
-              "key": "channels.matrix.access_token_ref",
-              "sensitive?": true,
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": "",
-              "key": "channels.matrix.user_id",
-              "type": "string_or_empty"
-            },
-            {
-              "default": [],
-              "key": "channels.matrix.allowed_room_ids",
-              "type": "string_list"
-            },
-            {
-              "allowed_values": [
-                "always"
-              ],
-              "default": "always",
-              "key": "channels.matrix.response_style",
-              "type": "enum"
-            },
-            {
-              "default": 4000,
-              "key": "channels.matrix.max_text_bytes",
-              "max": 8000,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "default": [],
-              "key": "channels.matrix.identity_map",
-              "type": "channel_identity_map"
-            },
-            {
-              "default": 2000,
-              "key": "channels.matrix.sync_poll_interval_ms",
-              "max": 300000,
-              "min": 250,
-              "type": "bounded_integer"
-            },
-            {
-              "default": 30000,
-              "key": "channels.matrix.sync_timeout_ms",
-              "max": 300000,
-              "min": 0,
-              "type": "bounded_integer"
-            },
-            {
-              "default": 50,
-              "key": "channels.matrix.sync_timeline_limit",
-              "max": 500,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "default": false,
-              "key": "channels.matrix.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "key": "channels.matrix.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.matrix.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.notes_files",
@@ -48776,261 +46925,15 @@
         },
         {
           "plugin_id": "allbert.research",
-          "schema": [
-            {
-              "default": false,
-              "key": "research.enabled",
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            {
-              "default": 1,
-              "key": "research.schema_version",
-              "sensitive?": false,
-              "type": "positive_integer",
-              "writable?": false
-            },
-            {
-              "default": 3,
-              "key": "research.max_sources",
-              "max": 8,
-              "min": 1,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "default": 524288,
-              "key": "research.max_extract_bytes_per_source",
-              "max": 1048576,
-              "min": 1024,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            },
-            {
-              "allowed_values": [
-                "extractive_fallback"
-              ],
-              "default": "extractive_fallback",
-              "key": "research.summary.engine",
-              "sensitive?": false,
-              "type": "enum",
-              "writable?": false
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.signal",
-          "schema": [
-            {
-              "default": false,
-              "key": "channels.signal.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "",
-              "key": "channels.signal.account_identifier",
-              "type": "string_or_empty"
-            },
-            {
-              "default": "",
-              "key": "channels.signal.local_aci",
-              "type": "string_or_empty"
-            },
-            {
-              "default": "signal-cli",
-              "key": "channels.signal.daemon_path",
-              "type": "string"
-            },
-            {
-              "default": "",
-              "key": "channels.signal.data_dir",
-              "type": "string_or_empty"
-            },
-            {
-              "allowed_values": [
-                "socket",
-                "loopback_http",
-                "stub"
-              ],
-              "default": "socket",
-              "key": "channels.signal.control_mode",
-              "type": "enum"
-            },
-            {
-              "default": "",
-              "key": "channels.signal.socket_path",
-              "type": "string_or_empty"
-            },
-            {
-              "default": "",
-              "key": "channels.signal.loopback_http_base_url",
-              "type": "string_or_empty"
-            },
-            {
-              "default": "secret://channels/signal/control_auth",
-              "key": "channels.signal.control_auth_ref",
-              "sensitive?": true,
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": [],
-              "key": "channels.signal.allowed_aci_ids",
-              "type": "string_list"
-            },
-            {
-              "default": [],
-              "key": "channels.signal.identity_map",
-              "type": "channel_identity_map"
-            },
-            {
-              "allowed_values": [
-                "always"
-              ],
-              "default": "always",
-              "key": "channels.signal.response_style",
-              "type": "enum"
-            },
-            {
-              "default": 4000,
-              "key": "channels.signal.max_text_bytes",
-              "max": 4000,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "allowed_values": [
-                "on-start",
-                "manual"
-              ],
-              "default": "on-start",
-              "key": "channels.signal.receive_mode",
-              "type": "enum"
-            },
-            {
-              "default": false,
-              "key": "channels.signal.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "key": "channels.signal.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.signal.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.slack",
-          "schema": [
-            {
-              "default": false,
-              "key": "channels.slack.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "secret://channels/slack/bot_token",
-              "key": "channels.slack.bot_token_ref",
-              "sensitive?": true,
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": "secret://channels/slack/app_token",
-              "key": "channels.slack.app_token_ref",
-              "sensitive?": true,
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": "secret://channels/slack/signing_secret",
-              "key": "channels.slack.signing_secret_ref",
-              "sensitive?": true,
-              "type": "channel_secret_ref",
-              "writable?": false
-            },
-            {
-              "default": "",
-              "key": "channels.slack.workspace_team_id",
-              "type": "string_or_empty"
-            },
-            {
-              "default": [],
-              "key": "channels.slack.allowed_channel_ids",
-              "type": "string_list"
-            },
-            {
-              "allowed_values": [
-                "mention",
-                "always",
-                "dm_only"
-              ],
-              "default": "mention",
-              "key": "channels.slack.response_style",
-              "type": "enum"
-            },
-            {
-              "default": 3000,
-              "key": "channels.slack.max_text_bytes",
-              "max": 3000,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "default": true,
-              "key": "channels.slack.render_approval_buttons",
-              "type": "boolean"
-            },
-            {
-              "default": [],
-              "key": "channels.slack.identity_map",
-              "type": "channel_identity_map"
-            },
-            {
-              "default": true,
-              "key": "channels.slack.socket_mode.enabled",
-              "type": "boolean",
-              "writable?": false
-            },
-            {
-              "default": 30000,
-              "key": "channels.slack.socket_mode.reconnect_max_backoff_ms",
-              "max": 300000,
-              "min": 250,
-              "type": "bounded_integer"
-            },
-            {
-              "default": false,
-              "key": "channels.slack.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "key": "channels.slack.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.slack.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.telegram",
@@ -49038,383 +46941,15 @@
         },
         {
           "plugin_id": "allbert.tui",
-          "schema": [
-            {
-              "default": false,
-              "key": "channels.tui.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "default",
-              "key": "channels.tui.profile",
-              "type": "string_or_empty"
-            },
-            {
-              "default": [],
-              "key": "channels.tui.identity_map",
-              "type": "channel_identity_map"
-            },
-            {
-              "default": 12000,
-              "key": "channels.tui.max_text_bytes",
-              "max": 32000,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "default": false,
-              "key": "channels.tui.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "key": "channels.tui.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.tui.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.whatsapp",
-          "schema": [
-            {
-              "default": false,
-              "key": "channels.whatsapp.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "secret://channels/whatsapp/access_token",
-              "key": "channels.whatsapp.access_token_ref",
-              "sensitive?": true,
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": [],
-              "key": "channels.whatsapp.identity_map",
-              "type": "channel_identity_map"
-            },
-            {
-              "allowed_values": [
-                "always"
-              ],
-              "default": "always",
-              "key": "channels.whatsapp.response_style",
-              "type": "enum"
-            },
-            {
-              "default": 4096,
-              "key": "channels.whatsapp.max_text_bytes",
-              "max": 4096,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "default": true,
-              "key": "channels.whatsapp.render_approval_buttons",
-              "type": "boolean"
-            },
-            {
-              "default": 86400000,
-              "key": "channels.whatsapp.quote_ttl_ms",
-              "max": 86400000,
-              "min": 1000,
-              "type": "bounded_integer"
-            },
-            {
-              "allowed_values": [
-                "v23.0"
-              ],
-              "default": "v23.0",
-              "key": "channels.whatsapp.graph_api_version",
-              "type": "enum"
-            },
-            {
-              "default": false,
-              "key": "channels.whatsapp.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "key": "channels.whatsapp.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.whatsapp.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "stocksage",
-          "schema": [
-            {
-              "default": true,
-              "description": "Master switch for the StockSage LiveView app surfaces.",
-              "key": "stocksage.web.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": true,
-              "description": "Enable live progress streaming on StockSage analysis detail surfaces.",
-              "key": "stocksage.web.progress_stream_enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "local",
-              "description": "Default local user id for StockSage import tasks.",
-              "key": "stocksage.import.default_user",
-              "type": "string"
-            },
-            {
-              "default": 500,
-              "description": "Maximum rows per insert batch during StockSage import.",
-              "key": "stocksage.import.batch_size",
-              "type": "positive_integer"
-            },
-            {
-              "default": true,
-              "description": "Treat unknown legacy StockSage tables as warnings.",
-              "key": "stocksage.import.unknown_tables_as_warnings",
-              "type": "boolean"
-            },
-            {
-              "default": 50,
-              "description": "Maximum rows returned by StockSage list operations.",
-              "key": "stocksage.list.max_results",
-              "type": "positive_integer"
-            },
-            {
-              "allowed_values": [
-                "low",
-                "normal",
-                "high"
-              ],
-              "default": "normal",
-              "description": "Default priority for new StockSage queue entries.",
-              "key": "stocksage.queue.default_priority",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "description": "Default StockSage outcome holding period for manual resolution flows.",
-              "key": "stocksage.outcomes.default_holding_period_days",
-              "type": "positive_integer"
-            },
-            {
-              "allowed_values": [
-                "manual",
-                "daily",
-                "weekly"
-              ],
-              "default": "manual",
-              "description": "Operator cadence hint for StockSage outcome resolution.",
-              "key": "stocksage.outcomes.resolver_cadence",
-              "type": "enum"
-            },
-            {
-              "default": 0.5,
-              "description": "Absolute return percentage treated as neutral during outcome resolution.",
-              "key": "stocksage.outcomes.neutral_return_threshold_pct",
-              "max": 10.0,
-              "min": 0.0,
-              "type": "bounded_float"
-            },
-            {
-              "default": true,
-              "description": "Enable StockSage-local outcome reflection generation.",
-              "key": "stocksage.reflections.enabled",
-              "type": "boolean"
-            },
-            {
-              "default": 1200,
-              "description": "Maximum characters retained for a StockSage-local reflection.",
-              "key": "stocksage.reflections.max_chars",
-              "max": 4000,
-              "min": 200,
-              "type": "bounded_integer"
-            },
-            {
-              "default": true,
-              "description": "When false, the StockSage Python bridge does not open a Port.",
-              "key": "stocksage.bridge_enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "python3",
-              "description": "Path or name of the Python 3 interpreter the bridge spawns.",
-              "key": "stocksage.python_path",
-              "type": "string"
-            },
-            {
-              "default": 300000,
-              "description": "Per-request timeout for StockSage bridge analyses (milliseconds).",
-              "key": "stocksage.bridge_timeout_ms",
-              "type": "positive_integer"
-            },
-            {
-              "default": 1048576,
-              "description": "Maximum bridge response body retained before truncation (bytes).",
-              "key": "stocksage.bridge_max_output_bytes",
-              "type": "positive_integer"
-            },
-            {
-              "allowed_values": [
-                "tradingagents"
-              ],
-              "default": "tradingagents",
-              "description": "Default analysis engine for StockSage RunAnalysis.",
-              "key": "stocksage.analysis_engine",
-              "type": "enum"
-            },
-            {
-              "default": true,
-              "description": "Master switch for the StockSage native agent engine.",
-              "key": "stocksage.native_engine_enabled",
-              "type": "boolean"
-            },
-            {
-              "default": "fast",
-              "description": "Global model profile for StockSage native specialist agents.",
-              "key": "stocksage.native_model_profile",
-              "type": "string"
-            },
-            {
-              "default": true,
-              "description": "Enable Jido.AI provider-backed generation for non-quality StockSage native specialist agents.",
-              "key": "stocksage.native_llm_enabled",
-              "type": "boolean"
-            },
-            {
-              "default": null,
-              "description": "Model profile override for the market context specialist.",
-              "key": "stocksage.native_model_profile_market_context",
-              "type": "string_or_nil"
-            },
-            {
-              "default": null,
-              "description": "Model profile override for the news sentiment specialist.",
-              "key": "stocksage.native_model_profile_news_sentiment",
-              "type": "string_or_nil"
-            },
-            {
-              "default": null,
-              "description": "Model profile override for the fundamentals specialist.",
-              "key": "stocksage.native_model_profile_fundamentals",
-              "type": "string_or_nil"
-            },
-            {
-              "default": null,
-              "description": "Model profile override for the bull thesis specialist.",
-              "key": "stocksage.native_model_profile_bull_thesis",
-              "type": "string_or_nil"
-            },
-            {
-              "default": null,
-              "description": "Model profile override for the bear thesis specialist.",
-              "key": "stocksage.native_model_profile_bear_thesis",
-              "type": "string_or_nil"
-            },
-            {
-              "default": "slow",
-              "description": "Model profile override for the aggressive risk specialist.",
-              "key": "stocksage.native_model_profile_risk_aggressive",
-              "type": "string"
-            },
-            {
-              "default": "slow",
-              "description": "Model profile override for the conservative risk specialist.",
-              "key": "stocksage.native_model_profile_risk_conservative",
-              "type": "string"
-            },
-            {
-              "default": "slow",
-              "description": "Model profile override for the neutral risk specialist.",
-              "key": "stocksage.native_model_profile_risk_neutral",
-              "type": "string"
-            },
-            {
-              "default": "slow",
-              "description": "Model profile override for the research manager specialist.",
-              "key": "stocksage.native_model_profile_research_manager",
-              "type": "string"
-            },
-            {
-              "default": "slow",
-              "description": "Model profile override for the trader-plan specialist.",
-              "key": "stocksage.native_model_profile_trader_plan",
-              "type": "string"
-            },
-            {
-              "default": "slow",
-              "description": "Model profile override for the decision synthesizer specialist.",
-              "key": "stocksage.native_model_profile_decision_synthesizer",
-              "type": "string"
-            },
-            {
-              "default": 180000,
-              "description": "Per-specialist timeout for StockSage native agent dispatch (milliseconds).",
-              "key": "stocksage.native_agent_timeout_ms",
-              "type": "positive_integer"
-            },
-            {
-              "default": 2,
-              "description": "Maximum bull/bear debate rounds per native analysis.",
-              "key": "stocksage.native_max_debate_rounds",
-              "max": 5,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "default": 1,
-              "description": "Maximum risk debate rounds per native analysis.",
-              "key": "stocksage.native_max_risk_rounds",
-              "max": 3,
-              "min": 1,
-              "type": "bounded_integer"
-            },
-            {
-              "allowed_values": [
-                "live",
-                "fixture",
-                "compare"
-              ],
-              "default": "live",
-              "description": "Evidence posture for StockSage native evidence actions.",
-              "key": "stocksage.native_evidence_mode",
-              "type": "enum"
-            },
-            {
-              "default": 0.25,
-              "description": "Confidence variance threshold for native/python parity checks.",
-              "key": "stocksage.native_parity_variance",
-              "max": 1.0,
-              "min": 0.0,
-              "type": "bounded_float"
-            },
-            {
-              "default": true,
-              "description": "Allow explicit Python comparison and parity runs.",
-              "key": "stocksage.python_comparison_enabled",
-              "type": "boolean"
-            }
-          ]
+          "schema": []
         }
       ],
       "safe_and_writable_effective_keys": [
@@ -50486,150 +48021,150 @@
         "channels.email.autonomous_notify.enabled",
         "channels.email.autonomous_notify.level",
         "channels.email.autonomous_notify.min_interval_seconds",
-        "browser.form_fill.enabled",
-        "browser.driver.binary_path",
-        "browser.routing.dynamic_hosts",
-        "browser.session.max_concurrent",
-        "browser.driver.node_module_path",
-        "browser.cache.max_bytes",
+        "research.enabled",
+        "research.max_sources",
+        "research.max_extract_bytes_per_source",
         "browser.enabled",
-        "browser.cache.max_age_ms",
-        "browser.session.max_lifetime_ms",
-        "browser.doctor.max_age_ms",
-        "browser.navigation.timeout_ms",
-        "browser.screenshot.max_bytes",
-        "browser.extraction.pdf_parse_timeout_ms",
-        "browser.download.enabled",
-        "browser.session.user_agent",
-        "browser.navigation.subresource_cdn_allowlist",
-        "browser.navigation.allowed_domains",
-        "browser.session.javascript_enabled",
-        "browser.cache.sweep.schedule",
-        "browser.navigation.max_redirects",
         "browser.driver.node_path",
+        "browser.driver.node_module_path",
+        "browser.driver.binary_path",
         "browser.driver.version_pin",
+        "browser.driver.host_resolver_rules",
+        "browser.session.max_concurrent",
+        "browser.session.max_lifetime_ms",
         "browser.session.idle_timeout_ms",
         "browser.session.max_pages",
-        "browser.extraction.max_bytes",
-        "browser.driver.host_resolver_rules",
-        "browser.extraction.pdf_max_pages",
+        "browser.session.javascript_enabled",
+        "browser.session.user_agent",
+        "browser.navigation.allowed_domains",
         "browser.navigation.denied_domains",
-        "channels.discord.allowed_channel_ids",
-        "channels.discord.allowed_guild_ids",
+        "browser.navigation.timeout_ms",
+        "browser.navigation.max_redirects",
+        "browser.navigation.subresource_cdn_allowlist",
+        "browser.extraction.max_bytes",
+        "browser.extraction.pdf_max_pages",
+        "browser.extraction.pdf_parse_timeout_ms",
+        "browser.screenshot.max_bytes",
+        "browser.form_fill.enabled",
+        "browser.download.enabled",
+        "browser.cache.max_bytes",
+        "browser.cache.max_age_ms",
+        "browser.cache.sweep.schedule",
+        "browser.doctor.max_age_ms",
+        "browser.routing.dynamic_hosts",
+        "channels.discord.enabled",
+        "channels.discord.bot_token_ref",
         "channels.discord.application_id",
+        "channels.discord.allowed_guild_ids",
+        "channels.discord.allowed_channel_ids",
+        "channels.discord.response_style",
+        "channels.discord.max_text_bytes",
+        "channels.discord.render_approval_buttons",
+        "channels.discord.identity_map",
+        "channels.discord.gateway_intents",
+        "channels.discord.gateway.reconnect_max_backoff_ms",
+        "channels.discord.gateway.heartbeat_jitter",
         "channels.discord.autonomous_notify.enabled",
         "channels.discord.autonomous_notify.level",
         "channels.discord.autonomous_notify.min_interval_seconds",
-        "channels.discord.bot_token_ref",
-        "channels.discord.enabled",
-        "channels.discord.gateway.heartbeat_jitter",
-        "channels.discord.gateway.reconnect_max_backoff_ms",
-        "channels.discord.gateway_intents",
-        "channels.discord.identity_map",
-        "channels.discord.max_text_bytes",
-        "channels.discord.render_approval_buttons",
-        "channels.discord.response_style",
+        "channels.matrix.enabled",
+        "channels.matrix.homeserver_url",
         "channels.matrix.access_token_ref",
+        "channels.matrix.user_id",
         "channels.matrix.allowed_room_ids",
+        "channels.matrix.response_style",
+        "channels.matrix.max_text_bytes",
+        "channels.matrix.identity_map",
+        "channels.matrix.sync_poll_interval_ms",
+        "channels.matrix.sync_timeout_ms",
+        "channels.matrix.sync_timeline_limit",
         "channels.matrix.autonomous_notify.enabled",
         "channels.matrix.autonomous_notify.level",
         "channels.matrix.autonomous_notify.min_interval_seconds",
-        "channels.matrix.enabled",
-        "channels.matrix.homeserver_url",
-        "channels.matrix.identity_map",
-        "channels.matrix.max_text_bytes",
-        "channels.matrix.response_style",
-        "channels.matrix.sync_poll_interval_ms",
-        "channels.matrix.sync_timeline_limit",
-        "channels.matrix.sync_timeout_ms",
-        "channels.matrix.user_id",
-        "research.enabled",
-        "research.max_extract_bytes_per_source",
-        "research.max_sources",
+        "channels.signal.enabled",
         "channels.signal.account_identifier",
+        "channels.signal.local_aci",
+        "channels.signal.daemon_path",
+        "channels.signal.data_dir",
+        "channels.signal.control_mode",
+        "channels.signal.socket_path",
+        "channels.signal.loopback_http_base_url",
+        "channels.signal.control_auth_ref",
         "channels.signal.allowed_aci_ids",
+        "channels.signal.identity_map",
+        "channels.signal.response_style",
+        "channels.signal.max_text_bytes",
+        "channels.signal.receive_mode",
         "channels.signal.autonomous_notify.enabled",
         "channels.signal.autonomous_notify.level",
         "channels.signal.autonomous_notify.min_interval_seconds",
-        "channels.signal.control_auth_ref",
-        "channels.signal.control_mode",
-        "channels.signal.daemon_path",
-        "channels.signal.data_dir",
-        "channels.signal.enabled",
-        "channels.signal.identity_map",
-        "channels.signal.local_aci",
-        "channels.signal.loopback_http_base_url",
-        "channels.signal.max_text_bytes",
-        "channels.signal.receive_mode",
-        "channels.signal.response_style",
-        "channels.signal.socket_path",
-        "channels.slack.allowed_channel_ids",
+        "channels.slack.enabled",
+        "channels.slack.bot_token_ref",
         "channels.slack.app_token_ref",
+        "channels.slack.workspace_team_id",
+        "channels.slack.allowed_channel_ids",
+        "channels.slack.response_style",
+        "channels.slack.max_text_bytes",
+        "channels.slack.render_approval_buttons",
+        "channels.slack.identity_map",
+        "channels.slack.socket_mode.reconnect_max_backoff_ms",
         "channels.slack.autonomous_notify.enabled",
         "channels.slack.autonomous_notify.level",
         "channels.slack.autonomous_notify.min_interval_seconds",
-        "channels.slack.bot_token_ref",
-        "channels.slack.enabled",
-        "channels.slack.identity_map",
-        "channels.slack.max_text_bytes",
-        "channels.slack.render_approval_buttons",
-        "channels.slack.response_style",
-        "channels.slack.socket_mode.reconnect_max_backoff_ms",
-        "channels.slack.workspace_team_id",
+        "channels.tui.enabled",
+        "channels.tui.profile",
+        "channels.tui.identity_map",
+        "channels.tui.max_text_bytes",
         "channels.tui.autonomous_notify.enabled",
         "channels.tui.autonomous_notify.level",
         "channels.tui.autonomous_notify.min_interval_seconds",
-        "channels.tui.enabled",
-        "channels.tui.identity_map",
-        "channels.tui.max_text_bytes",
-        "channels.tui.profile",
+        "channels.whatsapp.enabled",
         "channels.whatsapp.access_token_ref",
+        "channels.whatsapp.identity_map",
+        "channels.whatsapp.response_style",
+        "channels.whatsapp.max_text_bytes",
+        "channels.whatsapp.render_approval_buttons",
+        "channels.whatsapp.quote_ttl_ms",
+        "channels.whatsapp.graph_api_version",
         "channels.whatsapp.autonomous_notify.enabled",
         "channels.whatsapp.autonomous_notify.level",
         "channels.whatsapp.autonomous_notify.min_interval_seconds",
-        "channels.whatsapp.enabled",
-        "channels.whatsapp.graph_api_version",
-        "channels.whatsapp.identity_map",
-        "channels.whatsapp.max_text_bytes",
-        "channels.whatsapp.quote_ttl_ms",
-        "channels.whatsapp.render_approval_buttons",
-        "channels.whatsapp.response_style",
-        "stocksage.import.batch_size",
-        "stocksage.native_model_profile_bear_thesis",
-        "stocksage.outcomes.default_holding_period_days",
-        "stocksage.bridge_timeout_ms",
-        "stocksage.native_agent_timeout_ms",
-        "stocksage.native_engine_enabled",
+        "stocksage.web.enabled",
         "stocksage.web.progress_stream_enabled",
-        "stocksage.native_max_debate_rounds",
+        "stocksage.import.default_user",
+        "stocksage.import.batch_size",
+        "stocksage.import.unknown_tables_as_warnings",
+        "stocksage.list.max_results",
+        "stocksage.queue.default_priority",
+        "stocksage.outcomes.default_holding_period_days",
+        "stocksage.outcomes.resolver_cadence",
+        "stocksage.outcomes.neutral_return_threshold_pct",
+        "stocksage.reflections.enabled",
+        "stocksage.reflections.max_chars",
+        "stocksage.bridge_enabled",
+        "stocksage.python_path",
+        "stocksage.bridge_timeout_ms",
         "stocksage.bridge_max_output_bytes",
         "stocksage.analysis_engine",
-        "stocksage.native_model_profile_research_manager",
-        "stocksage.native_model_profile_risk_aggressive",
-        "stocksage.python_path",
-        "stocksage.native_model_profile_trader_plan",
-        "stocksage.reflections.max_chars",
-        "stocksage.web.enabled",
-        "stocksage.native_model_profile_fundamentals",
-        "stocksage.native_model_profile_risk_neutral",
-        "stocksage.reflections.enabled",
-        "stocksage.import.unknown_tables_as_warnings",
-        "stocksage.native_parity_variance",
+        "stocksage.native_engine_enabled",
         "stocksage.native_model_profile",
-        "stocksage.native_model_profile_bull_thesis",
-        "stocksage.outcomes.resolver_cadence",
-        "stocksage.import.default_user",
-        "stocksage.native_model_profile_risk_conservative",
-        "stocksage.native_evidence_mode",
         "stocksage.native_llm_enabled",
-        "stocksage.list.max_results",
-        "stocksage.native_model_profile_decision_synthesizer",
         "stocksage.native_model_profile_market_context",
-        "stocksage.native_max_risk_rounds",
-        "stocksage.bridge_enabled",
-        "stocksage.queue.default_priority",
         "stocksage.native_model_profile_news_sentiment",
-        "stocksage.outcomes.neutral_return_threshold_pct",
+        "stocksage.native_model_profile_fundamentals",
+        "stocksage.native_model_profile_bull_thesis",
+        "stocksage.native_model_profile_bear_thesis",
+        "stocksage.native_model_profile_risk_aggressive",
+        "stocksage.native_model_profile_risk_conservative",
+        "stocksage.native_model_profile_risk_neutral",
+        "stocksage.native_model_profile_research_manager",
+        "stocksage.native_model_profile_trader_plan",
+        "stocksage.native_model_profile_decision_synthesizer",
+        "stocksage.native_agent_timeout_ms",
+        "stocksage.native_max_debate_rounds",
+        "stocksage.native_max_risk_rounds",
+        "stocksage.native_evidence_mode",
+        "stocksage.native_parity_variance",
         "stocksage.python_comparison_enabled"
       ],
       "safe_write_unique_keys": [
@@ -51862,8 +49397,13 @@
       {
         "milestone": "M12",
         "payload_sha256": "0f1e55be8417e37d9745fb06d0f916c975af7889d846d326788042eb27cec84f",
-        "reason": "telegram and email extracted to apps/allbert_telegram and apps/allbert_email with their modules renamed out of the AllbertAssist namespace, and the registration mutation subject moved to a residual-compiled plugin so the residual keeps no compile-time reference into a pack",
-        "refrozen_at_sha": "a71cbb2c176a9686b521b9f06347bf493164b03e"
+        "reason": "telegram and email extracted to apps/allbert_telegram and apps/allbert_email with their modules renamed out of the AllbertAssist namespace, and the registration mutation subject moved to a residual-compiled plugin so the residual keeps no compile-time reference into a pack"
+      },
+      {
+        "milestone": "M13",
+        "payload_sha256": "b572065b01a489f0693af322ed1e9ae32d6c03fa8b1c026ca50b60b4066b6889",
+        "reason": "the last ten plugins extracted to their own applications, plugins/ is now empty, and the isolated-mutation registration subject moved onto the gate-owned V14M0LedgerPlugin because no residual-compiled plugin remained to borrow",
+        "refrozen_at_sha": "52ad02473a43527058e08f93265a2ba8d2944ed2"
       }
     ]
   },

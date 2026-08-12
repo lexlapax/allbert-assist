@@ -45,19 +45,31 @@ defmodule AllbertAssistWeb.ArtifactsLiveTest do
     %{context: context()}
   end
 
-  test "route table exposes one host-owned artifact detail LiveView route" do
+  test "route table exposes one host-owned pack-surface LiveView route that resolves artifacts" do
+    # v1.4 M13 replaced the two per-pack literal routes (`/apps/artifacts/:sha`,
+    # `/apps/stocksage/...`) with one generic host: `live/4` resolves its target
+    # module at router-compile time, so naming a pack's LiveView here would make
+    # Web depend on a pack that depends on Web (see AllbertAssist.Pack.WebSurface).
+    # The `:pack` segment now selects the contributed surface at mount instead.
     routes = Phoenix.Router.routes(AllbertAssistWeb.Router)
 
     assert [
              %{
-               path: "/apps/artifacts/:sha",
+               path: "/apps/:pack/*surface_path",
                plug: Phoenix.LiveView.Plug,
                plug_opts: :show,
                metadata: %{
-                 phoenix_live_view: {AllbertArtifactsWeb.ArtifactLive, :show, _opts, _extra}
+                 phoenix_live_view: {AllbertAssistWeb.PackSurfaceLive, :show, _opts, _extra}
                }
              }
-           ] = Enum.filter(routes, &(&1.path == "/apps/artifacts/:sha"))
+           ] = Enum.filter(routes, &(&1.path == "/apps/:pack/*surface_path"))
+
+    # The route table alone no longer names the artifact surface, so the
+    # reachability proof moves to the resolver the host consults at mount:
+    # the "artifacts" pack id must still resolve to the same LiveView module
+    # the retired literal route pointed at.
+    assert {:ok, AllbertArtifactsWeb.ArtifactLive} =
+             AllbertAssistWeb.PackSurfaces.fetch("artifacts")
   end
 
   test "detail page renders metadata and provenance without raw bytes", %{

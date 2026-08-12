@@ -110,10 +110,10 @@
           "test/allbert_assist/actions/resource_refs_test.exs",
           "test/allbert_assist/security/permission_gate_test.exs",
           "test/allbert_assist/external/http_policy_test.exs",
-          "test/allbert_assist/actions/browser_actions_test.exs",
-          "test/allbert_assist/actions/browser_m3_test.exs",
-          "test/allbert_assist/actions/browser_m4_test.exs",
-          "test/mix/tasks/allbert_browser_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/actions_test.exs",
+          "../../apps/allbert_browser/test/allbert_browser/m3_test.exs",
+          "../../apps/allbert_browser/test/allbert_browser/m4_test.exs",
+          "../../apps/allbert_browser/test/allbert_browser/mix_task_test.exs"
         ],
         "coverage": [
           "browser settings schema and permission floors",
@@ -133,7 +133,7 @@
       {
         "args": [
           "test",
-          "test/security/v043_browser_research_eval_test.exs",
+          "../../apps/allbert_browser/test/allbert_browser/v043_eval_test.exs",
           "test/security/security_eval_case_test.exs"
         ],
         "coverage": [
@@ -387,8 +387,8 @@
         "args": [
           "test",
           "test/allbert_assist/actions/objectives/delegate_agent_test.exs",
-          "test/allbert_assist/actions/research_delegate_test.exs",
-          "test/mix/tasks/allbert_research_test.exs"
+          "../../apps/allbert_research/test/allbert_research/delegate_test.exs",
+          "../../apps/allbert_research/test/allbert_research/mix_task_test.exs"
         ],
         "coverage": [
           "delegate_agent command allowlist and metadata dispatch",
@@ -404,7 +404,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/intent/research_descriptor_test.exs",
+          "../../apps/allbert_research/test/allbert_research/descriptor_test.exs",
           "test/allbert_assist/workflows/expander_test.exs"
         ],
         "coverage": [
@@ -436,8 +436,8 @@
       {
         "args": [
           "test",
-          "test/security/v046_research_delegate_eval_test.exs",
-          "test/security/v043_browser_research_eval_test.exs",
+          "../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs",
+          "../../apps/allbert_browser/test/allbert_browser/v043_eval_test.exs",
           "test/security/security_eval_case_test.exs"
         ],
         "coverage": [
@@ -776,7 +776,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/actions/browser_actions_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/actions_test.exs"
         ],
         "coverage": [
           "browser_screenshot writes a bounded cache artifact",
@@ -1004,9 +1004,9 @@
       {
         "args": [
           "test",
-          "../../plugins/allbert.artifacts/test/allbert_artifacts/plugin_test.exs",
-          "../../plugins/allbert.artifacts/test/allbert_artifacts/app_panels_test.exs",
-          "../../plugins/allbert.artifacts/test/mix/tasks/allbert_artifacts_test.exs"
+          "../../apps/allbert_artifacts/test/allbert_artifacts/plugin_test.exs",
+          "../../apps/allbert_artifacts/test/allbert_artifacts/app_panels_test.exs",
+          "../../apps/allbert_artifacts/test/mix/tasks/allbert_artifacts_test.exs"
         ],
         "coverage": [
           "plugin/app grants no authority",
@@ -1403,7 +1403,7 @@
           "test/allbert_assist/channels/whatsapp_test.exs",
           "test/allbert_assist/actions/channels/whatsapp_doctor_test.exs",
           "test/external/whatsapp_smoke_test.exs",
-          "../../plugins/allbert.whatsapp/test"
+          "../../apps/allbert_whatsapp/test"
         ],
         "coverage": [
           "WhatsApp Cloud API bearer-auth request shapes",
@@ -1424,7 +1424,7 @@
           "test/allbert_assist/channels/signal_test.exs",
           "test/allbert_assist/actions/channels/signal_doctor_test.exs",
           "test/external/signal_smoke_test.exs",
-          "../../plugins/allbert.signal/test"
+          "../../apps/allbert_signal/test"
         ],
         "coverage": [
           "Signal signal-cli JSON-RPC request shapes",
@@ -3522,8 +3522,8 @@
           "test/security/v051_public_protocol_eval_test.exs",
           "test/security/v053_channel_pack_eval_test.exs",
           "test/security/mcp_integration_eval_test.exs",
-          "test/security/v043_browser_research_eval_test.exs",
-          "test/security/v046_research_delegate_eval_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/v043_eval_test.exs",
+          "../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs"
         ],
         "coverage": [
           "public surfaces deny internals by default, channels/MCP/browser keep their exposure and egress floors \u2014 the contract half of product-rc-advanced-surfaces-no-regression-001 (live per-class exercise is operator-attested [model]/[smoke] per Locked Decision 6)"
@@ -4201,7 +4201,7 @@
       {
         "args": [
           "-c",
-          "MIX_ENV=test mix test test/security/v046_research_delegate_eval_test.exs test/allbert_assist/intent/golden_set_test.exs --seed 0 && MIX_ENV=test mix test test/allbert_assist/intent/golden_set_test.exs test/security/v046_research_delegate_eval_test.exs --seed 0"
+          "MIX_ENV=test mix test ../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs test/allbert_assist/intent/golden_set_test.exs --seed 0 && MIX_ENV=test mix test test/allbert_assist/intent/golden_set_test.exs ../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs --seed 0"
         ],
         "coverage": [
           "the v046+golden leak pair passes in both recorded prior-failing orders (M1 residue matrix rows 6/7)"
@@ -4477,7 +4477,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/actions/browser_actions_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/actions_test.exs"
         ],
         "coverage": [
           "the OS-pid-qualified, pre-cleaned owned root keeps every exercised Paths read inside it and sweeps planted stale poison (ADR 0086 contract 4, ADR 0031 stay-serial decision)"
@@ -4707,7 +4707,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/browser/playwright_driver_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/playwright_driver_test.exs"
         ],
         "coverage": [
           "the spawned bridge uses explicit host module/browser paths and reports missing Playwright without running a package manager"
@@ -4721,7 +4721,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/actions/browser_actions_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/actions_test.exs"
         ],
         "coverage": [
           "missing host Playwright is unavailable; a version mismatch is a failed compatibility check; both persist stable categories"
@@ -4965,7 +4965,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/browser/playwright_driver_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/playwright_driver_test.exs"
         ],
         "coverage": [
           "the spawned bridge uses explicit host module/browser paths and reports missing Playwright without running a package manager"
@@ -4979,7 +4979,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/actions/browser_actions_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/actions_test.exs"
         ],
         "coverage": [
           "missing host Playwright is unavailable; a version mismatch is a failed compatibility check; both persist stable categories"
@@ -5110,7 +5110,7 @@
       {
         "args": [
           "test",
-          "test/allbert_assist/browser/playwright_driver_test.exs"
+          "../../apps/allbert_browser/test/allbert_browser/playwright_driver_test.exs"
         ],
         "coverage": [
           "Windows retains :hide while Darwin/Linux omit it, preventing the packaged macOS Chrome TransformProcessType crash"
@@ -6886,6 +6886,10 @@
     "milestone": "M12",
     "reason": "This baseline is frozen at Git object 7ae566f59 and is keyed by path, so extracting telegram and email -- and moving the notes CLI area into its pack -- reads as definition drift even though no gate step changed what it proves. Only the paths were remapped; no step, order, target count, or disposition was altered, and base_git_sha still identifies the structure this fixture attests."
   },
+  "m13_path_remap": {
+    "milestone": "M13",
+    "reason": "This baseline is frozen at Git object 7ae566f59 and is keyed by path, so extracting the last ten plugins (browser, research, notes_files's CLI area, discord, matrix, signal, slack, telegram, whatsapp, stocksage, artifacts, tui) reads as definition drift even though no gate step changed what it proves. Only the paths were remapped -- no step, order, target count, or disposition was altered -- and base_git_sha still identifies the structure this fixture attests."
+  },
   "path_references": [
     {
       "disposition": "intentionally_fixed",
@@ -7105,7 +7109,7 @@
     },
     {
       "disposition": "owner_manifest_resolved",
-      "literal": "apps/allbert_assist/test/allbert_assist/actions/browser_actions_test.exs",
+      "literal": "apps/allbert_browser/test/allbert_browser/actions_test.exs",
       "reason": null,
       "source_file": "apps/allbert_assist/lib/mix/tasks/allbert.test.ex"
     },

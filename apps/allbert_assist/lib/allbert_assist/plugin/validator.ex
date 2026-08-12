@@ -509,15 +509,44 @@ defmodule AllbertAssist.Plugin.Validator do
   end
 
   defp release_availability_yaml_path(module, opts) do
-    root_path = Map.get(opts, :root_path) || inferred_plugin_root(module)
+    # The pack's own application wins over the discovery-supplied root. For an
+    # extracted pack, discovery reports the MANIFEST's directory -- which is
+    # `<app>/priv` -- so joining "priv" again looked for `<app>/priv/priv/...`,
+    # found nothing, and silently defaulted the channel to `released`. That is
+    # the wrong direction for a gate whose whole purpose is holding unreleased
+    # capability back, so the pack case is tried first and the supplied root
+    # remains the legacy-plugin path.
+    root_path = pack_root(module) || Map.get(opts, :root_path) || legacy_plugin_root(module)
 
     if is_binary(root_path) do
       Path.join([root_path, "priv", "allbert", "release_availability.yaml"])
     end
   end
 
-  # v0.62 M1: resolve through the release-safe plugins root, not cwd.
-  defp inferred_plugin_root(module) do
+  # v0.62 M1 resolved this through the release-safe plugins root rather than cwd.
+  # v1.4 M13 keeps that intent and adds the pack case first: an extracted pack
+  # owns its priv, so its declarations live in its own application. Falling
+  # straight through to the plugins root would have found nothing and silently
+  # defaulted every extracted channel to `released`, which is exactly the wrong
+  # direction for a gate whose purpose is to hold unreleased capability back.
+  defp pack_root(module) do
+    with true <- function_exported?(module, :__info__, 1),
+         application when is_atom(application) and not is_nil(application) <-
+           :application.get_application(module) |> pack_application(),
+         root_path <- Application.app_dir(application),
+         true <- File.dir?(root_path) do
+      root_path
+    else
+      _other -> nil
+    end
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp pack_application({:ok, application}), do: application
+  defp pack_application(_other), do: nil
+
+  defp legacy_plugin_root(module) do
     with true <- function_exported?(module, :plugin_id, 0),
          plugin_id when is_binary(plugin_id) <- module.plugin_id(),
          root_path when is_binary(root_path) <-

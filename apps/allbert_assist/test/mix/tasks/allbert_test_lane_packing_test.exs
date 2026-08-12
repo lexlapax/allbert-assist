@@ -63,11 +63,15 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
 
     assert Enum.map(core_files, &{&1.owner, &1.path}) == [{:core, "test/a_test.exs"}]
 
-    # Plugin paths resolve outside the core app cwd, so the shared bare
-    # filename can never alias the core file's path or cost key.
+    # v1.4 M13 made stocksage a real pack app with its own cwd (apps/stocksage),
+    # the same shape every other extracted pack has -- so its record relativizes
+    # to "test/a_test.exs" exactly like core's, the identical bare filename the
+    # M8.9 cost-key comment above (record_serial_partition_metrics) anticipated:
+    # "two owners can share an output-relative path". The leak this test guards
+    # against is proven by each owner's query returning exactly one entry --
+    # never the other owner's record -- not by the path strings differing.
     assert [{:stocksage, stocksage_path}] = Enum.map(stocksage_files, &{&1.owner, &1.path})
-    assert String.ends_with?(stocksage_path, "apps/stocksage/test/a_test.exs")
-    refute stocksage_path == "test/a_test.exs"
+    assert stocksage_path == "test/a_test.exs"
   end
 
   test "every core-lane file lands in exactly one partition of its lane" do

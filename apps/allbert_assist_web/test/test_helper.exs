@@ -1,5 +1,19 @@
 ExUnit.start()
 
+# v1.4 M13: artifacts and stocksage moved their web surfaces into their own
+# applications and now depend on Web instead of the other way around (see
+# AllbertAssist.Pack.WebSurface) -- so Web's own `deps` no longer pull them in.
+# Web DOES depend on the composition host directly, so unlike a pack's suite --
+# which must start composition itself, after loading what it needs -- Mix
+# starts composition automatically as part of Web's own OTP boot, before this
+# file runs at all. That first composition attempt always fails closed with
+# {:unknown_application, :allbert_artifacts}; ADR 0098 makes composition retry
+# on the next app or plugin registration, so this has to be the FIRST
+# registration this file causes, ahead of the stocksage block below, or that
+# block's registration retries composition while artifacts is still missing.
+AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([:allbert_artifacts, :stocksage])
+AllbertAssist.TestSupport.PackBootstrap.ensure_registered!()
+
 # v1.0.2 M2 drift-fix (v0.63 F5 oversight): F5 hides capability-gated and demo
 # (StockSage) intents from the default shortlist and bypassed the gate in the
 # CORE test_helper only — the web suite never got the same bypass, so every

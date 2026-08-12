@@ -261,11 +261,11 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     root = repo_root()
     records = GateOwners.load!(root)
 
-    assert length(records) == 14
+    assert length(records) == 17
 
     assert MapSet.new(records, & &1.owner_id) ==
              MapSet.new(
-               ~w[kernel composition web core stocksage telegram email discord slack matrix whatsapp signal notes_files artifacts]a
+               ~w[kernel composition web core stocksage telegram email discord slack matrix whatsapp signal notes_files artifacts browser research tui]a
              )
 
     assert Enum.all?(records, fn owner ->
@@ -322,7 +322,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     before = :code.get_path()
     records = AllbertAssist.DevGates.GateOwners.load!(root)
     source = AllbertAssist.DevGates.GateOwners.read_owned_path!(root, "apps/allbert_assist/lib/allbert_assist/security.ex")
-    true = length(records) == 14
+    true = length(records) == 17
     true = String.contains?(source, "defmodule AllbertAssist.Security")
     true = before == :code.get_path()
     IO.puts("gate-owner-cwd-ok")
@@ -346,25 +346,31 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     root = repo_root()
     applications = GateOwners.application_census!(root)
     records = GateOwners.load!(root)
-    core = Enum.find(records, &(&1.owner_id == :core))
 
-    assert "apps/allbert_browser/lib" in core.production_source_roots
-    assert "apps/allbert_research/lib" in core.production_source_roots
-    assert "apps/allbert_tui/lib" in core.production_source_roots
+    # v1.4 M13 extracted browser, research, and TUI into their own applications
+    # (and their own gate owners), so core no longer answers for their roots --
+    # each pack now claims its own, the same shape every other extracted pack has.
+    browser = Enum.find(records, &(&1.owner_id == :browser))
+    research = Enum.find(records, &(&1.owner_id == :research))
+    tui = Enum.find(records, &(&1.owner_id == :tui))
+
+    assert "apps/allbert_browser/lib" in browser.production_source_roots
+    assert "apps/allbert_research/lib" in research.production_source_roots
+    assert "apps/allbert_tui/lib" in tui.production_source_roots
 
     assert GateOwners.independent_production_files(root) != []
 
     without_browser = %{
-      core
+      browser
       | production_source_roots:
-          Enum.reject(core.production_source_roots, &(&1 == "apps/allbert_browser/lib"))
+          Enum.reject(browser.production_source_roots, &(&1 == "apps/allbert_browser/lib"))
     }
 
     assert_raise ArgumentError,
-                 ~r/unowned production file: plugins\/allbert\.browser\/lib\//,
+                 ~r/unowned production file: apps\/allbert_browser\/lib\//,
                  fn ->
                    GateOwners.validate!(
-                     [without_browser | List.delete(records, core)],
+                     [without_browser | List.delete(records, browser)],
                      root,
                      applications
                    )
@@ -385,7 +391,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     without_artifacts = Enum.reject(records, &(&1.owner_id == :artifacts))
 
-    assert_raise ArgumentError, ~r/unowned test file: plugins\/allbert\.artifacts\/test\//, fn ->
+    assert_raise ArgumentError, ~r/unowned test file: apps\/allbert_artifacts\/test\//, fn ->
       GateOwners.validate!(without_artifacts, root, applications)
     end
 
@@ -1406,7 +1412,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       assert task_source =~ ~s(id: "v105_service_confirmation_lifecycle")
       assert task_source =~ ~s(id: "v105_configured_local_first_run")
       assert task_source =~ ~s(id: "v105_onboarding_tui_completion")
-      assert task_source =~ ~s(test/allbert_assist/browser/playwright_driver_test.exs)
+
+      assert task_source =~
+               ~s(apps/allbert_browser/test/allbert_browser/playwright_driver_test.exs)
+
       assert task_source =~ ~s(test/allbert_assist/settings/store_cross_process_race_test.exs)
       assert task_source =~ ~s(@release_v105_steps @release_v104_steps ++ @v105_focused_steps)
     end

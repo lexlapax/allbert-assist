@@ -8316,7 +8316,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "sh",
       args: [
         "-c",
-        "MIX_ENV=test mix test test/security/v046_research_delegate_eval_test.exs test/allbert_assist/intent/golden_set_test.exs --seed 0 && MIX_ENV=test mix test test/allbert_assist/intent/golden_set_test.exs test/security/v046_research_delegate_eval_test.exs --seed 0"
+        "MIX_ENV=test mix test ../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs test/allbert_assist/intent/golden_set_test.exs --seed 0 && MIX_ENV=test mix test test/allbert_assist/intent/golden_set_test.exs ../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs --seed 0"
       ],
       coverage: [
         "the v046+golden leak pair passes in both recorded prior-failing orders (M1 residue matrix rows 6/7)"
@@ -11250,6 +11250,28 @@ defmodule Mix.Tasks.Allbert.Test do
     # driver app-env read and the named AllbertBrowser singletons keep it in
     # the class (seam gaps recorded in the file header).
     "apps/allbert_browser/test/allbert_browser/actions_test.exs" => :home_fs_serial,
+    # v1.4 M13 moved these two smokes out of the residual's test/external/ tree
+    # into the browser pack's own test root. The house-convention path rule
+    # (`external_smoke_path_lane/1`) only fires for `/test/external/`, so the
+    # move silently dropped them to the text-scan default. Both still carry an
+    # explicit `@moduletag :external_runtime_serial` and gate real egress
+    # (ALLBERT_BROWSER_EXTERNAL_SMOKE / ALLBERT_BROWSER_RESEARCH_DELEGATE_EXTERNAL_SMOKE);
+    # adjudicated explicitly rather than widening the path rule to match every
+    # pack's test root.
+    "apps/allbert_browser/test/allbert_browser/external_smoke_test.exs" =>
+      :external_runtime_serial,
+    "apps/allbert_browser/test/allbert_browser/external_delegate_smoke_test.exs" =>
+      :external_runtime_serial,
+    # v1.4 M13 moved these two eval suites out of the residual's test/security/
+    # tree into their owning packs' test roots. `security_eval_resource?/2`'s
+    # `/test/security/` path rule no longer fires there, and their `use
+    # AllbertAssist.DataCase` template scans as :db_serial instead. Both still
+    # declare `lane: :security_eval_serial` and gate the same eval corpus;
+    # adjudicated explicitly rather than folding pack test roots into the
+    # security-eval path rule.
+    "apps/allbert_browser/test/allbert_browser/v043_eval_test.exs" => :security_eval_serial,
+    "apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs" =>
+      :security_eval_serial,
     # v1.0.3 M1 pilot (ADR 0086 contract 1): objective_test converted to
     # per-test non-shared sandbox ownership with explicit engine-agent
     # allowances (use-line `lane: :db_partition_safe`). Repo-backed: the text

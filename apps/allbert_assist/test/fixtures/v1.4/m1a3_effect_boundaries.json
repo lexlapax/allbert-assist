@@ -833,38 +833,6 @@
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli.ex"
     },
     {
-      "boundary": "AllbertAssist.Channels.create_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 722,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.submit_user_input",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 736,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 754,
-      "roster_id": "channel-cli-simulation",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
-      "boundary": "Req.post",
-      "disposition": "pure_inert",
-      "evidence": "Pure helper function with inert Req call; epoch validated upstream.",
-      "line": 842,
-      "roster_id": "",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"
-    },
-    {
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
@@ -2273,14 +2241,6 @@
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime/attach.ex"
     },
     {
-      "boundary": "Supervisor.start_child",
-      "disposition": "inherited_context",
-      "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 478,
-      "roster_id": "runner-run-3",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/runtime/attach/tui_session.ex"
-    },
-    {
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
@@ -2996,102 +2956,6 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 218,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.create_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 232,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 263,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 316,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Runtime.submit_user_input",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 533,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Actions.Runner.run",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 671,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.update_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 783,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.update_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 798,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.update_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 802,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.update_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 806,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Actions.Runner.run",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 873,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.update_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 930,
-      "roster_id": "telegram-adapter",
-      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Channels.create_event",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 131,
       "roster_id": "telegram-cli",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/cli.ex"
@@ -3134,31 +2998,7 @@
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
       "line": 14,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/allbert.artifacts/lib/allbert_artifacts/surface_provider.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Actions.Runner.run",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 49,
-      "roster_id": "artifacts-plugin-live",
-      "source_path": "plugins/allbert.artifacts/lib/allbert_artifacts_web/artifact_live.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Actions.Runner.run",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 161,
-      "roster_id": "artifacts-plugin-live",
-      "source_path": "plugins/allbert.artifacts/lib/allbert_artifacts_web/artifact_live.ex"
-    },
-    {
-      "boundary": "AllbertAssist.Actions.Runner.run",
-      "disposition": "external_e1",
-      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 181,
-      "roster_id": "artifacts-plugin-live",
-      "source_path": "plugins/allbert.artifacts/lib/allbert_artifacts_web/artifact_live.ex"
+      "source_path": "apps/allbert_artifacts/lib/allbert_artifacts/surface_provider.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3166,7 +3006,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 163,
       "roster_id": "artifacts-mix-task",
-      "source_path": "plugins/allbert.artifacts/lib/mix/tasks/allbert.artifacts.ex"
+      "source_path": "apps/allbert_artifacts/lib/mix/tasks/allbert.artifacts.ex"
     },
     {
       "boundary": "AllbertAssist.Confirmations.create",
@@ -3174,7 +3014,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 88,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/allbert.browser/lib/allbert_browser/actions.ex"
+      "source_path": "apps/allbert_browser/lib/allbert_browser/actions.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3182,7 +3022,7 @@
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
       "line": 40,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/allbert.browser/lib/allbert_browser/actions/analyze_screenshot.ex"
+      "source_path": "apps/allbert_browser/lib/allbert_browser/actions/analyze_screenshot.ex"
     },
     {
       "boundary": "DynamicSupervisor.start_child",
@@ -3190,7 +3030,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 40,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/allbert.browser/lib/allbert_browser/session.ex"
+      "source_path": "apps/allbert_browser/lib/allbert_browser/session.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3198,7 +3038,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 18,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3206,7 +3046,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 35,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3214,7 +3054,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 62,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3222,7 +3062,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 109,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3230,7 +3070,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 111,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3238,7 +3078,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 124,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3246,7 +3086,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 126,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3254,7 +3094,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 147,
       "roster_id": "browser-mix-task",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3262,7 +3102,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 234,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3270,7 +3110,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 248,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
@@ -3278,7 +3118,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 305,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.submit_user_input",
@@ -3286,7 +3126,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 430,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3294,7 +3134,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 627,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3302,7 +3142,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 642,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3310,7 +3150,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 676,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "boundary": "Req.request",
@@ -3318,7 +3158,7 @@
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
       "line": 133,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/client.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/client.ex"
     },
     {
       "boundary": "Req.request",
@@ -3326,7 +3166,7 @@
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
       "line": 161,
       "roster_id": "discord-adapter",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/client.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/client.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
@@ -3334,7 +3174,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 288,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3342,7 +3182,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 376,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3350,7 +3190,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 392,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.submit_user_input",
@@ -3358,7 +3198,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 535,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3366,7 +3206,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 620,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3374,7 +3214,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 635,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3382,7 +3222,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 639,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3390,7 +3230,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 643,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "boundary": "Req.request",
@@ -3398,7 +3238,7 @@
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
       "line": 118,
       "roster_id": "matrix-adapter",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/client.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/client.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.Engine.Agent.execute_step",
@@ -3409,7 +3249,7 @@
         "research-mix-task",
         "runner-run-3"
       ],
-      "source_path": "plugins/allbert.research/lib/allbert_research/delegate_objective.ex"
+      "source_path": "apps/allbert_research/lib/allbert_research/delegate_objective.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.create_objective",
@@ -3420,7 +3260,7 @@
         "research-mix-task",
         "runner-run-3"
       ],
-      "source_path": "plugins/allbert.research/lib/allbert_research/delegate_objective.ex"
+      "source_path": "apps/allbert_research/lib/allbert_research/delegate_objective.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.create_step",
@@ -3431,7 +3271,7 @@
         "research-mix-task",
         "runner-run-3"
       ],
-      "source_path": "plugins/allbert.research/lib/allbert_research/delegate_objective.ex"
+      "source_path": "apps/allbert_research/lib/allbert_research/delegate_objective.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.Engine.Agent.observe_step",
@@ -3442,7 +3282,7 @@
         "research-mix-task",
         "runner-run-3"
       ],
-      "source_path": "plugins/allbert.research/lib/allbert_research/delegate_objective.ex"
+      "source_path": "apps/allbert_research/lib/allbert_research/delegate_objective.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3450,7 +3290,7 @@
       "evidence": "Reviewed research task admits one E1 at ingress and carries it into this Runner call.",
       "line": 129,
       "roster_id": "research-mix-task",
-      "source_path": "plugins/allbert.research/lib/mix/tasks/allbert.research.ex"
+      "source_path": "apps/allbert_research/lib/mix/tasks/allbert.research.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3458,7 +3298,7 @@
       "evidence": "Reviewed research task admits one E1 at ingress and carries it into this Runner call.",
       "line": 190,
       "roster_id": "research-mix-task",
-      "source_path": "plugins/allbert.research/lib/mix/tasks/allbert.research.ex"
+      "source_path": "apps/allbert_research/lib/mix/tasks/allbert.research.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
@@ -3466,7 +3306,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 218,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3474,7 +3314,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 249,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3482,7 +3322,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 265,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.submit_user_input",
@@ -3490,7 +3330,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 363,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3498,7 +3338,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 539,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3506,7 +3346,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 554,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3514,7 +3354,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 562,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3522,7 +3362,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 571,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "boundary": "Req.request",
@@ -3530,7 +3370,7 @@
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
       "line": 111,
       "roster_id": "signal-adapter",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/client.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/client.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3538,7 +3378,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 259,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3546,7 +3386,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 273,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
@@ -3554,7 +3394,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 327,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.submit_user_input",
@@ -3562,7 +3402,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 480,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3570,7 +3410,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 669,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3578,7 +3418,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 684,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3586,7 +3426,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 718,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "boundary": "Req.request",
@@ -3594,7 +3434,7 @@
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
       "line": 100,
       "roster_id": "slack-adapter",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/client.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/client.ex"
     },
     {
       "boundary": "Task.Supervisor.start_child",
@@ -3602,7 +3442,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 1677,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3610,7 +3450,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 2201,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
@@ -3618,7 +3458,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 2250,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.submit_user_input",
@@ -3626,7 +3466,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 2434,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3634,7 +3474,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 2446,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3642,7 +3482,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 2672,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3650,7 +3490,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 2700,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3658,7 +3498,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 2708,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3666,7 +3506,7 @@
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
       "line": 110,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3674,7 +3514,7 @@
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
       "line": 170,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3682,7 +3522,7 @@
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
       "line": 200,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3690,7 +3530,7 @@
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
       "line": 284,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3698,7 +3538,7 @@
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
       "line": 338,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3706,7 +3546,7 @@
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
       "line": 353,
       "roster_id": "tui-adapter",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3714,7 +3554,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 93,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/slash_commands.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/slash_commands.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
@@ -3722,7 +3562,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 252,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3730,7 +3570,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 399,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.create_event",
@@ -3738,7 +3578,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 415,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Runtime.submit_user_input",
@@ -3746,7 +3586,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 514,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3754,7 +3594,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 771,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3762,7 +3602,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 786,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3770,7 +3610,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 800,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3778,7 +3618,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 808,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "AllbertAssist.Channels.update_event",
@@ -3786,7 +3626,7 @@
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
       "line": 824,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "boundary": "Req.request",
@@ -3794,7 +3634,7 @@
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
       "line": 153,
       "roster_id": "whatsapp-adapter",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/client.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/client.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3802,7 +3642,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 99,
       "roster_id": "stocksage-agents-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.create_objective",
@@ -3810,7 +3650,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 244,
       "roster_id": "stocksage-agents-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.create_step",
@@ -3818,7 +3658,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 260,
       "roster_id": "stocksage-agents-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.update_step",
@@ -3826,7 +3666,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 277,
       "roster_id": "stocksage-agents-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.update_objective",
@@ -3834,7 +3674,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 291,
       "roster_id": "stocksage-agents-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.update_step",
@@ -3842,7 +3682,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 308,
       "roster_id": "stocksage-agents-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.update_objective",
@@ -3850,7 +3690,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 318,
       "roster_id": "stocksage-agents-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3858,7 +3698,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 67,
       "roster_id": "stocksage-analyses-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.analyses.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.analyses.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3866,7 +3706,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 64,
       "roster_id": "stocksage-analyze-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.analyze.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.analyze.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3874,7 +3714,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 46,
       "roster_id": "stocksage-import-sqlite-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3882,7 +3722,7 @@
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
       "line": 79,
       "roster_id": "stocksage-queue-mix-task",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.queue.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.queue.ex"
     },
     {
       "boundary": "AllbertAssist.Confirmations.create",
@@ -3890,7 +3730,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 206,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/stocksage/lib/stocksage/actions/run_analysis.ex"
+      "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.create_objective",
@@ -3898,7 +3738,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 381,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/stocksage/lib/stocksage/actions/run_analysis.ex"
+      "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
@@ -3906,7 +3746,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 94,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/stocksage/lib/stocksage/agents/commands/execute.ex"
+      "source_path": "apps/stocksage/lib/stocksage/agents/commands/execute.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.create_step",
@@ -3914,7 +3754,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 369,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
+      "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.transition_step",
@@ -3922,7 +3762,7 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 381,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
+      "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
     {
       "boundary": "AllbertAssist.Objectives.transition_step",
@@ -3930,31 +3770,191 @@
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
       "line": 398,
       "roster_id": "runner-run-3",
-      "source_path": "plugins/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
+      "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 85,
-      "roster_id": "stocksage-plugin-live",
-      "source_path": "plugins/stocksage/lib/stocksage_web/analysis_live.ex"
+      "line": 77,
+      "roster_id": "artifacts-plugin-live",
+      "source_path": "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 113,
-      "roster_id": "stocksage-plugin-live",
-      "source_path": "plugins/stocksage/lib/stocksage_web/analysis_live.ex"
+      "line": 189,
+      "roster_id": "artifacts-plugin-live",
+      "source_path": "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex"
     },
     {
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 158,
+      "line": 209,
+      "roster_id": "artifacts-plugin-live",
+      "source_path": "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex"
+    },
+    {
+      "boundary": "Supervisor.start_child",
+      "disposition": "inherited_context",
+      "evidence": "Runner-owned explicit E1 context is carried to this boundary",
+      "line": 514,
+      "roster_id": "runner-run-3",
+      "source_path": "apps/allbert_assist/lib/allbert_assist/runtime/attach/tui_session.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Actions.Runner.run",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 112,
       "roster_id": "stocksage-plugin-live",
-      "source_path": "plugins/stocksage/lib/stocksage_web/analysis_live.ex"
+      "source_path": "apps/stocksage/lib/stocksage_web/analysis_live.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Actions.Runner.run",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 140,
+      "roster_id": "stocksage-plugin-live",
+      "source_path": "apps/stocksage/lib/stocksage_web/analysis_live.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Actions.Runner.run",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 185,
+      "roster_id": "stocksage-plugin-live",
+      "source_path": "apps/stocksage/lib/stocksage_web/analysis_live.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.create_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 218,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.create_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 232,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 263,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 707,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Runtime.submit_user_input",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 501,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Actions.Runner.run",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 639,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Actions.Runner.run",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 878,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.update_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 788,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.update_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 803,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.update_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 807,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.update_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 811,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.update_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 935,
+      "roster_id": "telegram-adapter",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Channels.create_event",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 132,
+      "roster_id": "matrix-cli",
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/cli.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Runtime.submit_user_input",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 146,
+      "roster_id": "matrix-cli",
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/cli.ex"
+    },
+    {
+      "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 164,
+      "roster_id": "matrix-cli",
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/cli.ex"
+    },
+    {
+      "boundary": "Req.post",
+      "disposition": "external_e1",
+      "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
+      "line": 232,
+      "roster_id": "whatsapp-cli",
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/cli.ex"
     }
   ],
   "expected_activation_guard_sources": [
@@ -3964,7 +3964,14 @@
     "apps/allbert_assist/lib/allbert_assist/pack/activation_gate.ex",
     "apps/allbert_assist/lib/allbert_assist/pack/residual_effect_supervisor.ex",
     "apps/allbert_assist/lib/allbert_assist/pack/staged_children.ex",
-    "apps/allbert_assist/lib/allbert_assist/plugin/bootstrap.ex"
+    "apps/allbert_assist/lib/allbert_assist/plugin/bootstrap.ex",
+    "apps/allbert_discord/lib/allbert_discord/effect_supervisor.ex",
+    "apps/allbert_email/lib/allbert_email/effect_supervisor.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/effect_supervisor.ex",
+    "apps/allbert_signal/lib/allbert_signal/effect_supervisor.ex",
+    "apps/allbert_slack/lib/allbert_slack/effect_supervisor.ex",
+    "apps/allbert_telegram/lib/allbert_telegram/effect_supervisor.ex",
+    "apps/allbert_whatsapp/lib/allbert_whatsapp/effect_supervisor.ex"
   ],
   "expected_activation_rejection_sources": [
     "apps/allbert_assist/lib/allbert_assist/app/registry.ex",
@@ -3976,6 +3983,7 @@
     "apps/allbert_kernel/lib/allbert_assist/actions/runner.ex"
   ],
   "expected_effect_guard_sources": [
+    "apps/allbert_artifacts/lib/mix/tasks/allbert.artifacts.ex",
     "apps/allbert_assist/lib/allbert_assist/actions/first_model/pull_model.ex",
     "apps/allbert_assist/lib/allbert_assist/actions/image/generate_image.ex",
     "apps/allbert_assist/lib/allbert_assist/agents/intent_agent.ex",
@@ -3985,7 +3993,6 @@
     "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex",
     "apps/allbert_assist/lib/allbert_assist/cli.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas.ex",
-    "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/ask.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/channels/support.ex",
     "apps/allbert_assist/lib/allbert_assist/confirmations/store/agent.ex",
@@ -4026,39 +4033,41 @@
     "apps/allbert_assist/lib/allbert_assist/voice/provider_http.ex",
     "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex",
     "apps/allbert_assist/lib/mix/tasks/allbert.delegate.ex",
+    "apps/allbert_browser/lib/allbert_browser/actions/start_session.ex",
+    "apps/allbert_browser/lib/allbert_browser/session.ex",
+    "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex",
+    "apps/allbert_discord/lib/allbert_discord/adapter.ex",
+    "apps/allbert_discord/lib/allbert_discord/client.ex",
     "apps/allbert_email/lib/allbert_email/adapter.ex",
     "apps/allbert_email/lib/allbert_email/cli.ex",
     "apps/allbert_kernel/lib/allbert_assist/actions/runner.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/adapter.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/cli.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/client.ex",
+    "apps/allbert_research/lib/allbert_research/delegate_objective.ex",
+    "apps/allbert_research/lib/mix/tasks/allbert.research.ex",
+    "apps/allbert_signal/lib/allbert_signal/adapter.ex",
+    "apps/allbert_signal/lib/allbert_signal/client.ex",
+    "apps/allbert_slack/lib/allbert_slack/adapter.ex",
+    "apps/allbert_slack/lib/allbert_slack/client.ex",
     "apps/allbert_telegram/lib/allbert_telegram/adapter.ex",
     "apps/allbert_telegram/lib/allbert_telegram/cli.ex",
     "apps/allbert_telegram/lib/allbert_telegram/client.ex",
-    "plugins/allbert.artifacts/lib/mix/tasks/allbert.artifacts.ex",
-    "plugins/allbert.browser/lib/allbert_browser/actions/start_session.ex",
-    "plugins/allbert.browser/lib/allbert_browser/session.ex",
-    "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex",
-    "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex",
-    "plugins/allbert.discord/lib/allbert_assist/channels/discord/client.ex",
-    "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex",
-    "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/client.ex",
-    "plugins/allbert.research/lib/allbert_research/delegate_objective.ex",
-    "plugins/allbert.research/lib/mix/tasks/allbert.research.ex",
-    "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex",
-    "plugins/allbert.signal/lib/allbert_assist/channels/signal/client.ex",
-    "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex",
-    "plugins/allbert.slack/lib/allbert_assist/channels/slack/client.ex",
-    "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex",
-    "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex",
-    "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/client.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.analyses.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.analyze.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.queue.ex"
+    "apps/allbert_tui/lib/allbert_tui/adapter.ex",
+    "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex",
+    "apps/allbert_whatsapp/lib/allbert_whatsapp/cli.ex",
+    "apps/allbert_whatsapp/lib/allbert_whatsapp/client.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.agents.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.analyses.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.analyze.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.queue.ex"
   ],
   "expected_epoch_sources": [
+    "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex",
+    "apps/allbert_artifacts/lib/mix/tasks/allbert.artifacts.ex",
     "apps/allbert_assist/lib/allbert_assist/actions/channels/configure_channel_secret.ex",
     "apps/allbert_assist/lib/allbert_assist/actions/channels/configure_channel_setting.ex",
-    "apps/allbert_assist/lib/allbert_assist/actions/channels/matrix_doctor.ex",
     "apps/allbert_assist/lib/allbert_assist/actions/coding/bash.ex",
     "apps/allbert_assist/lib/allbert_assist/actions/first_model/pull_model.ex",
     "apps/allbert_assist/lib/allbert_assist/actions/image/generate_image.ex",
@@ -4093,7 +4102,6 @@
     "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex",
     "apps/allbert_assist/lib/allbert_assist/cli.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas.ex",
-    "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas/jobs.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas/memory.ex",
     "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex",
@@ -4177,46 +4185,47 @@
     "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/plan_build.ex",
     "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/template_create.ex",
     "apps/allbert_assist_web/lib/allbert_assist_web/workspace/renderer.ex",
+    "apps/allbert_browser/lib/allbert_browser/actions.ex",
+    "apps/allbert_browser/lib/allbert_browser/actions/research_handoff.ex",
+    "apps/allbert_browser/lib/allbert_browser/actions/start_session.ex",
+    "apps/allbert_browser/lib/allbert_browser/session.ex",
+    "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex",
     "apps/allbert_composition/lib/allbert_assist/pack/product_cli.ex",
+    "apps/allbert_discord/lib/allbert_discord/adapter.ex",
+    "apps/allbert_discord/lib/allbert_discord/client.ex",
     "apps/allbert_email/lib/allbert_email/adapter.ex",
     "apps/allbert_email/lib/allbert_email/cli.ex",
     "apps/allbert_kernel/lib/allbert_assist/actions/runner.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/actions/doctor.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/adapter.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/cli.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/client.ex",
+    "apps/allbert_matrix/lib/allbert_matrix/doctor.ex",
     "apps/allbert_notes_files/lib/allbert_notes_files/cli.ex",
+    "apps/allbert_research/lib/allbert_research/delegate_objective.ex",
+    "apps/allbert_research/lib/allbert_research/research.ex",
+    "apps/allbert_research/lib/mix/tasks/allbert.research.ex",
+    "apps/allbert_signal/lib/allbert_signal/adapter.ex",
+    "apps/allbert_signal/lib/allbert_signal/client.ex",
+    "apps/allbert_slack/lib/allbert_slack/adapter.ex",
+    "apps/allbert_slack/lib/allbert_slack/client.ex",
     "apps/allbert_telegram/lib/allbert_telegram/adapter.ex",
     "apps/allbert_telegram/lib/allbert_telegram/cli.ex",
     "apps/allbert_telegram/lib/allbert_telegram/client.ex",
-    "plugins/allbert.artifacts/lib/allbert_artifacts_web/artifact_live.ex",
-    "plugins/allbert.artifacts/lib/mix/tasks/allbert.artifacts.ex",
-    "plugins/allbert.browser/lib/allbert_browser/actions.ex",
-    "plugins/allbert.browser/lib/allbert_browser/actions/research_handoff.ex",
-    "plugins/allbert.browser/lib/allbert_browser/actions/start_session.ex",
-    "plugins/allbert.browser/lib/allbert_browser/session.ex",
-    "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex",
-    "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex",
-    "plugins/allbert.discord/lib/allbert_assist/channels/discord/client.ex",
-    "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex",
-    "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/client.ex",
-    "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/doctor.ex",
-    "plugins/allbert.research/lib/allbert_research/delegate_objective.ex",
-    "plugins/allbert.research/lib/allbert_research/research.ex",
-    "plugins/allbert.research/lib/mix/tasks/allbert.research.ex",
-    "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex",
-    "plugins/allbert.signal/lib/allbert_assist/channels/signal/client.ex",
-    "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex",
-    "plugins/allbert.slack/lib/allbert_assist/channels/slack/client.ex",
-    "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex",
-    "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex",
-    "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex",
-    "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/client.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.analyses.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.analyze.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex",
-    "plugins/stocksage/lib/mix/tasks/stocksage.queue.ex",
-    "plugins/stocksage/lib/stocksage/actions/run_analysis.ex",
-    "plugins/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex",
-    "plugins/stocksage/lib/stocksage/evidence.ex",
-    "plugins/stocksage/lib/stocksage_web/analysis_live.ex"
+    "apps/allbert_tui/lib/allbert_tui/adapter.ex",
+    "apps/allbert_tui/lib/allbert_tui/input_receipt.ex",
+    "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex",
+    "apps/allbert_whatsapp/lib/allbert_whatsapp/cli.ex",
+    "apps/allbert_whatsapp/lib/allbert_whatsapp/client.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.agents.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.analyses.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.analyze.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex",
+    "apps/stocksage/lib/mix/tasks/stocksage.queue.ex",
+    "apps/stocksage/lib/stocksage/actions/run_analysis.ex",
+    "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex",
+    "apps/stocksage/lib/stocksage/evidence.ex",
+    "apps/stocksage/lib/stocksage_web/analysis_live.ex"
   ],
   "normalization": "v14_m1a3_effect_boundaries_v1",
   "rows": [
@@ -4278,7 +4287,7 @@
       "missing_or_stale_result": "product_not_ready before action dispatch",
       "owner": "Mix.Tasks.Allbert.Artifacts",
       "phase": "ready",
-      "source_path": "plugins/allbert.artifacts/lib/mix/tasks/allbert.artifacts.ex"
+      "source_path": "apps/allbert_artifacts/lib/mix/tasks/allbert.artifacts.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -4290,7 +4299,7 @@
       "missing_or_stale_result": "disconnect or no artifact effect",
       "owner": "AllbertArtifactsWeb.ArtifactLive",
       "phase": "ready",
-      "source_path": "plugins/allbert.artifacts/lib/allbert_artifacts_web/artifact_live.ex"
+      "source_path": "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -4302,7 +4311,7 @@
       "missing_or_stale_result": "product_not_ready before action dispatch",
       "owner": "Mix.Tasks.Allbert.Browser",
       "phase": "ready",
-      "source_path": "plugins/allbert.browser/lib/mix/tasks/allbert.browser.ex"
+      "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -4422,7 +4431,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
       "owner": "AllbertDiscord.Adapter",
       "phase": "ready",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -4526,11 +4535,11 @@
       "compatibility_provenance": null,
       "entrypoint": "guarded effect boundary",
       "focused_test": "AllbertAssist.Pack.EffectGuardSettingsChannelsTest",
-      "id": "guarded-source-apps-allbert-assist-lib-allbert-assist-actions-channels-matrix-doctor-ex",
+      "id": "guarded-source-apps-allbert-matrix-lib-allbert-matrix-actions-doctor-ex",
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertMatrix.Actions.Doctor",
       "phase": "ready",
-      "source_path": "apps/allbert_assist/lib/allbert_assist/actions/channels/matrix_doctor.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/actions/doctor.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5226,7 +5235,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertBrowser.Actions",
       "phase": "ready",
-      "source_path": "plugins/allbert.browser/lib/allbert_browser/actions.ex"
+      "source_path": "apps/allbert_browser/lib/allbert_browser/actions.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5238,7 +5247,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertBrowser.Actions.ResearchHandoff",
       "phase": "ready",
-      "source_path": "plugins/allbert.browser/lib/allbert_browser/actions/research_handoff.ex"
+      "source_path": "apps/allbert_browser/lib/allbert_browser/actions/research_handoff.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5250,7 +5259,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertBrowser.Actions.StartSession",
       "phase": "ready",
-      "source_path": "plugins/allbert.browser/lib/allbert_browser/actions/start_session.ex"
+      "source_path": "apps/allbert_browser/lib/allbert_browser/actions/start_session.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5262,7 +5271,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertBrowser.Session",
       "phase": "ready",
-      "source_path": "plugins/allbert.browser/lib/allbert_browser/session.ex"
+      "source_path": "apps/allbert_browser/lib/allbert_browser/session.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5274,7 +5283,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertMatrix.Doctor",
       "phase": "ready",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/doctor.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/doctor.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5286,7 +5295,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertResearch.DelegateObjective",
       "phase": "ready",
-      "source_path": "plugins/allbert.research/lib/allbert_research/delegate_objective.ex"
+      "source_path": "apps/allbert_research/lib/allbert_research/delegate_objective.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5298,7 +5307,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertResearch.Research",
       "phase": "ready",
-      "source_path": "plugins/allbert.research/lib/allbert_research/research.ex"
+      "source_path": "apps/allbert_research/lib/allbert_research/research.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5310,7 +5319,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "AllbertTUI.InputReceipt",
       "phase": "ready",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5322,7 +5331,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "StockSage.Actions.RunAnalysis",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/stocksage/actions/run_analysis.ex"
+      "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5334,7 +5343,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before effect",
       "owner": "StockSage.Evidence",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/stocksage/evidence.ex"
+      "source_path": "apps/stocksage/lib/stocksage/evidence.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5430,7 +5439,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
       "owner": "AllbertMatrix.Adapter",
       "phase": "ready",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5766,7 +5775,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before transport",
       "owner": "Req",
       "phase": "ready",
-      "source_path": "plugins/allbert.discord/lib/allbert_assist/channels/discord/client.ex"
+      "source_path": "apps/allbert_discord/lib/allbert_discord/client.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5778,7 +5787,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before transport",
       "owner": "Req",
       "phase": "ready",
-      "source_path": "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/client.ex"
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/client.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5790,7 +5799,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before transport",
       "owner": "Req",
       "phase": "ready",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/client.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/client.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5802,7 +5811,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before transport",
       "owner": "Req",
       "phase": "ready",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/client.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/client.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5826,7 +5835,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} or {:error, :stale_epoch} before transport",
       "owner": "Req",
       "phase": "ready",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/client.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/client.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5838,7 +5847,7 @@
       "missing_or_stale_result": "product_not_ready before browser, objective, or delegate effect",
       "owner": "Mix.Tasks.Allbert.Research",
       "phase": "ready",
-      "source_path": "plugins/allbert.research/lib/mix/tasks/allbert.research.ex"
+      "source_path": "apps/allbert_research/lib/mix/tasks/allbert.research.ex"
     },
     {
       "admission_mode": "authorizing_boot",
@@ -5970,7 +5979,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
       "owner": "AllbertSignal.Adapter",
       "phase": "ready",
-      "source_path": "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex"
+      "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -5982,7 +5991,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
       "owner": "AllbertSlack.Adapter",
       "phase": "ready",
-      "source_path": "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex"
+      "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
     {
       "admission_mode": "authorizing_boot",
@@ -6006,7 +6015,7 @@
       "missing_or_stale_result": "product_not_ready before agent or durable objective effect",
       "owner": "Mix.Tasks.Stocksage.Agents",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.agents.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6018,7 +6027,7 @@
       "missing_or_stale_result": "product_not_ready before analysis effect",
       "owner": "Mix.Tasks.Stocksage.Analyses",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.analyses.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.analyses.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6030,7 +6039,7 @@
       "missing_or_stale_result": "product_not_ready before analysis effect",
       "owner": "Mix.Tasks.Stocksage.Analyze",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.analyze.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.analyze.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6042,7 +6051,7 @@
       "missing_or_stale_result": "product_not_ready before import effect",
       "owner": "Mix.Tasks.Stocksage.ImportSqlite",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6054,7 +6063,7 @@
       "missing_or_stale_result": "disconnect or no analysis effect",
       "owner": "StockSageWeb.AnalysisLive",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/stocksage_web/analysis_live.ex"
+      "source_path": "apps/stocksage/lib/stocksage_web/analysis_live.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6066,7 +6075,7 @@
       "missing_or_stale_result": "product_not_ready before queue effect",
       "owner": "Mix.Tasks.Stocksage.Queue",
       "phase": "ready",
-      "source_path": "plugins/stocksage/lib/mix/tasks/stocksage.queue.ex"
+      "source_path": "apps/stocksage/lib/mix/tasks/stocksage.queue.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6102,7 +6111,7 @@
       "missing_or_stale_result": "product_not_ready before runtime or later delivery effect",
       "owner": "AllbertTUI.Adapter",
       "phase": "ready",
-      "source_path": "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex"
+      "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6318,7 +6327,7 @@
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
       "owner": "AllbertWhatsApp.Adapter",
       "phase": "ready",
-      "source_path": "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex"
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6331,6 +6340,114 @@
       "owner": "AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController",
       "phase": "ready",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/whatsapp_webhook_controller.ex"
+    },
+    {
+      "admission_mode": "ready_carried",
+      "carrier_policy": "carries matrix CLI E1 for simulation",
+      "compatibility_provenance": null,
+      "entrypoint": "matrix simulation routes",
+      "focused_test": "AllbertMatrix.CLITest",
+      "id": "matrix-cli",
+      "missing_or_stale_result": "{:error, :product_not_ready} before matrix simulation effect",
+      "owner": "AllbertMatrix.CLI",
+      "phase": "ready",
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/cli.ex"
+    },
+    {
+      "admission_mode": "ready_carried",
+      "carrier_policy": "carries whatsapp CLI E1 for signed-webhook post simulation",
+      "compatibility_provenance": null,
+      "entrypoint": "post-webhook signed-webhook simulation route",
+      "focused_test": "AllbertWhatsApp.CLITest",
+      "id": "whatsapp-cli",
+      "missing_or_stale_result": "{:error, :product_not_ready} before whatsapp webhook post effect",
+      "owner": "AllbertWhatsApp.CLI",
+      "phase": "ready",
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/cli.ex"
+    },
+    {
+      "admission_mode": "authorizing_boot",
+      "carrier_policy": "allbert_pack_activation_required_rejects_epoch",
+      "compatibility_provenance": null,
+      "entrypoint": "init/1",
+      "focused_test": "AllbertAssist.Pack.ActivationGateTest",
+      "id": "discord-effect-supervisor-boot",
+      "missing_or_stale_result": "supervisor start rejected",
+      "owner": "AllbertDiscord.EffectSupervisor",
+      "phase": "authorizing",
+      "source_path": "apps/allbert_discord/lib/allbert_discord/effect_supervisor.ex"
+    },
+    {
+      "admission_mode": "authorizing_boot",
+      "carrier_policy": "allbert_pack_activation_required_rejects_epoch",
+      "compatibility_provenance": null,
+      "entrypoint": "init/1",
+      "focused_test": "AllbertAssist.Pack.ActivationGateTest",
+      "id": "email-effect-supervisor-boot",
+      "missing_or_stale_result": "supervisor start rejected",
+      "owner": "AllbertEmail.EffectSupervisor",
+      "phase": "authorizing",
+      "source_path": "apps/allbert_email/lib/allbert_email/effect_supervisor.ex"
+    },
+    {
+      "admission_mode": "authorizing_boot",
+      "carrier_policy": "allbert_pack_activation_required_rejects_epoch",
+      "compatibility_provenance": null,
+      "entrypoint": "init/1",
+      "focused_test": "AllbertAssist.Pack.ActivationGateTest",
+      "id": "matrix-effect-supervisor-boot",
+      "missing_or_stale_result": "supervisor start rejected",
+      "owner": "AllbertMatrix.EffectSupervisor",
+      "phase": "authorizing",
+      "source_path": "apps/allbert_matrix/lib/allbert_matrix/effect_supervisor.ex"
+    },
+    {
+      "admission_mode": "authorizing_boot",
+      "carrier_policy": "allbert_pack_activation_required_rejects_epoch",
+      "compatibility_provenance": null,
+      "entrypoint": "init/1",
+      "focused_test": "AllbertAssist.Pack.ActivationGateTest",
+      "id": "signal-effect-supervisor-boot",
+      "missing_or_stale_result": "supervisor start rejected",
+      "owner": "AllbertSignal.EffectSupervisor",
+      "phase": "authorizing",
+      "source_path": "apps/allbert_signal/lib/allbert_signal/effect_supervisor.ex"
+    },
+    {
+      "admission_mode": "authorizing_boot",
+      "carrier_policy": "allbert_pack_activation_required_rejects_epoch",
+      "compatibility_provenance": null,
+      "entrypoint": "init/1",
+      "focused_test": "AllbertAssist.Pack.ActivationGateTest",
+      "id": "slack-effect-supervisor-boot",
+      "missing_or_stale_result": "supervisor start rejected",
+      "owner": "AllbertSlack.EffectSupervisor",
+      "phase": "authorizing",
+      "source_path": "apps/allbert_slack/lib/allbert_slack/effect_supervisor.ex"
+    },
+    {
+      "admission_mode": "authorizing_boot",
+      "carrier_policy": "allbert_pack_activation_required_rejects_epoch",
+      "compatibility_provenance": null,
+      "entrypoint": "init/1",
+      "focused_test": "AllbertAssist.Pack.ActivationGateTest",
+      "id": "telegram-effect-supervisor-boot",
+      "missing_or_stale_result": "supervisor start rejected",
+      "owner": "AllbertTelegram.EffectSupervisor",
+      "phase": "authorizing",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/effect_supervisor.ex"
+    },
+    {
+      "admission_mode": "authorizing_boot",
+      "carrier_policy": "allbert_pack_activation_required_rejects_epoch",
+      "compatibility_provenance": null,
+      "entrypoint": "init/1",
+      "focused_test": "AllbertAssist.Pack.ActivationGateTest",
+      "id": "whatsapp-effect-supervisor-boot",
+      "missing_or_stale_result": "supervisor start rejected",
+      "owner": "AllbertWhatsApp.EffectSupervisor",
+      "phase": "authorizing",
+      "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/effect_supervisor.ex"
     }
   ],
   "schema_version": 1

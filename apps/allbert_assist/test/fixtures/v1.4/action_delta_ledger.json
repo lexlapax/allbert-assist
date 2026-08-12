@@ -1,13 +1,20 @@
 {
   "baseline": {
     "action_count": 281,
-    "m0_actions_sha256": "2502b1d63f7804e0417ee98e43425520e234340877b673dddb616cc0094c3b53",
+    "m0_actions_sha256": "50aa7795a5b4b0150601f8eed4eb34e016ce48374709feb8083c9146847a56f8",
     "m0_source_sha": "1739a402834310f996dc3649cb5a2979a6757af1",
-    "rebound": {
-      "milestone": "M12",
-      "reason": "the M0 ledger was refrozen for the telegram and email extraction, so the action rows it baselines now carry the renamed modules and their new owning applications. The roster itself is unchanged -- 281 actions before and after, none added or removed -- so no delta entry is recorded; the baseline this ledger reconciles against simply moved with the artifact it binds to.",
-      "superseded_m0_actions_sha256": "9fb84a5b5fef5874fbaca205dcfaf3f9f1baa9f2c8f57ed92821fd18fcda5a7f"
-    }
+    "rebound": [
+      {
+        "milestone": "M12",
+        "reason": "the M0 ledger was refrozen for the telegram and email extraction, so the action rows it baselines now carry the renamed modules and their new owning applications. The roster itself is unchanged -- 281 actions before and after, none added or removed -- so no delta entry is recorded; the baseline this ledger reconciles against simply moved with the artifact it binds to.",
+        "superseded_m0_actions_sha256": "9fb84a5b5fef5874fbaca205dcfaf3f9f1baa9f2c8f57ed92821fd18fcda5a7f"
+      },
+      {
+        "milestone": "M13",
+        "reason": "the M0 ledger was refrozen for the extraction of the last ten plugins (browser, research, notes_files's CLI area, discord, matrix, signal, slack, telegram, whatsapp, stocksage), so the action rows it baselines now carry their renamed modules and owning applications. The roster itself is unchanged -- 281 actions before and after, none added or removed -- so no delta entry is recorded; the baseline this ledger reconciles against simply moved with the artifact it binds to.",
+        "superseded_m0_actions_sha256": "2502b1d63f7804e0417ee98e43425520e234340877b673dddb616cc0094c3b53"
+      }
+    ]
   },
   "entries": [],
   "entry_contract": [

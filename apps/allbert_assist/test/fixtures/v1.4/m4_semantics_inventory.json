@@ -947,7 +947,7 @@
       "module": "StockSage.Actions.ImportSqlite",
       "profile": "truth.true_or_true_string_or_one_string",
       "purpose": "Interpret StockSage import option flags",
-      "source_path": "plugins/stocksage/lib/stocksage/actions/import_sqlite.ex",
+      "source_path": "apps/stocksage/lib/stocksage/actions/import_sqlite.ex",
       "trust_or_wire": "action_param_input",
       "use_sites": [
         {
@@ -969,7 +969,7 @@
       "module": "StockSage.Actions.RunAnalysis",
       "profile": "json.stocksage_analysis_payload",
       "purpose": "Canonicalize StockSage analysis details and parity diffs",
-      "source_path": "plugins/stocksage/lib/stocksage/actions/run_analysis.ex",
+      "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex",
       "trust_or_wire": "action_response_wire",
       "use_sites": [
         {
@@ -999,7 +999,7 @@
       "module": "StockSage.Agents.NativeCoordinator.Commands.ParityRun",
       "profile": "json.stocksage_parity_report",
       "purpose": "Canonicalize merged StockSage parity reports",
-      "source_path": "plugins/stocksage/lib/stocksage/agents/native_coordinator/commands/parity_run.ex",
+      "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/parity_run.ex",
       "trust_or_wire": "internal_agent_wire",
       "use_sites": [
         {
@@ -1021,7 +1021,7 @@
       "module": "StockSage.Evidence",
       "profile": "truth.common_boolean",
       "purpose": "Interpret StockSage evidence-mode flags",
-      "source_path": "plugins/stocksage/lib/stocksage/evidence.ex",
+      "source_path": "apps/stocksage/lib/stocksage/evidence.ex",
       "trust_or_wire": "provider_result_input",
       "use_sites": [
         {
@@ -1043,7 +1043,7 @@
       "module": "StockSage.Outcomes",
       "profile": "truth.common_boolean",
       "purpose": "Interpret StockSage outcome due-state flags",
-      "source_path": "plugins/stocksage/lib/stocksage/outcomes.ex",
+      "source_path": "apps/stocksage/lib/stocksage/outcomes.ex",
       "trust_or_wire": "provider_result_input",
       "use_sites": [
         {
