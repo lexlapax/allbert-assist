@@ -559,17 +559,12 @@ rather than assigning the same foundation to a later release.
    recorded sequencing anywhere, so the work is scoped where the extraction
    template already exists rather than carried into a major.
 
-   **Channel effect ownership** is the piece that may still land here. The
-   telegram and email packs ship `native_passive` because v1.4 M12 moved code and
-   declarations but no supervision: their adapters are still started from the
-   channel descriptor's `child_spec` by the residual's `Plugin.ChildSupervisor`.
-   Making a channel pack `native_effectful` means giving it an OTP supervision
-   tree, its own effect supervisor, and its own `Pack.ActivationGate` (already
-   generic, parameterised by `pack_id`), and moving the adapter `child_spec` off
-   the residual -- which also makes the pack responsible for its own
-   enabled-state and settings reads. It is done for **all seven channels at
-   once**, and now that the other five arrive at v1.4 M13, whether that happens
-   there or here is an open decision recorded against M13.
+   **Channel effect ownership moved out too**, to the same v1.4 M13 (operator
+   decision 2026-08-11). All seven channel packs become `native_effectful`
+   there: each gains an OTP supervision tree, its own effect supervisor, and its
+   own `Pack.ActivationGate`, and each adapter's `child_spec` moves off the
+   residual's `Plugin.ChildSupervisor`. Doing it beside the extraction is what
+   keeps the topology change to one event rather than two.
 
 17. **2.1 horizon — Self-Hosting Development.** Allbert develops Allbert
    (pi-mode target on its own checkout; plan/build/test/document roles
