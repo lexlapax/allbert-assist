@@ -72,7 +72,19 @@ defmodule Mix.Tasks.Allbert.OnboardTest do
 
     output = capture_io(fn -> assert :ok = OnboardTask.run(["--reset", "--yes"]) end)
     assert output =~ "reset"
-    assert FirstRun.read_marker() == %{}
+
+    # Asserts what reset_onboarding/0 actually promises: the onboarding keys are
+    # dropped and anything else in the marker is deliberately preserved. The
+    # assertion here was `== %{}`, which held only while nothing had written a
+    # non-onboarding key first -- so a lane-mate that made a model disclosure
+    # resolvable turned it red, and it passed in isolation, where the wizard had
+    # no route set to disclose.
+    marker = FirstRun.read_marker()
+
+    refute Enum.any?(
+             ~w(onboarding_complete wizard_started track wizard_step wizard_done),
+             &Map.has_key?(marker, &1)
+           )
   end
 
   test "an unknown flag exits non-zero" do
