@@ -3448,7 +3448,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2201,
+      "line": 2202,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3456,7 +3456,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2250,
+      "line": 2251,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3464,7 +3464,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2434,
+      "line": 2435,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3472,7 +3472,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2446,
+      "line": 2447,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3480,7 +3480,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2672,
+      "line": 2673,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3488,7 +3488,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2700,
+      "line": 2701,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3496,7 +3496,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2708,
+      "line": 2709,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
