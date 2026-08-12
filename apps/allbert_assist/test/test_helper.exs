@@ -66,56 +66,11 @@ Application.put_env(:allbert_assist, AllbertAssist.Skills.Registry,
 # CompiledInventory.default_applications/0 reads Application.loaded_applications/0,
 # and they must be loaded before the app registrations below, which validate
 # their action modules against that catalog.
-pack_dependency_closure = fn walk, application, seen ->
-  if MapSet.member?(seen, application) do
-    seen
-  else
-    seen = MapSet.put(seen, application)
-
-    ebin = Path.join([Mix.Project.build_path(), "lib", Atom.to_string(application), "ebin"])
-
-    if :code.lib_dir(application) == {:error, :bad_name} and File.dir?(ebin) do
-      Code.prepend_path(ebin)
-      Application.load(application)
-    end
-
-    Enum.reduce(
-      Application.spec(application, :applications) || [],
-      seen,
-      &walk.(walk, &1, &2)
-    )
-  end
-end
-
-Enum.each([:allbert_notes_files, :allbert_telegram, :allbert_email], fn pack_app ->
-  pack_ebin = Path.join([Mix.Project.build_path(), "lib", Atom.to_string(pack_app), "ebin"])
-
-  unless Code.prepend_path(pack_ebin) do
-    raise "could not add the #{pack_app} pack code path: #{pack_ebin}"
-  end
-
-  case Application.load(pack_app) do
-    :ok -> :ok
-    {:error, {:already_loaded, _}} -> :ok
-    {:error, reason} -> raise "could not load the #{pack_app} pack: #{inspect(reason)}"
-  end
-
-  # A pack may depend on a library the residual does not. `allbert_email` needs
-  # gen_smtp, which v1.4 M12 moved out of the residual's deps because
-  # AllbertEmail.SmtpClient is its only caller. Running from this application's
-  # directory builds the code path from the RESIDUAL's dependency closure, so
-  # that library is absent and starting the pack fails with
-  # {:gen_smtp, {'no such file or directory', 'gen_smtp.app'}}.
-  #
-  # The closure is walked TRANSITIVELY and read from each .app rather than
-  # listed here: gen_smtp itself pulls ranch, so resolving only direct
-  # dependencies just moves the same failure one level down. Adding a dependency
-  # to a pack must not mean editing this file. Deliberately NOT a blanket
-  # prepend of every built ebin -- that would also satisfy a dependency a pack
-  # forgot to declare, hiding in the test VM exactly the mistake the release
-  # boundary checks exist to catch.
-  pack_dependency_closure.(pack_dependency_closure, pack_app, MapSet.new())
-end)
+AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
+  :allbert_notes_files,
+  :allbert_telegram,
+  :allbert_email
+])
 
 # Loading is necessary but not sufficient: the residual boots its plugin
 # registry before this file runs, so each pack's manifest was not on disk-visible
@@ -123,38 +78,7 @@ end)
 # entries are registered -- everything else is already present. Without this the
 # packs' actions are claimed by no enabled plugin and the effective registry_order
 # sequence has holes.
-packs_to_register = [
-  {"allbert.notes_files", AllbertNotesFiles.Plugin},
-  {"allbert.telegram", AllbertTelegram.Plugin},
-  {"allbert.email", AllbertEmail.Plugin}
-]
-
-Enum.each(packs_to_register, fn {plugin_id, expected_module} ->
-  unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup(plugin_id)) do
-    # Discovery yields each pack either as a compiled module -- its Plugin module is
-    # in the loaded application's module list -- or as a manifest entry read from
-    # the application's priv. Both forms are handled rather than assuming one.
-    AllbertAssist.Plugin.Discovery.discover()
-    |> Enum.each(fn
-      {:module, ^expected_module, opts} ->
-        {:ok, ^plugin_id} =
-          AllbertAssist.Plugin.Registry.register_module(expected_module, opts)
-
-      {:entry, %{plugin_id: ^plugin_id} = entry} ->
-        {:ok, ^plugin_id} = AllbertAssist.Plugin.Registry.register_entry(entry)
-
-      _other ->
-        :ok
-    end)
-  end
-end)
-
-# The pack's actions were missing from the catalog when this VM booted, so every
-# App declaring a plugin-owned action deferred its registration -- CoreApp,
-# AllbertBrowser.App and StockSage.App among them, not just the pack's. Now that
-# the catalog is complete, retry them. Before v1.4 M9 those failures were dropped
-# and the VM ran with an incomplete App registry.
-{:ok, []} = AllbertAssist.App.Bootstrap.retry_pending()
+AllbertAssist.TestSupport.PackBootstrap.ensure_registered!()
 
 unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("stocksage")) do
   AllbertAssist.Plugin.Registry.register_module(StockSage.Plugin)
@@ -169,14 +93,10 @@ end
 # after suite-wide metadata fixtures are present, then wait for its first exact
 # epoch. Tests that exercise collecting/unavailable phases use private readiness
 # servers and remain unaffected.
-product_test_ebins =
-  Enum.map(["allbert_assist_web", "allbert_composition"], fn application ->
-    Path.join([Mix.Project.build_path(), "lib", application, "ebin"])
-  end)
-
-unless Enum.all?(product_test_ebins, &Code.prepend_path/1) do
-  raise "could not add test Pack product code paths: #{inspect(product_test_ebins)}"
-end
+AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
+  :allbert_assist_web,
+  :allbert_composition
+])
 
 case Application.ensure_all_started(:allbert_composition) do
   {:ok, _started} -> :ok

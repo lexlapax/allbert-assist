@@ -22,17 +22,23 @@ Application.put_env(:allbert_assist, AllbertAssist.Paths, home: test_home)
 # started here, the same way the residual suite reaches upward for its own
 # product owner. The dependency direction in mix.exs stays acyclic; this is a
 # test-environment concern only.
-# Both ebins, not just composition: the closed projection reconciles metadata for
-# every application in ProjectionProvider's list, so composition is rejected with
+# Both, not just composition: the closed projection reconciles metadata for every
+# application in ProjectionProvider's list, so composition is rejected with
 # {:unknown_application, :allbert_assist_web} if Web's metadata is absent.
-product_ebins =
-  Enum.map(["allbert_assist_web", "allbert_composition"], fn application ->
-    Path.join([Mix.Project.build_path(), "lib", application, "ebin"])
-  end)
+#
+# v1.4 M12: composition now depends on every pack, so its closure reaches sibling
+# packs this one does not depend on and must not. The walk is transitive and read
+# from each .app, so extracting another pack does not mean editing this file.
+AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
+  :allbert_assist_web,
+  :allbert_composition
+])
 
-unless Enum.all?(product_ebins, &Code.prepend_path/1) do
-  raise "could not add the product code paths: #{inspect(product_ebins)}"
-end
+# Loading is not registering. The residual ran plugin discovery while it started,
+# before this file put the sibling packs on the path, so their actions sit in the
+# compiled inventory claimed by no enabled plugin -- which fails composition
+# closed with :invalid_registry_order. Register before starting the host.
+AllbertAssist.TestSupport.PackBootstrap.ensure_registered!()
 
 case Application.ensure_all_started(:allbert_composition) do
   {:ok, _started} -> :ok
