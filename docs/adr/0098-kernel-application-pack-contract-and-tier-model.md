@@ -601,7 +601,22 @@ owner list cannot validate itself.
 ### 9. Legacy Plugin/App contracts bridge into packs
 
 ADR 0017's compiled Plugin behaviour, plugin ids, enablement settings, manifest
-shape, scan roots, provenance, and public Registry observations remain frozen.
+shape, scan roots, provenance, and public Registry observations remain frozen,
+with one addition made in v1.4 M13.1.
+
+A compiled Plugin module states whether it is one of the product's own. Until
+M13 that was the same statement as implementing the behaviour, because the
+shipped plugins were the only modules that did. The M0 registry ledger's
+registration subject broke the coincidence: a gate fixture that implements the
+behaviour is not a plugin the product ships, and inferring membership from the
+behaviour alone admitted it to the derived compiled inventory and through it to
+`Plugin.Discovery.shipped_modules/0`, which is production code. The behaviour
+therefore carries `product?/0`, defaulting to `true`. The default is the point --
+it keeps adding a plugin a one-file change with no roster to edit, which is the
+defect §4 exists to prevent -- and it fails in the safe direction, because a
+missing declaration can never hide a real plugin and only a deliberate `false`
+excludes anything. Fixtures that must be registered without being shipped
+declare `false` and live outside `lib`.
 v1.4 does not replace them with a second registry. A compatibility adapter
 translates each residual compiled plugin contribution into the common pack and
 ADR 0030 extension registries while preserving its existing identity, source
