@@ -2074,24 +2074,25 @@ defmodule AllbertTUI.Adapter do
 
   defp maybe_attach_approval_handoff(response, _context), do: response
 
+  # Matched, not branched on. `SlashCommands.unavailable_response/1` builds a
+  # plain text payload with no stream events and no approval handoff, so
+  # `Surface.Renderer` takes its text branch, which cannot fail, and
+  # `emit_rendered/2` always returns `:ok`. The `{:error, _}` branch this used to
+  # carry was therefore unreachable, and the compiler said so -- a clause that
+  # can never match. Deleting it silently would only move the assumption
+  # somewhere unwritten, so the matches below assert it instead: if rendering a
+  # failure notice ever CAN fail, this raises at the point the assumption broke
+  # rather than degrading into a second failure path.
   defp render_unavailable_slash(reason, state) do
-    response = SlashCommands.unavailable_response(reason)
+    {:ok, rendered} =
+      reason
+      |> SlashCommands.unavailable_response()
+      |> Renderer.render_response(max_text_bytes: state.max_text_bytes)
 
-    with {:ok, rendered} <-
-           Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
-         state <- clear_live_status(state),
-         :ok <- emit_rendered(rendered, state) do
-      {{:ok, {:slash, rendered}}, state}
-    else
-      {:error, render_reason} ->
-        state = clear_live_status(state)
+    state = clear_live_status(state)
+    :ok = emit_rendered(rendered, state)
 
-        Logger.debug(
-          "tui slash unavailable render failed: #{inspect(Redactor.redact(render_reason))}"
-        )
-
-        {{:error, render_reason}, state}
-    end
+    {{:ok, {:slash, rendered}}, state}
   end
 
   defp slash_context(text, state) do
