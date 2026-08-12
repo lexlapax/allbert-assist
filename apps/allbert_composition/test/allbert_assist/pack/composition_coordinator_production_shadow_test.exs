@@ -32,8 +32,14 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   # reach the candidate through the pack rather than through the residual. The
   # candidate legitimately changed; no contribution was added or removed, only
   # re-attributed to the application that owns it.
-  @expected_behavior_digest "04eb89b609acb80a4395cfdd01760f9af2b137b9ab96327fdd61cc3b4080c1d2"
-  @expected_bytes_sha256 "44a05fd47455b54093e0d22a0204a6aee1a8a8aa1e4b73e4aa71e4450be7a70b"
+  # v1.4 M12 re-froze this digest. Telegram and email became umbrella siblings,
+  # so the closed projection carries five rows instead of three and each pack's
+  # contributions -- its gate owner lane, its settings fragment owner, and the
+  # CLI group it now declares through cli_groups/0 -- reach the candidate through
+  # the pack rather than through the residual. As at M9, no contribution was
+  # added or removed, only re-attributed to the application that owns it.
+  @expected_behavior_digest "2046202bfaa3e1bf65240d43d22d82bf810660439ca3a748d9720eb0f8473a00"
+  @expected_bytes_sha256 "223e969e6fe89f6d187aacc974c1022cbd35c28acc2e386954af3185d6383f65"
 
   defmodule AppMetadataSupervisor do
     use GenServer

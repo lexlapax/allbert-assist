@@ -30,11 +30,15 @@ defmodule AllbertAssist.Pack.ApplicationBoundaryTest do
 
     # Order follows the R0 frozen DAG: kernel and residual first, then each
     # extracted pack, then the composition host, then Web. v1.4 M9 added
-    # allbert_notes_files as the first pack to leave plugins/.
+    # allbert_notes_files as the first pack to leave plugins/; M12 added telegram
+    # and email, which take registry_order 300 and 400 and sit between it and the
+    # host for the same reason.
     assert applications == [
              allbert_kernel: :permanent,
              allbert_assist: :permanent,
              allbert_notes_files: :permanent,
+             allbert_telegram: :permanent,
+             allbert_email: :permanent,
              allbert_composition: :permanent,
              allbert_assist_web: :permanent
            ]

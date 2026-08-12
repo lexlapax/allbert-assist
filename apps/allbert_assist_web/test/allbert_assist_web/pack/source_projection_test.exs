@@ -13,7 +13,9 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
     :allbert_assist,
     :allbert_composition,
     :allbert_assist_web,
-    :allbert_notes_files
+    :allbert_notes_files,
+    :allbert_telegram,
+    :allbert_email
   ]
   @repo_root Path.expand("../../../../..", __DIR__)
 
@@ -51,9 +53,19 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
              allbert_kernel: MapSet.new(),
              allbert_assist: MapSet.new([:allbert_kernel]),
              allbert_composition:
-               MapSet.new([:allbert_kernel, :allbert_assist, :allbert_notes_files]),
+               MapSet.new([
+                 :allbert_kernel,
+                 :allbert_assist,
+                 :allbert_notes_files,
+                 :allbert_telegram,
+                 :allbert_email
+               ]),
              allbert_assist_web: MapSet.new([:allbert_composition, :allbert_assist]),
-             allbert_notes_files: MapSet.new([:allbert_kernel, :allbert_assist])
+             allbert_notes_files: MapSet.new([:allbert_kernel, :allbert_assist]),
+             # Both M12 packs take the same two direct dependencies notes_files
+             # does. Composition depends on them; they depend on nothing above.
+             allbert_telegram: MapSet.new([:allbert_kernel, :allbert_assist]),
+             allbert_email: MapSet.new([:allbert_kernel, :allbert_assist])
            }
 
     release = %ReleaseSpec{
@@ -79,7 +91,9 @@ defmodule AllbertAssist.Pack.SourceProjectionTest do
     assert Enum.map(projection, &{&1.application, &1.registry_order}) == [
              {:allbert_kernel, 0},
              {:allbert_assist, 100},
-             {:allbert_notes_files, 200}
+             {:allbert_notes_files, 200},
+             {:allbert_telegram, 300},
+             {:allbert_email, 400}
            ]
   end
 end
