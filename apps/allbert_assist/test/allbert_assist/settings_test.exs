@@ -2340,29 +2340,38 @@ defmodule AllbertAssist.SettingsTest do
              )
   end
 
+  # These two use a FICTIONAL channel. They used to borrow discord's and slack's
+  # ids, which worked while a channel plugin was contributed by the registries
+  # and so was absent from an isolated context. v1.4 M13 made every channel a
+  # pack: pack fragments compose from the closed projection, so the real
+  # `plugin:allbert.discord` is present in every composition, and registering a
+  # synthetic one with the same id raised `duplicate_settings_fragment_id` while
+  # `channels.discord.enabled` became safe-write no matter what the test
+  # registered. The ownership rules under test never depended on the channel
+  # being a real one.
   test "trusted source-tree channel plugins may own their channel settings subtree" do
     registry_context = RegistryIsolationFixtures.start_isolated_registries(:channel_settings)
 
-    assert "allbert.discord" ==
+    assert "allbert.acme" ==
              RegistryIsolationFixtures.register_plugin!(
                registry_context,
-               channel_settings_plugin("allbert.discord", "discord")
+               channel_settings_plugin("allbert.acme", "acme")
              )
 
     use_registry_context!(registry_context)
 
-    assert {:ok, false} = Settings.get("channels.discord.enabled")
-    assert {:ok, "[REDACTED]"} = Settings.get("channels.discord.bot_token_ref")
-    assert "channels.discord.enabled" in Settings.safe_write_keys()
+    assert {:ok, false} = Settings.get("channels.acme.enabled")
+    assert {:ok, "[REDACTED]"} = Settings.get("channels.acme.bot_token_ref")
+    assert "channels.acme.enabled" in Settings.safe_write_keys()
 
-    assert {:ok, plugin_fragment} = Fragments.fragment_for_key("channels.discord.enabled")
-    assert plugin_fragment.id == "plugin:allbert.discord"
+    assert {:ok, plugin_fragment} = Fragments.fragment_for_key("channels.acme.enabled")
+    assert plugin_fragment.id == "plugin:allbert.acme"
     assert plugin_fragment.source == :plugin
-    assert "channels.discord.enabled" in plugin_fragment.safe_write_keys
+    assert "channels.acme.enabled" in plugin_fragment.safe_write_keys
 
     assert {:ok, resolved} =
              Settings.put(
-               "channels.discord.enabled",
+               "channels.acme.enabled",
                true,
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
@@ -2371,8 +2380,8 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:ok, token_ref} =
              Settings.put(
-               "channels.discord.bot_token_ref",
-               "secret://channels/discord/bot_token",
+               "channels.acme.bot_token_ref",
+               "secret://channels/acme/bot_token",
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
@@ -2383,13 +2392,13 @@ defmodule AllbertAssist.SettingsTest do
     cross_provider_context =
       RegistryIsolationFixtures.start_isolated_registries(:cross_provider_settings)
 
-    assert "allbert.slack" ==
+    assert "allbert.acme" ==
              RegistryIsolationFixtures.register_plugin!(
                cross_provider_context,
-               channel_settings_plugin("allbert.slack", "slack",
+               channel_settings_plugin("allbert.acme", "acme",
                  settings_schema: [
                    %{
-                     key: "channels.discord.enabled",
+                     key: "channels.zeta.enabled",
                      type: :boolean,
                      default: false,
                      writable?: true,
@@ -2401,21 +2410,21 @@ defmodule AllbertAssist.SettingsTest do
 
     use_registry_context!(cross_provider_context)
 
-    refute Settings.safe_write_key?("channels.discord.enabled")
+    refute Settings.safe_write_key?("channels.zeta.enabled")
 
-    assert {:error, {:unknown_setting, "channels.discord.enabled"}} =
+    assert {:error, {:unknown_setting, "channels.zeta.enabled"}} =
              Settings.put(
-               "channels.discord.enabled",
+               "channels.zeta.enabled",
                true,
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     home_context = RegistryIsolationFixtures.start_isolated_registries(:home_channel_settings)
 
-    assert "home.discord" ==
+    assert "home.acme" ==
              RegistryIsolationFixtures.register_plugin!(
                home_context,
-               channel_settings_plugin("home.discord", "discord",
+               channel_settings_plugin("home.acme", "acme",
                  source: :home,
                  trust_status: :pending
                )
@@ -2423,11 +2432,11 @@ defmodule AllbertAssist.SettingsTest do
 
     use_registry_context!(home_context)
 
-    refute Settings.safe_write_key?("channels.discord.enabled")
+    refute Settings.safe_write_key?("channels.acme.enabled")
 
-    assert {:error, {:unknown_setting, "channels.discord.enabled"}} =
+    assert {:error, {:unknown_setting, "channels.acme.enabled"}} =
              Settings.put(
-               "channels.discord.enabled",
+               "channels.acme.enabled",
                true,
                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
@@ -2505,7 +2514,17 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "research plugin settings schema resolves defaults and invariants" do
-    assert AllbertResearch.Plugin.settings_schema() == ResearchSettingsFragment.schema()
+    # v1.4 M13 moved settings ownership from the plugin path to the pack's
+    # FragmentOwner; declaring the schema in both places composes the same
+    # fragment id twice and fails with :duplicate_settings_fragment_id, so the
+    # plugin deliberately returns []. What the assertion was protecting is that
+    # the schema itself did NOT move and is still defined exactly once, so that
+    # is asserted directly against the owner that now carries it.
+    assert AllbertResearch.Plugin.settings_schema() == []
+    assert AllbertResearch.Pack.settings_fragments() == [AllbertResearch.SettingsFragment]
+
+    assert AllbertResearch.SettingsFragment.fragment().schema |> Map.keys() |> Enum.sort() ==
+             ResearchSettingsFragment.schema() |> Enum.map(& &1.key) |> Enum.sort()
 
     assert {:ok, false} = Settings.get("research.enabled")
     assert {:ok, 1} = Settings.get("research.schema_version")

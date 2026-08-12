@@ -3,10 +3,15 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
 
   @moduletag :external_runtime_serial
 
-  alias AllbertAssist.Channels.{Discord, Matrix, Signal, Slack, WhatsApp}
-  # Telegram left the AllbertAssist.Channels namespace at v1.4 M12.
+  # Every channel left the AllbertAssist.Channels namespace with its pack:
+  # telegram at v1.4 M12, the rest at M13.
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertDiscord
+  alias AllbertMatrix
+  alias AllbertSignal
+  alias AllbertSlack
   alias AllbertTelegram
+  alias AllbertWhatsApp
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -46,7 +51,7 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
 
   defp invoke_all(opts, expected_reason) do
     assert {:error, ^expected_reason} =
-             Signal.Client.send_message(
+             AllbertSignal.Client.send_message(
                "+15551234567",
                "+15550001111",
                "blocked",
@@ -61,13 +66,13 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
              )
 
     assert {:error, ^expected_reason} =
-             Slack.Client.auth_test(
+             AllbertSlack.Client.auth_test(
                "secret://channels/slack/missing",
                Keyword.merge([mode: :real, plug: {Req.Test, __MODULE__}], opts)
              )
 
     assert {:error, ^expected_reason} =
-             Matrix.Client.sync(
+             AllbertMatrix.Client.sync(
                "https://matrix.example.com",
                "matrix-token",
                nil,
@@ -76,13 +81,13 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
              )
 
     assert {:error, ^expected_reason} =
-             Discord.Client.users_me(
+             AllbertDiscord.Client.users_me(
                "secret://channels/discord/missing",
                Keyword.merge([mode: :real, plug: {Req.Test, __MODULE__}], opts)
              )
 
     assert {:error, ^expected_reason} =
-             WhatsApp.Client.phone_number(
+             AllbertWhatsApp.Client.phone_number(
                "whatsapp-token",
                "15551234567",
                Keyword.merge([mode: :real, plug: {Req.Test, __MODULE__}], opts)

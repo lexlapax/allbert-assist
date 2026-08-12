@@ -88,10 +88,18 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
         step when is_function(step, 1) -> step |> Function.info(:name) |> elem(1)
       end)
 
+    # v1.4 M13 retired :stage_plugins -- every plugin is an OTP application, so
+    # the release generator assembles what staging used to copy by hand. The two
+    # steps that replaced it are the parts staging did that assembly does not:
+    # pruning the browser bridge's node_modules and asserting the external
+    # browser boundary. Both are still payload mutations, and what this test
+    # exists to hold is that all of them precede :finalize_license_evidence,
+    # which seals the evidence over the final bytes.
     assert steps == [
              :build_web_assets,
              :assemble,
-             :stage_plugins,
+             :prune_browser_bridge_node_modules,
+             :assert_external_browser_boundary,
              :patch_macos_openssl,
              :patch_linux_sctp,
              :install_dispatcher,

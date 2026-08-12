@@ -478,7 +478,7 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the browser runtime boundary accepts bridge source without external runtimes" do
     release_root = temp_release_root("external-browser-runtime")
-    bridge = Path.join(release_root, "apps/allbert_browser/priv/playwright_bridge")
+    bridge = browser_bridge_dir(release_root)
     File.mkdir_p!(bridge)
     File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
     File.write!(Path.join(bridge, "package.json"), ~s({"dependencies":{"playwright":"1.58.2"}}))
@@ -492,7 +492,7 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the browser runtime boundary rejects bundled Node packages and browsers" do
     release_root = temp_release_root("bundled-browser-runtime")
-    bridge = Path.join(release_root, "apps/allbert_browser/priv/playwright_bridge")
+    bridge = browser_bridge_dir(release_root)
     File.mkdir_p!(bridge)
     File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
     File.write!(Path.join(bridge, "package.json"), ~s({"dependencies":{"playwright":"1.58.2"}}))
@@ -516,14 +516,19 @@ defmodule AllbertAssist.InstallPathTest do
 
     refute mix =~ "&build_browser_payload/1"
     refute mix =~ ~s|["install", "chromium"]|
-    assert mix =~ "copy_runtime_tree_without!"
-    assert mix =~ ~s|"playwright_bridge", "node_modules"|
+    # v1.4 M13 retired stage_plugins, and `copy_runtime_tree_without!` went with
+    # it: excluding the node_modules tree was a plugin-id special case inside the
+    # staging copy. The browser is an OTP application now, so its priv is
+    # assembled by the release generator and the tree is pruned afterwards by its
+    # own step. Same guarantee, named where it now lives.
+    assert mix =~ "&prune_browser_bridge_node_modules/1"
+    assert mix =~ "playwright_bridge/node_modules"
     assert mix =~ "browser_runtime_boundary_smoke.sh"
   end
 
   test "the browser runtime boundary rejects staged host executables" do
     release_root = temp_release_root("bundled-browser-executable")
-    bridge = Path.join(release_root, "apps/allbert_browser/priv/playwright_bridge")
+    bridge = browser_bridge_dir(release_root)
     executable = Path.join(release_root, "host-runtime/chromium")
     File.mkdir_p!(bridge)
     File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
@@ -624,5 +629,18 @@ defmodule AllbertAssist.InstallPathTest do
     File.mkdir_p!(path)
     on_exit(fn -> File.rm_rf!(path) end)
     path
+  end
+
+  # The bridge's location in an EXTRACTED RELEASE, which is what the boundary
+  # smoke takes as its argument. These fixtures used to build
+  # `plugins/allbert.browser/priv/playwright_bridge`, and v1.4 M13 rewrote that
+  # to `apps/allbert_browser/...` -- a source-tree path no release has, so the
+  # smoke correctly reported a missing bridge against every fixture. An OTP
+  # application's priv ships under `lib/<app>-<vsn>/priv`. The version here is
+  # arbitrary: the smoke globs `allbert_browser-*` precisely so it survives
+  # version bumps, and pinning the real one here would couple these fixtures to
+  # the release version for no gain.
+  defp browser_bridge_dir(release_root) do
+    Path.join(release_root, "lib/allbert_browser-0.0.0/priv/playwright_bridge")
   end
 end
