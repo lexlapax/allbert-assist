@@ -5,8 +5,8 @@
     "explicit_server_parity_sha256": "69eba632ad70ef8dd9d140a736b7e9e435257cfe6b31e7f287c4c0f5493d76d2",
     "extensions_sha256": "ef2712b3759c92727c5596e2f68a52c9032d9dc40b88361610fa950bcbf7a4c5",
     "isolated_mutation_diagnostics_sha256": "23c8634086c1afa0d50adf317d715587da72cca699c9c157f87dda52d57ef428",
-    "payload_sha256": "08a7719406c1a5f5bd233c3a0254b22dee39f25db7f8518fbf15cca84cdc5416",
-    "plugins_sha256": "b6b5db55888c8741ad981275a9baceed1398c5e28ac2fea737c70066555eaebb",
+    "payload_sha256": "e86e805c0ee1441728282a9fe540d63cd59cc36ad9d3f532479abfac49932560",
+    "plugins_sha256": "ac7d4581ea77e0591fbb87b9f2e1945b59b4a3bb70c03fe777939597b758ea3d",
     "settings_sha256": "2f1ac6a742e86c1f64df40447f3dff80ed4a8e02f64ddf95b86158964946510d"
   },
   "normalization": "v14_m0_registry_ledger_v1",
@@ -38305,7 +38305,17 @@
           "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_signal/priv/allbert_plugin.json",
           "module": "AllbertSignal.Plugin",
           "plugin_id": "allbert.signal",
-          "release_availability": [],
+          "release_availability": [
+            {
+              "decision": "Implemented in v0.53 as a signal-cli JSON-RPC bridge, but not released for live channel use. v0.53 live validation was deferred because Signal requires operator-managed daemon/link-device onboarding; future advanced-bridge onboarding is parked in future-features.",
+              "decision_ref": "docs/plans/v0.53-plan.md",
+              "future_features_ref": "docs/plans/future-features.md",
+              "id": "signal",
+              "kind": "channel",
+              "live_use_allowed?": false,
+              "release_status": "implemented_not_released"
+            }
+          ],
           "root_path": "<REPO_ROOT>/_build/test/lib/allbert_signal/priv",
           "settings_keys": [],
           "skill_paths": [],
@@ -38599,7 +38609,17 @@
           "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_whatsapp/priv/allbert_plugin.json",
           "module": "AllbertWhatsApp.Plugin",
           "plugin_id": "allbert.whatsapp",
-          "release_availability": [],
+          "release_availability": [
+            {
+              "decision": "Implemented in v0.53 as the WhatsApp Cloud API adapter, but not released for live channel use. v0.53 live validation was provider-blocked by Meta setup/object/registration failures; future WhatsApp Cloud API or WhatsApp Web/Baileys onboarding is parked in future-features.",
+              "decision_ref": "docs/plans/v0.53-plan.md",
+              "future_features_ref": "docs/plans/future-features.md",
+              "id": "whatsapp",
+              "kind": "channel",
+              "live_use_allowed?": false,
+              "release_status": "implemented_not_released"
+            }
+          ],
           "root_path": "<REPO_ROOT>/_build/test/lib/allbert_whatsapp/priv",
           "settings_keys": [],
           "skill_paths": [],
@@ -49403,7 +49423,7 @@
         "milestone": "M13",
         "payload_sha256": "b572065b01a489f0693af322ed1e9ae32d6c03fa8b1c026ca50b60b4066b6889",
         "reason": "the last ten plugins extracted to their own applications, plugins/ is now empty, and the isolated-mutation registration subject moved onto the gate-owned V14M0LedgerPlugin because no residual-compiled plugin remained to borrow",
-        "refrozen_at_sha": "52ad02473a43527058e08f93265a2ba8d2944ed2"
+        "refrozen_at_sha": "cfda1ae7489bef6382080e30c8bee6372a12c1e4"
       }
     ]
   },
