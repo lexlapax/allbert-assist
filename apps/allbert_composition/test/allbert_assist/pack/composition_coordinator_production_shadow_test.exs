@@ -44,8 +44,16 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   # -- for the seven channels -- an effect subtree it supervises itself. As at M9
   # and M12, no contribution was added or removed, only re-attributed to the
   # application that owns it.
-  @expected_behavior_digest "54b857368f86459639693cdcc1879f65866c318061d34a4df780e034aa21ed79"
-  @expected_bytes_sha256 "5b3f5d5a44b0917bad16e938cf006cb164386e68d0727ce09c01eb59880d99a1"
+  # v1.4 M13.1 re-froze this digest, and unlike M9, M12 and M13 this one IS a
+  # removal. Those three re-attributed contributions between applications; this
+  # takes one out. The M0 ledger's registration subject implemented the Plugin
+  # behaviour, which was the whole test the compiled inventory applied, so a gate
+  # fixture was counted as a fourteenth shipped plugin and reached the candidate
+  # through the shipped-registry fixture. `AllbertAssist.Plugin.product?/0` now
+  # declares product membership and the subject declares false, so the candidate
+  # binds the thirteen real packs. Nothing the product ships changed.
+  @expected_behavior_digest "c4b79f1aa819cd3847c075a83475f9e739b36eb7b5489acfaece01cb6505ba97"
+  @expected_bytes_sha256 "3cc6b3871c164e97ffa30bc5ea564acfc12f6c2dbd1d4b51e2bfe9130c717879"
 
   defmodule AppMetadataSupervisor do
     use GenServer
