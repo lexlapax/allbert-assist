@@ -20,14 +20,14 @@ defmodule StockSageWeb.AnalysisLive do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory, as: AllbertMemory
-  alias AllbertAssist.{Confirmations, Objectives}
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.{Confirmations, Objectives}
+  alias AllbertAssistWeb.Surface.Renderer, as: SurfaceRenderer
   alias StockSage.Analyses
   alias StockSage.Memory, as: StockSageMemory
   alias StockSage.Progress
   alias StockSage.SurfaceNodes
   alias StockSageWeb.Components.AppShell
-  alias AllbertAssistWeb.Surface.Renderer, as: SurfaceRenderer
   alias StockSageWeb.Live
 
   @impl true

@@ -9,9 +9,9 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
 
   alias AllbertAssist.App.Registry.MetadataSnapshot, as: AppSnapshot
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
-  alias AllbertAssist.Pack.{ActionBinding, Row, RowSchemas, ValidationDiagnostic}
   alias AllbertAssist.Pack.CandidateBuilder.RowFamilies
   alias AllbertAssist.Pack.Projection.Closed
+  alias AllbertAssist.Pack.{ActionBinding, Row, RowSchemas, ValidationDiagnostic}
   alias AllbertAssist.Plugin.Registry.MetadataSnapshot, as: PluginSnapshot
   alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 

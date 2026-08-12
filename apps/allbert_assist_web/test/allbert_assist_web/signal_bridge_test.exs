@@ -7,10 +7,10 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
   alias AllbertAssist.Signals
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.Guard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssistWeb.SignalBridge
   alias Jido.Signal
 

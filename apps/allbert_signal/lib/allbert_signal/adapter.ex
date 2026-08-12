@@ -9,14 +9,14 @@ defmodule AllbertSignal.Adapter do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
-  alias AllbertSignal.Client
-  alias AllbertSignal.Daemon
-  alias AllbertSignal.Parser
-  alias AllbertSignal.Renderer
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertSignal.Client
+  alias AllbertSignal.Daemon
+  alias AllbertSignal.Parser
+  alias AllbertSignal.Renderer
 
   @provider "signal_cli_jsonrpc"
   @trust_class :e2ee_origin

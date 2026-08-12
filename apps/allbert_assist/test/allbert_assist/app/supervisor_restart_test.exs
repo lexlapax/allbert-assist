@@ -1,13 +1,13 @@
 defmodule AllbertAssist.App.SupervisorRestartTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.App.Registry
   alias AllbertAssist.App.Bootstrap
+  alias AllbertAssist.App.Registry
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Pack.Readiness
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Pack.Readiness
   alias AllbertAssist.Session
 
   defmodule ValidApp do

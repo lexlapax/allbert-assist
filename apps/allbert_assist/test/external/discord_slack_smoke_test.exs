@@ -7,14 +7,14 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
                  "set ALLBERT_DISCORD_SLACK_EXTERNAL_SMOKE=1 to run the real Discord/Slack channel delivery smoke"
   end
 
-  alias AllbertDiscord.Client, as: DiscordClient
-  alias AllbertSlack.Client, as: SlackClient
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertDiscord.Client, as: DiscordClient
+  alias AllbertSlack.Client, as: SlackClient
   alias Ecto.Adapters.SQL.Sandbox
 
   # Per-provider required env. Only the targeted providers

@@ -3,10 +3,10 @@ defmodule AllbertAssist.Pack.RegistryTest do
 
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Pack.{ActionBinding, Compatibility, Contribution, Order}
-  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
   alias AllbertAssist.Pack.Registry
   alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
+  alias AllbertAssist.Pack.{ActionBinding, Compatibility, Contribution, Order}
+  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
 
   defmodule SlowServer do
     use GenServer

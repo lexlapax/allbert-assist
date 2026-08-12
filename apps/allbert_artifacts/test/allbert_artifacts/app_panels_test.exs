@@ -1,13 +1,13 @@
 defmodule AllbertArtifacts.AppPanelsTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertArtifacts.App
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Artifacts.MetadataIndex
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
-  alias AllbertArtifacts.App
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
 

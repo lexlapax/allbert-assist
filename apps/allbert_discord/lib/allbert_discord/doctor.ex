@@ -2,10 +2,10 @@ defmodule AllbertDiscord.Doctor do
   @moduledoc false
 
   alias AllbertAssist.Channels
-  alias AllbertDiscord.Adapter
-  alias AllbertDiscord.Client
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.Secrets
+  alias AllbertDiscord.Adapter
+  alias AllbertDiscord.Client
 
   @state_path Path.join(["channels", "discord", "doctor", "state.json"])
   # Privileged intent required to read inbound message text; without it the

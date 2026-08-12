@@ -33,9 +33,9 @@ defmodule AllbertWhatsApp.CLI do
 
   import Ecto.Query
 
-  alias AllbertAssist.Channels
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.CLI.Channels.Support
+  alias AllbertAssist.Channels
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Surfaces.ContextBuilder

@@ -4,15 +4,15 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   import ExUnit.CaptureLog
 
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Multiply
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
-  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures

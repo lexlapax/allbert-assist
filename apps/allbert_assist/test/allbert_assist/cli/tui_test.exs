@@ -2,13 +2,13 @@ defmodule AllbertAssist.CLI.TuiTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
-  alias AllbertTUI.InputDriver
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.SecurityFixtures.AssertBinding
+  alias AllbertTUI.InputDriver
 
   @terminal %{columns: 100, rows: 30, color: :ansi256, unicode?: true}
 

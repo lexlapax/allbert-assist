@@ -15,8 +15,8 @@ defmodule Mix.Tasks.Allbert.Tui do
 
   use Mix.Task
 
-  alias AllbertTUI.InputDriver
   alias AllbertAssist.CLI.Tui, as: ReleaseTui
+  alias AllbertTUI.InputDriver
 
   @shortdoc "Run the local Allbert terminal TUI"
 

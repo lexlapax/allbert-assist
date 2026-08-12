@@ -11,9 +11,9 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.ObservationSummary
-  alias AllbertAssist.Objectives.Runs.{CancelToken, Worker}
   alias AllbertAssist.Objectives.Runs.Worker.JidoAdapter
   alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+  alias AllbertAssist.Objectives.Runs.{CancelToken, Worker}
 
   defmodule GenerationAnswerer do
     def answer(text, context) do

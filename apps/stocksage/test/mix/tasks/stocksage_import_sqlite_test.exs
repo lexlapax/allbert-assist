@@ -4,9 +4,9 @@ defmodule Mix.Tasks.Stocksage.ImportSqliteTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Settings
+  alias Mix.Tasks.Stocksage.ImportSqlite, as: ImportTask
   alias StockSage.Analyses
   alias StockSage.LegacyFixture
-  alias Mix.Tasks.Stocksage.ImportSqlite, as: ImportTask
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)

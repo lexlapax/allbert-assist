@@ -11,14 +11,14 @@ defmodule AllbertWhatsApp.Adapter do
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.NotifyConsentCallback
-  alias AllbertWhatsApp.Client
-  alias AllbertWhatsApp.Parser
-  alias AllbertWhatsApp.Renderer
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings.Secrets
+  alias AllbertWhatsApp.Client
+  alias AllbertWhatsApp.Parser
+  alias AllbertWhatsApp.Renderer
 
   @provider "whatsapp_cloud_api"
   @redacted_phone "[REDACTED_PHONE]"

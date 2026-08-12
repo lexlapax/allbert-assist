@@ -8,8 +8,8 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
   credentials, audio, provider bodies, or file paths.
   """
 
-  alias AllbertAssist.Settings.Vault
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Settings.Vault
   alias AllbertAssist.Voice.LocalRuntime.Auth
 
   @metadata_hosts ~w[metadata.google.internal metadata 169.254.169.254]

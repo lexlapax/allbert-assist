@@ -23,8 +23,8 @@ defmodule AllbertAssist.DevGates.GateOwners do
 
   @aggregate_policies [:mix_test, :allbert_test_raw]
 
-  alias AllbertAssist.Pack.{Projection, Row, RowSchemas}
   alias AllbertAssist.Pack.RowSchemas.Input
+  alias AllbertAssist.Pack.{Projection, Row, RowSchemas}
 
   @spec load!(String.t(), keyword()) :: [map()]
   def load!(repository_root, opts \\ []) when is_binary(repository_root) do

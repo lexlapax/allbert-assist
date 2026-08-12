@@ -17,8 +17,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   alias AllbertAssist.Settings.Helpers, as: SettingsHelpers
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Theme.Status, as: ThemeStatus
-  alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @default_key "operator.communication_style"
 

@@ -23,10 +23,10 @@ defmodule AllbertSignal.Actions.LinkDevice do
     ]
 
   alias AllbertAssist.Channels
-  alias AllbertSignal.Client
-  alias AllbertSignal.Daemon
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security
+  alias AllbertSignal.Client
+  alias AllbertSignal.Daemon
 
   @impl true
   def run(%{account: account} = params, context) when is_binary(account) do

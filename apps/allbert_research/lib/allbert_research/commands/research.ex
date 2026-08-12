@@ -5,8 +5,8 @@ defmodule AllbertResearch.Commands.Research do
     name: "allbert_research_research",
     description: "Run bounded delegated browser research."
 
-  alias AllbertResearch.Research
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertResearch.Research
 
   @impl true
   def run(params, context) do

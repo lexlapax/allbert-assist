@@ -19,9 +19,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   alias AllbertAssist.Onboarding.ProviderStep
   alias AllbertAssist.Personas
   alias AllbertAssist.Settings
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: PanelSupport
   alias AllbertAssistWeb.Workspace.Components.Patterns
-  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
 
   @local_user_id "local"
 

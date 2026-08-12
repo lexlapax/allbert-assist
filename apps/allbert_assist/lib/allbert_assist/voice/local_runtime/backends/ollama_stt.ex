@@ -7,9 +7,9 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
   redaction, and the OpenAI-compatible surface stay consistent.
   """
 
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Voice.LocalRuntime.Config
   alias AllbertAssist.Voice.TranscriptResponse
-  alias AllbertAssist.Pack.EffectGuard
 
   @spec doctor(Config.t()) :: map()
   def doctor(config) do

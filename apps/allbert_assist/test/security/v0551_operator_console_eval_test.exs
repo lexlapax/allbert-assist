@@ -6,8 +6,6 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Event
-  alias AllbertTUI.Adapter, as: TUIAdapter
-  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Paths
@@ -21,6 +19,8 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertTUI.Adapter, as: TUIAdapter
+  alias AllbertTUI.SlashCommands
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
 
   @operator_action_names [

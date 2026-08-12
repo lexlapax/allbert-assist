@@ -3,8 +3,8 @@ defmodule Mix.Tasks.Stocksage.QueueTest do
 
   import ExUnit.CaptureIO
 
-  alias Mix.Tasks.Stocksage.Queue, as: QueueTask
   alias AllbertAssist.Settings
+  alias Mix.Tasks.Stocksage.Queue, as: QueueTask
   alias StockSage.Queue
 
   setup do

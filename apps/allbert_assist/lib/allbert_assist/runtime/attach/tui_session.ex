@@ -414,7 +414,19 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
     end
   end
 
-  defp ensure_pack_module(module) when is_atom(module) and not is_nil(module), do: {:ok, module}
+  # Checks loadability, not merely that a non-nil atom arrived. The descriptor
+  # resolves to a module name, and dialyzer can prove that name is always a
+  # non-nil atom -- so an is_atom/not-nil guard has an unreachable second clause
+  # and proves nothing. What can actually fail at runtime is the pack's module
+  # being absent from the code path, which is the condition worth failing on.
+  defp ensure_pack_module(module) when is_atom(module) do
+    if Code.ensure_loaded?(module) do
+      {:ok, module}
+    else
+      {:error, :tui_pack_module_unavailable}
+    end
+  end
+
   defp ensure_pack_module(_invalid), do: {:error, :tui_pack_module_unavailable}
 
   # The terminal process cannot read Settings Central without becoming a

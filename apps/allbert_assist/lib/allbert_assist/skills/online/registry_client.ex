@@ -6,8 +6,8 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
   page fallback. It never shells out to `npx`, `git`, or package managers.
   """
 
-  alias AllbertAssist.Skills.Online.Source
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Skills.Online.Source
 
   def search(source, query, context \\ %{})
 

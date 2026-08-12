@@ -24,8 +24,8 @@ defmodule AllbertBrowser.Actions.StartSession do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Settings
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Settings
   alias AllbertBrowser.{Actions, Doctor, Session}
 
   @impl true

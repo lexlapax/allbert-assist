@@ -17,9 +17,9 @@ defmodule StockSage.Agents.Commands.Execute do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias StockSage.Agents
-  alias StockSage.Evidence
   alias StockSage.Agents.LLM
   alias StockSage.Agents.ModelProfile
+  alias StockSage.Evidence
 
   @impl true
   def run(params, context) do

@@ -2,13 +2,13 @@ defmodule AllbertAssist.Plugin.RegistryTest do
   use ExUnit.Case, async: false
   @moduletag :home_fs_serial
 
+  alias AllbertAssist.Pack.Readiness
   alias AllbertAssist.Plugin.Bootstrap
   alias AllbertAssist.Plugin.ChildSupervisor
   alias AllbertAssist.Plugin.Discovery
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Registry
   alias AllbertAssist.Plugin.Registry.{MetadataEntry, MetadataSnapshot}
-  alias AllbertAssist.Pack.Readiness
 
   defmodule ValidPlugin do
     use AllbertAssist.Plugin

@@ -5,9 +5,9 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
   alias AllbertAssistWeb.Workspace.Components.Base
   alias AllbertAssistWeb.Workspace.Components.Patterns
-  alias AllbertAssistWeb.PackReadiness.Component, as: ReadinessComponent
 
   @impl true
   def mount(socket), do: ReadinessComponent.mount(socket)

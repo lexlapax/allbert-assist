@@ -3,13 +3,13 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertWhatsApp.Actions.Doctor
   alias AllbertAssist.Actions.Runner
-  alias AllbertWhatsApp.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertWhatsApp.Actions.Doctor
+  alias AllbertWhatsApp.Doctor
 
   setup {Req.Test, :verify_on_exit!}
 

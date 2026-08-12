@@ -2,10 +2,10 @@ defmodule AllbertMatrix.Doctor do
   @moduledoc false
 
   alias AllbertAssist.Channels
-  alias AllbertMatrix.Adapter
-  alias AllbertMatrix.Client
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.Secrets
+  alias AllbertMatrix.Adapter
+  alias AllbertMatrix.Client
 
   @state_path Path.join(["channels", "matrix", "doctor", "state.json"])
 

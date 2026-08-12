@@ -1,8 +1,8 @@
 defmodule AllbertSignal.Client do
   @moduledoc false
 
-  alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Settings.Secrets
 
   @default_receive_timeout 10_000
 

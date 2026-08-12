@@ -3,8 +3,8 @@ defmodule AllbertAssist.Plugin.SupervisorRestartTest do
 
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Plugin.Registry
   alias AllbertAssist.Plugin.Bootstrap
+  alias AllbertAssist.Plugin.Registry
 
   defmodule MetadataPlugin do
     use AllbertAssist.Plugin

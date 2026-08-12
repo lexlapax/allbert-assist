@@ -8,9 +8,9 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
-  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Jobs.Scheduler
   alias AllbertAssist.Memory
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime

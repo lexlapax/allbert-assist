@@ -5,7 +5,6 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
-  alias AllbertTUI.Adapter
   alias AllbertAssist.Health
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Paths
@@ -17,6 +16,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
+  alias AllbertTUI.Adapter
   alias __MODULE__.ReadyInputReceipt, as: InputReceipt
 
   defmodule ReadyInputReceipt do

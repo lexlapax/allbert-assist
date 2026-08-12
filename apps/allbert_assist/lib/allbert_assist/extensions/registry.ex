@@ -8,8 +8,8 @@ defmodule AllbertAssist.Extensions.Registry do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Pack.ActionProjection
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Pack.ActionProjection
   alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.RegistryContext

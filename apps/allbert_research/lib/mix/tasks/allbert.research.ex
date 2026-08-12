@@ -10,8 +10,8 @@ defmodule Mix.Tasks.Allbert.Research do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Objectives.AgentRegistry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertResearch.DelegateObjective
 

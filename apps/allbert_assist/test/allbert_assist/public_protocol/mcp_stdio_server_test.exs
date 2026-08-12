@@ -4,8 +4,8 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.Paths
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
   alias AllbertAssist.PublicProtocol.Mcp.Runtime
   alias AllbertAssist.PublicProtocol.Mcp.Server

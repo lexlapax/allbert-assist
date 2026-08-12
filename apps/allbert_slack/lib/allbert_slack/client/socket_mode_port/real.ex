@@ -5,8 +5,8 @@ defmodule AllbertSlack.Client.SocketModePort.Real do
 
   require Logger
 
-  alias AllbertSlack.Client
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertSlack.Client
 
   @behaviour AllbertSlack.Client.SocketModePort
 

@@ -364,11 +364,11 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   require Logger
 
+  alias AllbertAssist.CLI
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.Runtime.Attach.TUISession
-  alias AllbertAssist.Pack.EffectGuard
-  alias AllbertAssist.CLI
 
   @accept_timeout 1_000
   @recv_timeout 5_000

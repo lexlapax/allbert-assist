@@ -8,8 +8,8 @@ defmodule StockSage.Evidence do
   """
 
   alias AllbertAssist.External.{HttpClient, RequestSpec}
-  alias AllbertAssist.Signals, as: AllbertSignals
   alias AllbertAssist.Settings
+  alias AllbertAssist.Signals, as: AllbertSignals
   alias StockSage.Actions
 
   @fixture_date "2026-05-15"

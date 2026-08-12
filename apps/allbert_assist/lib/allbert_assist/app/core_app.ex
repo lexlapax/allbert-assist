@@ -8,8 +8,8 @@ defmodule AllbertAssist.App.CoreApp do
   alias AllbertAssist.Marketplace.SurfaceProvider, as: MarketplaceSurfaceProvider
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
-  alias AllbertAssist.Workspace.{DiscoverySuggestions, McpIntegrationPanels}
   alias AllbertAssist.Workspace.PlanBuild.SurfaceProvider, as: PlanBuildSurfaceProvider
+  alias AllbertAssist.Workspace.{DiscoverySuggestions, McpIntegrationPanels}
 
   @impl true
   def app_id, do: :allbert

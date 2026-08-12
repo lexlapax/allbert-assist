@@ -2,11 +2,11 @@ defmodule AllbertSignal.Doctor do
   @moduledoc false
 
   alias AllbertAssist.Channels
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertSignal.Adapter
   alias AllbertSignal.Client
   alias AllbertSignal.Daemon
-  alias AllbertAssist.Paths
-  alias AllbertAssist.Runtime.Redactor
 
   @state_path Path.join(["channels", "signal", "doctor", "state.json"])
 

@@ -10,18 +10,18 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
   alias AllbertAssist.Objectives.CanonicalJSON
 
   alias AllbertAssist.Action
-  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DevGates.V14M0LedgerPlugin
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
+  alias AllbertAssist.Pack.Contracts.ActionsOverlay, as: OverlayContract
+  alias AllbertAssist.Pack.{ActionCatalog, ActionProjection}
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Pack.{ActionCatalog, ActionProjection}
-  alias AllbertAssist.Pack.Contracts.ActionsOverlay, as: OverlayContract
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings.Fragments
 

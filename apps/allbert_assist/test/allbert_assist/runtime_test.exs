@@ -6,8 +6,8 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Conversations
   alias AllbertAssist.Memory
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Session.Scratchpad

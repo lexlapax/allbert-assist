@@ -98,8 +98,8 @@ defmodule Mix.Tasks.Allbert.Test do
   alias AllbertAssist.CLI.Commands, as: CLICommands
   alias AllbertAssist.DevGates.CompatibilityProbe
   alias AllbertAssist.DevGates.FixtureRegistry
-  alias AllbertAssist.DevGates.GateOwners
   alias AllbertAssist.DevGates.GateBaseline
+  alias AllbertAssist.DevGates.GateOwners
   alias AllbertAssist.DevGates.PartitionPacker
   alias AllbertAssist.DevGates.PhaseRunner
   alias AllbertAssist.DevGates.Preflight

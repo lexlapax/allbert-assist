@@ -4,9 +4,6 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
-  alias AllbertMatrix.Parser, as: MatrixParser
-  alias AllbertSignal.Daemon, as: SignalDaemon
-  alias AllbertSignal.Parser, as: SignalParser
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
@@ -24,6 +21,9 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
   alias AllbertEmail.Parser, as: EmailParser
+  alias AllbertMatrix.Parser, as: MatrixParser
+  alias AllbertSignal.Daemon, as: SignalDaemon
+  alias AllbertSignal.Parser, as: SignalParser
   alias AllbertTelegram.Renderer, as: TelegramRenderer
 
   defmodule InvalidDescriptorPlugin do

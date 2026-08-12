@@ -8,8 +8,8 @@ defmodule AllbertBrowser.Session do
 
   use GenServer
 
-  alias AllbertAssist.Settings
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Settings
   alias AllbertBrowser.Driver
 
   defstruct [

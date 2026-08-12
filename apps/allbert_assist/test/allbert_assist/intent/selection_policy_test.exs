@@ -2,8 +2,8 @@ defmodule AllbertAssist.Intent.SelectionPolicyTest do
   use ExUnit.Case, async: false
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Intent.{Decision, Descriptor, SelectionPolicy}
   alias AllbertAssist.Intent.Router.DescriptorResolver
+  alias AllbertAssist.Intent.{Decision, Descriptor, SelectionPolicy}
 
   @quoted_preference_prompt "What day and time does this sentence say I prefer for Project Juniper status summaries? I prefer Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary. Answer in one sentence."
 

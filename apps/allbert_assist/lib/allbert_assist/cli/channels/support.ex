@@ -29,8 +29,8 @@ defmodule AllbertAssist.CLI.Channels.Support do
   """
 
   alias AllbertAssist.Actions.Helper, as: ActionHelper
-  alias AllbertAssist.Channels
   alias AllbertAssist.CLI.Areas.Render
+  alias AllbertAssist.Channels
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
 

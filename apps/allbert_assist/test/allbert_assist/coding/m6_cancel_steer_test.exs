@@ -1,18 +1,18 @@
 defmodule AllbertAssist.Coding.M6CancelSteerTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertTUI.Adapter
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertTUI.Adapter
+  alias AllbertTUI.Plugin, as: TUIPlugin
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

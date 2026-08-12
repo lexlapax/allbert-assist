@@ -152,8 +152,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
   end
 
   alias FanoutBoundary, as: Fanout
-  alias TerminalBoundary, as: TerminalTransitions
   alias ObjectiveBoundary, as: Objectives
+  alias TerminalBoundary, as: TerminalTransitions
 
   defmodule SameDigestReadiness do
     use GenServer

@@ -5,9 +5,8 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.Channels.Identity
-  alias AllbertTUI.IdentityBootstrap
   alias AllbertAssist.CLI.Tui
+  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.FirstRun.Enablement
   alias AllbertAssist.Paths
@@ -16,6 +15,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Store
+  alias AllbertTUI.IdentityBootstrap
 
   @ids ~w[
     v12-detect-no-egress-001

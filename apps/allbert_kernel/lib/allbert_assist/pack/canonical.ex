@@ -7,12 +7,12 @@ defmodule AllbertAssist.Pack.Canonical do
   authority bytes accidentally.
   """
 
+  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
+  alias AllbertAssist.Pack.RowSchemas.Input
   alias AllbertAssist.Pack.{ActionBinding, Compatibility, CompatibilityAlias}
   alias AllbertAssist.Pack.{ChildSpecProjection, CompatibilityDiagnostic, Contribution}
   alias AllbertAssist.Pack.{Descriptor, Order, Owner, OwnerRef, Row, RowSchemas, Target}
   alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
-  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
-  alias AllbertAssist.Pack.RowSchemas.Input
 
   @snapshot_domain "allbert.pack.snapshot.v1\0"
   @sha256_pattern ~r/\A[0-9a-f]{64}\z/

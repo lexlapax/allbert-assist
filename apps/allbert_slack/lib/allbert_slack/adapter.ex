@@ -10,14 +10,14 @@ defmodule AllbertSlack.Adapter do
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.NotifyConsentCallback
-  alias AllbertSlack.Client
-  alias AllbertSlack.Client.SocketModePort
-  alias AllbertSlack.Parser
-  alias AllbertSlack.Renderer
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertSlack.Client
+  alias AllbertSlack.Client.SocketModePort
+  alias AllbertSlack.Parser
+  alias AllbertSlack.Renderer
 
   @provider "slack_socket_mode"
 

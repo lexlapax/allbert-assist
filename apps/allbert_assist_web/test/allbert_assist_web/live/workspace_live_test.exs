@@ -13,11 +13,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Confirmations, Conversations, Objectives, Repo, Runtime, Session, Settings}
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertAssist.{Confirmations, Conversations, Objectives, Repo, Runtime, Session, Settings}
 
   @runtime_async_timeout 60_000
 

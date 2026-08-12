@@ -2,10 +2,10 @@ defmodule AllbertSlack.Doctor do
   @moduledoc false
 
   alias AllbertAssist.Channels
-  alias AllbertSlack.Adapter
-  alias AllbertSlack.Client
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.Secrets
+  alias AllbertSlack.Adapter
+  alias AllbertSlack.Client
 
   @state_path Path.join(["channels", "slack", "doctor", "state.json"])
 

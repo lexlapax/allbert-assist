@@ -17,11 +17,11 @@ defmodule AllbertArtifactsWeb.ArtifactLive do
 
   @behaviour AllbertAssist.Pack.WebSurface
 
+  alias AllbertArtifactsWeb.Live
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Surface.Node
   alias AllbertAssistWeb.Surface.Renderer, as: SurfaceRenderer
-  alias AllbertArtifactsWeb.Live
 
   @sha_regex ~r/^[a-f0-9]{64}$/
 

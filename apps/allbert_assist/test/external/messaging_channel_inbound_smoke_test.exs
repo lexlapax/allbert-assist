@@ -11,10 +11,6 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
                  "set ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE=1 to run the real messaging-channel inbound smoke"
   end
 
-  alias AllbertDiscord.Adapter, as: DiscordAdapter
-  alias AllbertDiscord.Client, as: DiscordClient
-  alias AllbertSlack.Adapter, as: SlackAdapter
-  alias AllbertSlack.Client, as: SlackClient
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
@@ -22,6 +18,10 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias AllbertDiscord.Adapter, as: DiscordAdapter
+  alias AllbertDiscord.Client, as: DiscordClient
+  alias AllbertSlack.Adapter, as: SlackAdapter
+  alias AllbertSlack.Client, as: SlackClient
   alias Ecto.Adapters.SQL.Sandbox
 
   # Per-provider required env. Only the targeted providers

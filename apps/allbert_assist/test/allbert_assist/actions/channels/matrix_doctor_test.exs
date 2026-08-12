@@ -4,12 +4,12 @@ defmodule AllbertMatrix.Actions.DoctorTest do
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
   import Plug.Conn
 
-  alias AllbertMatrix.Actions.Doctor
-  alias AllbertMatrix.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertMatrix.Actions.Doctor
+  alias AllbertMatrix.Doctor
 
   setup {Req.Test, :verify_on_exit!}
 

@@ -5,9 +5,9 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.Discovery.Scan
-  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 

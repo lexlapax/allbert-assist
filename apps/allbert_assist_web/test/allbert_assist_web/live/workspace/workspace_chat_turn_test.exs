@@ -5,10 +5,10 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
   import Ecto.Query
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Artifacts, Confirmations, Conversations, Repo, Settings}
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ConversationMessageRef
+  alias AllbertAssist.{Artifacts, Confirmations, Conversations, Repo, Settings}
 
   @runtime_async_timeout 60_000
   @png Base.decode64!(

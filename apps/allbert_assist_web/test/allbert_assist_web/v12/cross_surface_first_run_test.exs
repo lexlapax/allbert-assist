@@ -3,14 +3,14 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
 
   @moduletag :app_env_serial
 
-  alias AllbertAssist.Channels.Identity
-  alias AllbertTUI.IdentityBootstrap
   alias AllbertAssist.CLI.Tui
+  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.FirstRun.Enablement
   alias AllbertAssist.FirstRun.Presentation
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssistWeb.Workspace.FirstRun, as: WorkspaceFirstRun
+  alias AllbertTUI.IdentityBootstrap
 
   @states [
     :local_ready,

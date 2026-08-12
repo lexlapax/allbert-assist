@@ -36,10 +36,10 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       completed_action: 3
     ]
 
-  alias AllbertAssist.Channels.ChannelParity
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.CLI.Channels.Support
   alias AllbertAssist.CLI.PackGroups
+  alias AllbertAssist.Channels.ChannelParity
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Surfaces.ContextBuilder
 

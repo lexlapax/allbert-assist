@@ -32,9 +32,9 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsContextTest do
   alias AllbertAssist.Actions.Channels.ListChannels
   alias AllbertAssist.Channels
   alias AllbertAssist.Paths
-  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
+  alias AllbertTUI.Plugin, as: TUIPlugin
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

@@ -6,20 +6,20 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
-  alias AllbertWhatsApp.Adapter
-  alias AllbertWhatsApp.Client
-  alias AllbertWhatsApp.Parser
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertWhatsApp.Plugin, as: WhatsAppPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
+  alias AllbertWhatsApp.Adapter
+  alias AllbertWhatsApp.Client
+  alias AllbertWhatsApp.Parser
+  alias AllbertWhatsApp.Plugin, as: WhatsAppPlugin
   alias AllbertWhatsApp.Settings.Fragment, as: WhatsAppSettingsFragment
 
   setup {Req.Test, :verify_on_exit!}

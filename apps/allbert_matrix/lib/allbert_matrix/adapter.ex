@@ -8,13 +8,13 @@ defmodule AllbertMatrix.Adapter do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
-  alias AllbertMatrix.Client
-  alias AllbertMatrix.Parser
-  alias AllbertMatrix.Renderer
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings.Secrets
+  alias AllbertMatrix.Client
+  alias AllbertMatrix.Parser
+  alias AllbertMatrix.Renderer
 
   @provider "matrix_client_server"
   @max_backoff_ms 60_000

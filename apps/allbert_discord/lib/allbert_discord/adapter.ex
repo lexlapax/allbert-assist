@@ -7,10 +7,6 @@ defmodule AllbertDiscord.Adapter do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
-  alias AllbertDiscord.Client.GatewayPort
-  alias AllbertDiscord.Client
-  alias AllbertDiscord.Parser
-  alias AllbertDiscord.Renderer
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.NotifyConsentCallback
@@ -18,6 +14,10 @@ defmodule AllbertDiscord.Adapter do
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertDiscord.Client
+  alias AllbertDiscord.Client.GatewayPort
+  alias AllbertDiscord.Parser
+  alias AllbertDiscord.Renderer
 
   @provider "discord_gateway"
 

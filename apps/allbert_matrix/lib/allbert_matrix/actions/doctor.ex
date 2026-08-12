@@ -19,9 +19,9 @@ defmodule AllbertMatrix.Actions.Doctor do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertMatrix.Doctor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security
+  alias AllbertMatrix.Doctor
 
   @impl true
   def run(_params, context) do

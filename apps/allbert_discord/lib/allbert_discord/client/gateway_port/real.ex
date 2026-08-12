@@ -7,9 +7,9 @@ defmodule AllbertDiscord.Client.GatewayPort.Real do
 
   require Logger
 
-  alias AllbertDiscord.Client
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings.Secrets
+  alias AllbertDiscord.Client
 
   @behaviour AllbertDiscord.Client.GatewayPort
 

@@ -8,7 +8,6 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
                  "set ALLBERT_MATRIX_INBOUND_EXTERNAL_SMOKE=1 to run the real Matrix /sync inbound smoke"
   end
 
-  alias AllbertMatrix.Adapter, as: MatrixAdapter
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
@@ -16,6 +15,7 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias AllbertMatrix.Adapter, as: MatrixAdapter
   alias Ecto.Adapters.SQL.Sandbox
 
   @required [

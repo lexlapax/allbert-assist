@@ -35,8 +35,8 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.FanoutSteeringTest.EpochTransitions, as: TerminalTransitions
   alias AllbertAssist.Objectives.FanoutSteeringTest.EpochSteering, as: Steering
+  alias AllbertAssist.Objectives.FanoutSteeringTest.EpochTransitions, as: TerminalTransitions
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.ReadyEffectContext
 

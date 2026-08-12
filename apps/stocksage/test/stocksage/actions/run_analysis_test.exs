@@ -9,8 +9,8 @@ defmodule StockSage.Actions.RunAnalysisTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.Fragment.Guard
-  alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
   alias Jido.Signal.Bus
+  alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
   alias StockSage.Analyses
   alias StockSage.Queue
   alias StockSage.TraderBridge

@@ -6,8 +6,8 @@ defmodule StockSage.Reflections do
   memory and are not promoted unless a later explicit sync action does so.
   """
 
-  alias StockSage.{Analyses, Memory}
   alias StockSage.Domain.{Analysis, Outcome}
+  alias StockSage.{Analyses, Memory}
 
   @legacy_source "stocksage_reflection"
   @default_max_chars 1_200

@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Search.SurfaceParityTest do
   use AllbertAssist.DataCase, async: false
-  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.Corpus
@@ -11,6 +10,7 @@ defmodule AllbertAssist.Search.SurfaceParityTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertTUI.SlashCommands
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)

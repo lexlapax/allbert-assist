@@ -16,8 +16,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
   alias AllbertAssist.Models.PromptEnvelope
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Objectives.Fanout.{Report, RoleProfileConfiguration}
   alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
+  alias AllbertAssist.Objectives.Fanout.{Report, RoleProfileConfiguration}
   alias AllbertAssist.Settings.ModelRuntime
   alias ReqLLM.Response
 

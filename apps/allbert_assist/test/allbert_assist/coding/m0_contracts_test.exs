@@ -2,10 +2,10 @@ defmodule AllbertAssist.Coding.M0ContractsTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  alias AllbertTUI.Renderer
   alias AllbertAssist.Coding.StreamEvent
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings.Schema
+  alias AllbertTUI.Renderer
 
   test "stream event contract has the v0.57 M0 vocabulary and payload checks" do
     assert StreamEvent.types() == [

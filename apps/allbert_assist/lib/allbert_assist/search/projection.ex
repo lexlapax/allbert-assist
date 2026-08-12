@@ -13,15 +13,15 @@ defmodule AllbertAssist.Search.Projection do
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.SourceEnvelope
   alias AllbertAssist.Jobs.Managed
-  alias AllbertAssist.Paths
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Search.Control
   alias AllbertAssist.Search.Purge
   alias AllbertAssist.Search.Query
-  alias AllbertAssist.Search.Schema
   alias AllbertAssist.Search.SQLite
+  alias AllbertAssist.Search.Schema
   alias AllbertAssist.Settings
   alias Exqlite.Sqlite3
 

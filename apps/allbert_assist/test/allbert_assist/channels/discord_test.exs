@@ -4,22 +4,22 @@ defmodule AllbertAssist.Channels.DiscordTest do
   import Ecto.Query
 
   alias AllbertAssist.Channels
-  alias AllbertDiscord.Adapter
-  alias AllbertDiscord.Client
-  alias AllbertDiscord.Client.GatewayPort
-  alias AllbertDiscord.Parser
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Store.Agent, as: ConfirmationStoreAgent
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertDiscord.Plugin, as: DiscordPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
+  alias AllbertDiscord.Adapter
+  alias AllbertDiscord.Client
+  alias AllbertDiscord.Client.GatewayPort
+  alias AllbertDiscord.Parser
+  alias AllbertDiscord.Plugin, as: DiscordPlugin
   alias AllbertDiscord.Settings.Fragment, as: DiscordSettingsFragment
 
   defmodule FakeWebSocket do

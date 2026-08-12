@@ -13,8 +13,8 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Memory.Proposals.Proposal
-  alias AllbertAssist.Repo
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
 

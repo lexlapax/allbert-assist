@@ -2,11 +2,11 @@ defmodule AllbertWhatsApp.Doctor do
   @moduledoc false
 
   alias AllbertAssist.Channels
-  alias AllbertWhatsApp.Adapter
-  alias AllbertWhatsApp.Client
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings.Secrets
+  alias AllbertWhatsApp.Adapter
+  alias AllbertWhatsApp.Client
 
   @state_path Path.join(["channels", "whatsapp", "doctor", "state.json"])
 

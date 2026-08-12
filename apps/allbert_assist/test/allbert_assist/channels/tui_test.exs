@@ -6,15 +6,8 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
-  alias AllbertTUI.Adapter
-  alias AllbertTUI.EscapeMonitor
-  alias AllbertTUI.IdentityBootstrap
-  alias AllbertTUI.InputDriver
-  alias AllbertTUI.Renderer
-  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
@@ -22,14 +15,21 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.DeliveryAcknowledgement
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
+  alias AllbertTUI.Adapter
+  alias AllbertTUI.EscapeMonitor
+  alias AllbertTUI.IdentityBootstrap
+  alias AllbertTUI.InputDriver
+  alias AllbertTUI.Plugin, as: TUIPlugin
+  alias AllbertTUI.Renderer
+  alias AllbertTUI.SlashCommands
   alias Jido.Signal
   alias Jido.Signal.Bus
 

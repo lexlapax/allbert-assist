@@ -5,8 +5,8 @@ defmodule AllbertMatrix.EditTest do
 
   import Plug.Conn
 
-  alias AllbertMatrix.Client
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertMatrix.Client
 
   setup {Req.Test, :verify_on_exit!}
 

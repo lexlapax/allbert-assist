@@ -3,17 +3,17 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Channels.Event
-  alias AllbertTUI.Adapter
-  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertTUI.Adapter
+  alias AllbertTUI.Plugin, as: TUIPlugin
+  alias AllbertTUI.SlashCommands
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

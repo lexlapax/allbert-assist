@@ -9,12 +9,12 @@ defmodule AllbertAssist.ChannelsTest do
   alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertDiscord.Plugin, as: DiscordPlugin
-  alias AllbertSlack.Plugin, as: SlackPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertDiscord.Plugin, as: DiscordPlugin
   alias AllbertEmail.Plugin, as: EmailPlugin
+  alias AllbertSlack.Plugin, as: SlackPlugin
   alias AllbertTelegram.Plugin, as: TelegramPlugin
 
   setup do

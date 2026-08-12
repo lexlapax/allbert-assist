@@ -2,8 +2,8 @@ defmodule AllbertAssist.Search.SchemaTest do
   use ExUnit.Case, async: false
   @moduletag :home_fs_serial
 
-  alias AllbertAssist.Search.Schema
   alias AllbertAssist.Search.SQLite
+  alias AllbertAssist.Search.Schema
   alias Exqlite.Sqlite3
 
   @tag :tmp_dir

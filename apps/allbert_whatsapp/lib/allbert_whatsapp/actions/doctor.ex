@@ -19,9 +19,9 @@ defmodule AllbertWhatsApp.Actions.Doctor do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertWhatsApp.Doctor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security
+  alias AllbertWhatsApp.Doctor
 
   @impl true
   def run(_params, context) do

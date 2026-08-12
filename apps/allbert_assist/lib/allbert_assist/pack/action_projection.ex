@@ -35,8 +35,8 @@ defmodule AllbertAssist.Pack.ActionProjection do
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Pack.{ActionCatalog, PathSegment, ValidationDiagnostic}
   alias AllbertAssist.Pack.ActionProjection.Candidate
+  alias AllbertAssist.Pack.{ActionCatalog, PathSegment, ValidationDiagnostic}
 
   @spec static() :: {:ok, [map()]} | {:error, [ValidationDiagnostic.t()]}
   def static do

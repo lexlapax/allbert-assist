@@ -6,8 +6,8 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.{ModelRuntime, Models}
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Settings.{ModelRuntime, Models}
 
   @provider_env_vars ~w(
     ALLBERT_VAULT_BACKEND

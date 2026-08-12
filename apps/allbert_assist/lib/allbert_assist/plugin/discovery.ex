@@ -1,8 +1,8 @@
 defmodule AllbertAssist.Plugin.Discovery do
   @moduledoc false
 
-  alias AllbertAssist.Paths
   alias AllbertAssist.Pack.CompiledInventory
+  alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Validator
   alias AllbertAssist.Settings
 

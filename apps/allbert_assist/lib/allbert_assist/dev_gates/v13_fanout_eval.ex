@@ -26,7 +26,6 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   alias AllbertAssist.DevGates.TestMetrics
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.FanoutManager
-  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.CanonicalJSON
@@ -34,6 +33,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation, as: Composer
   alias AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.Models

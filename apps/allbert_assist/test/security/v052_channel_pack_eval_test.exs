@@ -6,13 +6,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   alias AllbertAssist.Approval.Handoff
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
-  alias AllbertDiscord.Adapter, as: DiscordAdapter
-  alias AllbertDiscord.Client, as: DiscordClient
-  alias AllbertDiscord.Parser, as: DiscordParser
   alias AllbertAssist.Channels.Identity
-  alias AllbertSlack.Adapter, as: SlackAdapter
-  alias AllbertSlack.Client, as: SlackClient
-  alias AllbertSlack.Parser, as: SlackParser
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
@@ -28,9 +22,15 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertDiscord.Adapter, as: DiscordAdapter
+  alias AllbertDiscord.Client, as: DiscordClient
+  alias AllbertDiscord.Parser, as: DiscordParser
+  alias AllbertSlack.Adapter, as: SlackAdapter
+  alias AllbertSlack.Client, as: SlackClient
+  alias AllbertSlack.Parser, as: SlackParser
 
   defmodule MissingPrimitivesPlugin do
     use AllbertAssist.Plugin

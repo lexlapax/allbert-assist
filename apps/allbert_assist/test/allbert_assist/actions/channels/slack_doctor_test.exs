@@ -3,11 +3,11 @@ defmodule AllbertSlack.Actions.DoctorTest do
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertSlack.Actions.Doctor
-  alias AllbertSlack.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertSlack.Actions.Doctor
+  alias AllbertSlack.Doctor
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

@@ -4,13 +4,13 @@ defmodule AllbertAssistWeb.WorkspaceCanvasTilesTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Settings, Workspace}
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.Guard, as: FragmentGuard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
+  alias AllbertAssist.{Settings, Workspace}
   alias AllbertAssistWeb.SignalBridge
 
   # The Guard action-emitter cache is captured once at application boot,

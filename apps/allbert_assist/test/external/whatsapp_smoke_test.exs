@@ -6,12 +6,12 @@ defmodule AllbertAssist.External.WhatsAppSmokeTest do
     @moduletag skip: "set ALLBERT_WHATSAPP_EXTERNAL_SMOKE=1 to run the real WhatsApp smoke"
   end
 
-  alias AllbertWhatsApp.Client
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertWhatsApp.Client
   alias Ecto.Adapters.SQL.Sandbox
 
   @required [

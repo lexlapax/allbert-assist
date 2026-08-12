@@ -31,9 +31,9 @@ defmodule AllbertDiscord.CLI do
 
   @behaviour AllbertAssist.CLI.Area
 
-  alias AllbertAssist.Channels
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.CLI.Channels.Support
+  alias AllbertAssist.Channels
   alias AllbertAssist.Settings
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertDiscord.Adapter

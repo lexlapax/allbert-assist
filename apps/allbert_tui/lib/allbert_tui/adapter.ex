@@ -10,12 +10,6 @@ defmodule AllbertTUI.Adapter do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
-  alias AllbertTUI.EscapeMonitor
-  alias AllbertTUI.InputDriver
-  alias AllbertTUI.LiveRegion
-  alias AllbertTUI.Renderer
-  alias AllbertTUI.SlashCommands
-  alias AllbertTUI.Subscriptions
   alias AllbertAssist.Coding.Config, as: CodingConfig
   alias AllbertAssist.Coding.Session, as: CodingSession
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
@@ -25,8 +19,14 @@ defmodule AllbertTUI.Adapter do
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
-  alias Jido.Signal
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertTUI.EscapeMonitor
+  alias AllbertTUI.InputDriver
+  alias AllbertTUI.LiveRegion
+  alias AllbertTUI.Renderer
+  alias AllbertTUI.SlashCommands
+  alias AllbertTUI.Subscriptions
+  alias Jido.Signal
 
   @provider "terminal"
   @channel "tui"

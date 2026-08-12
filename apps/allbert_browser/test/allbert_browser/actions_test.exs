@@ -58,8 +58,8 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
   alias AllbertBrowser.Session
 
   setup do

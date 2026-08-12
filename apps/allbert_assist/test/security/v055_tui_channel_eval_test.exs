@@ -8,9 +8,6 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ChannelParity
   alias AllbertAssist.Channels.Event
-  alias AllbertMatrix.Adapter, as: MatrixAdapter
-  alias AllbertTUI.Adapter, as: TUIAdapter
-  alias AllbertTUI.Renderer, as: TUIRenderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Paths
@@ -24,6 +21,9 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertMatrix.Adapter, as: MatrixAdapter
+  alias AllbertTUI.Adapter, as: TUIAdapter
+  alias AllbertTUI.Renderer, as: TUIRenderer
 
   @eval_groups [
     parity: [

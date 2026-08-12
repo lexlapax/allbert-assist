@@ -1,8 +1,8 @@
 defmodule AllbertAssist.Pack.CandidateBuilder.ChannelRows do
   @moduledoc false
 
-  alias AllbertAssist.Pack.{PathSegment, Row, RowSchemas, ValidationDiagnostic}
   alias AllbertAssist.Pack.CandidateBuilder.RowFamilies
+  alias AllbertAssist.Pack.{PathSegment, Row, RowSchemas, ValidationDiagnostic}
 
   @spec build([map()]) :: {:ok, RowFamilies.t()} | {:error, [ValidationDiagnostic.t()]}
   def build(plugins) when is_list(plugins) do

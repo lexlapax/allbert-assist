@@ -3,10 +3,10 @@ defmodule AllbertAssist.Plugin.Bootstrap do
 
   use GenServer
 
+  alias AllbertAssist.Pack.{ActivationContext, ActivationGuard}
   alias AllbertAssist.Plugin.Discovery
   alias AllbertAssist.Plugin.Registry
   alias AllbertAssist.Plugin.Validator
-  alias AllbertAssist.Pack.{ActivationContext, ActivationGuard}
 
   require Logger
 

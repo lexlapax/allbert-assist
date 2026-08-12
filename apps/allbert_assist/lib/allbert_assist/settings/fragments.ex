@@ -18,8 +18,8 @@ defmodule AllbertAssist.Settings.Fragments do
   }
 
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Settings.{Fragment, FragmentOwner}
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.Settings.{Fragment, FragmentOwner}
 
   @composition_cache_key {__MODULE__, :default_composition}
   @composition_pin_key {__MODULE__, :pinned_composition}

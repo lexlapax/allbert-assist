@@ -5,8 +5,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   alias AllbertAssist.DevGates.V13FanoutEval
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Models.ProviderAttempt
-  alias AllbertAssist.Settings
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Settings
 
   defmodule ReplacingReadiness do
     use GenServer

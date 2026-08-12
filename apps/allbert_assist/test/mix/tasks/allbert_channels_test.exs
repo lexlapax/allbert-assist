@@ -3,13 +3,13 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.CLI.Areas.Channels, as: ChannelsArea
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
-  alias AllbertAssist.CLI.Areas.Channels, as: ChannelsArea
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
-  alias AllbertAssist.Paths
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

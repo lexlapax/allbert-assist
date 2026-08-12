@@ -7,8 +7,6 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Event
-  alias AllbertTUI.Adapter, as: TUIAdapter
-  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Coding.Prompt
   alias AllbertAssist.Coding.Session, as: CodingSession
@@ -20,7 +18,6 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.PublicProtocol.ExposureFilter
   alias AllbertAssist.Repo
   alias AllbertAssist.Resources.Grants
@@ -34,6 +31,9 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertTUI.Adapter, as: TUIAdapter
+  alias AllbertTUI.Plugin, as: TUIPlugin
+  alias AllbertTUI.SlashCommands
 
   @tool_names ~w(read grep glob write edit bash)
   @slash_names ~w(/pi /mode /model /clear /init /diff /compact)

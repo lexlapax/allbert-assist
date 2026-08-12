@@ -2,12 +2,12 @@ defmodule AllbertAssist.Coding.M4StreamRenderingTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
-  alias AllbertTUI.LiveRegion
-  alias AllbertTUI.Renderer
   alias AllbertAssist.Coding.StreamEvent
   alias AllbertAssist.Coding.StreamPipeline
   alias AllbertAssist.Coding.StreamRenderer
   alias AllbertAssist.Settings.Schema
+  alias AllbertTUI.LiveRegion
+  alias AllbertTUI.Renderer
 
   defmodule FakeLiveScreen do
     def add_block(pid, block_id, opts) do

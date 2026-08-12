@@ -11,8 +11,8 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackSweeper do
 
   require Logger
 
-  alias AllbertAssist.PublicProtocol.ResultReadback
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.PublicProtocol.ResultReadback
   alias AllbertAssist.Settings
 
   @default_interval_ms 60_000

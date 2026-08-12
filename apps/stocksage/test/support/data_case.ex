@@ -3,10 +3,10 @@ defmodule StockSage.DataCase do
 
   use ExUnit.CaseTemplate
 
-  alias AllbertAssist.Repo
   alias AllbertAssist.Objectives.Event
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Step
+  alias AllbertAssist.Repo
   alias Ecto.Adapters.SQL.Sandbox
   alias StockSage.Domain.Analysis
   alias StockSage.Domain.AnalysisDetail

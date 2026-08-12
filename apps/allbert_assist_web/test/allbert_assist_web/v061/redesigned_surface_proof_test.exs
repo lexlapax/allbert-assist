@@ -12,8 +12,8 @@ defmodule AllbertAssistWeb.V061.RedesignedSurfaceProofTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
-  alias AllbertAssist.{Confirmations, Jobs, Objectives, Paths, Runtime, Session, Settings}
   alias AllbertAssist.Surface.Catalog
+  alias AllbertAssist.{Confirmations, Jobs, Objectives, Paths, Runtime, Session, Settings}
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)

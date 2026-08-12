@@ -1,8 +1,8 @@
 defmodule StockSage.Domain.QueueTest do
   use StockSage.DataCase
 
-  alias StockSage.Queue
   alias StockSage.Domain.QueueRun
+  alias StockSage.Queue
 
   describe "queue entries" do
     test "create normalizes symbol and defaults lifecycle fields" do

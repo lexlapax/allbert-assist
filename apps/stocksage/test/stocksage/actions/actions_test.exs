@@ -14,8 +14,8 @@ defmodule StockSage.ActionsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias StockSage.{Analyses, Queue}
   alias StockSage.LegacyFixture
+  alias StockSage.{Analyses, Queue}
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)

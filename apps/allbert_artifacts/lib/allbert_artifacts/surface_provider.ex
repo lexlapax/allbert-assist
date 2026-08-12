@@ -3,8 +3,8 @@ defmodule AllbertArtifacts.SurfaceProvider do
   Workspace surface provider for the Artifacts Browser panel.
   """
 
-  alias AllbertAssist.Actions.Runner
   alias AllbertArtifacts.Panels.Browser
+  alias AllbertAssist.Actions.Runner
 
   @default_limit 6
 

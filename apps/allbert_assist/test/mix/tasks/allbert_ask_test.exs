@@ -4,8 +4,8 @@ defmodule Mix.Tasks.Allbert.AskTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Channels.Event
   alias AllbertAssist.CLI.Ask, as: CLIAsk
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef

@@ -1,10 +1,10 @@
 defmodule AllbertAssist.Channels.TUISubscriptionsTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
-  alias AllbertTUI.Subscriptions
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertTUI.Subscriptions
   alias Jido.Signal
 
   test "renders only signals owned by the attached identity map" do

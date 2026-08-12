@@ -5,8 +5,8 @@ defmodule AllbertResearch.Commands.SummarizeUrl do
     name: "allbert_research_summarize_url",
     description: "Run delegated browser extraction and summary for one URL."
 
-  alias AllbertResearch.Research
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertResearch.Research
 
   @impl true
   def run(params, context) do

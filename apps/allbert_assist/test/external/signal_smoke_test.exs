@@ -6,12 +6,12 @@ defmodule AllbertAssist.External.SignalSmokeTest do
     @moduletag skip: "set ALLBERT_SIGNAL_EXTERNAL_SMOKE=1 to run the real Signal smoke"
   end
 
-  alias AllbertSignal.Client
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertSignal.Client
   alias Ecto.Adapters.SQL.Sandbox
 
   @required [

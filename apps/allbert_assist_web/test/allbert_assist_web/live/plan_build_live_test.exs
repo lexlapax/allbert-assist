@@ -3,8 +3,8 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.Paths
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Paths
   alias AllbertAssist.Surface.Node
   alias AllbertAssistWeb.Workspace.Components.{PlanPreviewPanel, PlanRunProgressPanel}
 
@@ -364,8 +364,8 @@ end
 defmodule AllbertAssistWeb.PlanBuildLiveTest.PreviewHostLive do
   use AllbertAssistWeb, :live_view
 
-  alias AllbertAssist.Surface.Node
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Surface.Node
   alias AllbertAssistWeb.Workspace.Components.PlanPreviewPanel
 
   @impl true

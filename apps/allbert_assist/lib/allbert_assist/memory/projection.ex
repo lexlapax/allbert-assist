@@ -16,8 +16,8 @@ defmodule AllbertAssist.Memory.Projection do
   alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Memory.Lexical
-  alias AllbertAssist.Paths
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias Exqlite.Sqlite3

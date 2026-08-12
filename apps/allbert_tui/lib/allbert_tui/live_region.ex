@@ -3,9 +3,9 @@ defmodule AllbertTUI.LiveRegion do
 
   require Logger
 
-  alias AllbertTUI.Renderer
   alias AllbertAssist.Coding.StreamRenderer
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertTUI.Renderer
 
   @default_block_id :allbert_coding_stream
 

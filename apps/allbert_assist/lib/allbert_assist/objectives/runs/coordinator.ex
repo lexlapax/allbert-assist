@@ -16,8 +16,8 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
-  alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler, Supervisor}
   alias AllbertAssist.Objectives.Runs.Worker.Grounding
+  alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler, Supervisor}
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Redactor

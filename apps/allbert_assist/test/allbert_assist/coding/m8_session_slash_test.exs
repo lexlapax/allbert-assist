@@ -3,15 +3,12 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Channels.Event
-  alias AllbertTUI.Adapter
-  alias AllbertTUI.SlashCommands
   alias AllbertAssist.Coding.PathPolicy
   alias AllbertAssist.Coding.Prompt
   alias AllbertAssist.Coding.Session, as: CodingSession
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -19,6 +16,9 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertTUI.Adapter
+  alias AllbertTUI.Plugin, as: TUIPlugin
+  alias AllbertTUI.SlashCommands
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

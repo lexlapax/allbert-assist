@@ -6,8 +6,8 @@ defmodule AllbertAssist.Settings do
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Jobs.Managed
-  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Memory.ReviewCadence
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings.ModelRoles
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets

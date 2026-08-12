@@ -4,22 +4,22 @@ defmodule AllbertAssist.Channels.SlackTest do
   import Ecto.Query
 
   alias AllbertAssist.Channels
-  alias AllbertSlack.Adapter
-  alias AllbertSlack.Client
-  alias AllbertSlack.Client.SocketModePort
-  alias AllbertSlack.Parser
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertSlack.Plugin, as: SlackPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
+  alias AllbertSlack.Adapter
+  alias AllbertSlack.Client
+  alias AllbertSlack.Client.SocketModePort
+  alias AllbertSlack.Parser
+  alias AllbertSlack.Plugin, as: SlackPlugin
   alias AllbertSlack.Settings.Fragment, as: SlackSettingsFragment
 
   defmodule FakeWebSocket do

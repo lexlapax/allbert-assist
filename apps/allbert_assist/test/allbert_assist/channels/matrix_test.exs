@@ -6,22 +6,22 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
-  alias AllbertMatrix.Adapter
-  alias AllbertMatrix.Client
-  alias AllbertMatrix.Parser
-  alias AllbertMatrix.Renderer
   alias AllbertAssist.Channels.Outbound
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
-  alias AllbertMatrix.Plugin, as: MatrixPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
+  alias AllbertMatrix.Adapter
+  alias AllbertMatrix.Client
+  alias AllbertMatrix.Parser
+  alias AllbertMatrix.Plugin, as: MatrixPlugin
+  alias AllbertMatrix.Renderer
   alias AllbertMatrix.Settings.Fragment, as: MatrixSettingsFragment
 
   setup {Req.Test, :verify_on_exit!}

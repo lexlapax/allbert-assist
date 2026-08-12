@@ -4,16 +4,16 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.Channels.Event
-  alias AllbertTUI.Adapter
-  alias AllbertTUI.IdentityBootstrap
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
+  alias AllbertTUI.Adapter
+  alias AllbertTUI.IdentityBootstrap
 
   @runtime_async_timeout 60_000
 

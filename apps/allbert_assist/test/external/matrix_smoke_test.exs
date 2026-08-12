@@ -6,8 +6,6 @@ defmodule AllbertAssist.External.MatrixSmokeTest do
     @moduletag skip: "set ALLBERT_MATRIX_EXTERNAL_SMOKE=1 to run the real Matrix smoke"
   end
 
-  alias AllbertMatrix.Client
-  alias AllbertMatrix.Renderer
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Paths
@@ -15,6 +13,8 @@ defmodule AllbertAssist.External.MatrixSmokeTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertMatrix.Client
+  alias AllbertMatrix.Renderer
   alias Ecto.Adapters.SQL.Sandbox
 
   @required [

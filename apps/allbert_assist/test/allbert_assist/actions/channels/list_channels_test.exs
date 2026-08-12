@@ -2,8 +2,8 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Channels.ListChannels
-  alias AllbertTUI.Plugin, as: TUIPlugin
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
+  alias AllbertTUI.Plugin, as: TUIPlugin
 
   setup do
     # v1.0.3 M3 (ADR 0086 monolith-class corollary): the pre-conversion setup
