@@ -2,8 +2,8 @@
 
 > **v1.4 authority transition (operator amendment 2026-08-07).** This v1.0
 > inventory is the migration comparison while v1.4 builds the kernel/Pack
-> boundary. `mix allbert.test release.v1` remains green through M14 and runs one
-> final time beside `release.v14` at M16. Packaged M16 acceptance promotes the
+> boundary. `mix allbert.test release.v1` remains green through M15 and runs one
+> final time beside `release.v14` at M17. Packaged M17 acceptance promotes the
 > generated v1.4 component-owner/edge/selector baseline as the current test
 > authority and retires `release.v1` from future default qualification. The
 > transition does not authorize a breaking external Tier-1 change in 1.x:
@@ -113,8 +113,8 @@ defaults to Tier 2).
 - Plan: [`docs/plans/archives/v1.0-plan.md`](../plans/archives/v1.0-plan.md) (Tiered Public Contract Freeze,
   Freeze Enforcement).
 - Reserved-vocabulary-not-frozen decision: ADR 0021 A20.
-- Migration enforcement through v1.4 M16: `mix allbert.test release.v1` (`:v1`
+- Migration enforcement through v1.4 M17: `mix allbert.test release.v1` (`:v1`
   sweep).
-- Successor component/test authority: ADR 0098 and active v1.4 M14/M16;
+- Successor component/test authority: ADR 0098 and active v1.4 M15/M17;
   `release.v14` plus affected-component owner selection.
 - DIT freeze prerequisites: [`docs/validation/v1.0/`](../validation/v1.0/README.md).

@@ -1738,7 +1738,7 @@ That is the inherited contract v1.4 relies on when new applications and test
 files land; `release.v14` repeats the two inventory checks as final delta
 defense.
 
-Through M14, `release.v14` is built as a bounded, non-stacking structural/
+Through M15, `release.v14` is built as a bounded, non-stacking structural/
 behavioral delta so it can be compared independently with the v1.0 migration
 guard. It owns
 pack contribution ordering and collision proofs, Settings-fragment composition
@@ -1749,9 +1749,9 @@ parameter-contract reconciliation,
 complete action-envelope parity, gate-owner manifests, kernel dependency
 direction, pure-relocation hashes, pack release/license assets, and the v1.4
 component contract baseline. It must not invoke predecessor gates, `release`,
-or `precommit` as a step. M14 also freezes component owners, dependency edges,
+or `precommit` as a step. M15 also freezes component owners, dependency edges,
 affected-component selection, and the exact external compatibility-adapter set.
-`release.v1` runs separately only through the migration and M16 acceptance
+`release.v1` runs separately only through the migration and M17 acceptance
 sequence. Once v1.4 is accepted, `release.v14` becomes the current foundation
 contract and future point/minor gates select affected component owners instead
 of replaying the v1.0 monolith. The active v1.4 plan names the

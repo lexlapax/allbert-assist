@@ -415,8 +415,8 @@ rather than assigning the same foundation to a later release.
    subsystems, and without the kernel boundary they would land in the monolith
    and need moving later. **This release also establishes the successor
    component contract and test baseline.** `release.v1` remains the migration
-   guard while v1.4 is built; M14 freezes `release.v14` around component/Pack
-   owners and affected-component selection, and M16 makes it authoritative
+   guard while v1.4 is built; M15 freezes `release.v14` around component/Pack
+   owners and affected-component selection, and M17 makes it authoritative
    after source/package acceptance. Moving implementation between OTP
    applications does not waive an external 1.x name or shape. ADR 0098 covers
    the pack contract, kernel application boundary, capability-tier model, and
@@ -548,21 +548,28 @@ rather than assigning the same foundation to a later release.
    1.x-legal — registry inversion preserves `modules/1` and `resolve/2`,
    settings inversion preserves key names and semantics, gate inversion is
    internal tooling, and module relocation preserves module names. Carries the
-   remaining pack extraction and accumulated Tier-1 cleanup. Deliberately a
-   **bounded** major, not a renumbering event that absorbs the 1.x remainder.
+   accumulated Tier-1 cleanup. Deliberately a **bounded** major, not a
+   renumbering event that absorbs the 1.x remainder.
 
-   **Carries channel effect ownership** (operator decision 2026-08-11, from
-   v1.4 M12). The telegram and email packs ship `native_passive` because M12
-   moved code and declarations but no supervision: their adapters are still
-   started from the channel descriptor's `child_spec` by the residual's
-   `Plugin.ChildSupervisor`. Making a channel pack `native_effectful` means
-   giving it an OTP supervision tree, its own effect supervisor, and its own
-   `Pack.ActivationGate` (already generic, parameterised by `pack_id`), and
-   moving the adapter `child_spec` off the residual -- which also makes the pack
-   responsible for its own enabled-state and settings reads. That is done for
-   **all seven channels at once, here**, rather than twice: two at M12 and five
-   at the remaining extraction. The M12 decision record is in
-   `docs/plans/v1.4-plan.md`.
+   **The remaining pack extraction moved OUT of this slot** (operator decision
+   2026-08-11): v1.4 M13 extracts all ten remaining first-party plugins --
+   artifacts, browser, discord, matrix, research, signal, slack, stocksage, tui,
+   whatsapp -- leaving `plugins/` with no first-party code. The slot was
+   Proposed with no triad and no acceptance list, and five of those ten had no
+   recorded sequencing anywhere, so the work is scoped where the extraction
+   template already exists rather than carried into a major.
+
+   **Channel effect ownership** is the piece that may still land here. The
+   telegram and email packs ship `native_passive` because v1.4 M12 moved code and
+   declarations but no supervision: their adapters are still started from the
+   channel descriptor's `child_spec` by the residual's `Plugin.ChildSupervisor`.
+   Making a channel pack `native_effectful` means giving it an OTP supervision
+   tree, its own effect supervisor, and its own `Pack.ActivationGate` (already
+   generic, parameterised by `pack_id`), and moving the adapter `child_spec` off
+   the residual -- which also makes the pack responsible for its own
+   enabled-state and settings reads. It is done for **all seven channels at
+   once**, and now that the other five arrive at v1.4 M13, whether that happens
+   there or here is an open decision recorded against M13.
 
 17. **2.1 horizon — Self-Hosting Development.** Allbert develops Allbert
    (pi-mode target on its own checkout; plan/build/test/document roles
@@ -598,7 +605,7 @@ rather than assigning the same foundation to a later release.
 
 - **v1.4 re-baselines contract and test authority around components.** During
   the build, `mix allbert.test release.v1` is the compatibility/migration stop.
-  M14 freezes the component-owned `release.v14` baseline and M16 retires
+  M15 freezes the component-owned `release.v14` baseline and M17 retires
   `release.v1` from future default qualification after packaged acceptance.
   External Tier-1 1.x compatibility remains boundary-enforced; the re-baseline
   changes internal ownership and test selection, not semantic-version policy.

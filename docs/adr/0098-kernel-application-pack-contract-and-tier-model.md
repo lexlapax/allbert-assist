@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for implementation by operator decision 2026-08-06. Binding on
-`docs/plans/v1.4-plan.md` M1, M5, M7, **M7.1**, M8, M9, M12, and M16, and on
+`docs/plans/v1.4-plan.md` M1, M5, M7, **M7.1**, M8, M9, M12, M13, and M17, and on
 every release that adds capability code after v1.4. M7.1 was added to this list
 on 2026-08-06: it is the milestone that makes §2's kernel-must-not-depend-on-a-
 pack invariant enforceable, proving dependency closure by compile and xref
@@ -557,10 +557,10 @@ retained as a non-destructive compatibility scan path under §9.
 
 Operator amendment (2026-08-07): the v1.0 freeze is a migration guard while the
 application boundary is built, not the permanent post-v1.4 test architecture.
-`mix allbert.test release.v1` remains green through M14 so the re-baseline cannot
-hide a regression. M14 then freezes the component/Pack-owned contract inventory,
+`mix allbert.test release.v1` remains green through M15 so the re-baseline cannot
+hide a regression. M15 then freezes the component/Pack-owned contract inventory,
 owner tests, dependency graph, and affected-component selector in
-`release.v14`. M16 proves that successor baseline from source and package and,
+`release.v14`. M17 proves that successor baseline from source and package and,
 at accepted release closeout, retires `release.v1` from the default every-change
 and release-qualification sequence.
 
@@ -578,7 +578,7 @@ set. It contains source ownership/hashes but no self-referential artifact
 digests; external release-validation evidence binds its exact source SHA to the
 artifact digests/signatures. Relocating a module changes its source/application
 owner but not its BEAM module name or public behavior. The baseline supersedes
-v1.0 as test authority only after M16 acceptance.
+v1.0 as test authority only after M17 acceptance.
 
 The compiled `AllbertAssist.Pack` descriptor contract enters the public
 inventory as Tier 2 at v1.4 and evolves additively. Declared packs reuse the
