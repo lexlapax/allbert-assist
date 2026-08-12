@@ -20,14 +20,32 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     "ALLBERT_SETTINGS_MASTER_KEY"
   ]
 
+  # `AllbertAssist.Paths` resolves each subsystem root through
+  # `HomeRoots.override/1` FIRST, and that override reads these application
+  # environment keys -- so a leftover value here outranks the ALLBERT_HOME this
+  # setup sets, and the suite silently runs against another test's root while
+  # appearing isolated. Clearing them is what makes the private home actually
+  # private. Without it these suites are order-dependent: they pass alone and
+  # fail in a lane, which is exactly how this surfaced.
+  @root_owner_keys [
+    AllbertAssist.Memory,
+    AllbertAssist.Confirmations,
+    AllbertAssist.Artifacts,
+    AllbertAssist.Execution.Audit
+  ]
+
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
 
+    original_root_owners =
+      Map.new(@root_owner_keys, &{&1, Application.get_env(:allbert_assist, &1)})
+
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
+    Enum.each(@root_owner_keys, &Application.delete_env(:allbert_assist, &1))
 
     home = temp_path("home")
     System.put_env("ALLBERT_HOME", home)
@@ -39,6 +57,7 @@ defmodule AllbertAssist.Memory.ProjectionTest do
       restore_env(original_env)
       restore_app_env(Paths, original_paths)
       restore_app_env(Settings, original_settings)
+      Enum.each(original_root_owners, fn {key, value} -> restore_app_env(key, value) end)
     end)
 
     {:ok, home: home}
