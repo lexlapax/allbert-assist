@@ -155,16 +155,43 @@ defmodule AllbertAssist.Database do
   # build machine's checkout path into the artifact, and the missing-dir
   # filter then silently dropped stocksage's migrations on user machines. A
   # missing path now logs loudly instead of vanishing.
+  # A pack's migrations must be findable even when the pack is not loaded and not
+  # on the code path. The gate runs its migration step with the RESIDUAL's cwd,
+  # whose dependency closure excludes every pack that sits beside or above it, so
+  # `app_dir/2` raises and `Application.load/1` cannot help either -- the `.app`
+  # is not reachable from there. That silently skipped stocksage's migrations and
+  # left every table it owns absent, which the census caught as 88 of 88 failures
+  # in one lane while the pack's own suite passed.
+  #
+  # The umbrella build path is shared, so the pack's priv is always at
+  # `_build/<env>/lib/<app>/priv`. `app_dir/2` is still tried first because it is
+  # the correct answer in a packaged release, where every application IS loaded
+  # and no build path exists.
   defp pack_migrations_dir(application) do
-    # Load before resolving. `app_dir/2` raises for an application that is merely
-    # on the code path, and the migrator runs before anything forces a pack --
-    # under an owner-scoped lane the pack is not the current project either, so
-    # rescuing to nil silently skipped its migrations and every table it owns was
-    # absent. Loading is side-effect-free and does not start the application.
-    _ = Application.load(application)
-    Application.app_dir(application, ["priv", "repo", "migrations"])
+    loaded_dir(application) || build_dir(application)
+  end
+
+  defp loaded_dir(application) do
+    path = Application.app_dir(application, ["priv", "repo", "migrations"])
+    if File.dir?(path), do: path
   rescue
     ArgumentError -> nil
+  end
+
+  defp build_dir(application) do
+    path =
+      Path.join([
+        Mix.Project.build_path(),
+        "lib",
+        Atom.to_string(application),
+        "priv",
+        "repo",
+        "migrations"
+      ])
+
+    if File.dir?(path), do: path
+  rescue
+    _no_mix_project -> nil
   end
 
   defp plugin_migration_paths do
