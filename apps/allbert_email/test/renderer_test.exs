@@ -1,8 +1,9 @@
 defmodule AllbertEmail.Plugin.RendererTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertEmail.Renderer
   alias AllbertAssist.Objectives
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertEmail.Renderer
 
   test "approval handoff rendering includes objective context and stale warning" do
     assert {:ok, objective} =
@@ -13,7 +14,7 @@ defmodule AllbertEmail.Plugin.RendererTest do
                  objective: "Complete one analysis for AAPL.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     handoff = %{
@@ -32,7 +33,7 @@ defmodule AllbertEmail.Plugin.RendererTest do
              Objectives.update_objective(
                objective,
                %{status: "cancelled"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, subject, body, nil} =

@@ -2,10 +2,10 @@ defmodule AllbertNotesFiles.CLITest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
-  alias AllbertNotesFiles.CLI, as: Area
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ProviderPreconditions
+  alias AllbertNotesFiles.CLI, as: Area
 
   setup do
     # v1.0.2 M2 drift-fix: `set-root` validates `apps.notes_files.notes_root`

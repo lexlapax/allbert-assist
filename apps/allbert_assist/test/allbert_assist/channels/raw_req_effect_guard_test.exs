@@ -5,8 +5,8 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
 
   alias AllbertAssist.Channels.{Discord, Matrix, Signal, Slack, WhatsApp}
   # Telegram left the AllbertAssist.Channels namespace at v1.4 M12.
-  alias AllbertTelegram
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertTelegram
 
   setup {Req.Test, :verify_on_exit!}
 

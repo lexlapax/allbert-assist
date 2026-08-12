@@ -2,12 +2,7 @@ defmodule AllbertAssist.Channels.EmailTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Channels
-  alias AllbertEmail.Adapter
-  alias AllbertEmail.Parser
-  alias AllbertEmail.Renderer
-  alias AllbertEmail.SmtpClient
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Objectives
@@ -16,8 +11,13 @@ defmodule AllbertAssist.Channels.EmailTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias AllbertEmail.Adapter
+  alias AllbertEmail.Parser
+  alias AllbertEmail.Renderer
+  alias AllbertEmail.SmtpClient
 
   defmodule FakeImapClient do
     def connect(_host, _port, opts), do: {:ok, %{fake_name: Keyword.fetch!(opts, :fake_name)}}

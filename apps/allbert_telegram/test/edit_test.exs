@@ -5,8 +5,8 @@ defmodule AllbertTelegram.Plugin.EditTest do
 
   import Plug.Conn
 
-  alias AllbertTelegram.Client
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertTelegram.Client
 
   setup {Req.Test, :verify_on_exit!}
 

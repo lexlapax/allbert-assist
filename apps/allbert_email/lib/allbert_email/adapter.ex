@@ -7,13 +7,13 @@ defmodule AllbertEmail.Adapter do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
-  alias AllbertEmail.Parser
-  alias AllbertEmail.Renderer
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings.Secrets
+  alias AllbertEmail.Parser
+  alias AllbertEmail.Renderer
 
   @provider "email_imap"
   @max_backoff_ms 60_000
@@ -714,7 +714,7 @@ defmodule AllbertEmail.Adapter do
 
     with {:ok, settings} <- Channels.channel_settings("email"),
          {:ok, password} <-
-           AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "smtp_password_ref")) do
+           Secrets.get_secret(Map.get(settings, "smtp_password_ref")) do
       message_id = "#{Ecto.UUID.generate()}@allbert.local"
       subject = Keyword.get(opts, :subject, "Allbert background report")
 
@@ -734,23 +734,31 @@ defmodule AllbertEmail.Adapter do
         |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
       with :ok <- validate_outbound_epoch(opts) do
-        case smtp_client.send(
-               Map.fetch!(settings, "from_address"),
-               target,
-               subject,
-               body,
-               smtp_opts
-             ) do
-          result when result in [:ok, {:ok, :sent}] ->
-            {:ok, %{channel: "email", target: target, message_id: message_id}}
-
-          {:ok, _receipt} ->
-            {:ok, %{channel: "email", target: target, message_id: message_id}}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
+        smtp_client.send(
+          Map.fetch!(settings, "from_address"),
+          target,
+          subject,
+          body,
+          smtp_opts
+        )
+        |> sent_result(target, message_id)
       end
+    end
+  end
+
+  # gen_smtp reports success as a bare :ok, as {:ok, :sent}, or as {:ok, receipt}
+  # where the receipt is the server's raw acceptance line. All three are the same
+  # outcome to this adapter; only the shape differs.
+  defp sent_result(result, target, message_id) do
+    case result do
+      result when result in [:ok, {:ok, :sent}] ->
+        {:ok, %{channel: "email", target: target, message_id: message_id}}
+
+      {:ok, _receipt} ->
+        {:ok, %{channel: "email", target: target, message_id: message_id}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

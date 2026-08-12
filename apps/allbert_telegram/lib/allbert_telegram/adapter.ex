@@ -9,16 +9,16 @@ defmodule AllbertTelegram.Adapter do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.NotifyConsentCallback
+  alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Runtime
+  alias AllbertAssist.Runtime.Paths, as: RuntimePaths
+  alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Secrets
   alias AllbertTelegram.Client
   alias AllbertTelegram.Parser
   alias AllbertTelegram.Renderer
-  alias AllbertAssist.Conversations.ChannelThread
-  alias AllbertAssist.Pack.EffectGuard
-  alias AllbertAssist.Runtime.Paths, as: RuntimePaths
-  alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Runtime
-  alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.Secrets
 
   @provider "telegram_bot_api"
   @max_backoff_ms 60_000
@@ -287,39 +287,7 @@ defmodule AllbertTelegram.Adapter do
              fields.external_chat_id
            ),
          {:ok, audio} <- fetch_voice_audio(fields, state) do
-      result =
-        with {:ok, transcription} <- transcribe_voice_audio(audio, user_id, session_id, fields),
-             :ok <- validate_transcript_size(transcription.transcript, state),
-             {:ok, response} <-
-               submit_runtime(
-                 transcription.transcript,
-                 user_id,
-                 session_id,
-                 fields,
-                 false,
-                 voice_runtime_metadata(fields, audio, transcription)
-               ),
-             {:ok, chunks, keyboard} <- render_response(response, state),
-             {:ok, delivered} <-
-               Runtime.track_delivery(
-                 response,
-                 %{
-                   channel: "telegram",
-                   allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
-                 },
-                 fn ->
-                   deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields)
-                 end
-               ),
-             :ok <- record_outbound_refs(response, fields, delivered),
-             :ok <-
-               Runtime.acknowledge_deliveries(response, %{
-                 channel: "telegram",
-                 allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
-               }),
-             {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
-          {:ok, :processed}
-        end
+      result = process_voice_turn(audio, user_id, session_id, fields, event, state)
 
       cleanup_voice_audio(audio)
 
@@ -716,6 +684,43 @@ defmodule AllbertTelegram.Adapter do
     }
   end
 
+  # Extracted from the voice inbound path so the delivery closure is not a third
+  # level of nesting inside an already-long `with`. The chain, its order, and the
+  # epoch carried into every effect are unchanged -- this moves code, it does not
+  # alter the sequence.
+  defp process_voice_turn(audio, user_id, session_id, fields, event, state) do
+    with {:ok, transcription} <- transcribe_voice_audio(audio, user_id, session_id, fields),
+         :ok <- validate_transcript_size(transcription.transcript, state),
+         {:ok, response} <-
+           submit_runtime(
+             transcription.transcript,
+             user_id,
+             session_id,
+             fields,
+             false,
+             voice_runtime_metadata(fields, audio, transcription)
+           ),
+         {:ok, chunks, keyboard} <- render_response(response, state),
+         {:ok, delivered} <- track_voice_delivery(response, chunks, keyboard, fields, state),
+         :ok <- record_outbound_refs(response, fields, delivered),
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: "telegram",
+             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
+           }),
+         {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
+      {:ok, :processed}
+    end
+  end
+
+  defp track_voice_delivery(response, chunks, keyboard, fields, state) do
+    Runtime.track_delivery(
+      response,
+      %{channel: "telegram", allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)},
+      fn -> deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields) end
+    )
+  end
+
   defp cleanup_voice_audio(%{path: path}) do
     _ = File.rm(path)
     _ = File.rmdir(Path.dirname(path))
@@ -842,17 +847,17 @@ defmodule AllbertTelegram.Adapter do
   end
 
   defp parse_callback_data(data) when is_binary(data) do
-    if byte_size(data) <= 64 do
-      if data == NotifyConsentCallback.command() do
-        {:ok, "notify_consent", nil}
-      else
-        case Regex.run(@callback_data_re, data) do
-          [_, action, confirmation_id] -> {:ok, action, confirmation_id}
-          _match -> {:error, :malformed_callback_data}
-        end
-      end
-    else
-      {:error, :callback_data_too_long}
+    cond do
+      byte_size(data) > 64 -> {:error, :callback_data_too_long}
+      data == NotifyConsentCallback.command() -> {:ok, "notify_consent", nil}
+      true -> match_callback_data(data)
+    end
+  end
+
+  defp match_callback_data(data) do
+    case Regex.run(@callback_data_re, data) do
+      [_, action, confirmation_id] -> {:ok, action, confirmation_id}
+      _match -> {:error, :malformed_callback_data}
     end
   end
 

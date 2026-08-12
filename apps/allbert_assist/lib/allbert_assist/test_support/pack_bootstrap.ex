@@ -18,6 +18,10 @@ if Mix.env() == :test do
   defmodule AllbertAssist.TestSupport.PackBootstrap do
     @moduledoc false
 
+    alias AllbertAssist.App.Bootstrap
+    alias AllbertAssist.Plugin.Discovery
+    alias AllbertAssist.Plugin.Registry
+
     @doc """
     Put `applications` and everything they need on the code path, and load them.
 
@@ -34,7 +38,10 @@ if Mix.env() == :test do
     """
     @spec ensure_loaded!([atom()]) :: :ok
     def ensure_loaded!(applications) when is_list(applications) do
-      Enum.reduce(applications, MapSet.new(), &walk(&1, &2))
+      # The accumulator is the visited set that keeps the walk from looping on a
+      # dependency cycle; it is threaded, not discarded, so bind it rather than
+      # leaving a bare Enum call whose return looks incidental.
+      _visited = Enum.reduce(applications, MapSet.new(), &walk(&1, &2))
       :ok
     end
 
@@ -86,7 +93,7 @@ if Mix.env() == :test do
     def ensure_registered! do
       pack_plugin_ids = extracted_pack_plugin_ids()
 
-      AllbertAssist.Plugin.Discovery.discover()
+      Discovery.discover()
       |> Enum.each(fn
         # Discovery yields a pack either as a compiled module -- its Plugin
         # module is in the loaded application's module list -- or as a manifest
@@ -94,12 +101,12 @@ if Mix.env() == :test do
         # assuming one.
         {:module, module, opts} ->
           register_absent(module.plugin_id(), pack_plugin_ids, fn ->
-            AllbertAssist.Plugin.Registry.register_module(module, opts)
+            Registry.register_module(module, opts)
           end)
 
         {:entry, %{plugin_id: plugin_id} = entry} ->
           register_absent(plugin_id, pack_plugin_ids, fn ->
-            AllbertAssist.Plugin.Registry.register_entry(entry)
+            Registry.register_entry(entry)
           end)
 
         _other ->
@@ -110,14 +117,14 @@ if Mix.env() == :test do
       # incomplete -- CoreApp and AllbertBrowser.App among them, not only the
       # packs' own. Before v1.4 M9 those failures were dropped silently and the
       # VM ran with an incomplete App registry.
-      {:ok, []} = AllbertAssist.App.Bootstrap.retry_pending()
+      {:ok, []} = Bootstrap.retry_pending()
 
       :ok
     end
 
     defp register_absent(plugin_id, pack_plugin_ids, register) do
       if plugin_id in pack_plugin_ids and
-           not match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup(plugin_id)) do
+           not match?({:ok, _entry}, Registry.lookup(plugin_id)) do
         {:ok, ^plugin_id} = register.()
       end
 

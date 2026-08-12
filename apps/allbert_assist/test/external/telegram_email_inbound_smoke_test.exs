@@ -8,8 +8,6 @@ defmodule AllbertAssist.External.TelegramEmailInboundSmokeTest do
                  "set ALLBERT_TELEGRAM_EMAIL_INBOUND_EXTERNAL_SMOKE=1 to run the real Telegram/email inbound smoke"
   end
 
-  alias AllbertEmail.Adapter, as: EmailAdapter
-  alias AllbertTelegram.Adapter, as: TelegramAdapter
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
@@ -17,6 +15,8 @@ defmodule AllbertAssist.External.TelegramEmailInboundSmokeTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias AllbertEmail.Adapter, as: EmailAdapter
+  alias AllbertTelegram.Adapter, as: TelegramAdapter
   alias Ecto.Adapters.SQL.Sandbox
 
   @telegram_required [

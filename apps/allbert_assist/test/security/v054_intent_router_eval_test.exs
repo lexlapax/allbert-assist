@@ -11,7 +11,6 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
 
   alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
   alias AllbertAssist.Actions.Channels.SendChannelMessage
-  alias AllbertEmail.Actions.SendEmail
   alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.ClarifyResolver
   alias AllbertAssist.Intent.Router.DescriptorResolver
@@ -29,6 +28,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ProviderPreconditions
   alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertEmail.Actions.SendEmail
 
   @shortlist [
     %{action_name: "create_note", app_id: :notes_files, label: "Create or write a local note"},

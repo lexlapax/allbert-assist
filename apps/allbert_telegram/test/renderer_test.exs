@@ -1,8 +1,9 @@
 defmodule AllbertTelegram.Plugin.RendererTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertTelegram.Renderer
   alias AllbertAssist.Objectives
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+  alias AllbertTelegram.Renderer
 
   test "normal response rendering includes redacted media-output fallbacks" do
     assert {:ok, [text], nil} =
@@ -47,7 +48,7 @@ defmodule AllbertTelegram.Plugin.RendererTest do
                  objective: "Complete one analysis for AAPL.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     handoff = %{
@@ -66,7 +67,7 @@ defmodule AllbertTelegram.Plugin.RendererTest do
              Objectives.update_objective(
                objective,
                %{status: "cancelled"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, [text], keyboard} = Renderer.render_approval_handoff(handoff)

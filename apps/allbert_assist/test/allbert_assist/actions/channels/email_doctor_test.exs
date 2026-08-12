@@ -3,12 +3,12 @@ defmodule AllbertEmail.Actions.DoctorTest do
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertEmail.Actions.Doctor, as: EmailDoctor
-  alias AllbertEmail.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertEmail.Actions.Doctor, as: EmailDoctor
+  alias AllbertEmail.Doctor
 
   defmodule FakeImapClient do
     def connect(_host, _port, opts), do: {:ok, %{opts: opts}}

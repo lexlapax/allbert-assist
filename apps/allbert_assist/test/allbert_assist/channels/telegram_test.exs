@@ -2,12 +2,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Channels
-  alias AllbertTelegram.Adapter
-  alias AllbertTelegram.Client
-  alias AllbertTelegram.Parser
-  alias AllbertTelegram.Renderer
   alias AllbertAssist.Confirmations
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Objectives
@@ -15,7 +10,12 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
+  alias AllbertTelegram.Adapter
+  alias AllbertTelegram.Client
+  alias AllbertTelegram.Parser
+  alias AllbertTelegram.Renderer
   alias Plug.Conn.Query
 
   setup {Req.Test, :verify_on_exit!}

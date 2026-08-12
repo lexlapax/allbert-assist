@@ -18,7 +18,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertNotesFiles.CLI, as: NotesArea
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.ActiveMemory
@@ -31,6 +30,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertNotesFiles.Actions.WriteNote
+  alias AllbertNotesFiles.CLI, as: NotesArea
 
   @now "2026-05-28T12:00:00Z"
 

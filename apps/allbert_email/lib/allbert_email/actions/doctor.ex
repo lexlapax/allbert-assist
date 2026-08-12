@@ -19,9 +19,9 @@ defmodule AllbertEmail.Actions.Doctor do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertEmail.Doctor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security
+  alias AllbertEmail.Doctor
 
   @impl true
   def run(_params, context) do

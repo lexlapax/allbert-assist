@@ -2,8 +2,8 @@ defmodule AllbertEmail.Renderer do
   @moduledoc false
 
   alias AllbertAssist.Approval.Handoff
-  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Confirmations.ObjectiveContext
+  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   def render_response(runtime_response, opts \\ []) do

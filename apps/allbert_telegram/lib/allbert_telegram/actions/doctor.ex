@@ -19,9 +19,9 @@ defmodule AllbertTelegram.Actions.Doctor do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertTelegram.Doctor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security
+  alias AllbertTelegram.Doctor
 
   @impl true
   def run(_params, context) do

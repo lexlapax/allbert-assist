@@ -209,7 +209,27 @@ defmodule AllbertAssist.CLI.Channels.Support do
 
   # ── Rendering ─────────────────────────────────────────────────────────────
 
-  @spec render(term()) :: {String.t(), non_neg_integer()}
+  @typedoc """
+  A tagged channel-CLI outcome this module knows how to render.
+
+  Spelled out rather than left as `term()`: the residual channels area and both
+  extracted channel packs emit these tags, so the union IS the shared vocabulary
+  between them, and writing it down is what stops a pack inventing a tag nothing
+  renders. A channel-specific tag stays private to its own area's `render/1`.
+  """
+  @type result ::
+          {:ok,
+           {:secret, term(), term()}
+           | {:setting, term(), term(), term()}
+           | {:identity, term(), term(), term()}
+           | {:unmapped, term(), term()}
+           | {:poll, term(), term()}
+           | {:doctor, term(), map()}
+           | {:simulate, term(), term()}}
+          | {:error, term()}
+          | {:usage, binary() | [binary()]}
+
+  @spec render(result()) :: {String.t(), non_neg_integer()}
   def render({:ok, {:secret, channel, secret_name}}) do
     Render.ok("#{channel} #{secret_name}=stored")
   end

@@ -3,12 +3,12 @@ defmodule AllbertTelegram.Actions.DoctorTest do
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertTelegram.Actions.Doctor, as: TelegramDoctor
-  alias AllbertTelegram.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertTelegram.Actions.Doctor, as: TelegramDoctor
+  alias AllbertTelegram.Doctor
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

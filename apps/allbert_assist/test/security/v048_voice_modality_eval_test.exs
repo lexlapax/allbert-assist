@@ -4,7 +4,6 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
-  alias AllbertTelegram.Adapter
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -22,6 +21,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Voice.ProviderAdapter
   alias AllbertAssist.Voice.ProviderHTTP
   alias AllbertAssist.Voice.Transcode
+  alias AllbertTelegram.Adapter
   alias Plug.Conn.Query
 
   setup {Req.Test, :verify_on_exit!}

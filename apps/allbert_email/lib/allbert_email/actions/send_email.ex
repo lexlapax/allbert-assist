@@ -34,9 +34,9 @@ defmodule AllbertEmail.Actions.SendEmail do
 
   alias AllbertAssist.Actions.Outbound.Gate
   alias AllbertAssist.Channels
-  alias AllbertEmail.SmtpClient
   alias AllbertAssist.Maps
   alias AllbertAssist.Settings.Secrets
+  alias AllbertEmail.SmtpClient
 
   def intent_descriptors do
     [
