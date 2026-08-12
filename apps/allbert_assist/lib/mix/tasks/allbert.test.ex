@@ -6013,7 +6013,7 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "test/allbert_assist/actions/settings/set_notes_root_test.exs",
-        "test/allbert_assist/cli/areas/notes_test.exs"
+        "../../apps/allbert_notes_files/test/allbert_notes_files/cli_test.exs"
       ],
       coverage: [
         "set_notes_root validates the path, writes the single Settings Central safe key, and fails closed",
@@ -6285,7 +6285,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/cli/commands_test.exs",
         "test/allbert_assist/cli/dispatcher_test.exs",
         "test/allbert_assist/cli/tui_test.exs",
-        "test/allbert_assist/cli/areas/notes_test.exs",
+        "../../apps/allbert_notes_files/test/allbert_notes_files/cli_test.exs",
         "test/allbert_assist/cli/areas/model_test.exs",
         "test/allbert_assist/cli/areas/onboarding_test.exs"
       ],

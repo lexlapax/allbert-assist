@@ -150,8 +150,34 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
                "plugins/allbert.artifacts/test/allbert_artifacts_web/artifact_live_readiness_test.exs"
              ]
 
+    # v1.4 M12 moved the notes CLI area into the pack alongside its Mix task, so
+    # notes_files owns a fourth file. Anchored to its owner and lane for the same
+    # reason the artifacts row above is: a bare count tells the next person a
+    # number changed, not which file moved or where it landed.
+    assert %{
+             owner: :notes_files,
+             primary_lane: :app_env_serial
+           } =
+             by_path[
+               "apps/allbert_notes_files/test/allbert_notes_files/cli_test.exs"
+             ]
+
+    # M12 also made telegram and email pack owners in their own right. Their
+    # suites kept the lanes they had under plugins/; what changed is the owner
+    # that answers for them, which is exactly what this test exists to pin.
+    assert %{owner: :telegram, primary_lane: :external_runtime_serial} =
+             by_path["apps/allbert_telegram/test/edit_test.exs"]
+
+    assert %{owner: :telegram, primary_lane: :db_serial} =
+             by_path["apps/allbert_telegram/test/renderer_test.exs"]
+
+    assert %{owner: :email, primary_lane: :db_serial} =
+             by_path["apps/allbert_email/test/renderer_test.exs"]
+
     assert Enum.count(records, &(&1.owner == :artifacts)) == 4
-    assert Enum.count(records, &(&1.owner == :notes_files)) == 3
+    assert Enum.count(records, &(&1.owner == :notes_files)) == 4
+    assert Enum.count(records, &(&1.owner == :telegram)) == 2
+    assert Enum.count(records, &(&1.owner == :email)) == 1
     assert AllbertTestTask.lane_reconciliation_issues(records) == []
   end
 

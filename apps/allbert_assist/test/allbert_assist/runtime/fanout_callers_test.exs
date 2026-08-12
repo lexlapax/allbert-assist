@@ -7,8 +7,8 @@ defmodule AllbertAssist.Runtime.FanoutCallersTest do
   @callers %{
     "tui" => "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex",
     "web" => "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex",
-    "telegram" => "plugins/allbert.telegram/lib/allbert_assist/channels/telegram/adapter.ex",
-    "email" => "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex",
+    "telegram" => "apps/allbert_telegram/lib/allbert_telegram/adapter.ex",
+    "email" => "apps/allbert_email/lib/allbert_email/adapter.ex",
     "discord" => "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex",
     "slack" => "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex",
     "matrix" => "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex",
@@ -70,8 +70,18 @@ defmodule AllbertAssist.Runtime.FanoutCallersTest do
              "#{surface} acknowledges delivery but does not declare the closed capability"
     end
 
+    # Counted across three files since v1.4 M12, not one. The telegram and email
+    # simulate routes moved to their packs, so the residual channels area holds
+    # one of these three declarations and each pack CLI holds another. The total
+    # is what the invariant is about -- every simulation path declares the closed
+    # capability -- so it stays 3 rather than being lowered to match one file.
     simulations =
-      File.read!(Path.join(@root, "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"))
+      [
+        "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex",
+        "apps/allbert_telegram/lib/allbert_telegram/cli.ex",
+        "apps/allbert_email/lib/allbert_email/cli.ex"
+      ]
+      |> Enum.map_join("\n", &File.read!(Path.join(@root, &1)))
 
     assert length(Regex.scan(~r/delivery_ack_capability:/, simulations)) == 3
   end
