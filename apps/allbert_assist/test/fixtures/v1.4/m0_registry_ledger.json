@@ -1,13 +1,13 @@
 {
   "digests": {
-    "actions_sha256": "9fb84a5b5fef5874fbaca205dcfaf3f9f1baa9f2c8f57ed92821fd18fcda5a7f",
+    "actions_sha256": "2502b1d63f7804e0417ee98e43425520e234340877b673dddb616cc0094c3b53",
     "apps_sha256": "89711d5cae275a54ec1cb3d82d67efb62e033c4cfe61f2eded6ced9720c1f06c",
     "explicit_server_parity_sha256": "69eba632ad70ef8dd9d140a736b7e9e435257cfe6b31e7f287c4c0f5493d76d2",
-    "extensions_sha256": "da64e2969bbbbba1a59618db01ae2f133442f62db7d5c7fb30669a77816f2dc0",
-    "isolated_mutation_diagnostics_sha256": "ad81b1e40f2ed894e3633c286eb8c40c0cfa091d4425b25608a9d9f14bfb88c4",
-    "payload_sha256": "0f1e55be8417e37d9745fb06d0f916c975af7889d846d326788042eb27cec84f",
-    "plugins_sha256": "4b8c1b9eb327c6cbfd5465ca88b951cd2078384e4641642d5011d186c9344037",
-    "settings_sha256": "e80f3ea39157aef32957e904c717f9d78fd8f62f6f606a4f86f00395e9eca1ec"
+    "extensions_sha256": "7c7994bc5b46d67c4d3fe037e60a4eb4a177a6d5fbeba59d2f38bb1e7255f730",
+    "isolated_mutation_diagnostics_sha256": "423a5d6d6d2a04b98e5ca58428333fc94a280334001b8c27b29769dadf51a7e3",
+    "payload_sha256": "b572065b01a489f0693af322ed1e9ae32d6c03fa8b1c026ca50b60b4066b6889",
+    "plugins_sha256": "6c4c0e1deecd7d24b837dc015f9a869f64df25c0764c079407392d22139b8c80",
+    "settings_sha256": "b2906cfaffe227addc2632cba2d0a183dc57b942667778e0e9e5f3b3d61ad623"
   },
   "normalization": "v14_m0_registry_ledger_v1",
   "payload": {
@@ -89,7 +89,6 @@
         "AllbertAssist.Actions.Channels.ConfigureChannelSecret",
         "AllbertAssist.Actions.Channels.ConfigureChannelSetting",
         "AllbertAssist.Actions.Channels.DiscordDoctor",
-        "AllbertEmail.Actions.Doctor",
         "AllbertAssist.Actions.Channels.LinkChannelIdentity",
         "AllbertAssist.Actions.Channels.ListChannels",
         "AllbertAssist.Actions.Channels.MatrixDoctor",
@@ -99,7 +98,6 @@
         "AllbertAssist.Actions.Channels.SignalDoctor",
         "AllbertAssist.Actions.Channels.SignalLinkDevice",
         "AllbertAssist.Actions.Channels.SlackDoctor",
-        "AllbertTelegram.Actions.Doctor",
         "AllbertAssist.Actions.Channels.UnlinkChannelIdentity",
         "AllbertAssist.Actions.Channels.WhatsAppDoctor",
         "AllbertAssist.Actions.Coding.Bash",
@@ -130,7 +128,6 @@
         "AllbertAssist.Actions.DynamicPlugins.RunDraftTrial",
         "AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft",
         "AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration",
-        "AllbertEmail.Actions.SendEmail",
         "AllbertAssist.Actions.FirstModel.Detect",
         "AllbertAssist.Actions.FirstModel.InstallOllama",
         "AllbertAssist.Actions.FirstModel.PullModel",
@@ -339,9 +336,12 @@
         "AllbertBrowser.Actions.Screenshot",
         "AllbertBrowser.Actions.StartSession",
         "AllbertBrowser.Actions.SweepCache",
+        "AllbertEmail.Actions.Doctor",
+        "AllbertEmail.Actions.SendEmail",
         "AllbertNotesFiles.Actions.ReadNote",
         "AllbertNotesFiles.Actions.SearchNotes",
         "AllbertNotesFiles.Actions.WriteNote",
+        "AllbertTelegram.Actions.Doctor",
         "StockSage.Actions.Agents.ListAgents",
         "StockSage.Actions.Agents.ShowAgent",
         "StockSage.Actions.Evidence.FetchFinancials",
@@ -37296,30 +37296,6 @@
           "row_sha256": "6e960c49fc420615fc3003b62cef4d64040b152fea3fd67fa11c0152ffc84741"
         },
         {
-          "key": "channels.email.enabled",
-          "row_sha256": "251b691311b56b65be5d922b0c47d46f6bd77bd7217269c98c6632a3725dd722"
-        },
-        {
-          "key": "channels.email.imap_password_ref",
-          "row_sha256": "bace9add6e974a54872d64ce81da6941505075122ed0a89b06b69eedeb568325"
-        },
-        {
-          "key": "channels.email.smtp_password_ref",
-          "row_sha256": "8d1c5ac8a05a4e2c4a6dbfe024565050d93b551fb2c7f4827e8356b98e7d589d"
-        },
-        {
-          "key": "channels.email.autonomous_notify.enabled",
-          "row_sha256": "cbd5382f9844f4348a51ef28a7678fff5b82c0429c72e54c6624ab6e3c02ee97"
-        },
-        {
-          "key": "channels.email.autonomous_notify.level",
-          "row_sha256": "e98bf95b427eafe31b17960c8aa8fe5aad74e47767e1387a8b8b183032b00525"
-        },
-        {
-          "key": "channels.email.autonomous_notify.min_interval_seconds",
-          "row_sha256": "915a4ed5dba6ac86cdbe7c126b1f1f91c6540d435b9512a0974a04c2bc9c757f"
-        },
-        {
           "key": "channels.matrix.enabled",
           "row_sha256": "629377424ee072406210d1e35c0610f7257b573ecf975009edd133e8c0665eb2"
         },
@@ -37522,26 +37498,6 @@
         {
           "key": "channels.slack.autonomous_notify.min_interval_seconds",
           "row_sha256": "c10263e4cf697c74b1eb806db8cee93e3e140e1d1124d93184d8ecbde80397b9"
-        },
-        {
-          "key": "channels.telegram.enabled",
-          "row_sha256": "0ef158a30ee91e5242f6e9197923d59ee7991424779b9e5c41e3ad247243c7f3"
-        },
-        {
-          "key": "channels.telegram.bot_token_ref",
-          "row_sha256": "6f87b959f0c8a4ecfbf1e2ad6b80f7153016a45313f4497256ad5556aa5043de"
-        },
-        {
-          "key": "channels.telegram.autonomous_notify.enabled",
-          "row_sha256": "7286de75bf5416d1e20d600ff8a8f66067c1cfe92b2ab0f7f58cc9c1cd1fbb23"
-        },
-        {
-          "key": "channels.telegram.autonomous_notify.level",
-          "row_sha256": "9e13b056095183befe022e99f9f0fe0a5eab8486b92402133fbe81098fa7c8cb"
-        },
-        {
-          "key": "channels.telegram.autonomous_notify.min_interval_seconds",
-          "row_sha256": "fdf888583e059bb6bf345f3562bd8fc56813cd31020aa81d0753afabee671196"
         },
         {
           "key": "channels.tui.enabled",
@@ -38283,7 +38239,7 @@
           "apps": 0,
           "extensions_actions": 0,
           "plugins": 0,
-          "settings_fragments": 45
+          "settings_fragments": 47
         },
         "plugin_diagnostics": {}
       },
@@ -38292,7 +38248,7 @@
         "apps": 0,
         "extensions_actions": 0,
         "plugins": 0,
-        "settings_fragments": 45
+        "settings_fragments": 47
       },
       "mutated": {
         "action_collision": {
@@ -38350,10 +38306,10 @@
           "apps": 1,
           "extensions_actions": 4,
           "plugins": 1,
-          "settings_fragments": 46
+          "settings_fragments": 48
         },
         "plugin_diagnostics": {
-          "allbert.telegram": [
+          "allbert.discord": [
             {
               "detail": {},
               "kind": "duplicate_plugin_id",
@@ -38368,20 +38324,21 @@
             {
               "$tuple": [
                 "plugin_id_taken",
-                "allbert.telegram"
+                "allbert.discord"
               ]
             }
           ]
         },
         "plugin_lookup": {
-          "entry_sha256": "716d3bdc66d4b8369c52a25d6039fef333ef05686a8673047acf4aaca7ca6d3d",
-          "plugin_id": "allbert.telegram",
-          "status": "ok"
+          "$tuple": [
+            "error",
+            "not_found"
+          ]
         },
         "plugin_registration": {
           "$tuple": [
             "ok",
-            "allbert.telegram"
+            "allbert.discord"
           ]
         }
       }
@@ -38448,7 +38405,7 @@
           "channel_id": "email",
           "child_id": "AllbertEmail.Adapter",
           "plugin_id": "allbert.email",
-          "row_sha256": "822d629d20a0c1d30253562b6e6efe4984f762da91e522cc6c093ab3f13f7a33",
+          "row_sha256": "f0b6b36c80314d6e4d0adb3e7de0a1e7bad26f154ec792054b2ae02e97cff200",
           "status": "enabled"
         },
         {
@@ -38476,7 +38433,7 @@
           "channel_id": "telegram",
           "child_id": "AllbertTelegram.Adapter",
           "plugin_id": "allbert.telegram",
-          "row_sha256": "57ab8995061365d54b6e3ca5cbf00cd558be7811af1e14ff648ca0b8f4f85be6",
+          "row_sha256": "c2a89fcd93fd9f59ca531d9d3d2a02bd194596251b25937d1205ae013afd0740",
           "status": "enabled"
         },
         {
@@ -38796,19 +38753,12 @@
           "display_name": "Allbert Email Channel",
           "index": 4,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.email/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_email/priv/allbert_plugin.json",
           "module": "AllbertEmail.Plugin",
           "plugin_id": "allbert.email",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.email",
-          "settings_keys": [
-            "channels.email.enabled",
-            "channels.email.imap_password_ref",
-            "channels.email.smtp_password_ref",
-            "channels.email.autonomous_notify.enabled",
-            "channels.email.autonomous_notify.level",
-            "channels.email.autonomous_notify.min_interval_seconds"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_email/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -39223,18 +39173,12 @@
           "display_name": "Allbert Telegram Channel",
           "index": 10,
           "kind": "channel",
-          "manifest_path": "<REPO_ROOT>/plugins/allbert.telegram/allbert_plugin.json",
+          "manifest_path": "<REPO_ROOT>/_build/test/lib/allbert_telegram/priv/allbert_plugin.json",
           "module": "AllbertTelegram.Plugin",
           "plugin_id": "allbert.telegram",
           "release_availability": [],
-          "root_path": "<REPO_ROOT>/plugins/allbert.telegram",
-          "settings_keys": [
-            "channels.telegram.enabled",
-            "channels.telegram.bot_token_ref",
-            "channels.telegram.autonomous_notify.enabled",
-            "channels.telegram.autonomous_notify.level",
-            "channels.telegram.autonomous_notify.min_interval_seconds"
-          ],
+          "root_path": "<REPO_ROOT>/_build/test/lib/allbert_telegram/priv",
+          "settings_keys": [],
           "skill_paths": [],
           "source": "shipped",
           "status": "enabled",
@@ -39752,30 +39696,6 @@
           "plugin_id": "allbert.discord"
         },
         {
-          "key": "channels.email.enabled",
-          "plugin_id": "allbert.email"
-        },
-        {
-          "key": "channels.email.imap_password_ref",
-          "plugin_id": "allbert.email"
-        },
-        {
-          "key": "channels.email.smtp_password_ref",
-          "plugin_id": "allbert.email"
-        },
-        {
-          "key": "channels.email.autonomous_notify.enabled",
-          "plugin_id": "allbert.email"
-        },
-        {
-          "key": "channels.email.autonomous_notify.level",
-          "plugin_id": "allbert.email"
-        },
-        {
-          "key": "channels.email.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.email"
-        },
-        {
           "key": "channels.matrix.enabled",
           "plugin_id": "allbert.matrix"
         },
@@ -39978,26 +39898,6 @@
         {
           "key": "channels.slack.autonomous_notify.min_interval_seconds",
           "plugin_id": "allbert.slack"
-        },
-        {
-          "key": "channels.telegram.enabled",
-          "plugin_id": "allbert.telegram"
-        },
-        {
-          "key": "channels.telegram.bot_token_ref",
-          "plugin_id": "allbert.telegram"
-        },
-        {
-          "key": "channels.telegram.autonomous_notify.enabled",
-          "plugin_id": "allbert.telegram"
-        },
-        {
-          "key": "channels.telegram.autonomous_notify.level",
-          "plugin_id": "allbert.telegram"
-        },
-        {
-          "key": "channels.telegram.autonomous_notify.min_interval_seconds",
-          "plugin_id": "allbert.telegram"
         },
         {
           "key": "channels.tui.enabled",
@@ -40240,7 +40140,7 @@
         "effective_keys": 624,
         "fragments": 56,
         "raw_app_rows": 0,
-        "raw_plugin_rows": 165,
+        "raw_plugin_rows": 154,
         "safe_and_writable_effective_keys": 586,
         "safe_write_rows": 625,
         "safe_write_unique_keys": 625,
@@ -46624,6 +46524,115 @@
         },
         {
           "defaults": {
+            "channels": {
+              "telegram": {
+                "autonomous_notify": {
+                  "enabled": false,
+                  "level": "completion",
+                  "min_interval_seconds": 30
+                }
+              }
+            }
+          },
+          "group": "plugins",
+          "id": "plugin:allbert.telegram",
+          "index": 46,
+          "metadata": {
+            "display_name": "Allbert Telegram Channel",
+            "source": "shipped",
+            "trust_status": "trusted"
+          },
+          "owner": "allbert.telegram",
+          "safe_write_keys": [
+            "channels.telegram.autonomous_notify.enabled",
+            "channels.telegram.autonomous_notify.level",
+            "channels.telegram.autonomous_notify.min_interval_seconds"
+          ],
+          "schema": {
+            "channels.telegram.autonomous_notify.enabled": {
+              "default": false,
+              "sensitive?": false,
+              "type": "boolean",
+              "writable?": true
+            },
+            "channels.telegram.autonomous_notify.level": {
+              "allowed_values": [
+                "completion",
+                "status_and_completion"
+              ],
+              "default": "completion",
+              "sensitive?": false,
+              "type": "enum",
+              "writable?": true
+            },
+            "channels.telegram.autonomous_notify.min_interval_seconds": {
+              "default": 30,
+              "max": 600,
+              "min": 5,
+              "sensitive?": false,
+              "type": "bounded_integer",
+              "writable?": true
+            }
+          },
+          "schema_version": 1,
+          "source": "plugin"
+        },
+        {
+          "defaults": {
+            "channels": {
+              "email": {
+                "autonomous_notify": {
+                  "enabled": false,
+                  "level": "completion",
+                  "min_interval_seconds": 30
+                }
+              }
+            }
+          },
+          "group": "plugins",
+          "id": "plugin:allbert.email",
+          "index": 47,
+          "metadata": {
+            "display_name": "Allbert Email Channel",
+            "source": "shipped",
+            "trust_status": "trusted"
+          },
+          "owner": "allbert.email",
+          "safe_write_keys": [
+            "channels.email.autonomous_notify.enabled",
+            "channels.email.autonomous_notify.level",
+            "channels.email.autonomous_notify.min_interval_seconds"
+          ],
+          "schema": {
+            "channels.email.autonomous_notify.enabled": {
+              "default": false,
+              "sensitive?": false,
+              "type": "boolean",
+              "writable?": true
+            },
+            "channels.email.autonomous_notify.level": {
+              "allowed_values": [
+                "completion"
+              ],
+              "default": "completion",
+              "sensitive?": false,
+              "type": "enum",
+              "writable?": true
+            },
+            "channels.email.autonomous_notify.min_interval_seconds": {
+              "default": 30,
+              "max": 600,
+              "min": 5,
+              "sensitive?": false,
+              "type": "bounded_integer",
+              "writable?": true
+            }
+          },
+          "schema_version": 1,
+          "source": "plugin"
+        },
+        {
+          "defaults": {
             "browser": {
               "cache": {
                 "max_age_ms": 86400000,
@@ -46684,7 +46693,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.browser",
-          "index": 46,
+          "index": 48,
           "metadata": {
             "display_name": "Allbert Browser",
             "source": "shipped",
@@ -46988,7 +46997,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.discord",
-          "index": 47,
+          "index": 49,
           "metadata": {
             "display_name": "Allbert Discord Channel",
             "source": "shipped",
@@ -47129,60 +47138,6 @@
         {
           "defaults": {
             "channels": {
-              "email": {
-                "autonomous_notify": {
-                  "enabled": false,
-                  "level": "completion",
-                  "min_interval_seconds": 30
-                }
-              }
-            }
-          },
-          "group": "plugins",
-          "id": "plugin:allbert.email",
-          "index": 48,
-          "metadata": {
-            "display_name": "Allbert Email Channel",
-            "source": "shipped",
-            "trust_status": "trusted"
-          },
-          "owner": "allbert.email",
-          "safe_write_keys": [
-            "channels.email.autonomous_notify.enabled",
-            "channels.email.autonomous_notify.level",
-            "channels.email.autonomous_notify.min_interval_seconds"
-          ],
-          "schema": {
-            "channels.email.autonomous_notify.enabled": {
-              "default": false,
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            "channels.email.autonomous_notify.level": {
-              "allowed_values": [
-                "completion"
-              ],
-              "default": "completion",
-              "sensitive?": false,
-              "type": "enum",
-              "writable?": true
-            },
-            "channels.email.autonomous_notify.min_interval_seconds": {
-              "default": 30,
-              "max": 600,
-              "min": 5,
-              "sensitive?": false,
-              "type": "bounded_integer",
-              "writable?": true
-            }
-          },
-          "schema_version": 1,
-          "source": "plugin"
-        },
-        {
-          "defaults": {
-            "channels": {
               "matrix": {
                 "access_token_ref": "secret://channels/matrix/access_token",
                 "allowed_room_ids": [],
@@ -47205,7 +47160,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.matrix",
-          "index": 49,
+          "index": 50,
           "metadata": {
             "display_name": "Allbert Matrix Channel",
             "source": "shipped",
@@ -47348,7 +47303,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.research",
-          "index": 50,
+          "index": 51,
           "metadata": {
             "display_name": "Allbert Research",
             "source": "shipped",
@@ -47430,7 +47385,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.signal",
-          "index": 51,
+          "index": 52,
           "metadata": {
             "display_name": "Allbert Signal Channel",
             "source": "shipped",
@@ -47611,7 +47566,7 @@
           },
           "group": "plugins",
           "id": "plugin:allbert.slack",
-          "index": 52,
+          "index": 53,
           "metadata": {
             "display_name": "Allbert Slack Channel",
             "source": "shipped",
@@ -47737,61 +47692,6 @@
               "default": "",
               "sensitive?": false,
               "type": "string_or_empty",
-              "writable?": true
-            }
-          },
-          "schema_version": 1,
-          "source": "plugin"
-        },
-        {
-          "defaults": {
-            "channels": {
-              "telegram": {
-                "autonomous_notify": {
-                  "enabled": false,
-                  "level": "completion",
-                  "min_interval_seconds": 30
-                }
-              }
-            }
-          },
-          "group": "plugins",
-          "id": "plugin:allbert.telegram",
-          "index": 53,
-          "metadata": {
-            "display_name": "Allbert Telegram Channel",
-            "source": "shipped",
-            "trust_status": "trusted"
-          },
-          "owner": "allbert.telegram",
-          "safe_write_keys": [
-            "channels.telegram.autonomous_notify.enabled",
-            "channels.telegram.autonomous_notify.level",
-            "channels.telegram.autonomous_notify.min_interval_seconds"
-          ],
-          "schema": {
-            "channels.telegram.autonomous_notify.enabled": {
-              "default": false,
-              "sensitive?": false,
-              "type": "boolean",
-              "writable?": true
-            },
-            "channels.telegram.autonomous_notify.level": {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "sensitive?": false,
-              "type": "enum",
-              "writable?": true
-            },
-            "channels.telegram.autonomous_notify.min_interval_seconds": {
-              "default": 30,
-              "max": 600,
-              "min": 5,
-              "sensitive?": false,
-              "type": "bounded_integer",
               "writable?": true
             }
           },
@@ -48775,40 +48675,7 @@
         },
         {
           "plugin_id": "allbert.email",
-          "schema": [
-            {
-              "key": "channels.email.enabled",
-              "type": "boolean"
-            },
-            {
-              "key": "channels.email.imap_password_ref",
-              "type": "channel_secret_ref"
-            },
-            {
-              "key": "channels.email.smtp_password_ref",
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": false,
-              "key": "channels.email.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion"
-              ],
-              "default": "completion",
-              "key": "channels.email.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.email.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.matrix",
@@ -49167,37 +49034,7 @@
         },
         {
           "plugin_id": "allbert.telegram",
-          "schema": [
-            {
-              "key": "channels.telegram.enabled",
-              "type": "boolean"
-            },
-            {
-              "key": "channels.telegram.bot_token_ref",
-              "type": "channel_secret_ref"
-            },
-            {
-              "default": false,
-              "key": "channels.telegram.autonomous_notify.enabled",
-              "type": "boolean"
-            },
-            {
-              "allowed_values": [
-                "completion",
-                "status_and_completion"
-              ],
-              "default": "completion",
-              "key": "channels.telegram.autonomous_notify.level",
-              "type": "enum"
-            },
-            {
-              "default": 30,
-              "key": "channels.telegram.autonomous_notify.min_interval_seconds",
-              "max": 600,
-              "min": 5,
-              "type": "bounded_integer"
-            }
-          ]
+          "schema": []
         },
         {
           "plugin_id": "allbert.tui",
@@ -50643,6 +50480,12 @@
         "workspace.signal_bridge.log_dropped_fragments",
         "apps.notes_files.notes_root",
         "apps.notes_files.max_results",
+        "channels.telegram.autonomous_notify.enabled",
+        "channels.telegram.autonomous_notify.level",
+        "channels.telegram.autonomous_notify.min_interval_seconds",
+        "channels.email.autonomous_notify.enabled",
+        "channels.email.autonomous_notify.level",
+        "channels.email.autonomous_notify.min_interval_seconds",
         "browser.form_fill.enabled",
         "browser.driver.binary_path",
         "browser.routing.dynamic_hosts",
@@ -50686,9 +50529,6 @@
         "channels.discord.max_text_bytes",
         "channels.discord.render_approval_buttons",
         "channels.discord.response_style",
-        "channels.email.autonomous_notify.enabled",
-        "channels.email.autonomous_notify.level",
-        "channels.email.autonomous_notify.min_interval_seconds",
         "channels.matrix.access_token_ref",
         "channels.matrix.allowed_room_ids",
         "channels.matrix.autonomous_notify.enabled",
@@ -50736,9 +50576,6 @@
         "channels.slack.response_style",
         "channels.slack.socket_mode.reconnect_max_backoff_ms",
         "channels.slack.workspace_team_id",
-        "channels.telegram.autonomous_notify.enabled",
-        "channels.telegram.autonomous_notify.level",
-        "channels.telegram.autonomous_notify.min_interval_seconds",
         "channels.tui.autonomous_notify.enabled",
         "channels.tui.autonomous_notify.level",
         "channels.tui.autonomous_notify.min_interval_seconds",
@@ -52013,14 +51850,22 @@
     }
   },
   "provenance": {
-    "generator_command": "ALLBERT_HOME=<TEMP_HOME> MIX_ENV=test mix do allbert.ecto.migrate --quiet + run -e 'AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!()'",
+    "generator_command": "ALLBERT_HOME=<TEMP_HOME> ALLBERT_M0_FREEZE=1 MIX_ENV=test mix test test/allbert_assist/dev_gates/v14_m0_registry_ledger_test.exs (AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!/1)",
     "source_sha": "1739a402834310f996dc3649cb5a2979a6757af1",
-    "superseded": {
-      "milestone": "M9",
-      "payload_sha256": "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
-      "reason": "notes_files extracted to apps/allbert_notes_files, and the registry-shaped sections re-derived from declarations so the payload no longer depends on which applications the checking VM has loaded",
-      "refrozen_at_sha": "063ab1f2185457b1ddc1c07f7430cf88bd254393"
-    }
+    "superseded": [
+      {
+        "milestone": "M9",
+        "payload_sha256": "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
+        "reason": "notes_files extracted to apps/allbert_notes_files, and the registry-shaped sections re-derived from declarations so the payload no longer depends on which applications the checking VM has loaded",
+        "refrozen_at_sha": "063ab1f2185457b1ddc1c07f7430cf88bd254393"
+      },
+      {
+        "milestone": "M12",
+        "payload_sha256": "0f1e55be8417e37d9745fb06d0f916c975af7889d846d326788042eb27cec84f",
+        "reason": "telegram and email extracted to apps/allbert_telegram and apps/allbert_email with their modules renamed out of the AllbertAssist namespace, and the registration mutation subject moved to a residual-compiled plugin so the residual keeps no compile-time reference into a pack",
+        "refrozen_at_sha": "a71cbb2c176a9686b521b9f06347bf493164b03e"
+      }
+    ]
   },
   "schema_version": 1
 }

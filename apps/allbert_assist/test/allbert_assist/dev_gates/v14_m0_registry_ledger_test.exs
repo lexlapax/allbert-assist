@@ -33,6 +33,17 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedgerTest do
   end
 
   test "frozen fixture binds the complete live payload and its section digests" do
+    # The artifact is regenerated from inside THIS VM, not from `mix run`.
+    #
+    # v1.4 M12 tried the other way and the artifact was wrong three times in a
+    # row -- once missing every pack-owned action, once missing all three pack
+    # settings fragments because the composition host was unloaded so the closed
+    # projection failed, and once recording 2 intent descriptors instead of the
+    # full set. Each was a silently WRONG ledger, not a failed command. The
+    # generator has to reproduce the world the checker sees, and the only way to
+    # guarantee that is to be that world: the suite bootstrap already builds it.
+    if System.get_env("ALLBERT_M0_FREEZE") == "1", do: V14M0RegistryLedger.write_frozen!()
+
     frozen = V14M0RegistryLedger.load_frozen!()
 
     assert V14M0RegistryLedger.fixture_path() == @fixture

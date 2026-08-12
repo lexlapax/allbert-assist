@@ -4,7 +4,7 @@ defmodule AllbertEmail.Actions.SendEmail do
   visible, so `confirmation: :required`: the confirmation gate (via
   `Actions.Outbound.Gate`) is the only execution boundary; routing grants no
   authority. On approval the opt-in generic resume re-runs this action and the send
-  is delivered through `Channels.Email.SmtpClient`. Body is redacted from the
+  is delivered through `AllbertEmail.SmtpClient`. Body is redacted from the
   confirmation summary; secrets never enter summaries/traces.
   """
   use AllbertAssist.Action,

@@ -19,6 +19,10 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     # of the inventories silently, which is the same way Actions.Runner left the
     # roster's field of view at M8.
     "apps/allbert_notes_files/lib",
+    # v1.4 M12 extracted telegram and email the same way. `plugins/*/lib` below
+    # still covers the five channels that have not moved.
+    "apps/allbert_telegram/lib",
+    "apps/allbert_email/lib",
     "plugins/*/lib"
   ]
   @required_fields ~w[

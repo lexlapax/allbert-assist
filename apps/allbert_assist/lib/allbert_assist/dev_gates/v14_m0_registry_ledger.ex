@@ -26,26 +26,61 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
 
   @schema_version 1
   @normalization "v14_m0_registry_ledger_v1"
-  @generator_command "ALLBERT_HOME=<TEMP_HOME> MIX_ENV=test mix do allbert.ecto.migrate --quiet + run -e 'AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!()'"
+  # Regenerated from inside the test VM, because the generator must reproduce the
+  # world the CHECKER sees and `mix run` does not execute `test_helper.exs`.
+  # v1.4 M12 tried to replicate that bootstrap in a command string and produced a
+  # silently WRONG ledger three times: once missing every pack-owned action, once
+  # missing all three pack settings fragments (the composition host was unloaded,
+  # so the closed projection failed and contributed nothing), and once recording
+  # 2 intent descriptors instead of the full set. The suite bootstrap already
+  # builds the right world, so the freeze happens there.
+  @generator_command "ALLBERT_HOME=<TEMP_HOME> ALLBERT_M0_FREEZE=1 MIX_ENV=test mix test test/allbert_assist/dev_gates/v14_m0_registry_ledger_test.exs (AllbertAssist.DevGates.V14M0RegistryLedger.write_frozen!/1)"
   @repo_root Path.expand("../../../../..", __DIR__)
   @m0_source_sha "1739a402834310f996dc3649cb5a2979a6757af1"
-  # The one authorized regeneration of this fixture, kept in the artifact so the
-  # change is auditable from the artifact alone rather than from a commit
-  # message. v1.4 M9 both MOVED a pack (its manifest and skills now live in an
-  # application's priv, so its recorded paths legitimately changed) and changed
-  # how the four registry-shaped sections are DERIVED (from declarations rather
-  # than from whichever global registries a VM had accumulated). The second is a
-  # representation change: it is what makes the payload environment-independent,
-  # and it is why this digest supersedes one that could never have been stable
-  # across VMs again. Operator decision 2026-08-11.
-  @superseded_provenance %{
-    "payload_sha256" => "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
-    "milestone" => "M9",
-    "reason" =>
-      "notes_files extracted to apps/allbert_notes_files, and the registry-shaped " <>
-        "sections re-derived from declarations so the payload no longer depends on " <>
-        "which applications the checking VM has loaded"
-  }
+  # Every authorized regeneration of this fixture, oldest first, kept IN the
+  # artifact so each change is auditable from the artifact alone rather than from
+  # a commit message. A chain, not a single record: overwriting the previous
+  # entry would buy a tidier attribute at the cost of the audit trail it exists
+  # to be.
+  #
+  # Each entry names the payload digest it superseded, so the sequence of digests
+  # this fixture has legitimately held is reconstructable end to end. Nothing
+  # validates against these -- they are provenance, and `check!/0` binds only the
+  # live payload to the current frozen digest.
+  @supersessions [
+    # v1.4 M9 both MOVED a pack (its manifest and skills now live in an
+    # application's priv, so its recorded paths legitimately changed) and changed
+    # how the four registry-shaped sections are DERIVED (from declarations rather
+    # than from whichever global registries a VM had accumulated). The second is a
+    # representation change: it is what makes the payload environment-independent,
+    # and it is why that digest superseded one that could never have been stable
+    # across VMs again. Operator decision 2026-08-11.
+    %{
+      "payload_sha256" => "8a2a4266b2dfb9331c6c2fca3c269938bfe39c25c1cb316abc3dc0741286d69b",
+      "milestone" => "M9",
+      "refrozen_at_sha" => "063ab1f2185457b1ddc1c07f7430cf88bd254393",
+      "reason" =>
+        "notes_files extracted to apps/allbert_notes_files, and the registry-shaped " <>
+          "sections re-derived from declarations so the payload no longer depends on " <>
+          "which applications the checking VM has loaded"
+    },
+    # v1.4 M12 is a MOVE only -- no derivation changed. Telegram and email became
+    # their own applications, so their recorded module names, manifest paths and
+    # skill roots changed, and the ledger's own registration subject moved off
+    # AllbertTelegram.Plugin (which after extraction was the residual's last
+    # compile-time reference into a pack) onto a plugin the residual still
+    # compiles. Operator decision 2026-08-11.
+    %{
+      "payload_sha256" => "0f1e55be8417e37d9745fb06d0f916c975af7889d846d326788042eb27cec84f",
+      "milestone" => "M12",
+      "reason" =>
+        "telegram and email extracted to apps/allbert_telegram and apps/allbert_email " <>
+          "with their modules renamed out of the AllbertAssist namespace, and the " <>
+          "registration mutation subject moved to a residual-compiled plugin so the " <>
+          "residual keeps no compile-time reference into a pack"
+    }
+  ]
+
   # The DECLARED discovery inputs, pinned rather than read from the VM.
   # Discovery consults live Settings for plugin enablement and resolves its scan
   # paths against a cwd-relative project root, so the same source discovered a
@@ -190,7 +225,9 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         # the payload is DERIVED; it does not move the baseline it describes.
         "source_sha" => @m0_source_sha,
         "generator_command" => @generator_command,
-        "superseded" => Map.put(@superseded_provenance, "refrozen_at_sha", source_sha!())
+        # Only the newest entry is stamped: the earlier ones already carry the
+        # commit that produced them, and restamping would rewrite their history.
+        "superseded" => stamp_supersessions()
       })
 
     path |> Path.dirname() |> File.mkdir_p!()
@@ -203,6 +240,11 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
 
     File.write!(path, encoded)
     frozen
+  end
+
+  defp stamp_supersessions do
+    {earlier, [newest]} = Enum.split(@supersessions, length(@supersessions) - 1)
+    earlier ++ [Map.put_new(newest, "refrozen_at_sha", source_sha!())]
   end
 
   @doc "Compare default registry reads with the same public calls using explicit servers."

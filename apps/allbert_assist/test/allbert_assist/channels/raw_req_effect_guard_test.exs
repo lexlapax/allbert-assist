@@ -3,7 +3,9 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
 
   @moduletag :external_runtime_serial
 
-  alias AllbertAssist.Channels.{Discord, Matrix, Signal, Slack, Telegram, WhatsApp}
+  alias AllbertAssist.Channels.{Discord, Matrix, Signal, Slack, WhatsApp}
+  # Telegram left the AllbertAssist.Channels namespace at v1.4 M12.
+  alias AllbertTelegram
   alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
@@ -34,7 +36,7 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
     end)
 
     assert {:ok, []} =
-             Telegram.Client.get_updates(
+             AllbertTelegram.Client.get_updates(
                "token",
                0,
                1,
@@ -87,7 +89,7 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
              )
 
     assert {:error, ^expected_reason} =
-             Telegram.Client.get_updates(
+             AllbertTelegram.Client.get_updates(
                "token",
                0,
                1,

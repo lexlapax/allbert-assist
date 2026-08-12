@@ -38,16 +38,16 @@ defmodule AllbertAssist.Pack.ResidualTest do
     assert Enum.map(Residual.test_lanes(), & &1.owner_id) == [
              :core,
              :stocksage,
-             :telegram,
-             :email,
              :discord,
              :slack,
              :matrix,
              :whatsapp,
              :signal,
-             # notes_files left this list at v1.4 M9: the pack owns its test lane
-             # now, declared by AllbertNotesFiles.Pack.test_lanes/0. The residual
-             # answers only for owners whose code it still compiles.
+             # notes_files left this list at v1.4 M9, and telegram and email at
+             # M12: each pack owns its test lane now, declared by its own
+             # Pack.test_lanes/0. The residual answers only for owners whose code
+             # it still compiles -- which is why the five channels still here are
+             # exactly the five still under plugins/.
              :artifacts
            ]
   end

@@ -3,7 +3,7 @@ defmodule AllbertEmail.Actions.DoctorTest do
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertEmail.Actions.Doctor
+  alias AllbertEmail.Actions.Doctor, as: EmailDoctor
   alias AllbertEmail.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings

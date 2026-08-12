@@ -692,6 +692,27 @@ defmodule AllbertAssist.LicensesTest do
                "descriptor_module" => "Elixir.AllbertNotesFiles.Pack",
                "startup_role" => "native_passive",
                "registry_order" => 200
+             },
+             # v1.4 M12. Both are native_passive, not the native_effectful the R0
+             # table assumed: the extraction moved code and declarations but no
+             # supervision, so their adapters are still started from the channel
+             # descriptor's child_spec by the residual's Plugin.ChildSupervisor.
+             # Effect ownership for all seven channels is recorded against 2.0.
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_telegram",
+               "application" => "allbert_telegram",
+               "descriptor_module" => "Elixir.AllbertTelegram.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 300
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_email",
+               "application" => "allbert_email",
+               "descriptor_module" => "Elixir.AllbertEmail.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 400
              }
            ]
 

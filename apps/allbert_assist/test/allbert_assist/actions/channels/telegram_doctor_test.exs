@@ -3,7 +3,7 @@ defmodule AllbertTelegram.Actions.DoctorTest do
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertTelegram.Actions.Doctor
+  alias AllbertTelegram.Actions.Doctor, as: TelegramDoctor
   alias AllbertTelegram.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings

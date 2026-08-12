@@ -30,20 +30,29 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParityTest do
   end
 
   test "source Pack projection is sealed to the complete application closure" do
-    # v1.4 M9 extracted the notes_files pack, so the closure spans a third
-    # descriptor-bearing application and the rows are ordered by registry_order:
-    # kernel 0, residual 100, notes_files 200.
+    # v1.4 M9 extracted the notes_files pack and M12 added telegram and email, so
+    # the closure spans five descriptor-bearing applications and the rows are
+    # ordered by registry_order: kernel 0, residual 100, notes_files 200,
+    # telegram 300, email 400.
     assert %Closed{
              schema_version: 1,
              closed_applications: [
                :allbert_kernel,
                :allbert_assist,
                :allbert_notes_files,
+               :allbert_telegram,
+               :allbert_email,
                :allbert_composition,
                :allbert_assist_web
              ],
-             pack_applications: [:allbert_kernel, :allbert_assist, :allbert_notes_files],
-             rows: [kernel, residual, notes_files],
+             pack_applications: [
+               :allbert_kernel,
+               :allbert_assist,
+               :allbert_notes_files,
+               :allbert_telegram,
+               :allbert_email
+             ],
+             rows: [kernel, residual, notes_files, telegram, email],
              projection_sha256: projection_sha256,
              closure_sha256: closure_sha256
            } = closed = V14M1RegistryShadowParity.source_closed_projection!()
@@ -53,9 +62,20 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParityTest do
     assert notes_files.application == :allbert_notes_files
     assert notes_files.registry_order == 200
     assert notes_files.startup_role == :native_passive
+    assert telegram.application == :allbert_telegram
+    assert telegram.registry_order == 300
+    assert email.application == :allbert_email
+    assert email.registry_order == 400
+
+    # Both M12 packs are passive: the extraction moved code, not supervision.
+    assert telegram.startup_role == :native_passive
+    assert email.startup_role == :native_passive
+
     assert kernel.app_sha256 =~ ~r/^[0-9a-f]{64}$/
     assert residual.app_sha256 =~ ~r/^[0-9a-f]{64}$/
     assert notes_files.app_sha256 =~ ~r/^[0-9a-f]{64}$/
+    assert telegram.app_sha256 =~ ~r/^[0-9a-f]{64}$/
+    assert email.app_sha256 =~ ~r/^[0-9a-f]{64}$/
     assert projection_sha256 =~ ~r/^[0-9a-f]{64}$/
     assert closure_sha256 =~ ~r/^[0-9a-f]{64}$/
     assert :ok = Projection.validate_closed(closed)
