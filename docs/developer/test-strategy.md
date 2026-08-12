@@ -609,10 +609,24 @@ not eligible for `pure_async` even when it currently says `async: true`.
 
 Plugin and channel suites are in scope. StockSage's Python-bridge tests are
 `external_runtime_serial` (a stdio Port to a real interpreter); channel adapter
-tests (telegram/email) follow their own resource ownership. The umbrella runs
-these via `do --app allbert_assist cmd mix test ../../plugins/...`; the gate
-matrix keeps that invocation for the plugin/channel lanes rather than assuming a
-single umbrella `mix test`.
+tests follow their own resource ownership. For a suite still under `plugins/`,
+the umbrella runs it via `do --app allbert_assist cmd mix test ../../plugins/...`;
+the gate matrix keeps that invocation for the plugin/channel lanes rather than
+assuming a single umbrella `mix test`.
+
+An **extracted pack** is different: it is its own OTP application, so it declares
+its lane through its `Pack.test_lanes/0` and runs from its own directory with its
+own `cwd`, not the residual's. `notes_files` left at v1.4 M9, and telegram and
+email at M12; the five channels still under `plugins/` keep the invocation above.
+Two consequences are easy to miss and both were real failures at M12. A pack lane
+gets a fresh `ALLBERT_HOME` and therefore an **empty database**, so each pack
+applies the schema through the same `allbert.ecto.migrate` task the residual's
+`test` alias uses. And because the code path is that application's dependency
+closure alone, every pack helper goes through
+`AllbertAssist.TestSupport.PackBootstrap` to load the sibling applications it
+does not depend on and to register the extracted packs — without the second step
+the compiled action catalog has a hole and composition fails closed with
+`:invalid_registry_order`.
 
 ## Async-Safe Rule
 
