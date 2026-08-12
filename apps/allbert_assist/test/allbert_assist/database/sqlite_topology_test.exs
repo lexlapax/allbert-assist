@@ -145,8 +145,12 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
   test "the reviewed production transaction callsite inventory cannot drift silently" do
     actual =
       [
-        "apps/allbert_assist/lib/**/*.ex",
-        "apps/allbert_assist_web/lib/**/*.ex",
+        # v1.4 M13 widened this to every application. The census used to scan the
+        # residual, Web and plugins/; once a plugin became an OTP application its
+        # transaction callsites fell outside every glob and the census stopped
+        # seeing them -- silently, which is the one failure mode a census must not
+        # have. plugins/ stays for any future operator-supplied tree.
+        "apps/*/lib/**/*.ex",
         "plugins/*/lib/**/*.ex"
       ]
       |> Enum.flat_map(&Path.wildcard(Path.join(@repo_root, &1)))
@@ -173,8 +177,12 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
 
     actual =
       [
-        "apps/allbert_assist/lib/**/*.ex",
-        "apps/allbert_assist_web/lib/**/*.ex",
+        # v1.4 M13 widened this to every application. The census used to scan the
+        # residual, Web and plugins/; once a plugin became an OTP application its
+        # transaction callsites fell outside every glob and the census stopped
+        # seeing them -- silently, which is the one failure mode a census must not
+        # have. plugins/ stays for any future operator-supplied tree.
+        "apps/*/lib/**/*.ex",
         "plugins/*/lib/**/*.ex"
       ]
       |> Enum.flat_map(&Path.wildcard(Path.join(@repo_root, &1)))
