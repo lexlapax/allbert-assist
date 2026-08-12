@@ -1337,7 +1337,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
         "test/allbert_assist/objectives/objective_test.exs",
         "test/allbert_assist/intent/eval/gate_test.exs",
         "test/allbert_assist/actions/app_actions_test.exs",
-        "test/allbert_assist/actions/browser_actions_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/actions_test.exs",
         "test/allbert_assist/actions/channels/list_channels_context_test.exs"
       ]
 
@@ -1369,8 +1369,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
       core_targets = [
         "test/allbert_assist/install_path_test.exs",
-        "test/allbert_assist/browser/playwright_driver_test.exs",
-        "test/allbert_assist/actions/browser_actions_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/playwright_driver_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/actions_test.exs",
         "test/allbert_assist/actions/channels/list_channels_context_test.exs"
       ]
 

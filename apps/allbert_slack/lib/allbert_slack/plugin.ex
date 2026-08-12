@@ -47,7 +47,12 @@ defmodule AllbertSlack.Plugin do
         quote_ttl_ms: 86_400_000,
         plugin_id: plugin_id(),
         source: :shipped,
-        status: :enabled
+        status: :enabled,
+        # v1.4 M13: this pack is `native_effectful` (catalog.json) and starts
+        # its own adapter through AllbertSlack.EffectSupervisor. Tells the
+        # residual's aggregate AllbertAssist.Channels.channel_child_specs/1 to
+        # skip this descriptor so the adapter is never started twice.
+        supervised_by: :pack
       }
     ]
   end

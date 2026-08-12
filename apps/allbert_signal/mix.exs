@@ -43,6 +43,7 @@ defmodule AllbertSignal.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      mod: {AllbertSignal.Application, []},
       env: [allbert_pack: AllbertSignal.Pack]
     ]
   end

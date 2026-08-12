@@ -37,6 +37,11 @@ defmodule AllbertAssist.Pack.CompiledInventoryTest do
              "allbert.slack",
              "allbert.telegram",
              "allbert.tui",
+             # v1.4 M13: the M0 ledger's registration subject. It implements the
+             # Plugin behaviour so the ledger can register it twice, so the
+             # compiled inventory names it -- but it ships no manifest, so
+             # discovery never registers it as a product plugin.
+             "allbert.v14_m0_ledger",
              "allbert.whatsapp",
              "stocksage"
            ]

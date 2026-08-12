@@ -52,6 +52,7 @@ defmodule AllbertTelegram.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      mod: {AllbertTelegram.Application, []},
       env: [allbert_pack: AllbertTelegram.Pack]
     ]
   end

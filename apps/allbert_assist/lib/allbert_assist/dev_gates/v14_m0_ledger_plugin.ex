@@ -16,9 +16,15 @@ defmodule AllbertAssist.DevGates.V14M0LedgerPlugin do
   Deliberately minimal and deliberately inert: no apps, no actions, no channels,
   no settings, no child. It exists to be registered twice and rejected the second
   time, and anything else it contributed would enter the frozen payload for no
-  reason. It is never discovered — `Plugin.Discovery` scans manifests and
-  compiled plugin inventories, and this module appears in neither — so it cannot
-  leak into a product registry.
+  reason.
+
+  It DOES appear in `CompiledInventory.plugin_modules/1`, which enumerates every
+  compiled module implementing this behaviour — so the compiled-inventory roster
+  names it, and the test asserting that roster expects it. What it cannot do is
+  register as a product plugin: `Plugin.Discovery` registers what a manifest
+  claims, this module ships no `allbert_plugin.json`, and nothing else names it.
+  The distinction matters because the inventory is a compile-time fact while
+  discovery is the registration authority.
   """
 
   use AllbertAssist.Plugin

@@ -1758,10 +1758,10 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/actions/resource_refs_test.exs",
         "test/allbert_assist/security/permission_gate_test.exs",
         "test/allbert_assist/external/http_policy_test.exs",
-        "test/allbert_assist/actions/browser_actions_test.exs",
-        "test/allbert_assist/actions/browser_m3_test.exs",
-        "test/allbert_assist/actions/browser_m4_test.exs",
-        "test/mix/tasks/allbert_browser_test.exs"
+        "../../apps/allbert_browser/test/allbert_browser/actions_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/m3_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/m4_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/mix_task_test.exs"
       ],
       coverage: [
         "browser settings schema and permission floors",
@@ -1780,7 +1780,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/security/v043_browser_research_eval_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/v043_eval_test.exs",
         "test/security/security_eval_case_test.exs"
       ],
       coverage: [
@@ -2006,8 +2006,8 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "test/allbert_assist/actions/objectives/delegate_agent_test.exs",
-        "test/allbert_assist/actions/research_delegate_test.exs",
-        "test/mix/tasks/allbert_research_test.exs"
+        "../../apps/allbert_research/test/allbert_research/delegate_test.exs",
+        "../../apps/allbert_research/test/allbert_research/mix_task_test.exs"
       ],
       coverage: [
         "delegate_agent command allowlist and metadata dispatch",
@@ -2022,7 +2022,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/allbert_assist/intent/research_descriptor_test.exs",
+        "../../apps/allbert_research/test/allbert_research/descriptor_test.exs",
         "test/allbert_assist/workflows/expander_test.exs"
       ],
       coverage: [
@@ -2049,8 +2049,8 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/security/v046_research_delegate_eval_test.exs",
-        "test/security/v043_browser_research_eval_test.exs",
+        "../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs",
+        "../../apps/allbert_browser/test/allbert_browser/v043_eval_test.exs",
         "test/security/security_eval_case_test.exs"
       ],
       coverage: [
@@ -2349,7 +2349,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/allbert_assist/actions/browser_actions_test.exs"
+        "../../apps/allbert_browser/test/allbert_browser/actions_test.exs"
       ],
       coverage: [
         "browser_screenshot writes a bounded cache artifact",
@@ -6321,8 +6321,8 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/security/v051_public_protocol_eval_test.exs",
         "test/security/v053_channel_pack_eval_test.exs",
         "test/security/mcp_integration_eval_test.exs",
-        "test/security/v043_browser_research_eval_test.exs",
-        "test/security/v046_research_delegate_eval_test.exs"
+        "../../apps/allbert_browser/test/allbert_browser/v043_eval_test.exs",
+        "../../apps/allbert_research/test/allbert_research/v046_delegate_eval_test.exs"
       ],
       coverage: [
         "public surfaces deny internals by default, channels/MCP/browser keep their exposure and egress floors — the contract half of product-rc-advanced-surfaces-no-regression-001 (live per-class exercise is operator-attested [model]/[smoke] per Locked Decision 6)"
@@ -8509,7 +8509,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "M1 home_fs pilot: contract-4 owned-root proof holds (home_fs_serial)",
       cwd: :core,
       executable: "mix",
-      args: ["test", "test/allbert_assist/actions/browser_actions_test.exs"],
+      args: ["test", "../../apps/allbert_browser/test/allbert_browser/actions_test.exs"],
       coverage: [
         "the OS-pid-qualified, pre-cleaned owned root keeps every exercised Paths read inside it and sweeps planted stale poison (ADR 0086 contract 4, ADR 0031 stay-serial decision)"
       ]
@@ -8652,7 +8652,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "Playwright bridge preserves host-managed runtime paths and diagnostics",
       cwd: :core,
       executable: "mix",
-      args: ["test", "test/allbert_assist/browser/playwright_driver_test.exs"],
+      args: ["test", "../../apps/allbert_browser/test/allbert_browser/playwright_driver_test.exs"],
       coverage: [
         "the spawned bridge uses explicit host module/browser paths and reports missing Playwright without running a package manager"
       ]
@@ -8662,7 +8662,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "browser doctor preserves actionable host-runtime categories",
       cwd: :core,
       executable: "mix",
-      args: ["test", "test/allbert_assist/actions/browser_actions_test.exs"],
+      args: ["test", "../../apps/allbert_browser/test/allbert_browser/actions_test.exs"],
       coverage: [
         "missing host Playwright is unavailable; a version mismatch is a failed compatibility check; both persist stable categories"
       ]
@@ -8839,7 +8839,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "Playwright bridge hides its console only on Windows",
       cwd: :core,
       executable: "mix",
-      args: ["test", "test/allbert_assist/browser/playwright_driver_test.exs"],
+      args: ["test", "../../apps/allbert_browser/test/allbert_browser/playwright_driver_test.exs"],
       coverage: [
         "Windows retains :hide while Darwin/Linux omit it, preventing the packaged macOS Chrome TransformProcessType crash"
       ]
@@ -10340,7 +10340,7 @@ defmodule Mix.Tasks.Allbert.Test do
       "external-smoke browser_research",
       app_cwd(:core),
       "mix",
-      ["test", "test/external/browser_research_smoke_test.exs"],
+      ["test", "../../apps/allbert_browser/test/allbert_browser/external_smoke_test.exs"],
       [{"ALLBERT_BROWSER_EXTERNAL_SMOKE", "1"} | owned_env("external-smoke-browser-research", 0)]
     )
   end
@@ -10350,7 +10350,10 @@ defmodule Mix.Tasks.Allbert.Test do
       "external-smoke browser_research_delegate",
       app_cwd(:core),
       "mix",
-      ["test", "test/external/browser_research_delegate_smoke_test.exs"],
+      [
+        "test",
+        "../../apps/allbert_browser/test/allbert_browser/external_delegate_smoke_test.exs"
+      ],
       [
         {"ALLBERT_BROWSER_RESEARCH_DELEGATE_EXTERNAL_SMOKE", "1"}
         | owned_env("external-smoke-browser-research-delegate", 0)
@@ -11246,7 +11249,7 @@ defmodule Mix.Tasks.Allbert.Test do
     # decision — pid-qualified pre-cleaned root landed, but the ADR 0031
     # driver app-env read and the named AllbertBrowser singletons keep it in
     # the class (seam gaps recorded in the file header).
-    "apps/allbert_assist/test/allbert_assist/actions/browser_actions_test.exs" => :home_fs_serial,
+    "apps/allbert_browser/test/allbert_browser/actions_test.exs" => :home_fs_serial,
     # v1.0.3 M1 pilot (ADR 0086 contract 1): objective_test converted to
     # per-test non-shared sandbox ownership with explicit engine-agent
     # allowances (use-line `lane: :db_partition_safe`). Repo-backed: the text

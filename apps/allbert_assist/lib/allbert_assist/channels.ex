@@ -214,8 +214,42 @@ defmodule AllbertAssist.Channels do
     excluded = opts |> Keyword.get(:exclude_channels, []) |> MapSet.new()
 
     PluginRegistry.registered_channels()
-    |> Enum.filter(&(&1.status == :enabled and not MapSet.member?(excluded, &1.channel_id)))
+    |> Enum.filter(
+      &(&1.status == :enabled and residual_supervised?(&1) and
+          not MapSet.member?(excluded, &1.channel_id))
+    )
     |> Enum.map(&descriptor_child_spec(&1, descriptor_child_opts(&1, opts)))
+  end
+
+  # v1.4 M13: a channel pack declared `native_effectful` owns and starts its own
+  # adapter through its ActivationGate (see pack_channel_child_spec/2 below).
+  # Starting the same child_spec again here would run two competing adapter
+  # processes against the same external channel. No descriptor declares this
+  # key today except the seven channel packs' own `channels/0`, so every other
+  # (residual-owned) channel keeps exactly today's behavior.
+  defp residual_supervised?(descriptor),
+    do: Map.get(descriptor, :supervised_by, :residual) == :residual
+
+  @doc """
+  Builds the child spec for exactly one channel, for that channel's own Pack
+  effect supervisor to start.
+
+  This is the one place a Pack decides whether its channel is enabled at
+  supervision time -- the same `status == :enabled` descriptor check
+  `channel_child_specs/1` applies to every residual-owned channel -- so seven
+  packs share one implementation instead of each re-deriving it.
+  """
+  @spec pack_channel_child_spec(String.t(), keyword()) :: {:ok, Supervisor.child_spec()} | :skip
+  def pack_channel_child_spec(channel_id, opts \\ []) when is_binary(channel_id) do
+    PluginRegistry.registered_channels()
+    |> Enum.find(&(&1.channel_id == channel_id))
+    |> case do
+      %{status: :enabled} = descriptor ->
+        {:ok, descriptor_child_spec(descriptor, descriptor_child_opts(descriptor, opts))}
+
+      _other ->
+        :skip
+    end
   end
 
   defp descriptor_child_spec(%{child_spec: {module, descriptor_opts}} = descriptor, opts) do

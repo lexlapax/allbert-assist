@@ -693,11 +693,6 @@ defmodule AllbertAssist.LicensesTest do
                "startup_role" => "native_passive",
                "registry_order" => 200
              },
-             # v1.4 M12. Both are native_passive, not the native_effectful the R0
-             # table assumed: the extraction moved code and declarations but no
-             # supervision, so their adapters are still started from the channel
-             # descriptor's child_spec by the residual's Plugin.ChildSupervisor.
-             # Effect ownership for all seven channels is recorded against 2.0.
              %{
                "schema_version" => 1,
                "id" => "allbert_telegram",
@@ -713,6 +708,86 @@ defmodule AllbertAssist.LicensesTest do
                "descriptor_module" => "Elixir.AllbertEmail.Pack",
                "startup_role" => "native_passive",
                "registry_order" => 400
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_research",
+               "application" => "allbert_research",
+               "descriptor_module" => "Elixir.AllbertResearch.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 500
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_browser",
+               "application" => "allbert_browser",
+               "descriptor_module" => "Elixir.AllbertBrowser.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 600
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_discord",
+               "application" => "allbert_discord",
+               "descriptor_module" => "Elixir.AllbertDiscord.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 700
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_matrix",
+               "application" => "allbert_matrix",
+               "descriptor_module" => "Elixir.AllbertMatrix.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 800
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_signal",
+               "application" => "allbert_signal",
+               "descriptor_module" => "Elixir.AllbertSignal.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 900
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_slack",
+               "application" => "allbert_slack",
+               "descriptor_module" => "Elixir.AllbertSlack.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 1000
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_tui",
+               "application" => "allbert_tui",
+               "descriptor_module" => "Elixir.AllbertTUI.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 1100
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_whatsapp",
+               "application" => "allbert_whatsapp",
+               "descriptor_module" => "Elixir.AllbertWhatsApp.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 1200
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_artifacts",
+               "application" => "allbert_artifacts",
+               "descriptor_module" => "Elixir.AllbertArtifacts.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 1300
+             },
+             %{
+               "schema_version" => 1,
+               "id" => "allbert_stocksage",
+               "application" => "stocksage",
+               "descriptor_module" => "Elixir.StockSage.Pack",
+               "startup_role" => "native_passive",
+               "registry_order" => 1400
              }
            ]
 

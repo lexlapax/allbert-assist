@@ -59,6 +59,7 @@ defmodule AllbertEmail.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      mod: {AllbertEmail.Application, []},
       env: [allbert_pack: AllbertEmail.Pack]
     ]
   end

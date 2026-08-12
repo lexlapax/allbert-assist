@@ -126,7 +126,7 @@
         "id": "allbert_discord",
         "registry_order": 700,
         "schema_version": 1,
-        "startup_role": "native_passive"
+        "startup_role": "native_effectful"
       },
       "provenance": {
         "ecosystem": "allbert",
@@ -148,7 +148,7 @@
         "id": "allbert_email",
         "registry_order": 400,
         "schema_version": 1,
-        "startup_role": "native_passive"
+        "startup_role": "native_effectful"
       },
       "provenance": {
         "ecosystem": "allbert",
@@ -192,7 +192,7 @@
         "id": "allbert_matrix",
         "registry_order": 800,
         "schema_version": 1,
-        "startup_role": "native_passive"
+        "startup_role": "native_effectful"
       },
       "provenance": {
         "ecosystem": "allbert",
@@ -258,7 +258,7 @@
         "id": "allbert_signal",
         "registry_order": 900,
         "schema_version": 1,
-        "startup_role": "native_passive"
+        "startup_role": "native_effectful"
       },
       "provenance": {
         "ecosystem": "allbert",
@@ -280,7 +280,7 @@
         "id": "allbert_slack",
         "registry_order": 1000,
         "schema_version": 1,
-        "startup_role": "native_passive"
+        "startup_role": "native_effectful"
       },
       "provenance": {
         "ecosystem": "allbert",
@@ -302,7 +302,7 @@
         "id": "allbert_telegram",
         "registry_order": 300,
         "schema_version": 1,
-        "startup_role": "native_passive"
+        "startup_role": "native_effectful"
       },
       "provenance": {
         "ecosystem": "allbert",
@@ -346,7 +346,7 @@
         "id": "allbert_whatsapp",
         "registry_order": 1200,
         "schema_version": 1,
-        "startup_role": "native_passive"
+        "startup_role": "native_effectful"
       },
       "provenance": {
         "ecosystem": "allbert",

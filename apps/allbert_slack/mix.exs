@@ -43,6 +43,7 @@ defmodule AllbertSlack.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      mod: {AllbertSlack.Application, []},
       env: [allbert_pack: AllbertSlack.Pack]
     ]
   end

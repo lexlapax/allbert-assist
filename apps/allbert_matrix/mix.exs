@@ -43,6 +43,7 @@ defmodule AllbertMatrix.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      mod: {AllbertMatrix.Application, []},
       env: [allbert_pack: AllbertMatrix.Pack]
     ]
   end

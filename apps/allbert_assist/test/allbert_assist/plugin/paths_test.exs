@@ -71,7 +71,12 @@ defmodule AllbertAssist.Plugin.PathsTest do
     root = Paths.plugins_root()
     assert is_binary(root)
     assert Path.basename(root) == "plugins"
-    assert File.dir?(Path.join(root, "stocksage"))
+
+    # v1.4 M13 emptied plugins/ of first-party code: every plugin became an OTP
+    # application. The resolver is still the operator/third-party scan root and
+    # still has to resolve, so the directory is asserted rather than a plugin
+    # inside it — which is the property that actually matters now.
+    assert File.dir?(root)
   end
 
   test "plugin_path returns nil (not a crash) when no root resolves" do
