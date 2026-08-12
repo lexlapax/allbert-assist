@@ -21,6 +21,8 @@ defmodule AllbertAssist.Pack.ProjectionProvider do
     :allbert_notes_files,
     :allbert_telegram,
     :allbert_email,
+    :allbert_research,
+    :allbert_browser,
     :allbert_composition,
     :allbert_assist_web
   ]

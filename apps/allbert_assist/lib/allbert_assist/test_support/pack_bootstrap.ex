@@ -88,6 +88,14 @@ if Mix.env() == :test do
     `allbert_pack`, not listed here: extracting another pack must not mean
     editing a test helper, which is the hand-maintained-roster defect ADR 0098
     catalogued and M1 deleted.
+
+    Registration is `side_effects: false`. A pack whose plugin declares a
+    `child_spec` -- research and browser both do -- otherwise tries to start that
+    child during registration, and this runs before the composition host opens
+    readiness, so it fails with `{:error, :product_not_ready}`. Staging the
+    contribution and letting activation start the child is the designed path, and
+    it is why the packs extracted before these two never hit this: none of them
+    declared a plugin-level child.
     """
     @spec ensure_registered!() :: :ok
     def ensure_registered! do
@@ -101,12 +109,12 @@ if Mix.env() == :test do
         # assuming one.
         {:module, module, opts} ->
           register_absent(module.plugin_id(), pack_plugin_ids, fn ->
-            Registry.register_module(module, opts)
+            Registry.register_module(module, Keyword.put(opts, :side_effects, false))
           end)
 
         {:entry, %{plugin_id: plugin_id} = entry} ->
           register_absent(plugin_id, pack_plugin_ids, fn ->
-            Registry.register_entry(entry)
+            Registry.register_entry(entry, side_effects: false)
           end)
 
         _other ->

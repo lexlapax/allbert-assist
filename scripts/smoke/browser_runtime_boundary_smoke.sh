@@ -5,7 +5,10 @@ set -euo pipefail
 
 REL_ROOT_ARG="${1:?usage: browser_runtime_boundary_smoke.sh <release-root>}"
 REL_ROOT="$(cd "$REL_ROOT_ARG" && pwd)"
-BRIDGE="$REL_ROOT/plugins/allbert.browser/priv/playwright_bridge"
+# v1.4 M13: the browser left plugins/ and became an OTP application, so its priv
+# ships under lib/allbert_browser-<vsn>/priv. The version is globbed rather than
+# pinned so the smoke does not need updating on every version bump.
+BRIDGE="$(echo "$REL_ROOT"/lib/allbert_browser-*/priv/playwright_bridge)"
 
 fail() {
   echo "browser-runtime-boundary:$1 FAIL $2"

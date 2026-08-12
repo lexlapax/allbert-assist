@@ -69,7 +69,9 @@ Application.put_env(:allbert_assist, AllbertAssist.Skills.Registry,
 AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
   :allbert_notes_files,
   :allbert_telegram,
-  :allbert_email
+  :allbert_email,
+  :allbert_research,
+  :allbert_browser
 ])
 
 # Loading is necessary but not sufficient: the residual boots its plugin

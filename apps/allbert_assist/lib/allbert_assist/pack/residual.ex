@@ -124,8 +124,6 @@ defmodule AllbertAssist.Pack.Residual do
         aliases: ["core", "serial-core"],
         production_roots: [
           "apps/allbert_assist/lib",
-          "plugins/allbert.browser/lib",
-          "plugins/allbert.research/lib",
           "plugins/allbert.tui/lib"
         ]
       ),

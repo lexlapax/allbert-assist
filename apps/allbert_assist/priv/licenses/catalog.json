@@ -56,6 +56,28 @@
       ]
     },
     {
+      "application": "allbert_browser",
+      "bundled": true,
+      "id": "beam-allbert-browser",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_browser",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertBrowser.Pack",
+        "id": "allbert_browser",
+        "registry_order": 600,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
       "application": "allbert_composition",
       "bundled": true,
       "id": "beam-allbert-composition",
@@ -125,6 +147,28 @@
         "descriptor_module": "Elixir.AllbertNotesFiles.Pack",
         "id": "allbert_notes_files",
         "registry_order": 200,
+        "schema_version": 1,
+        "startup_role": "native_passive"
+      },
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_research",
+      "bundled": true,
+      "id": "beam-allbert-research",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_research",
+      "pack": {
+        "descriptor_module": "Elixir.AllbertResearch.Pack",
+        "id": "allbert_research",
+        "registry_order": 500,
         "schema_version": 1,
         "startup_role": "native_passive"
       },
@@ -1340,8 +1384,8 @@
     {
       "bundled": false,
       "forbidden_paths": [
-        "plugins/allbert.browser/priv/playwright_bridge/.local-browsers",
-        "plugins/allbert.browser/priv/playwright_bridge/node_modules/playwright-core/.local-browsers"
+        "apps/allbert_browser/priv/playwright_bridge/.local-browsers",
+        "apps/allbert_browser/priv/playwright_bridge/node_modules/playwright-core/.local-browsers"
       ],
       "id": "external-chromium",
       "kind": "external",
@@ -1356,7 +1400,7 @@
       "bundled": false,
       "forbidden_paths": [
         "bin/node",
-        "plugins/allbert.browser/priv/playwright_bridge/node"
+        "apps/allbert_browser/priv/playwright_bridge/node"
       ],
       "id": "external-node",
       "kind": "external",
@@ -1370,8 +1414,8 @@
     {
       "bundled": false,
       "forbidden_paths": [
-        "plugins/allbert.browser/priv/playwright_bridge/node_modules/playwright",
-        "plugins/allbert.browser/priv/playwright_bridge/node_modules/playwright-core"
+        "apps/allbert_browser/priv/playwright_bridge/node_modules/playwright",
+        "apps/allbert_browser/priv/playwright_bridge/node_modules/playwright-core"
       ],
       "id": "external-playwright",
       "kind": "external",
@@ -1701,7 +1745,8 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.browser/priv/playwright_bridge/bridge.js"
+        "application": "allbert_browser",
+        "relative_path": "priv/playwright_bridge/bridge.js"
       },
       "id": "playwright-bridge-helper",
       "kind": "managed_file",
@@ -1735,12 +1780,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.browser/allbert_plugin.json"
+        "application": "allbert_browser",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-browser",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.browser staged plugin",
+      "name": "allbert.browser umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -1822,12 +1868,13 @@
     {
       "bundled": true,
       "file": {
-        "path": "plugins/allbert.research/allbert_plugin.json"
+        "application": "allbert_research",
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-research",
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
-      "name": "allbert.research staged plugin",
+      "name": "allbert.research umbrella pack",
       "provenance": {
         "ecosystem": "allbert",
         "repository": "https://github.com/lexlapax/allbert-assist"
@@ -2192,7 +2239,7 @@
     },
     {
       "id": "browser-bridge-lock",
-      "path": "plugins/allbert.browser/priv/playwright_bridge/package-lock.json",
+      "path": "apps/allbert_browser/priv/playwright_bridge/package-lock.json",
       "sha256": "270043d292abadbe73b3928aee49a29058b3d7c90aab910065f7ef4c1fe9c1f4"
     },
     {
@@ -2205,345 +2252,345 @@
   "texts": [
     {
       "id": "Apache-2.0",
+      "license_id": "Apache-2.0",
       "path": "apps/allbert_assist/priv/licenses/texts/Apache-2.0.txt",
-      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-      "license_id": "Apache-2.0"
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
     {
       "id": "LicenseRef-IANA-TZDB",
+      "license_id": "LicenseRef-IANA-TZDB",
       "path": "apps/allbert_assist/priv/licenses/texts/LicenseRef-IANA-TZDB.txt",
-      "sha256": "9fabb75b7f899b6dc8c49cd6189cc23829ae0bcd872783485cf602bbaeb03986",
-      "license_id": "LicenseRef-IANA-TZDB"
+      "sha256": "9fabb75b7f899b6dc8c49cd6189cc23829ae0bcd872783485cf602bbaeb03986"
     },
     {
       "id": "LGPL-2.1-or-later",
+      "license_id": "LGPL-2.1-or-later",
       "path": "apps/allbert_assist/priv/licenses/texts/LGPL-2.1-or-later.txt",
-      "sha256": "dee5f35e583183abb9212938643ecb2d858fd89e2e286f4b1d903f65d49d6c76",
-      "license_id": "LGPL-2.1-or-later"
+      "sha256": "dee5f35e583183abb9212938643ecb2d858fd89e2e286f4b1d903f65d49d6c76"
     },
     {
       "id": "LicenseRef-SQLite-Public-Domain",
+      "license_id": "LicenseRef-SQLite-Public-Domain",
       "path": "apps/allbert_assist/priv/licenses/texts/LicenseRef-SQLite-Public-Domain.txt",
-      "sha256": "9de1b8e57a12e7120dce7ddd9263dd291ecd1c8a1eac1e03c33b18a660466280",
-      "license_id": "LicenseRef-SQLite-Public-Domain"
+      "sha256": "9de1b8e57a12e7120dce7ddd9263dd291ecd1c8a1eac1e03c33b18a660466280"
     },
     {
       "id": "LicenseText-03e8f968360fd51fc91e",
+      "license_id": "MIT",
       "path": "apps/allbert_assist_web/assets/node_modules/y-indexeddb/LICENSE",
-      "sha256": "03e8f968360fd51fc91e383f472bdd10c47321ba868cb72749d1f7a5fd89ec05",
-      "license_id": "MIT"
+      "sha256": "03e8f968360fd51fc91e383f472bdd10c47321ba868cb72749d1f7a5fd89ec05"
     },
     {
       "id": "LicenseText-0cec06e0e55fbc3dc5ce",
+      "license_id": "Apache-2.0",
       "path": "deps/telemetry/LICENSE",
-      "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9",
-      "license_id": "Apache-2.0"
+      "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9"
     },
     {
       "id": "LicenseText-0d542e0c8804e39aa7f3",
+      "license_id": "Apache-2.0",
       "path": "deps/nimble_options/LICENSE.md",
-      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
-      "license_id": "Apache-2.0"
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
     },
     {
       "id": "LicenseText-17e0c0a5f23abbea243e",
+      "license_id": "ISC",
       "path": "deps/fsmx/LICENSE",
-      "sha256": "17e0c0a5f23abbea243eefd0803ab49df18894bec1f78547c0000408c0511e77",
-      "license_id": "ISC"
+      "sha256": "17e0c0a5f23abbea243eefd0803ab49df18894bec1f78547c0000408c0511e77"
     },
     {
       "id": "LicenseText-210da78eba582c0dff0a",
+      "license_id": "MIT",
       "path": "deps/swoosh/LICENSE.txt",
-      "sha256": "210da78eba582c0dff0a31f3b61d375578671f5193f5d50be16e58989127c214",
-      "license_id": "MIT"
+      "sha256": "210da78eba582c0dff0a31f3b61d375578671f5193f5d50be16e58989127c214"
     },
     {
       "id": "LicenseText-26f042d624e62b760e70",
+      "license_id": "MIT",
       "path": "deps/websock/LICENSE",
-      "sha256": "26f042d624e62b760e707842347e9e08cb981491d3cecfdd63bc48fc32e870e3",
-      "license_id": "MIT"
+      "sha256": "26f042d624e62b760e707842347e9e08cb981491d3cecfdd63bc48fc32e870e3"
     },
     {
       "id": "LicenseText-2c3c57158df2131ff09f",
+      "license_id": "MIT",
       "path": "deps/finch/LICENSE.md",
-      "sha256": "2c3c57158df2131ff09f57d9c7850da0844910f0fa8ac60294dd9396e3672e81",
-      "license_id": "MIT"
+      "sha256": "2c3c57158df2131ff09f57d9c7850da0844910f0fa8ac60294dd9396e3672e81"
     },
     {
       "id": "LicenseText-2c5a81b6b6636c9cb4d0",
+      "license_id": "MIT",
       "path": "deps/thousand_island/LICENSE",
-      "sha256": "2c5a81b6b6636c9cb4d022c4891091a1267a42be6e5005190f29951db6cc1bb6",
-      "license_id": "MIT"
+      "sha256": "2c5a81b6b6636c9cb4d022c4891091a1267a42be6e5005190f29951db6cc1bb6"
     },
     {
       "id": "LicenseText-341baa53605ed85d6f95",
+      "license_id": "MIT",
       "path": "apps/allbert_assist_web/assets/node_modules/yjs/LICENSE",
-      "sha256": "341baa53605ed85d6f95782322854cca56c655ebc7fd4712649b8e7afc6020ff",
-      "license_id": "MIT"
+      "sha256": "341baa53605ed85d6f95782322854cca56c655ebc7fd4712649b8e7afc6020ff"
     },
     {
       "id": "LicenseText-3f3d46a6af1e58f4808e",
+      "license_id": "MIT",
       "path": "deps/bandit/LICENSE",
-      "sha256": "3f3d46a6af1e58f4808e66b0a61aeb8befd2b3a03736404bead69758551353cb",
-      "license_id": "MIT"
+      "sha256": "3f3d46a6af1e58f4808e66b0a61aeb8befd2b3a03736404bead69758551353cb"
     },
     {
       "id": "LicenseText-41a686069f0199ff369d",
+      "license_id": "MIT",
       "path": "deps/phoenix/LICENSE.md",
-      "sha256": "41a686069f0199ff369d7e5277d5267385cc54d9199f1efc960bacbe2e799255",
-      "license_id": "MIT"
+      "sha256": "41a686069f0199ff369d7e5277d5267385cc54d9199f1efc960bacbe2e799255"
     },
     {
       "id": "LicenseText-44558f34d16d29b67340",
+      "license_id": "MIT",
       "path": "deps/multigraph/LICENSE",
-      "sha256": "44558f34d16d29b67340bbd8e0d14c46415a6203b36e83c566be60ef8ff77b98",
-      "license_id": "MIT"
+      "sha256": "44558f34d16d29b67340bbd8e0d14c46415a6203b36e83c566be60ef8ff77b98"
     },
     {
       "id": "LicenseText-4c9fb97c01f065d3113d",
+      "license_id": "Apache-2.0",
       "path": "deps/jsv/LICENSE",
-      "sha256": "4c9fb97c01f065d3113df961e895744276238f69361905181e383503cad57283",
-      "license_id": "Apache-2.0"
+      "sha256": "4c9fb97c01f065d3113df961e895744276238f69361905181e383503cad57283"
     },
     {
       "id": "LicenseText-4fa3fe63742b9f9fe89e",
+      "license_id": "BSD-3-Clause",
       "path": "deps/erlexec/LICENSE",
-      "sha256": "4fa3fe63742b9f9fe89e4fe7e4ec52f3775c8cb78480ca455e57b9d64b04976f",
-      "license_id": "BSD-3-Clause"
+      "sha256": "4fa3fe63742b9f9fe89e4fe7e4ec52f3775c8cb78480ca455e57b9d64b04976f"
     },
     {
       "id": "LicenseText-5446db1e43fe52faf3fa",
+      "license_id": "MIT",
       "path": "apps/allbert_assist_web/assets/node_modules/lib0/LICENSE",
-      "sha256": "5446db1e43fe52faf3faab7e9959fe3762ac11bdc61c0945934c498affd52d73",
-      "license_id": "MIT"
+      "sha256": "5446db1e43fe52faf3faab7e9959fe3762ac11bdc61c0945934c498affd52d73"
     },
     {
       "id": "LicenseText-5843e5f79c0efe4e91ba",
+      "license_id": "MIT",
       "path": "deps/peri/LICENSE",
-      "sha256": "5843e5f79c0efe4e91ba580781f61aa66aab1ab18a8e4be48726d0940917d71e",
-      "license_id": "MIT"
+      "sha256": "5843e5f79c0efe4e91ba580781f61aa66aab1ab18a8e4be48726d0940917d71e"
     },
     {
       "id": "LicenseText-592f189ada3d2ebd5056",
+      "license_id": "MIT",
       "path": "deps/dns_cluster/LICENSE.md",
-      "sha256": "592f189ada3d2ebd5056776aac97a04e9a928c2e6ddf373b5eafa1724b630d88",
-      "license_id": "MIT"
+      "sha256": "592f189ada3d2ebd5056776aac97a04e9a928c2e6ddf373b5eafa1724b630d88"
     },
     {
       "id": "LicenseText-5a76ffa3373ac1fbc8c8",
+      "license_id": "MIT",
       "path": "deps/phoenix_live_view/LICENSE.md",
-      "sha256": "5a76ffa3373ac1fbc8c8645967b980896154c26113c827d3c01c4b0158c057c6",
-      "license_id": "MIT"
+      "sha256": "5a76ffa3373ac1fbc8c8645967b980896154c26113c827d3c01c4b0158c057c6"
     },
     {
       "id": "LicenseText-5ef76176b7be1574f800",
+      "license_id": "Apache-2.0",
       "path": "deps/jido/LICENSE",
-      "sha256": "5ef76176b7be1574f8006b1060a94f01518fc133ea1fb3136819d0fa7b473c8f",
-      "license_id": "Apache-2.0"
+      "sha256": "5ef76176b7be1574f8006b1060a94f01518fc133ea1fb3136819d0fa7b473c8f"
     },
     {
       "id": "LicenseText-60e0b68c0f35c078eef3",
+      "license_id": "MIT",
       "path": "apps/allbert_assist/priv/licenses/upstream/tailwind-labs-MIT.txt",
-      "sha256": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
-      "license_id": "MIT"
+      "sha256": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985"
     },
     {
       "id": "LicenseText-634c31233e0435bea4f4",
+      "license_id": "MIT",
       "path": "deps/phoenix_live_dashboard/LICENSE.md",
-      "sha256": "634c31233e0435bea4f449a20a72617d95c11ec74ab97860d6a1bb1467937f31",
-      "license_id": "MIT"
+      "sha256": "634c31233e0435bea4f449a20a72617d95c11ec74ab97860d6a1bb1467937f31"
     },
     {
       "id": "LicenseText-688f69bf70e9e9a49b9d",
+      "license_id": "MIT",
       "path": "apps/allbert_assist/priv/licenses/upstream/topbar-3.0.0-MIT.txt",
-      "sha256": "688f69bf70e9e9a49b9db688ee6f2727ff1bf57e9f1e7136835063886afed2e0",
-      "license_id": "MIT"
+      "sha256": "688f69bf70e9e9a49b9db688ee6f2727ff1bf57e9f1e7136835063886afed2e0"
     },
     {
       "id": "LicenseText-6c73f07b2f5abbb4fd00",
+      "license_id": "Apache-2.0",
       "path": "deps/jason/LICENSE",
-      "sha256": "6c73f07b2f5abbb4fd00f30cba97e4f358b86977b46ad82d87357964a2d350e0",
-      "license_id": "Apache-2.0"
+      "sha256": "6c73f07b2f5abbb4fd00f30cba97e4f358b86977b46ad82d87357964a2d350e0"
     },
     {
       "id": "LicenseText-72a55ac957f96e79263e",
+      "license_id": "MIT",
       "path": "deps/ecto_sqlite3/LICENSE",
-      "sha256": "72a55ac957f96e79263e435f4a646822cf4406e63bb53a235b21abbc2e79303a",
-      "license_id": "MIT"
+      "sha256": "72a55ac957f96e79263e435f4a646822cf4406e63bb53a235b21abbc2e79303a"
     },
     {
       "id": "LicenseText-77fcbbf2f545f77ecbb0",
+      "license_id": "MIT",
       "path": "deps/server_sent_events/LICENSE.md",
-      "sha256": "77fcbbf2f545f77ecbb043641c7f8d9c0c39de3936d2d7d6da14f46a7ccddd67",
-      "license_id": "MIT"
+      "sha256": "77fcbbf2f545f77ecbb043641c7f8d9c0c39de3936d2d7d6da14f46a7ccddd67"
     },
     {
       "id": "LicenseText-79bfd5cbf8cb79a2c73d",
+      "license_id": "Apache-2.0",
       "path": "deps/mime/LICENSE",
-      "sha256": "79bfd5cbf8cb79a2c73d1d94447461f93407c7f14dc789942c2ee41e167ba48f",
-      "license_id": "Apache-2.0"
+      "sha256": "79bfd5cbf8cb79a2c73d1d94447461f93407c7f14dc789942c2ee41e167ba48f"
     },
     {
       "id": "LicenseText-8709e3ac65c84637c422",
+      "license_id": "MIT",
       "path": "apps/allbert_assist/priv/licenses/upstream/daisyUI-5.0.35-MIT.txt",
-      "sha256": "8709e3ac65c84637c422dc8082b893d9997fce093751c77b2f1983bf29dbf9ea",
-      "license_id": "MIT"
+      "sha256": "8709e3ac65c84637c422dc8082b893d9997fce093751c77b2f1983bf29dbf9ea"
     },
     {
       "id": "LicenseText-87cff0c8b7a957427363",
+      "license_id": "BSD-2-Clause",
       "path": "deps/gen_smtp/LICENSE",
-      "sha256": "87cff0c8b7a957427363e36976e31606459d136d7908d6b398ecdadaf5f93965",
-      "license_id": "BSD-2-Clause"
+      "sha256": "87cff0c8b7a957427363e36976e31606459d136d7908d6b398ecdadaf5f93965"
     },
     {
       "id": "LicenseText-8f57c966fcad8d3aadf0",
+      "license_id": "MIT",
       "path": "deps/fuse/LICENSE",
-      "sha256": "8f57c966fcad8d3aadf0e2c488984c030b7be76eb81af1a5c8d34c8b4c3be88c",
-      "license_id": "MIT"
+      "sha256": "8f57c966fcad8d3aadf0e2c488984c030b7be76eb81af1a5c8d34c8b4c3be88c"
     },
     {
       "id": "LicenseText-3e6b4487cdffc48705ea",
+      "license_id": "ISC",
       "path": "deps/ranch/LICENSE",
-      "sha256": "3e6b4487cdffc48705ea667f9604229f0984301f14af12f8cdfbab11234a59c9",
-      "license_id": "ISC"
+      "sha256": "3e6b4487cdffc48705ea667f9604229f0984301f14af12f8cdfbab11234a59c9"
     },
     {
       "id": "LicenseText-95f5c9410a95332b0833",
+      "license_id": "MIT",
       "path": "deps/idna/LICENSE",
-      "sha256": "95f5c9410a95332b0833c4606028ee00008cd8c497336e230df3144d1a720bda",
-      "license_id": "MIT"
+      "sha256": "95f5c9410a95332b0833c4606028ee00008cd8c497336e230df3144d1a720bda"
     },
     {
       "id": "LicenseText-9b138284c9d79dd1afc6",
+      "license_id": "Apache-2.0",
       "path": "deps/toml/LICENSE",
-      "sha256": "9b138284c9d79dd1afc613fbf4b5d4fcbd3da4512aedec39f33c1fb7b4c7396c",
-      "license_id": "Apache-2.0"
+      "sha256": "9b138284c9d79dd1afc613fbf4b5d4fcbd3da4512aedec39f33c1fb7b4c7396c"
     },
     {
       "id": "LicenseText-a6cba85bc92e0cff7a45",
+      "license_id": "Apache-2.0",
       "path": "deps/decimal/LICENSE.txt",
-      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
-      "license_id": "Apache-2.0"
+      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9"
     },
     {
       "id": "LicenseText-aa30b438110fe4596156",
+      "license_id": "MIT",
       "path": "deps/crontab/LICENSE",
-      "sha256": "aa30b438110fe45961567d99ff9d9ea93759eeb49791e3cfdc63c6d24a6b0b46",
-      "license_id": "MIT"
+      "sha256": "aa30b438110fe45961567d99ff9d9ea93759eeb49791e3cfdc63c6d24a6b0b46"
     },
     {
       "id": "LicenseText-af7e0c1deb1e000cd1c0",
+      "license_id": "ISC",
       "path": "deps/poolboy/LICENSE",
-      "sha256": "af7e0c1deb1e000cd1c0aa389d3b404ba5a05fe30df83e9e041c41ca408c33d2",
-      "license_id": "ISC"
+      "sha256": "af7e0c1deb1e000cd1c0aa389d3b404ba5a05fe30df83e9e041c41ca408c33d2"
     },
     {
       "id": "LicenseText-b25c71a74ae1e2961b15",
+      "license_id": "Apache-2.0",
       "path": "deps/plug/LICENSE",
-      "sha256": "b25c71a74ae1e2961b15c611ee26d9b3bd171d0833e407867a3debd9d1de3759",
-      "license_id": "Apache-2.0"
+      "sha256": "b25c71a74ae1e2961b15c611ee26d9b3bd171d0833e407867a3debd9d1de3759"
     },
     {
       "id": "LicenseText-3f3399039f88edcfac16",
+      "license_id": "MIT",
       "path": "apps/allbert_assist/priv/licenses/upstream/yaml-elixir-2.12.2-MIT.txt",
-      "sha256": "3f3399039f88edcfac16c1c194dc76595aa5b891d2d1e2cf4d357281fd55378a",
-      "license_id": "MIT"
+      "sha256": "3f3399039f88edcfac16c1c194dc76595aa5b891d2d1e2cf4d357281fd55378a"
     },
     {
       "id": "LicenseText-bcf95e9988ff9289107d",
+      "license_id": "MIT",
       "path": "deps/time_zone_info/LICENSE.md",
-      "sha256": "bcf95e9988ff9289107d00a279c7cd3fbeee6f18d26d814e9e2d4a045ad1a5c0",
-      "license_id": "MIT"
+      "sha256": "bcf95e9988ff9289107d00a279c7cd3fbeee6f18d26d814e9e2d4a045ad1a5c0"
     },
     {
       "id": "LicenseText-c553be3b8179832aa738",
+      "license_id": "Apache-2.0",
       "path": "deps/expo/LICENSE",
-      "sha256": "c553be3b8179832aa738b0fa04c2e1a53f520da13fcf7b6c2f6e9cf4468c41ad",
-      "license_id": "Apache-2.0"
+      "sha256": "c553be3b8179832aa738b0fa04c2e1a53f520da13fcf7b6c2f6e9cf4468c41ad"
     },
     {
       "id": "LicenseText-c71d239df91726fc519c",
+      "license_id": "Apache-2.0",
       "path": "deps/owl/LICENSE.txt",
-      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-      "license_id": "Apache-2.0"
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
     },
     {
       "id": "LicenseText-ca32dea0238d9df54d9d",
+      "license_id": "MIT",
       "path": "apps/allbert_assist/priv/licenses/upstream/splode-0.3.1-MIT.txt",
-      "sha256": "ca32dea0238d9df54d9d8f66d96c2461ba3c2edb1e560244d6da5700232b00a2",
-      "license_id": "MIT"
+      "sha256": "ca32dea0238d9df54d9d8f66d96c2461ba3c2edb1e560244d6da5700232b00a2"
     },
     {
       "id": "LicenseText-d27edf5fdec47e5820c5",
+      "license_id": "MIT",
       "path": "deps/ymlr/LICENSE",
-      "sha256": "d27edf5fdec47e5820c55b908886fa6417376e2bceaa17e01dba93dbbdea17bd",
-      "license_id": "MIT"
+      "sha256": "d27edf5fdec47e5820c55b908886fa6417376e2bceaa17e01dba93dbbdea17bd"
     },
     {
       "id": "LicenseText-d61102ef42e7fb35fc5b",
+      "license_id": "MIT",
       "path": "deps/websockex/LICENSE",
-      "sha256": "d61102ef42e7fb35fc5b18b609f9d92ceff4eb9b4e58cb682a1ebf81164389bc",
-      "license_id": "MIT"
+      "sha256": "d61102ef42e7fb35fc5b18b609f9d92ceff4eb9b4e58cb682a1ebf81164389bc"
     },
     {
       "id": "LicenseText-dcaf5543c243163a31bf",
+      "license_id": "MIT",
       "path": "deps/phoenix_ecto/LICENSE",
-      "sha256": "dcaf5543c243163a31bfcdb83d6a6fe0b1393f4229eb0855c0105aace586bffe",
-      "license_id": "MIT"
+      "sha256": "dcaf5543c243163a31bfcdb83d6a6fe0b1393f4229eb0855c0105aace586bffe"
     },
     {
       "id": "LicenseText-dd6488c9c1a4ce2dc978",
+      "license_id": "MIT",
       "path": "apps/allbert_assist_web/assets/node_modules/isomorphic.js/LICENSE",
-      "sha256": "dd6488c9c1a4ce2dc978ecee067e5b6a725b52e6057a450b24f1a23bc373b057",
-      "license_id": "MIT"
+      "sha256": "dd6488c9c1a4ce2dc978ecee067e5b6a725b52e6057a450b24f1a23bc373b057"
     },
     {
       "id": "LicenseText-ddca79cf0c4ae18d20a5",
+      "license_id": "BSD-2-Clause",
       "path": "deps/yamerl/LICENSE",
-      "sha256": "ddca79cf0c4ae18d20a568ee48dfb0789390d48e9268d82e8500fdd1167e2afe",
-      "license_id": "BSD-2-Clause"
+      "sha256": "ddca79cf0c4ae18d20a568ee48dfb0789390d48e9268d82e8500fdd1167e2afe"
     },
     {
       "id": "LicenseText-deb19f64e750f0151e06",
+      "license_id": "MIT",
       "path": "deps/hermes_mcp/LICENSE",
-      "sha256": "deb19f64e750f0151e065f384cc587b73909c70ea91a863a762e2f5b92691e50",
-      "license_id": "MIT"
+      "sha256": "deb19f64e750f0151e065f384cc587b73909c70ea91a863a762e2f5b92691e50"
     },
     {
       "id": "LicenseText-f415e7921fee4b575319",
+      "license_id": "MIT",
       "path": "deps/abnf_parsec/LICENSE",
-      "sha256": "f415e7921fee4b5753193f80482cb0ebb36faac94955993368818ef67067e404",
-      "license_id": "MIT"
+      "sha256": "f415e7921fee4b5753193f80482cb0ebb36faac94955993368818ef67067e404"
     },
     {
       "id": "LicenseText-f5692d451cbfe2a04e37",
+      "license_id": "MIT",
       "path": "deps/phoenix_html/LICENSE",
-      "sha256": "f5692d451cbfe2a04e3721e99ffbe88d1e9a09f1ff2fc1115de700d7e7abdbe4",
-      "license_id": "MIT"
+      "sha256": "f5692d451cbfe2a04e3721e99ffbe88d1e9a09f1ff2fc1115de700d7e7abdbe4"
     },
     {
       "id": "LicenseText-f797420dcf4959e5760d",
+      "license_id": "Apache-2.0",
       "path": "deps/plug_crypto/LICENSE",
-      "sha256": "f797420dcf4959e5760d7ae4c20d66345fa3cd9d04cf03309d6911020e8049b7",
-      "license_id": "Apache-2.0"
+      "sha256": "f797420dcf4959e5760d7ae4c20d66345fa3cd9d04cf03309d6911020e8049b7"
     },
     {
       "id": "LicenseText-f9e693078c728b5e6285",
+      "license_id": "Apache-2.0",
       "path": "deps/req/LICENSE.md",
-      "sha256": "f9e693078c728b5e62856ba365d6d4e915c87dc47228bfc607132e7f7505101f",
-      "license_id": "Apache-2.0"
+      "sha256": "f9e693078c728b5e62856ba365d6d4e915c87dc47228bfc607132e7f7505101f"
     },
     {
       "id": "LicenseText-fcf06aacb36ee2923711",
+      "license_id": "BSD-3-Clause",
       "path": "apps/allbert_assist_web/assets/node_modules/js-base64/LICENSE.md",
-      "sha256": "fcf06aacb36ee29237110d6b3a9fbd6296e85ad4324263abf5f8a5cfb5706c81",
-      "license_id": "BSD-3-Clause"
+      "sha256": "fcf06aacb36ee29237110d6b3a9fbd6296e85ad4324263abf5f8a5cfb5706c81"
     },
     {
       "id": "MPL-2.0",
+      "license_id": "MPL-2.0",
       "path": "apps/allbert_assist/priv/licenses/texts/MPL-2.0.txt",
-      "sha256": "f35b870c59c69f29f127265bb7adb7417c6fe0d19a75c2dd8a50fd8447e66536",
-      "license_id": "MPL-2.0"
+      "sha256": "f35b870c59c69f29f127265bb7adb7417c6fe0d19a75c2dd8a50fd8447e66536"
     }
   ]
 }

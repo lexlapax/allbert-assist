@@ -47,7 +47,11 @@ Thumbs.db
 !.env.example
 
 # Plugin-owned Node dependencies.
-/plugins/allbert.browser/priv/playwright_bridge/node_modules/
+# v1.4 M13: the browser left plugins/ for apps/. The path-anchored rule below
+# stopped matching the moment the directory moved, and `git add -A` staged 912
+# locally-installed files including a 147 MB Chromium binary. Unanchored, so it
+# holds wherever the bridge lives.
+**/priv/playwright_bridge/node_modules/
 
 # Dialyzer PLTs
 /priv/plts/

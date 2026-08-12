@@ -4,8 +4,6 @@ defmodule AllbertAssist.Browser.PlaywrightDriverTest do
 
   alias AllbertBrowser.Driver.Playwright
 
-  @repo_root Path.expand("../../../../../", __DIR__)
-
   test "the bridge hides its console only on Windows" do
     node = fake_node()
     caller = self()
@@ -58,7 +56,7 @@ defmodule AllbertAssist.Browser.PlaywrightDriverTest do
     bridge = Path.join(root, "bridge.js")
 
     File.cp!(
-      Path.join(@repo_root, "plugins/allbert.browser/priv/playwright_bridge/bridge.js"),
+      Application.app_dir(:allbert_browser, ["priv", "playwright_bridge", "bridge.js"]),
       bridge
     )
 
@@ -83,7 +81,7 @@ defmodule AllbertAssist.Browser.PlaywrightDriverTest do
     playwright = Path.join(modules, "playwright")
 
     File.cp!(
-      Path.join(@repo_root, "plugins/allbert.browser/priv/playwright_bridge/bridge.js"),
+      Application.app_dir(:allbert_browser, ["priv", "playwright_bridge", "bridge.js"]),
       bridge
     )
 

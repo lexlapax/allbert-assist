@@ -28,6 +28,11 @@ defmodule AllbertResearch.Plugin do
   @impl true
   def child_spec(_opts), do: AllbertResearch.Supervisor.child_spec([])
 
+  # v1.4 M13: settings ownership moved to AllbertResearch.SettingsFragment, a pack
+  # FragmentOwner declared by AllbertResearch.Pack.settings_fragments/0. Returning
+  # the schema here as well would produce the same fragment id twice and fail
+  # composition with :duplicate_settings_fragment_id. The schema itself did not
+  # move -- AllbertResearch.Settings.Fragment is still its only definition.
   @impl true
-  def settings_schema, do: AllbertResearch.Settings.Fragment.schema()
+  def settings_schema, do: []
 end

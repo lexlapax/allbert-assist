@@ -1,54 +1,25 @@
-defmodule AllbertBrowser.Plugin do
+defmodule AllbertBrowser.SettingsFragment do
   @moduledoc """
-  Shipped v0.43 browser/web-research plugin.
+  Pack `FragmentOwner` for the browser.
 
-  The plugin contributes the `browser.*` Settings Central schema, registered
-  browser actions, workspace surfaces, and the supervised browser session
-  runtime. Operational control is through the reviewed Playwright/Chromium
-  bridge; deterministic release tests use the stub driver.
+  The schema moved here wholesale rather than being derived: unlike research,
+  which already had a dedicated `Settings.Fragment` module, the browser declared
+  all 33 keys inline in `AllbertBrowser.Plugin.settings_schema/0`. Leaving them
+  there and deriving would keep a plugin-path declaration alive purely as a data
+  source, which is the shape M13 is removing.
+
+  `id`, `owner` and `source` reproduce what
+  `AllbertAssist.Settings.Fragments.plugin_fragments/1` produced before the move,
+  so stored identity survives without a migration.
   """
 
-  use AllbertAssist.Plugin
+  @behaviour AllbertAssist.Settings.FragmentOwner
 
-  @impl true
-  def plugin_id, do: "allbert.browser"
+  alias AllbertAssist.Settings.Fragment
+  alias AllbertAssist.Settings.Schema, as: SettingsSchema
 
-  @impl true
-  def display_name, do: "Allbert Browser"
-
-  @impl true
-  def version, do: "0.43.0"
-
-  @impl true
-  def validate(_opts), do: :ok
-
-  @impl true
-  def apps, do: [AllbertBrowser.App]
-
-  @impl true
-  def actions do
-    [
-      AllbertBrowser.Actions.Doctor,
-      AllbertBrowser.Actions.StartSession,
-      AllbertBrowser.Actions.Navigate,
-      AllbertBrowser.Actions.Extract,
-      AllbertBrowser.Actions.Screenshot,
-      AllbertBrowser.Actions.AnalyzeScreenshot,
-      AllbertBrowser.Actions.Click,
-      AllbertBrowser.Actions.Fill,
-      AllbertBrowser.Actions.Download,
-      AllbertBrowser.Actions.ListSessions,
-      AllbertBrowser.Actions.CloseSession,
-      AllbertBrowser.Actions.SweepCache,
-      AllbertBrowser.Actions.ResearchHandoff
-    ]
-  end
-
-  @impl true
-  def child_spec(_opts), do: AllbertBrowser.Supervisor.child_spec([])
-
-  @impl true
-  def settings_schema do
+  @doc "The browser settings entries, in declaration order."
+  def entries do
     [
       schema("browser.enabled", :boolean, false),
       schema("browser.driver.kind", :enum, "playwright_chromium",
@@ -130,4 +101,42 @@ defmodule AllbertBrowser.Plugin do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  # Only writable keys are safe-write rows -- `writable?: false` entries are
+  # excluded, matching `Fragments.safe_write_keys_from_schema/1`. Indices
+  # continue the global sequence, which research left at 483.
+  @impl true
+  def safe_write_rows do
+    entries()
+    |> Enum.filter(&Map.get(&1, :writable?, true))
+    |> Enum.with_index(484)
+    |> Enum.map(fn {entry, index} -> {index, entry.key} end)
+  end
+
+  @impl true
+  @spec fragment() :: Fragment.t()
+  def fragment do
+    schema = Map.new(entries(), fn %{key: key} = entry -> {key, Map.delete(entry, :key)} end)
+
+    Fragment.new!(%{
+      id: "plugin:allbert.browser",
+      owner: "allbert.browser",
+      source: :plugin,
+      group: :plugins,
+      schema: schema,
+      defaults: defaults(schema),
+      safe_write_keys: Enum.map(safe_write_rows(), &elem(&1, 1)),
+      metadata: %{
+        display_name: "Allbert Browser",
+        trust_status: :trusted,
+        source: :shipped
+      }
+    })
+  end
+
+  defp defaults(schema) do
+    Enum.reduce(schema, %{}, fn {key, entry}, acc ->
+      SettingsSchema.put_dotted(acc, key, Map.fetch!(entry, :default))
+    end)
+  end
 end

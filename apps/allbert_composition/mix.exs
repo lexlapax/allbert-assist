@@ -45,7 +45,9 @@ defmodule AllbertComposition.MixProject do
       # edit, which M9's acceptance forbids.
       {:allbert_notes_files, in_umbrella: true},
       {:allbert_telegram, in_umbrella: true},
-      {:allbert_email, in_umbrella: true}
+      {:allbert_email, in_umbrella: true},
+      {:allbert_research, in_umbrella: true},
+      {:allbert_browser, in_umbrella: true}
     ]
   end
 end

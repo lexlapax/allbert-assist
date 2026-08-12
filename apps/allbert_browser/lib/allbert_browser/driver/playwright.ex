@@ -9,7 +9,6 @@ defmodule AllbertBrowser.Driver.Playwright do
 
   @behaviour AllbertBrowser.Driver
 
-  alias AllbertAssist.Plugin.Paths
   alias AllbertAssist.Settings
 
   @line_max_bytes 4_194_304
@@ -314,15 +313,14 @@ defmodule AllbertBrowser.Driver.Playwright do
   end
 
   defp bridge_path(opts) do
-    # v0.62 M1: resolve through the release-safe plugins root at runtime —
-    # `__DIR__` freezes the build machine's checkout path into the artifact.
+    # v0.62 M1 resolved this through the release-safe plugins root, because
+    # `__DIR__` freezes the build machine's checkout path into the artifact. v1.4
+    # M13 keeps that property and changes the root: an extracted pack owns its
+    # own `priv/`, so `Application.app_dir/2` answers correctly in the repo and in
+    # a packaged release without either a plugins tree or a compile-time path.
     path =
       Keyword.get(opts, :bridge_path) ||
-        Paths.plugin_path("allbert.browser", [
-          "priv",
-          "playwright_bridge",
-          "bridge.js"
-        ]) || Path.expand("../../../priv/playwright_bridge/bridge.js", __DIR__)
+        Application.app_dir(:allbert_browser, ["priv", "playwright_bridge", "bridge.js"])
 
     if File.exists?(path), do: {:ok, path}, else: {:error, {:playwright_bridge_missing, path}}
   end

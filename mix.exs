@@ -38,6 +38,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
           allbert_notes_files: :permanent,
           allbert_telegram: :permanent,
           allbert_email: :permanent,
+          allbert_research: :permanent,
+          allbert_browser: :permanent,
           allbert_composition: :permanent,
           allbert_assist_web: :permanent
         ],
@@ -47,6 +49,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
           &build_web_assets/1,
           :assemble,
           &stage_plugins/1,
+          &prune_browser_bridge_node_modules/1,
           &patch_macos_openssl/1,
           &patch_linux_sctp/1,
           &install_dispatcher/1,
@@ -121,30 +124,24 @@ defmodule AllbertAssist.Umbrella.MixProject do
     release
   end
 
-  defp stage_plugin_item!("allbert.browser", "priv", source, dest) do
-    excluded = Path.join([source, "playwright_bridge", "node_modules"])
-    File.rm_rf!(dest)
-    copy_runtime_tree_without!(source, dest, excluded)
+  # v1.4 M13: the browser bridge's node_modules must not ship. That used to be a
+  # plugin-id special case inside stage_plugins, excluding the tree while copying
+  # plugins/allbert.browser/priv. Once the browser became an OTP application the
+  # copy stopped going through that path -- `:assemble` brings the whole priv/ of
+  # every application -- so the exclusion had to move here, after assembly, or
+  # 900-odd vendored files would silently start shipping. The runtime boundary
+  # smoke asserts the same property from the outside.
+  defp prune_browser_bridge_node_modules(release) do
+    release.path
+    |> Path.join("lib/allbert_browser-*/priv/playwright_bridge/node_modules")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm_rf!/1)
+
+    release
   end
 
   defp stage_plugin_item!(_plugin_id, _item, source, dest) do
     File.cp_r!(source, dest)
-  end
-
-  defp copy_runtime_tree_without!(source, dest, excluded) do
-    unless Path.expand(source) == Path.expand(excluded) do
-      if File.dir?(source) do
-        File.mkdir_p!(dest)
-
-        source
-        |> File.ls!()
-        |> Enum.each(fn child ->
-          copy_runtime_tree_without!(Path.join(source, child), Path.join(dest, child), excluded)
-        end)
-      else
-        File.cp!(source, dest)
-      end
-    end
   end
 
   defp assert_external_browser_boundary!(release_root) do

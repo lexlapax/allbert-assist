@@ -32,6 +32,8 @@ defmodule AllbertAssist.DevGates.V14M1RegistryShadowParity do
     :allbert_notes_files,
     :allbert_telegram,
     :allbert_email,
+    :allbert_research,
+    :allbert_browser,
     :allbert_composition,
     :allbert_assist_web
   ]
