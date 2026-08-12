@@ -6,8 +6,8 @@ defmodule AllbertAssist.Channels.ChannelParityTest do
   alias AllbertAssist.Channels.ChannelParity
 
   @shipped_plugins [
-    AllbertAssist.Plugins.Telegram,
-    AllbertAssist.Plugins.Email,
+    AllbertTelegram.Plugin,
+    AllbertEmail.Plugin,
     AllbertAssist.Plugins.Discord,
     AllbertAssist.Plugins.Slack,
     AllbertAssist.Plugins.Matrix,

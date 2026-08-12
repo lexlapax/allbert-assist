@@ -286,8 +286,8 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
 
   defp register_channel_plugins! do
     modules = [
-      AllbertAssist.Plugins.Telegram,
-      AllbertAssist.Plugins.Email,
+      AllbertTelegram.Plugin,
+      AllbertEmail.Plugin,
       AllbertAssist.Plugins.Discord,
       AllbertAssist.Plugins.Slack,
       AllbertAssist.Plugins.Matrix,

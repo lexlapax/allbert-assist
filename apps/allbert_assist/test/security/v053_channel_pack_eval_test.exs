@@ -2,13 +2,13 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
   use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   alias AllbertAssist.Channels
-  alias AllbertAssist.Channels.Email.Parser, as: EmailParser
+  alias AllbertEmail.Parser, as: EmailParser
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.Matrix.Parser, as: MatrixParser
   alias AllbertAssist.Channels.Signal.Daemon, as: SignalDaemon
   alias AllbertAssist.Channels.Signal.Parser, as: SignalParser
-  alias AllbertAssist.Channels.Telegram.Renderer, as: TelegramRenderer
+  alias AllbertTelegram.Renderer, as: TelegramRenderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread

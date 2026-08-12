@@ -11,7 +11,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
 
   alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
   alias AllbertAssist.Actions.Channels.SendChannelMessage
-  alias AllbertAssist.Actions.Email.SendEmail
+  alias AllbertEmail.Actions.SendEmail
   alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.ClarifyResolver
   alias AllbertAssist.Intent.Router.DescriptorResolver

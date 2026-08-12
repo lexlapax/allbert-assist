@@ -57,7 +57,7 @@
         "AllbertAssist.Actions.Marketplace.ListEntries",
         "AllbertAssist.Actions.Objectives.ListObjectives",
         "AllbertAssist.Actions.Mcp.FindTools",
-        "AllbertAssist.Actions.Email.SendEmail",
+        "AllbertEmail.Actions.SendEmail",
         "AllbertAssist.Actions.Channels.SendChannelMessage",
         "AllbertAssist.Actions.Calendar.CreateCalendarEvent",
         "AllbertAssist.Actions.Marketplace.InstallBundle",
@@ -89,7 +89,7 @@
         "AllbertAssist.Actions.Channels.ConfigureChannelSecret",
         "AllbertAssist.Actions.Channels.ConfigureChannelSetting",
         "AllbertAssist.Actions.Channels.DiscordDoctor",
-        "AllbertAssist.Actions.Channels.EmailDoctor",
+        "AllbertEmail.Actions.Doctor",
         "AllbertAssist.Actions.Channels.LinkChannelIdentity",
         "AllbertAssist.Actions.Channels.ListChannels",
         "AllbertAssist.Actions.Channels.MatrixDoctor",
@@ -99,7 +99,7 @@
         "AllbertAssist.Actions.Channels.SignalDoctor",
         "AllbertAssist.Actions.Channels.SignalLinkDevice",
         "AllbertAssist.Actions.Channels.SlackDoctor",
-        "AllbertAssist.Actions.Channels.TelegramDoctor",
+        "AllbertTelegram.Actions.Doctor",
         "AllbertAssist.Actions.Channels.UnlinkChannelIdentity",
         "AllbertAssist.Actions.Channels.WhatsAppDoctor",
         "AllbertAssist.Actions.Coding.Bash",
@@ -130,7 +130,7 @@
         "AllbertAssist.Actions.DynamicPlugins.RunDraftTrial",
         "AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft",
         "AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration",
-        "AllbertAssist.Actions.Email.SendEmail",
+        "AllbertEmail.Actions.SendEmail",
         "AllbertAssist.Actions.FirstModel.Detect",
         "AllbertAssist.Actions.FirstModel.InstallOllama",
         "AllbertAssist.Actions.FirstModel.PullModel",
@@ -14717,10 +14717,10 @@
         "AllbertBrowser.Actions.CloseSession",
         "AllbertBrowser.Actions.SweepCache",
         "AllbertAssist.Actions.Channels.DiscordDoctor",
-        "AllbertAssist.Actions.Channels.EmailDoctor",
+        "AllbertEmail.Actions.Doctor",
         "AllbertAssist.Actions.Channels.MatrixDoctor",
         "AllbertAssist.Actions.Channels.SlackDoctor",
-        "AllbertAssist.Actions.Channels.TelegramDoctor",
+        "AllbertTelegram.Actions.Doctor",
         "StockSage.Actions.ResolveOutcomes",
         "StockSage.Actions.GenerateReflection",
         "StockSage.Actions.ListQueue",
@@ -26146,7 +26146,7 @@
           },
           "index": 45,
           "input_schema_sha256": "8f332325188c571311154d906d4ea548b2c8557e0308bd9fea2735b07283b170",
-          "module": "AllbertAssist.Actions.Email.SendEmail",
+          "module": "AllbertEmail.Actions.SendEmail",
           "name": "send_email",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "static"
@@ -30426,7 +30426,7 @@
           },
           "index": 259,
           "input_schema_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-          "module": "AllbertAssist.Actions.Channels.EmailDoctor",
+          "module": "AllbertEmail.Actions.Doctor",
           "name": "email_doctor",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "plugin_append"
@@ -30546,7 +30546,7 @@
           },
           "index": 265,
           "input_schema_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-          "module": "AllbertAssist.Actions.Channels.TelegramDoctor",
+          "module": "AllbertTelegram.Actions.Doctor",
           "name": "telegram_doctor",
           "output_schema_sha256": "0718d95089962617b419c025076131dc3b4bd554095b2f206e8c577b7e76d08a",
           "source_bucket": "plugin_append"
@@ -33791,7 +33791,7 @@
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.EmailDoctor",
+          "module": "AllbertEmail.Actions.Doctor",
           "plugin_id": "allbert.email",
           "source": "plugin",
           "trust_status": "trusted"
@@ -33839,7 +33839,7 @@
           "trust_status": "trusted"
         },
         {
-          "module": "AllbertAssist.Actions.Channels.TelegramDoctor",
+          "module": "AllbertTelegram.Actions.Doctor",
           "plugin_id": "allbert.telegram",
           "source": "plugin",
           "trust_status": "trusted"
@@ -35085,7 +35085,7 @@
             "confirmation": "required",
             "execution_mode": "smtp_send",
             "exposure": "agent",
-            "module": "AllbertAssist.Actions.Email.SendEmail",
+            "module": "AllbertEmail.Actions.SendEmail",
             "name": "send_email",
             "permission": "email_send",
             "registered?": true,
@@ -38402,7 +38402,7 @@
         "AllbertBrowser.Actions.SweepCache",
         "AllbertBrowser.Actions.ResearchHandoff",
         "AllbertAssist.Actions.Channels.DiscordDoctor",
-        "AllbertAssist.Actions.Channels.EmailDoctor",
+        "AllbertEmail.Actions.Doctor",
         "AllbertAssist.Actions.Channels.MatrixDoctor",
         "AllbertNotesFiles.Actions.SearchNotes",
         "AllbertNotesFiles.Actions.ReadNote",
@@ -38410,7 +38410,7 @@
         "AllbertAssist.Actions.Channels.SignalDoctor",
         "AllbertAssist.Actions.Channels.SignalLinkDevice",
         "AllbertAssist.Actions.Channels.SlackDoctor",
-        "AllbertAssist.Actions.Channels.TelegramDoctor",
+        "AllbertTelegram.Actions.Doctor",
         "AllbertAssist.Actions.Channels.WhatsAppDoctor",
         "StockSage.Actions.ListAnalyses",
         "StockSage.Actions.ShowAnalysis",
@@ -38446,7 +38446,7 @@
         },
         {
           "channel_id": "email",
-          "child_id": "AllbertAssist.Channels.Email.Adapter",
+          "child_id": "AllbertEmail.Adapter",
           "plugin_id": "allbert.email",
           "row_sha256": "822d629d20a0c1d30253562b6e6efe4984f762da91e522cc6c093ab3f13f7a33",
           "status": "enabled"
@@ -38474,7 +38474,7 @@
         },
         {
           "channel_id": "telegram",
-          "child_id": "AllbertAssist.Channels.Telegram.Adapter",
+          "child_id": "AllbertTelegram.Adapter",
           "plugin_id": "allbert.telegram",
           "row_sha256": "57ab8995061365d54b6e3ca5cbf00cd558be7811af1e14ff648ca0b8f4f85be6",
           "status": "enabled"
@@ -38739,16 +38739,16 @@
         },
         {
           "actions": [
-            "AllbertAssist.Actions.Channels.EmailDoctor"
+            "AllbertEmail.Actions.Doctor"
           ],
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.Email.Adapter",
+              "adapter": "AllbertEmail.Adapter",
               "channel_id": "email",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.Email.Adapter",
+                  "AllbertEmail.Adapter",
                   []
                 ]
               },
@@ -38797,7 +38797,7 @@
           "index": 4,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.email/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.Email",
+          "module": "AllbertEmail.Plugin",
           "plugin_id": "allbert.email",
           "release_availability": [],
           "root_path": "<REPO_ROOT>/plugins/allbert.email",
@@ -39166,16 +39166,16 @@
         },
         {
           "actions": [
-            "AllbertAssist.Actions.Channels.TelegramDoctor"
+            "AllbertTelegram.Actions.Doctor"
           ],
           "apps": [],
           "channels": [
             {
-              "adapter": "AllbertAssist.Channels.Telegram.Adapter",
+              "adapter": "AllbertTelegram.Adapter",
               "channel_id": "telegram",
               "child_spec": {
                 "$tuple": [
-                  "AllbertAssist.Channels.Telegram.Adapter",
+                  "AllbertTelegram.Adapter",
                   []
                 ]
               },
@@ -39224,7 +39224,7 @@
           "index": 10,
           "kind": "channel",
           "manifest_path": "<REPO_ROOT>/plugins/allbert.telegram/allbert_plugin.json",
-          "module": "AllbertAssist.Plugins.Telegram",
+          "module": "AllbertTelegram.Plugin",
           "plugin_id": "allbert.telegram",
           "release_availability": [],
           "root_path": "<REPO_ROOT>/plugins/allbert.telegram",

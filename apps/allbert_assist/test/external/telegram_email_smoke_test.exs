@@ -7,8 +7,8 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
                  "set ALLBERT_TELEGRAM_EMAIL_EXTERNAL_SMOKE=1 to run the real Telegram/email delivery smoke"
   end
 
-  alias AllbertAssist.Channels.Email.SmtpClient
-  alias AllbertAssist.Channels.Telegram.Client, as: TelegramClient
+  alias AllbertEmail.SmtpClient
+  alias AllbertTelegram.Client, as: TelegramClient
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Paths

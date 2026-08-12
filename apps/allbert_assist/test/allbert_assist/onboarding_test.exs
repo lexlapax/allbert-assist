@@ -35,8 +35,8 @@ defmodule AllbertAssist.OnboardingTest do
 
     System.put_env("ALLBERT_HOME", home)
 
-    ensure_channel_plugin!(AllbertAssist.Plugins.Telegram)
-    ensure_channel_plugin!(AllbertAssist.Plugins.Email)
+    ensure_channel_plugin!(AllbertTelegram.Plugin)
+    ensure_channel_plugin!(AllbertEmail.Plugin)
 
     on_exit(fn ->
       File.rm_rf!(home)

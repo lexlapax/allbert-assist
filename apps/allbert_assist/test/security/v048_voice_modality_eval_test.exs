@@ -4,7 +4,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
-  alias AllbertAssist.Channels.Telegram.Adapter
+  alias AllbertTelegram.Adapter
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -75,7 +75,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
 
     System.put_env("ALLBERT_HOME", home)
 
-    ensure_plugin!("allbert.telegram", AllbertAssist.Plugins.Telegram)
+    ensure_plugin!("allbert.telegram", AllbertTelegram.Plugin)
 
     on_exit(fn ->
       File.rm_rf!(home)

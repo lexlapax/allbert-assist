@@ -24,7 +24,7 @@ defmodule AllbertAssist.Intent.EngineSettingsSnapshotTest do
     Fixtures.register_app!(registry, AllbertAssist.App.CoreApp)
     Fixtures.register_app!(registry, AllbertNotesFiles.App)
 
-    Fixtures.register_plugin!(registry, AllbertAssist.Plugins.Telegram)
+    Fixtures.register_plugin!(registry, AllbertTelegram.Plugin)
     Fixtures.register_plugin!(registry, AllbertNotesFiles.Plugin)
 
     on_exit(fn -> Process.delete(@resolution_hook_key) end)

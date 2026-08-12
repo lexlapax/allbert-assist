@@ -2,10 +2,10 @@ defmodule AllbertAssist.Channels.EmailTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Channels
-  alias AllbertAssist.Channels.Email.Adapter
-  alias AllbertAssist.Channels.Email.Parser
-  alias AllbertAssist.Channels.Email.Renderer
-  alias AllbertAssist.Channels.Email.SmtpClient
+  alias AllbertEmail.Adapter
+  alias AllbertEmail.Parser
+  alias AllbertEmail.Renderer
+  alias AllbertEmail.SmtpClient
   alias AllbertAssist.Confirmations
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations
@@ -80,7 +80,7 @@ defmodule AllbertAssist.Channels.EmailTest do
     File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
-    ensure_plugin!("allbert.email", AllbertAssist.Plugins.Email)
+    ensure_plugin!("allbert.email", AllbertEmail.Plugin)
 
     on_exit(fn ->
       File.rm_rf!(home)

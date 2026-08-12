@@ -55,8 +55,8 @@ defmodule AllbertAssist.Intent.EngineTest do
     Fixtures.register_app!(registry, StockSage.App)
     Fixtures.register_app!(registry, AllbertNotesFiles.App)
 
-    Fixtures.register_plugin!(registry, AllbertAssist.Plugins.Telegram)
-    Fixtures.register_plugin!(registry, AllbertAssist.Plugins.Email)
+    Fixtures.register_plugin!(registry, AllbertTelegram.Plugin)
+    Fixtures.register_plugin!(registry, AllbertEmail.Plugin)
     Fixtures.register_plugin!(registry, StockSage.Plugin)
     Fixtures.register_plugin!(registry, AllbertNotesFiles.Plugin)
 

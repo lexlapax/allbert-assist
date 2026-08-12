@@ -155,9 +155,9 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
       end
     )
 
-    ensure_plugin!("allbert.telegram", AllbertAssist.Plugins.Telegram)
+    ensure_plugin!("allbert.telegram", AllbertTelegram.Plugin)
 
-    ensure_plugin!("allbert.email", AllbertAssist.Plugins.Email)
+    ensure_plugin!("allbert.email", AllbertEmail.Plugin)
 
     ensure_plugin!("allbert.discord", AllbertAssist.Plugins.Discord)
 

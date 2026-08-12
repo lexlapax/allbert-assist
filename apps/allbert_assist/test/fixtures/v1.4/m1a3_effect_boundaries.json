@@ -4437,7 +4437,7 @@
       "focused_test": "AllbertAssist.Channels.EmailTest",
       "id": "email-adapter",
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
-      "owner": "AllbertAssist.Channels.Email.Adapter",
+      "owner": "AllbertEmail.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.email/lib/allbert_assist/channels/email/adapter.ex"
     },
@@ -6033,7 +6033,7 @@
       "focused_test": "AllbertAssist.Channels.TelegramTest",
       "id": "telegram-adapter",
       "missing_or_stale_result": "{:error, :product_not_ready} before runtime or provider effect",
-      "owner": "AllbertAssist.Channels.Telegram.Adapter",
+      "owner": "AllbertTelegram.Adapter",
       "phase": "ready",
       "source_path": "plugins/allbert.telegram/lib/allbert_assist/channels/telegram/adapter.ex"
     },

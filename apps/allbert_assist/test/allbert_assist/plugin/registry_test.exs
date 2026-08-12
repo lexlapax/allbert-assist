@@ -260,11 +260,11 @@ defmodule AllbertAssist.Plugin.RegistryTest do
         }
       )
 
-    assert {:module, AllbertAssist.Plugins.Telegram, _opts} =
-             Enum.find(discoveries, &match?({:module, AllbertAssist.Plugins.Telegram, _}, &1))
+    assert {:module, AllbertTelegram.Plugin, _opts} =
+             Enum.find(discoveries, &match?({:module, AllbertTelegram.Plugin, _}, &1))
 
-    assert {:module, AllbertAssist.Plugins.Email, _opts} =
-             Enum.find(discoveries, &match?({:module, AllbertAssist.Plugins.Email, _}, &1))
+    assert {:module, AllbertEmail.Plugin, _opts} =
+             Enum.find(discoveries, &match?({:module, AllbertEmail.Plugin, _}, &1))
 
     assert {:module, AllbertBrowser.Plugin, _opts} =
              Enum.find(discoveries, &match?({:module, AllbertBrowser.Plugin, _}, &1))

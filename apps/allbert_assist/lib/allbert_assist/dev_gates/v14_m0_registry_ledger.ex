@@ -571,13 +571,13 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
         )
 
       plugin_registration =
-        PluginRegistry.register_module(AllbertAssist.Plugins.Telegram,
+        PluginRegistry.register_module(AllbertTelegram.Plugin,
           server: plugin_server,
           side_effects: false
         )
 
       plugin_duplicate =
-        PluginRegistry.register_module(AllbertAssist.Plugins.Telegram,
+        PluginRegistry.register_module(AllbertTelegram.Plugin,
           server: plugin_server,
           side_effects: false
         )

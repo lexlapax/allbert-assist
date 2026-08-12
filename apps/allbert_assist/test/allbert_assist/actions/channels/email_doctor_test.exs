@@ -1,10 +1,10 @@
-defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
+defmodule AllbertEmail.Actions.DoctorTest do
   use AllbertAssist.DataCase, async: false
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertAssist.Actions.Channels.EmailDoctor
-  alias AllbertAssist.Channels.Email.Doctor
+  alias AllbertEmail.Actions.Doctor
+  alias AllbertEmail.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments

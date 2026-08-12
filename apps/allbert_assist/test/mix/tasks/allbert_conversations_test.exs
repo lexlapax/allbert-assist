@@ -24,8 +24,8 @@ defmodule Mix.Tasks.Allbert.ConversationsTest do
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
-    ensure_plugin!("allbert.telegram", AllbertAssist.Plugins.Telegram)
-    ensure_plugin!("allbert.email", AllbertAssist.Plugins.Email)
+    ensure_plugin!("allbert.telegram", AllbertTelegram.Plugin)
+    ensure_plugin!("allbert.email", AllbertEmail.Plugin)
     ensure_plugin!("allbert.discord", AllbertAssist.Plugins.Discord)
     ensure_plugin!("allbert.slack", AllbertAssist.Plugins.Slack)
 

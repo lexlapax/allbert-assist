@@ -2,10 +2,10 @@ defmodule AllbertAssist.Channels.TelegramTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Channels
-  alias AllbertAssist.Channels.Telegram.Adapter
-  alias AllbertAssist.Channels.Telegram.Client
-  alias AllbertAssist.Channels.Telegram.Parser
-  alias AllbertAssist.Channels.Telegram.Renderer
+  alias AllbertTelegram.Adapter
+  alias AllbertTelegram.Client
+  alias AllbertTelegram.Parser
+  alias AllbertTelegram.Renderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations

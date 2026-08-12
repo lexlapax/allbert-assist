@@ -1,10 +1,10 @@
-defmodule AllbertAssist.Actions.Channels.TelegramDoctorTest do
+defmodule AllbertTelegram.Actions.DoctorTest do
   use AllbertAssist.DataCase, async: false
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
-  alias AllbertAssist.Actions.Channels.TelegramDoctor
-  alias AllbertAssist.Channels.Telegram.Doctor
+  alias AllbertTelegram.Actions.Doctor
+  alias AllbertTelegram.Doctor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
