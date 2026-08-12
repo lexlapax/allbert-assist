@@ -29,9 +29,21 @@ Application.put_env(:allbert_assist, AllbertAssist.Paths, home: test_home)
 # v1.4 M12: composition now depends on every pack, so its closure reaches sibling
 # packs this one does not depend on and must not. The walk is transitive and read
 # from each .app, so extracting another pack does not mean editing this file.
+# v0.63 F5 hides capability-gated and demo intents from the default shortlist.
+# The residual suite bypasses that so eval corpora see the full set; a pack lane
+# needs the same, or its own demo intents route to :direct_answer instead of the
+# registered action. Set before the pack bootstrap so discovery sees it.
+Application.put_env(:allbert_assist, :intent_descriptor_include_all, true)
+
 AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
   :allbert_assist_web,
-  :allbert_composition
+  :allbert_composition,
+  # Above Web in the DAG since v1.4 M13: both contribute a routed web surface, so
+  # composition cannot depend on them and its closure does not reach them. The
+  # projection still reconciles their metadata, so every VM that builds it has to
+  # load them explicitly.
+  :allbert_artifacts,
+  :stocksage
 ])
 
 # Loading is not registering. The residual ran plugin discovery while it started,

@@ -5,15 +5,15 @@ defmodule AllbertAssist.Runtime.FanoutCallersTest do
   @root Path.expand("../../../../..", __DIR__)
 
   @callers %{
-    "tui" => "plugins/allbert.tui/lib/allbert_assist/channels/tui/adapter.ex",
+    "tui" => "apps/allbert_tui/lib/allbert_tui/adapter.ex",
     "web" => "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex",
     "telegram" => "apps/allbert_telegram/lib/allbert_telegram/adapter.ex",
     "email" => "apps/allbert_email/lib/allbert_email/adapter.ex",
-    "discord" => "plugins/allbert.discord/lib/allbert_assist/channels/discord/adapter.ex",
-    "slack" => "plugins/allbert.slack/lib/allbert_assist/channels/slack/adapter.ex",
-    "matrix" => "plugins/allbert.matrix/lib/allbert_assist/channels/matrix/adapter.ex",
-    "whatsapp" => "plugins/allbert.whatsapp/lib/allbert_assist/channels/whatsapp/adapter.ex",
-    "signal" => "plugins/allbert.signal/lib/allbert_assist/channels/signal/adapter.ex",
+    "discord" => "apps/allbert_discord/lib/allbert_discord/adapter.ex",
+    "slack" => "apps/allbert_slack/lib/allbert_slack/adapter.ex",
+    "matrix" => "apps/allbert_matrix/lib/allbert_matrix/adapter.ex",
+    "whatsapp" => "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex",
+    "signal" => "apps/allbert_signal/lib/allbert_signal/adapter.ex",
     "cli" => "apps/allbert_assist/lib/allbert_assist/cli/ask.ex",
     "mix ask" => "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex",
     "jobs" => "apps/allbert_assist/lib/allbert_assist/jobs/runner.ex",

@@ -1566,7 +1566,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "stocksage_tests",
         app_cwd(:core),
         "mix",
-        ["test", "../../plugins/stocksage/test/stocksage", "../../plugins/stocksage/test/mix"],
+        ["test", "../../apps/stocksage/test/stocksage", "../../apps/stocksage/test/mix"],
         env
       ),
       phase(
@@ -1577,13 +1577,13 @@ defmodule Mix.Tasks.Allbert.Test do
           "test",
           "../../apps/allbert_telegram/test",
           "../../apps/allbert_email/test",
-          "../../plugins/allbert.discord/test",
-          "../../plugins/allbert.slack/test",
-          "../../plugins/allbert.matrix/test",
-          "../../plugins/allbert.whatsapp/test",
-          "../../plugins/allbert.signal/test",
+          "../../apps/allbert_discord/test",
+          "../../apps/allbert_slack/test",
+          "../../apps/allbert_matrix/test",
+          "../../apps/allbert_whatsapp/test",
+          "../../apps/allbert_signal/test",
           "../../apps/allbert_notes_files/test",
-          "../../plugins/allbert.artifacts/test"
+          "../../apps/allbert_artifacts/test"
         ],
         env
       ),
@@ -2545,9 +2545,9 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "../../plugins/allbert.artifacts/test/allbert_artifacts/plugin_test.exs",
-        "../../plugins/allbert.artifacts/test/allbert_artifacts/app_panels_test.exs",
-        "../../plugins/allbert.artifacts/test/mix/tasks/allbert_artifacts_test.exs"
+        "../../apps/allbert_artifacts/test/allbert_artifacts/plugin_test.exs",
+        "../../apps/allbert_artifacts/test/allbert_artifacts/app_panels_test.exs",
+        "../../apps/allbert_artifacts/test/mix/tasks/allbert_artifacts_test.exs"
       ],
       coverage: [
         "plugin/app grants no authority",
@@ -2895,7 +2895,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/channels/whatsapp_test.exs",
         "test/allbert_assist/actions/channels/whatsapp_doctor_test.exs",
         "test/external/whatsapp_smoke_test.exs",
-        "../../plugins/allbert.whatsapp/test"
+        "../../apps/allbert_whatsapp/test"
       ],
       coverage: [
         "WhatsApp Cloud API bearer-auth request shapes",
@@ -2915,7 +2915,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/channels/signal_test.exs",
         "test/allbert_assist/actions/channels/signal_doctor_test.exs",
         "test/external/signal_smoke_test.exs",
-        "../../plugins/allbert.signal/test"
+        "../../apps/allbert_signal/test"
       ],
       coverage: [
         "Signal signal-cli JSON-RPC request shapes",

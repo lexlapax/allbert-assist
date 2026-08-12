@@ -108,7 +108,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
 
   # v1.4 M13: the browser bridge's node_modules must not ship. That used to be a
   # plugin-id special case inside stage_plugins, excluding the tree while copying
-  # plugins/allbert.browser/priv. Once the browser became an OTP application the
+  # apps/allbert_browser/priv. Once the browser became an OTP application the
   # copy stopped going through that path -- `:assemble` brings the whole priv/ of
   # every application -- so the exclusion moved here, after assembly, or 900-odd
   # vendored files would silently start shipping. The boundary smoke below

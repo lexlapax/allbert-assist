@@ -165,10 +165,10 @@ defmodule StockSage.Evidence do
   @spec fixture_root() :: String.t()
   def fixture_root do
     # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths).
-    case AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "fixtures", "native_agents"]) do
-      nil -> Path.expand("../../priv/fixtures/native_agents", __DIR__)
-      path -> path
-    end
+    # v1.4 M13: this pack owns its priv as an OTP application, so app_dir resolves
+    # in a checkout and in a packaged release alike -- no plugins root, and no
+    # __DIR__ fallback freezing a build-machine path into the artifact.
+    Application.app_dir(:stocksage, ["priv", "fixtures", "native_agents"])
   end
 
   defp load_fixture(kind, ticker, analysis_date) do

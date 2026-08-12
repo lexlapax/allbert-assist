@@ -40,7 +40,13 @@ defmodule StockSage.Pack do
   def descriptor do
     %Descriptor{
       schema_version: 1,
-      id: "stocksage",
+      # Deliberately NOT "stocksage". ADR 0098 section 9 keeps each legacy manifest
+      # as an identity-equivalent deprecated alias of its pack, and every other
+      # pack's two names differ by construction -- pack "allbert_notes_files"
+      # against plugin "allbert.notes_files". StockSage is the one plugin whose id
+      # carries no dotted prefix, so an app-named pack id would be byte-identical
+      # to its plugin id and composition rejects the pair as duplicate_identity.
+      id: "allbert_stocksage",
       application: :stocksage,
       application_version: @application_version,
       capability_tier: :native,

@@ -140,9 +140,9 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
     root = Path.expand("../../../../..", __DIR__)
 
     for path <- [
-          "plugins/allbert.research/lib/allbert_research/commands/research.ex",
-          "plugins/allbert.research/lib/allbert_research/commands/summarize_url.ex",
-          "plugins/stocksage/lib/stocksage/agents/commands/execute.ex"
+          "apps/allbert_research/lib/allbert_research/commands/research.ex",
+          "apps/allbert_research/lib/allbert_research/commands/summarize_url.ex",
+          "apps/stocksage/lib/stocksage/agents/commands/execute.ex"
         ] do
       assert File.read!(Path.join(root, path)) =~ "CancelToken.checkpoint"
     end

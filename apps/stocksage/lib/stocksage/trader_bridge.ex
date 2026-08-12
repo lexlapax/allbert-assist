@@ -449,11 +449,12 @@ defmodule StockSage.TraderBridge do
   end
 
   defp bridge_script_path do
-    # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths); the __DIR__
-    # form stays only as the last-resort fallback.
-    script =
-      AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "python", "bridge.py"]) ||
-        Path.expand("../../priv/python/bridge.py", __DIR__)
+    # v0.62 M1 made this release-safe through the plugins root; v1.4 M13 keeps
+    # that property and changes the root. StockSage owns its priv as an OTP
+    # application now, so app_dir answers in the repo and in a packaged release
+    # without a plugins tree and without freezing a build-machine path via
+    # __DIR__ -- which is why that fallback is gone rather than kept.
+    script = Application.app_dir(:stocksage, ["priv", "python", "bridge.py"])
 
     if File.exists?(script) do
       {:ok, script}

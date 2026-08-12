@@ -157,7 +157,7 @@ defmodule AllbertAssist.DatabaseTest do
                  String.ends_with?(&1, "priv/repo/migrations"))
            )
 
-    assert Enum.any?(paths, &String.ends_with?(&1, "plugins/stocksage/priv/repo/migrations"))
+    assert Enum.any?(paths, &String.ends_with?(&1, "apps/stocksage/priv/repo/migrations"))
   end
 
   defp configure_repo_database(database_path) do

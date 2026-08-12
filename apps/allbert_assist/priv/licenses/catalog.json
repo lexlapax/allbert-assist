@@ -1242,7 +1242,7 @@
       "name": "stocksage",
       "pack": {
         "descriptor_module": "Elixir.StockSage.Pack",
-        "id": "stocksage",
+        "id": "allbert_stocksage",
         "registry_order": 1400,
         "schema_version": 1,
         "startup_role": "native_passive"

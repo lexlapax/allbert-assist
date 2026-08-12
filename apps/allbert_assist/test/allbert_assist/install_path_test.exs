@@ -478,7 +478,7 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the browser runtime boundary accepts bridge source without external runtimes" do
     release_root = temp_release_root("external-browser-runtime")
-    bridge = Path.join(release_root, "plugins/allbert.browser/priv/playwright_bridge")
+    bridge = Path.join(release_root, "apps/allbert_browser/priv/playwright_bridge")
     File.mkdir_p!(bridge)
     File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
     File.write!(Path.join(bridge, "package.json"), ~s({"dependencies":{"playwright":"1.58.2"}}))
@@ -492,7 +492,7 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the browser runtime boundary rejects bundled Node packages and browsers" do
     release_root = temp_release_root("bundled-browser-runtime")
-    bridge = Path.join(release_root, "plugins/allbert.browser/priv/playwright_bridge")
+    bridge = Path.join(release_root, "apps/allbert_browser/priv/playwright_bridge")
     File.mkdir_p!(bridge)
     File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
     File.write!(Path.join(bridge, "package.json"), ~s({"dependencies":{"playwright":"1.58.2"}}))
@@ -523,7 +523,7 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the browser runtime boundary rejects staged host executables" do
     release_root = temp_release_root("bundled-browser-executable")
-    bridge = Path.join(release_root, "plugins/allbert.browser/priv/playwright_bridge")
+    bridge = Path.join(release_root, "apps/allbert_browser/priv/playwright_bridge")
     executable = Path.join(release_root, "host-runtime/chromium")
     File.mkdir_p!(bridge)
     File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")

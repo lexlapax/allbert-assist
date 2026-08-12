@@ -39,7 +39,7 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
 
     artifacts =
       ScopeSelector.classify_paths([
-        "plugins/allbert.artifacts/test/allbert_artifacts/plugin_test.exs"
+        "apps/allbert_artifacts/test/allbert_artifacts/plugin_test.exs"
       ])
 
     refute artifacts["aggregate_required"]

@@ -155,11 +155,22 @@ defmodule AllbertAssist.Database do
   # build machine's checkout path into the artifact, and the missing-dir
   # filter then silently dropped stocksage's migrations on user machines. A
   # missing path now logs loudly instead of vanishing.
+  defp pack_migrations_dir(application) do
+    Application.app_dir(application, ["priv", "repo", "migrations"])
+  rescue
+    ArgumentError -> nil
+  end
+
   defp plugin_migration_paths do
-    case AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "repo", "migrations"]) do
+    # v1.4 M13: stocksage is an OTP application, so its migrations live in its own
+    # priv and `Application.app_dir/2` answers in the repo and in a packaged
+    # release alike. The v0.62 property this replaced still holds -- resolution
+    # happens at RUNTIME, so no build-machine checkout path is frozen into the
+    # artifact -- and a missing directory still logs loudly rather than vanishing.
+    case pack_migrations_dir(:stocksage) do
       nil ->
         require Logger
-        Logger.warning("plugin migrations skipped: no plugins root resolved (stocksage)")
+        Logger.warning("plugin migrations skipped: stocksage application not available")
         []
 
       path ->

@@ -90,9 +90,12 @@ AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
 # sequence has holes.
 AllbertAssist.TestSupport.PackBootstrap.ensure_registered!()
 
-unless match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("stocksage")) do
-  AllbertAssist.Plugin.Registry.register_module(StockSage.Plugin)
-end
+# v1.4 M13 retired the explicit StockSage plugin registration that used to live
+# here. StockSage is an extracted pack now, so `ensure_registered!/0` above covers
+# it with every other pack -- and registering it twice is not idempotent, because
+# the staged (`side_effects: false`) registration is not yet visible to
+# `lookup/1`, so the guard passed and composition then rejected the candidate with
+# duplicate_identity legacy_plugin:stocksage.
 
 unless AllbertAssist.App.Registry.known_app_id?(:stocksage) do
   {:ok, :stocksage} = AllbertAssist.App.Registry.register(StockSage.App)
@@ -105,7 +108,13 @@ end
 # servers and remain unaffected.
 AllbertAssist.TestSupport.PackBootstrap.ensure_loaded!([
   :allbert_assist_web,
-  :allbert_composition
+  :allbert_composition,
+  # Above Web in the DAG since v1.4 M13: both contribute a routed web surface, so
+  # composition cannot depend on them and its closure does not reach them. The
+  # projection still reconciles their metadata, so every VM that builds it has to
+  # load them explicitly.
+  :allbert_artifacts,
+  :stocksage
 ])
 
 case Application.ensure_all_started(:allbert_composition) do

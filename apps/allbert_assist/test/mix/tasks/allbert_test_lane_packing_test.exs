@@ -53,7 +53,7 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
   test "lane packing never leaks across owners, even for a shared bare filename" do
     records = [
       record("apps/allbert_assist/test/a_test.exs", :core, :external_runtime_serial, "", 3),
-      record("plugins/stocksage/test/a_test.exs", :stocksage, :external_runtime_serial, "", 1)
+      record("apps/stocksage/test/a_test.exs", :stocksage, :external_runtime_serial, "", 1)
     ]
 
     core_files = AllbertTestTask.lane_packing_files(records, :core, :external_runtime_serial)
@@ -66,7 +66,7 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
     # Plugin paths resolve outside the core app cwd, so the shared bare
     # filename can never alias the core file's path or cost key.
     assert [{:stocksage, stocksage_path}] = Enum.map(stocksage_files, &{&1.owner, &1.path})
-    assert String.ends_with?(stocksage_path, "plugins/stocksage/test/a_test.exs")
+    assert String.ends_with?(stocksage_path, "apps/stocksage/test/a_test.exs")
     refute stocksage_path == "test/a_test.exs"
   end
 
@@ -120,7 +120,7 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
              primary_lane: :db_serial
            } =
              by_path[
-               "plugins/allbert.artifacts/test/allbert_artifacts/app_panels_test.exs"
+               "apps/allbert_artifacts/test/allbert_artifacts/app_panels_test.exs"
              ]
 
     assert %{
@@ -128,7 +128,7 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
              primary_lane: :db_serial
            } =
              by_path[
-               "plugins/allbert.artifacts/test/mix/tasks/allbert_artifacts_test.exs"
+               "apps/allbert_artifacts/test/mix/tasks/allbert_artifacts_test.exs"
              ]
 
     assert %{
@@ -147,7 +147,7 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
              primary_lane: :pure_async
            } =
              by_path[
-               "plugins/allbert.artifacts/test/allbert_artifacts_web/artifact_live_readiness_test.exs"
+               "apps/allbert_artifacts/test/allbert_artifacts_web/artifact_live_readiness_test.exs"
              ]
 
     # v1.4 M12 moved the notes CLI area into the pack alongside its Mix task, so

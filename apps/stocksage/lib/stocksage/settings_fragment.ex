@@ -72,7 +72,7 @@ defmodule StockSage.SettingsFragment do
   def fragment do
     schema =
       Map.new(Source.schema(), fn %{key: key} = entry ->
-        {key, Map.delete(entry, :key)}
+        {key, entry_fields(entry)}
       end)
 
     Fragment.new!(%{
@@ -95,5 +95,13 @@ defmodule StockSage.SettingsFragment do
     Enum.reduce(schema, %{}, fn {key, entry}, acc ->
       Schema.put_dotted(acc, key, Map.fetch!(entry, :default))
     end)
+  end
+
+  # The fragment contract accepts a closed field set and rejects anything else
+  # with "unknown settings schema entry fields". Plugin-path schemas carry extras
+  # -- `:description` most often -- so project onto the accepted set rather than
+  # deleting whichever key happened to fail first.
+  defp entry_fields(entry) do
+    Map.take(entry, [:type, :default, :writable?, :sensitive?, :allowed_values, :min, :max])
   end
 end

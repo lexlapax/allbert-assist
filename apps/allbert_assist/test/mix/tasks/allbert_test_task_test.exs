@@ -348,16 +348,16 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     records = GateOwners.load!(root)
     core = Enum.find(records, &(&1.owner_id == :core))
 
-    assert "plugins/allbert.browser/lib" in core.production_source_roots
-    assert "plugins/allbert.research/lib" in core.production_source_roots
-    assert "plugins/allbert.tui/lib" in core.production_source_roots
+    assert "apps/allbert_browser/lib" in core.production_source_roots
+    assert "apps/allbert_research/lib" in core.production_source_roots
+    assert "apps/allbert_tui/lib" in core.production_source_roots
 
     assert GateOwners.independent_production_files(root) != []
 
     without_browser = %{
       core
       | production_source_roots:
-          Enum.reject(core.production_source_roots, &(&1 == "plugins/allbert.browser/lib"))
+          Enum.reject(core.production_source_roots, &(&1 == "apps/allbert_browser/lib"))
     }
 
     assert_raise ArgumentError,
@@ -827,7 +827,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
              Enum.find(phases, fn {id, _cwd, _args} -> id == "channel_plugin_tests" end)
 
     assert "../../apps/allbert_notes_files/test" in plugin_test_args
-    assert "../../plugins/allbert.artifacts/test" in plugin_test_args
+    assert "../../apps/allbert_artifacts/test" in plugin_test_args
 
     refute Enum.any?(phases, fn {_id, _cwd, args} -> args == ["precommit"] end)
     assert output =~ "release static_compile started"

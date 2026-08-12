@@ -125,20 +125,15 @@ defmodule AllbertAssist.Pack.Residual do
         production_roots: [
           "apps/allbert_assist/lib"
         ]
-      ),
-      owner(:stocksage, "apps/allbert_assist", "plugins/stocksage/lib", "plugins/stocksage/test",
-        support: ["plugins/stocksage/test/support"]
-      ),
-      owner(
-        :artifacts,
-        "apps/allbert_assist",
-        "plugins/allbert.artifacts/lib",
-        "plugins/allbert.artifacts/test"
       )
+      # notes_files left this list at M9, telegram and email at M12, and M13 took
+      # the rest. The residual answers only for the code it still compiles, and
+      # after M13 that is `apps/allbert_assist` alone -- every other owner
+      # declares its own lane through its Pack.test_lanes/0.
     ]
   end
 
-  defp owner(owner_id, cwd, production_root, test_root, opts \\ []) do
+  defp owner(owner_id, cwd, production_root, test_root, opts) do
     %{
       owner_id: owner_id,
       application: :allbert_assist,

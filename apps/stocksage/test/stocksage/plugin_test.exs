@@ -39,7 +39,7 @@ defmodule StockSage.PluginTest do
     assert StockSage.Plugin.plugin_id() == "stocksage"
     assert StockSage.Plugin.apps() == [StockSage.App]
     assert [skill_root] = StockSage.Plugin.skill_paths()
-    assert String.ends_with?(skill_root, "apps/stocksage/skills")
+    assert String.ends_with?(skill_root, "stocksage/priv/skills")
 
     assert StockSage.Plugin.actions() == [
              StockSage.Actions.ListAnalyses,

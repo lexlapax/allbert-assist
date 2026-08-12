@@ -30,16 +30,10 @@ defmodule AllbertAssist.MixProject do
 
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test) do
-    ["lib", "test/support" | shipped_plugin_test_support_paths()]
+    ["lib", "test/support"]
   end
 
   defp elixirc_paths(_), do: ["lib"]
-
-  defp shipped_plugin_test_support_paths do
-    [
-      Path.expand("../../plugins/stocksage/test/support", __DIR__)
-    ]
-  end
 
   # Specifies your project dependencies.
   #

@@ -35,21 +35,11 @@ defmodule AllbertAssist.Pack.ResidualTest do
       assert [] == apply(Residual, callback, [])
     end
 
-    assert Enum.map(Residual.test_lanes(), & &1.owner_id) == [
-             :core,
-             :stocksage,
-             :discord,
-             :slack,
-             :matrix,
-             :whatsapp,
-             :signal,
-             # notes_files left this list at v1.4 M9, and telegram and email at
-             # M12: each pack owns its test lane now, declared by its own
-             # Pack.test_lanes/0. The residual answers only for owners whose code
-             # it still compiles -- which is why the five channels still here are
-             # exactly the five still under plugins/.
-             :artifacts
-           ]
+    # v1.4 M13 emptied this list down to :core. notes_files left at M9, telegram
+    # and email at M12, and M13 took the remaining ten -- the residual answers
+    # only for the code it still compiles, and every other owner declares its own
+    # lane through its Pack.test_lanes/0.
+    assert Enum.map(Residual.test_lanes(), & &1.owner_id) == [:core]
   end
 
   test "residual application exposes every compiled settings fragment owner" do

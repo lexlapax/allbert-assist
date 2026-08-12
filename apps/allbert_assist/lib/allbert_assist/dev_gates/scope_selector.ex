@@ -119,7 +119,7 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       id: "stocksage",
       class: "product_subsystem",
       exact: [],
-      prefixes: ["plugins/stocksage/"],
+      prefixes: ["apps/stocksage/"],
       owners: ["stocksage"],
       lanes: ["db_serial", "app_env_serial"],
       aggregate_required: false
@@ -128,7 +128,7 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       id: "artifacts_plugin",
       class: "product_subsystem",
       exact: [],
-      prefixes: ["plugins/allbert.artifacts/"],
+      prefixes: ["apps/allbert_artifacts/"],
       owners: ["artifacts"],
       lanes: ["db_serial", "global_process_serial"],
       aggregate_required: false
@@ -140,11 +140,11 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       prefixes: [
         "apps/allbert_telegram/",
         "apps/allbert_email/",
-        "plugins/allbert.discord/",
-        "plugins/allbert.slack/",
-        "plugins/allbert.matrix/",
-        "plugins/allbert.whatsapp/",
-        "plugins/allbert.signal/",
+        "apps/allbert_discord/",
+        "apps/allbert_slack/",
+        "apps/allbert_matrix/",
+        "apps/allbert_whatsapp/",
+        "apps/allbert_signal/",
         "apps/allbert_notes_files/"
       ],
       owners: ["channel_plugins"],

@@ -47,11 +47,12 @@ defmodule StockSage.Plugin do
 
   @impl true
   def skill_paths do
-    # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths).
-    [
-      AllbertAssist.Plugin.Paths.plugin_path("stocksage", "skills") ||
-        Path.expand("../../skills", __DIR__)
-    ]
+    # v1.4 M13: an extracted pack addresses its own assets through its
+    # application, not the `plugins/<id>/` convention. Skills moved under `priv/`
+    # for the same reason the notes_files pack's did at M9 -- that is the tree an
+    # OTP release ships, and `Application.app_dir/2` resolves it identically in a
+    # checkout and in a packaged artifact.
+    [Application.app_dir(:stocksage, "priv/skills")]
   end
 
   # v1.4 M13: settings ownership moved to StockSage.SettingsFragment, a pack
