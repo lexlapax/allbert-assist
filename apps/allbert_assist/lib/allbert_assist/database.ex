@@ -156,6 +156,12 @@ defmodule AllbertAssist.Database do
   # filter then silently dropped stocksage's migrations on user machines. A
   # missing path now logs loudly instead of vanishing.
   defp pack_migrations_dir(application) do
+    # Load before resolving. `app_dir/2` raises for an application that is merely
+    # on the code path, and the migrator runs before anything forces a pack --
+    # under an owner-scoped lane the pack is not the current project either, so
+    # rescuing to nil silently skipped its migrations and every table it owns was
+    # absent. Loading is side-effect-free and does not start the application.
+    _ = Application.load(application)
     Application.app_dir(application, ["priv", "repo", "migrations"])
   rescue
     ArgumentError -> nil
