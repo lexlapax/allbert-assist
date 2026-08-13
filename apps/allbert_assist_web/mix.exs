@@ -78,7 +78,7 @@ defmodule AllbertAssistWeb.MixProject do
     [
       setup: ["deps.get", "allbert.hex_audit", "assets.npm", "assets.setup", "assets.build"],
       "assets.npm": [&npm_install/1],
-      test: [&load_ambient_applications/1, &prepare_test_database/1, "test"],
+      test: ["compile", &load_ambient_applications/1, &prepare_test_database/1, "test"],
       "ecto.migrate.allbert": ["allbert.ecto.migrate"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind allbert_assist_web", "esbuild allbert_assist_web"],
@@ -103,13 +103,12 @@ defmodule AllbertAssistWeb.MixProject do
   end
 
   # v1.4 M13.2: load the applications above Web before `test` starts anything,
-  # or composition's first attempt fails closed on an unloaded one. Resolved at
-  # runtime because the helper compiles only under MIX_ENV=test; see
-  # AllbertAssist.TestSupport.PackBootstrap.ensure_ambient_loaded!/0 for why.
-  defp load_ambient_applications(_args) do
-    Mix.Task.run("compile")
-    apply(AllbertAssist.TestSupport.PackBootstrap, :ensure_ambient_loaded!, [])
-  end
+  # or composition's first attempt fails closed on an unloaded one. The gate
+  # runs `allbert.test.raw`, which bypasses this alias by design and does the
+  # same thing itself; this covers a bare `mix test` from the app directory.
+  # See AllbertAssist.TestSupport.PackBootstrap.ensure_ambient_loaded!/0.
+  defp load_ambient_applications(_args),
+    do: apply(AllbertAssist.TestSupport.PackBootstrap, :ensure_ambient_loaded!, [])
 
   defp prepare_test_database(_args) do
     unless Application.get_env(:allbert_assist, :test_database_prepared?, false) do

@@ -66,7 +66,7 @@ defmodule AllbertAssist.Pack.ApplicationBoundaryTest do
       AllbertComposition.MixProject.project()
       |> Keyword.fetch!(:aliases)
 
-    assert [load_ambient, prepare_database, "test"] = Keyword.fetch!(aliases, :test)
+    assert ["compile", load_ambient, prepare_database, "test"] = Keyword.fetch!(aliases, :test)
     assert is_function(load_ambient, 1)
     assert is_function(prepare_database, 1)
   end
