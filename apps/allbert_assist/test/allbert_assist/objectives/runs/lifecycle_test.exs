@@ -153,6 +153,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   # that intent visible instead of leaving it to whoever reads the long form.
   alias AllbertAssist.Objectives.Lifecycle, as: RealLifecycle
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle, as: Lifecycle
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering, as: Steering
