@@ -45,6 +45,45 @@ if Mix.env() == :test do
       :ok
     end
 
+    @doc """
+    Load the applications that sit ABOVE Web, from a Mix alias, before the
+    `test` task starts anything.
+
+    v1.4 M13.2. `ProjectionProvider` reconciles metadata for every application in
+    the release, and `Application.app_dir/2` raises for one that is built but not
+    loaded. Artifacts and stocksage sit above Web since M13, so no owner's
+    dependency closure loads them -- yet an owner whose closure reaches the
+    composition host (through Web, or directly) has composition started by Mix
+    *before* `test_helper.exs` runs. Composition's first attempt therefore always
+    failed closed on `{:unknown_application, :stocksage}`, and the coordinator
+    crash-cascaded until the helper caught up.
+
+    Recovery worked, but not reliably: one M13 closeout census run lost the race
+    and readiness never opened, failing the lane. Calling this from a `test`
+    alias removes the trigger rather than tolerating the recovery, because an
+    alias step is the one window before application start that
+    `test_helper.exs` does not have.
+
+    A packaged release never needed any of this -- it loads every application
+    before starting any, which is why the defect is test-environment-only.
+
+    The roster is the applications above Web, which is a property of the DAG
+    rather than of any one caller, so it lives here and not in four `mix.exs`
+    files. It is written out rather than derived because this runs from a Mix
+    alias, before anything is loaded and before the projection can be asked --
+    but a hand-maintained roster is the defect ADR 0098 catalogued, so
+    `AmbientApplicationsTest` derives the same set from the projection and the
+    dependency closure and fails if the two disagree.
+    """
+    @spec ensure_ambient_loaded!() :: :ok
+    def ensure_ambient_loaded!, do: ensure_loaded!(ambient_applications())
+
+    @doc """
+    The applications above Web that `ensure_ambient_loaded!/0` loads.
+    """
+    @spec ambient_applications() :: [atom()]
+    def ambient_applications, do: [:allbert_artifacts, :stocksage]
+
     defp walk(application, seen) do
       if MapSet.member?(seen, application) do
         seen

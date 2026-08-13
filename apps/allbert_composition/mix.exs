@@ -18,8 +18,17 @@ defmodule AllbertComposition.MixProject do
 
   defp aliases do
     [
-      test: [&prepare_test_database/1, "test"]
+      test: [&load_ambient_applications/1, &prepare_test_database/1, "test"]
     ]
+  end
+
+  # v1.4 M13.2: load the applications above Web before `test` starts anything,
+  # or composition's first attempt fails closed on an unloaded one. Resolved at
+  # runtime because the helper compiles only under MIX_ENV=test; see
+  # AllbertAssist.TestSupport.PackBootstrap.ensure_ambient_loaded!/0 for why.
+  defp load_ambient_applications(_args) do
+    Mix.Task.run("compile")
+    apply(AllbertAssist.TestSupport.PackBootstrap, :ensure_ambient_loaded!, [])
   end
 
   defp prepare_test_database(_args) do

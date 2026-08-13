@@ -78,7 +78,7 @@ defmodule AllbertAssistWeb.MixProject do
     [
       setup: ["deps.get", "allbert.hex_audit", "assets.npm", "assets.setup", "assets.build"],
       "assets.npm": [&npm_install/1],
-      test: [&prepare_test_database/1, "test"],
+      test: [&load_ambient_applications/1, &prepare_test_database/1, "test"],
       "ecto.migrate.allbert": ["allbert.ecto.migrate"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind allbert_assist_web", "esbuild allbert_assist_web"],
@@ -100,6 +100,15 @@ defmodule AllbertAssistWeb.MixProject do
     if status != 0 do
       Mix.raise("npm ci failed for allbert_assist_web assets")
     end
+  end
+
+  # v1.4 M13.2: load the applications above Web before `test` starts anything,
+  # or composition's first attempt fails closed on an unloaded one. Resolved at
+  # runtime because the helper compiles only under MIX_ENV=test; see
+  # AllbertAssist.TestSupport.PackBootstrap.ensure_ambient_loaded!/0 for why.
+  defp load_ambient_applications(_args) do
+    Mix.Task.run("compile")
+    apply(AllbertAssist.TestSupport.PackBootstrap, :ensure_ambient_loaded!, [])
   end
 
   defp prepare_test_database(_args) do

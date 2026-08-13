@@ -35,6 +35,16 @@ defmodule AllbertAssist.Pack.ProjectionProvider do
     :allbert_assist_web
   ]
 
+  @doc """
+  The exact applications the closed projection reconciles metadata for.
+
+  Exposed because "is every one of these loaded before composition runs" is a
+  real precondition with a real failure mode (v1.4 M13.2), and a test cannot
+  check a module attribute.
+  """
+  @spec closed_applications() :: [atom()]
+  def closed_applications, do: @applications
+
   @spec closed() :: {:ok, Projection.Closed.t()} | {:error, term()}
   def closed do
     with {:ok, components} <- catalog_components(),
