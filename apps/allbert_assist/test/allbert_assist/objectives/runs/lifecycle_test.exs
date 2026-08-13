@@ -3,7 +3,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle do
 
   alias AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness
   alias AllbertAssist.Pack.EffectGuard
-  alias RealLifecycle
+  alias AllbertAssist.Objectives.Lifecycle
 
   def run(child_id, opts \\ []) do
     with {:ok, epoch} <- EffectGuard.admit_ready() do
@@ -25,7 +25,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering do
   @moduledoc false
 
   alias AllbertAssist.Pack.EffectGuard
-  alias RealSteering
+  alias AllbertAssist.Objectives.Steering
 
   def steer(user_id, objective_id, directive) do
     with {:ok, epoch} <- EffectGuard.admit_ready() do
