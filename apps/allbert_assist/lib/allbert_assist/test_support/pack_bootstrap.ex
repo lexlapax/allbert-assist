@@ -99,23 +99,39 @@ if Mix.env() == :test do
       if :code.lib_dir(application) == {:error, :bad_name} do
         ebin = Path.join([Mix.Project.build_path(), "lib", Atom.to_string(application), "ebin"])
 
-        if File.dir?(ebin), do: Code.prepend_path(ebin)
+        if File.dir?(ebin) do
+          Code.prepend_path(ebin)
+          # Loaded, not merely reachable: CompiledInventory.default_applications/0
+          # reads Application.loaded_applications/0 to find descriptor-bearing
+          # applications, so a pack that is only on the path is invisible to it.
+          Application.load(application)
+        end
       end
 
-      # Loaded, not merely reachable: CompiledInventory.default_applications/0
-      # reads Application.loaded_applications/0 to find descriptor-bearing
-      # applications, so a pack that is only on the path is invisible to it.
+      # v1.4 M13.2: also load an application this did NOT have to put on the
+      # path. Being reachable and being loaded are independent, and in an
+      # umbrella a sibling's ebin can already be on the path with nothing having
+      # loaded it -- in which case the old code skipped the load, the walk then
+      # read `Application.spec/2` as nil, and the whole transitive closure below
+      # that application was silently never loaded. That is how the composition
+      # owner's VM reached its own tests with Web unloaded.
       #
-      # v1.4 M13.2: unconditional, not only for an application this had to put on
-      # the path. Being reachable and being loaded are independent, and in an
-      # umbrella every sibling's ebin can already be on the path while nothing
-      # has loaded it -- in which case the old code skipped the load, the walk
-      # then read `Application.spec/2` as nil, and the whole transitive closure
-      # below that application was silently never loaded. That is how the
-      # composition owner's VM reached its own tests with Web unloaded.
-      Application.load(application)
+      # Restricted to the umbrella's own applications, which is the case it was
+      # written for. Loading every reachable dependency instead reaches build
+      # tooling that no owner's dependency tree includes, and Mix then tries to
+      # START what this merely loaded: `mix test` under the artifacts owner died
+      # on `Could not start application rewrite`.
+      if umbrella_application?(application), do: Application.load(application)
 
       :ok
+    end
+
+    defp umbrella_application?(application) do
+      Mix.Project.build_path()
+      |> Path.join("../../apps")
+      |> Path.join(Atom.to_string(application))
+      |> Path.expand()
+      |> File.dir?()
     end
 
     @doc """
