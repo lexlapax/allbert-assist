@@ -420,6 +420,24 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
             ],
        do: true
 
+  # v1.4 M13.2, operator decision 2026-08-12. An application the projection needs
+  # but the VM has not loaded yet is transient in exactly one environment and
+  # impossible in the other. A packaged release loads every application before
+  # starting any, so this cannot occur there. An owner-scoped test VM loads the
+  # applications above Web from a test helper, which runs after Mix has already
+  # started the closure that reaches this coordinator -- so the first attempt
+  # always failed on one of them.
+  #
+  # Crashing was correct in intent and wrong in effect: the supervisor restarts,
+  # the restart races the helper's registrations, and a restart that lands after
+  # the last one has nothing left to trigger it. That is the whole of the
+  # intermittent lane failure this replaces. Retrying keeps the guarantee that
+  # mattered -- an unresolvable input still never opens the barrier -- while
+  # removing the crash cascade that made recovery a race. The retry is logged, so
+  # a genuinely missing application is loud rather than silent.
+  defp retryable_input_failure?({:application_metadata, _application, {:unknown_application, _}}),
+    do: true
+
   defp retryable_input_failure?(_reason), do: false
 
   defp log_retry(reason, 1),
