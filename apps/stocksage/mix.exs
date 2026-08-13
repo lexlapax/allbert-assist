@@ -55,13 +55,13 @@ defmodule StockSage.MixProject do
     [test: ["compile", &load_ambient_applications/1, &prepare_test_database/1, "test"]]
   end
 
-  # v1.4 M13.2: load the applications above Web before `test` starts anything,
-  # or composition's first attempt fails closed on an unloaded one. The gate
+  # v1.4 M13.2: put the applications above Web on the code path before `test`
+  # starts anything, or composition's first attempt fails closed on one of them. The gate
   # runs `allbert.test.raw`, which bypasses this alias by design and does the
   # same thing itself; this covers a bare `mix test` from the app directory.
-  # See AllbertAssist.TestSupport.PackBootstrap.ensure_ambient_loaded!/0.
+  # See AllbertAssist.TestSupport.PackBootstrap.ensure_ambient_reachable!/0.
   defp load_ambient_applications(_args),
-    do: apply(AllbertAssist.TestSupport.PackBootstrap, :ensure_ambient_loaded!, [])
+    do: apply(AllbertAssist.TestSupport.PackBootstrap, :ensure_ambient_reachable!, [])
 
   defp prepare_test_database(_args) do
     unless Application.get_env(:allbert_assist, :test_database_prepared?, false) do
