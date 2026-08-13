@@ -24,8 +24,10 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
   @name :allbert_pack_composition_owner
   @bootstrap_timeout 30_000
   @input_retry_ms 100
+  @retry_log_every 25
 
   defstruct phase: :collecting,
+            retries: 0,
             closed: nil,
             snapshot: nil,
             epoch: nil,
@@ -390,8 +392,16 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
 
   defp handle_compose_failure(reason, state) do
     if retryable_input_failure?(reason) do
+      # A retry that logs nothing is a coordinator that can spin forever while
+      # the boot looks silent -- which is how one census failure presented: three
+      # logged terminations, then sixty seconds of nothing and a closed barrier.
+      # Rate-limited rather than per-attempt: at 100ms a bare log would emit ten
+      # lines a second and drown the run it is meant to explain.
+      retries = state.retries + 1
+      if rem(retries, @retry_log_every) == 1, do: log_retry(reason, retries)
+
       Process.send_after(self(), :retry_compose, @input_retry_ms)
-      {:noreply, state}
+      {:noreply, %{state | retries: retries}}
     else
       # The stop reason stays redacted because it becomes a supervisor report,
       # but collapsing an unrecognised shape to :composition_rejected hid the
@@ -411,6 +421,16 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
        do: true
 
   defp retryable_input_failure?(_reason), do: false
+
+  defp log_retry(reason, 1),
+    do: Logger.info("composition input not ready, retrying: #{inspect(reason)}")
+
+  defp log_retry(reason, retries) do
+    Logger.warning(
+      "composition input still not ready after #{retries} retries " <>
+        "(#{retries * @input_retry_ms}ms): #{inspect(reason)}"
+    )
+  end
 
   defp redact_reason(reason) when is_atom(reason), do: reason
   defp redact_reason({tag, value}) when is_atom(tag) and is_atom(value), do: {tag, value}
