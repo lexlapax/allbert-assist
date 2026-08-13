@@ -13,56 +13,172 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   alias AllbertAssist.Pack.OTPMetadata
   alias AllbertAssist.Pack.Projection
 
-  @checkpoints ~w[v14-m1a1 v14-m1a3]
+  @checkpoints ~w[v14-m1a1 v14-m1a3 v14-m13]
   @marker_prefix "ALLBERT_RELEASE_ASSEMBLY_V1="
   @manifest_name "THIRD-PARTY-MANIFEST.json"
   @max_manifest_bytes 5_000_000
   @max_descriptor_beam_bytes 10_000_000
   @repository "https://github.com/lexlapax/allbert-assist"
-  @applications [:allbert_kernel, :allbert_assist, :allbert_composition, :allbert_assist_web]
-  @pack_applications [:allbert_kernel, :allbert_assist]
-  # v1.4 M9 extracted :allbert_notes_files into its own umbrella application. It
-  # is a genuine first-party pack -- like allbert_kernel/allbert_assist -- and
-  # is legitimately loaded in the ambient BEAM performing checkpoint
-  # verification (the whole-suite test bootstrap loads it permanently so the
-  # compiled action catalog stays contiguous; a packaged release built after
-  # M9 carries it on the code path too). It is NOT part of the v14-m1a1/
-  # v14-m1a3 checkpoints' own frozen four-application closure (@applications)
-  # -- those checkpoints predate the extraction and continue to verify exactly
-  # that shape, so it must not be added to @applications or @pack_applications.
-  # validate_unexpected_loaded_pack_applications!/0 exists to catch an UNKNOWN
-  # pack-declaring application slipping into the ambient state; a known,
-  # reviewed, first-party extracted pack outside this checkpoint's own closure
-  # is not that threat. M12 extracts two more packs -- add each new pack atom
-  # here (not to @pack_applications/@applications) unless/until this file's
-  # checkpoints are bumped to include them in the verified closure itself.
-  @known_extracted_pack_applications [
-    :allbert_notes_files,
-    :allbert_telegram,
-    :allbert_email,
-    :allbert_research,
-    :allbert_browser,
-    :allbert_discord,
-    :allbert_matrix,
-    :allbert_signal,
-    :allbert_slack,
-    :allbert_tui,
-    :allbert_whatsapp,
-    :allbert_artifacts,
-    :stocksage
-  ]
-  @component_ids %{
-    allbert_kernel: "beam-allbert-kernel",
-    allbert_assist: "beam-allbert-assist",
-    allbert_composition: "beam-allbert-composition",
-    allbert_assist_web: "beam-allbert-assist-web"
+  # v1.4 M13.3. This module was doing two jobs through one set of attributes:
+  # naming the shape a REAL Allbert release must have, and standing in as the
+  # expected shape for a synthetic fixture that exists to prove the verifier
+  # detects corruption. Those are different questions and they had different
+  # right answers, which is why renewing the closure broke eighteen of
+  # twenty-one tests without any of them finding a real defect.
+  #
+  # They are separate now. `v14-m1a1` and `v14-m1a3` keep the four-application
+  # shape, which is all their fixture ever built and all it needs; `v14-m13`
+  # carries the real seventeen and is verified against an assembled release
+  # rather than an imitation of one. Operator decision 2026-08-12, deviating
+  # from the M17 prerequisite's "renew in place" only because that was written
+  # before a release with extracted packs existed to verify against.
+  @fixture_closure %{
+    applications: [:allbert_kernel, :allbert_assist, :allbert_composition, :allbert_assist_web],
+    pack_applications: [:allbert_kernel, :allbert_assist],
+    component_ids: %{
+      allbert_kernel: "beam-allbert-kernel",
+      allbert_assist: "beam-allbert-assist",
+      allbert_composition: "beam-allbert-composition",
+      allbert_assist_web: "beam-allbert-assist-web"
+    },
+    pack_modules: %{
+      allbert_kernel: AllbertAssist.Pack.Kernel,
+      allbert_assist: AllbertAssist.Pack.Residual,
+      allbert_composition: nil,
+      allbert_assist_web: nil
+    },
+    dependencies: %{
+      allbert_kernel: [],
+      allbert_assist: [:allbert_kernel],
+      allbert_composition: [:allbert_kernel, :allbert_assist],
+      allbert_assist_web: [:allbert_assist, :allbert_composition]
+    }
   }
-  @pack_modules %{
-    allbert_kernel: AllbertAssist.Pack.Kernel,
-    allbert_assist: AllbertAssist.Pack.Residual,
-    allbert_composition: nil,
-    allbert_assist_web: nil
+
+  # Every value here is DERIVED from the assembled artifact rather than written
+  # by hand: the order is the release's own `applications:` list, and
+  # `dependencies` is read out of each packaged `.app`. That is how
+  # `allbert_browser -> allbert_research` got here; no design document mentions
+  # it, and no one would have thought to type it.
+  @release_closure %{
+    applications: [
+      :allbert_kernel,
+      :allbert_assist,
+      :allbert_notes_files,
+      :allbert_telegram,
+      :allbert_email,
+      :allbert_research,
+      :allbert_browser,
+      :allbert_discord,
+      :allbert_matrix,
+      :allbert_signal,
+      :allbert_slack,
+      :allbert_tui,
+      :allbert_whatsapp,
+      :allbert_artifacts,
+      :stocksage,
+      :allbert_composition,
+      :allbert_assist_web
+    ],
+    # Kernel, residual, and the thirteen extracted packs -- everything carrying a
+    # Pack descriptor. Composition and Web carry none and are absent here on
+    # purpose; `pack_modules` maps both to nil.
+    pack_applications: [
+      :allbert_kernel,
+      :allbert_assist,
+      :allbert_notes_files,
+      :allbert_telegram,
+      :allbert_email,
+      :allbert_research,
+      :allbert_browser,
+      :allbert_discord,
+      :allbert_matrix,
+      :allbert_signal,
+      :allbert_slack,
+      :allbert_tui,
+      :allbert_whatsapp,
+      :allbert_artifacts,
+      :stocksage
+    ],
+    component_ids: %{
+      allbert_kernel: "beam-allbert-kernel",
+      allbert_assist: "beam-allbert-assist",
+      allbert_notes_files: "beam-allbert-notes-files",
+      allbert_telegram: "beam-allbert-telegram",
+      allbert_email: "beam-allbert-email",
+      allbert_research: "beam-allbert-research",
+      allbert_browser: "beam-allbert-browser",
+      allbert_discord: "beam-allbert-discord",
+      allbert_matrix: "beam-allbert-matrix",
+      allbert_signal: "beam-allbert-signal",
+      allbert_slack: "beam-allbert-slack",
+      allbert_tui: "beam-allbert-tui",
+      allbert_whatsapp: "beam-allbert-whatsapp",
+      allbert_artifacts: "beam-allbert-artifacts",
+      stocksage: "beam-stocksage",
+      allbert_composition: "beam-allbert-composition",
+      allbert_assist_web: "beam-allbert-assist-web"
+    },
+    pack_modules: %{
+      allbert_kernel: AllbertAssist.Pack.Kernel,
+      allbert_assist: AllbertAssist.Pack.Residual,
+      allbert_notes_files: AllbertNotesFiles.Pack,
+      allbert_telegram: AllbertTelegram.Pack,
+      allbert_email: AllbertEmail.Pack,
+      allbert_research: AllbertResearch.Pack,
+      allbert_browser: AllbertBrowser.Pack,
+      allbert_discord: AllbertDiscord.Pack,
+      allbert_matrix: AllbertMatrix.Pack,
+      allbert_signal: AllbertSignal.Pack,
+      allbert_slack: AllbertSlack.Pack,
+      allbert_tui: AllbertTUI.Pack,
+      allbert_whatsapp: AllbertWhatsApp.Pack,
+      allbert_artifacts: AllbertArtifacts.Pack,
+      stocksage: StockSage.Pack,
+      allbert_composition: nil,
+      allbert_assist_web: nil
+    },
+    dependencies: %{
+      allbert_kernel: [],
+      allbert_assist: [:allbert_kernel],
+      allbert_notes_files: [:allbert_kernel, :allbert_assist],
+      allbert_telegram: [:allbert_kernel, :allbert_assist],
+      allbert_email: [:allbert_kernel, :allbert_assist],
+      allbert_research: [:allbert_kernel, :allbert_assist],
+      allbert_browser: [:allbert_kernel, :allbert_assist, :allbert_research],
+      allbert_discord: [:allbert_kernel, :allbert_assist],
+      allbert_matrix: [:allbert_kernel, :allbert_assist],
+      allbert_signal: [:allbert_kernel, :allbert_assist],
+      allbert_slack: [:allbert_kernel, :allbert_assist],
+      allbert_tui: [:allbert_kernel, :allbert_assist],
+      allbert_whatsapp: [:allbert_kernel, :allbert_assist],
+      allbert_artifacts: [:allbert_kernel, :allbert_assist, :allbert_assist_web],
+      stocksage: [:allbert_kernel, :allbert_assist, :allbert_assist_web],
+      allbert_composition: [
+        :allbert_kernel,
+        :allbert_assist,
+        :allbert_notes_files,
+        :allbert_telegram,
+        :allbert_email,
+        :allbert_research,
+        :allbert_browser,
+        :allbert_discord,
+        :allbert_matrix,
+        :allbert_signal,
+        :allbert_slack,
+        :allbert_tui,
+        :allbert_whatsapp
+      ],
+      allbert_assist_web: [:allbert_composition, :allbert_assist]
+    }
   }
+
+  @closures %{
+    "v14-m1a1" => @fixture_closure,
+    "v14-m1a3" => @fixture_closure,
+    "v14-m13" => @release_closure
+  }
+
   @composition_modules [
     AllbertAssist.Pack.CompositionCoordinator,
     AllbertAssist.Pack.ProductBootstrap,
@@ -70,12 +186,6 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   ]
   @default_launcher_target "AllbertAssist.Pack.ProductCLI.main(System.argv())"
   @max_overlay_bytes 1_000_000
-  @dependencies %{
-    allbert_kernel: [],
-    allbert_assist: [:allbert_kernel],
-    allbert_composition: [:allbert_kernel, :allbert_assist],
-    allbert_assist_web: [:allbert_assist, :allbert_composition]
-  }
   @descriptor_application_effect_mfas [
     {Application, :start, 1},
     {Application, :start, 2},
@@ -139,12 +249,14 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     unless checkpoint in @checkpoints,
       do: raise(ArgumentError, "unsupported release-assembly checkpoint: #{inspect(checkpoint)}")
 
-    if require_clean_start?, do: validate_no_started_allbert_applications!()
+    closure = Map.fetch!(@closures, checkpoint)
+
+    if require_clean_start?, do: validate_no_started_allbert_applications!(closure)
 
     root = validate_release_root!(release_root)
     rel_path = find_single_rel!(root)
     release = OTPMetadata.read_rel(rel_path) |> value!(:rel)
-    release_applications = validate_release!(root, rel_path, release)
+    release_applications = validate_release!(root, rel_path, release, closure)
     snapshot = application_state_snapshot(release_applications)
 
     marker =
@@ -155,10 +267,11 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
           release,
           release_applications,
           require_clean_start?,
-          snapshot
+          snapshot,
+          closure
         )
       after
-        restore_application_state!(snapshot)
+        restore_application_state!(snapshot, closure)
       end
 
     encoded = marker |> Licenses.canonical_json() |> String.trim_trailing("\n")
@@ -172,12 +285,13 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
          release,
          release_applications,
          require_clean_start?,
-         snapshot
+         snapshot,
+         closure
        ) do
     components = read_manifest_components!(root)
-    component_index = validate_first_party_closure!(components)
+    component_index = validate_first_party_closure!(components, closure)
     applications = read_applications!(root, release_applications, component_index)
-    validate_application_metadata!(applications, release_applications)
+    validate_application_metadata!(applications, release_applications, closure)
 
     guard_descriptor_application_starts!(require_clean_start?, fn ->
       validate_packaged_descriptor_code!(root, applications)
@@ -187,17 +301,17 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     validate_unexpected_loaded_pack_applications!()
 
     projection_applications =
-      Enum.filter(applications, &(&1.application in @applications))
+      Enum.filter(applications, &(&1.application in closure.applications))
 
     {rows, pack_projection_sha256} =
-      with_loaded_pack_applications!(projection_applications, snapshot, fn ->
+      with_loaded_pack_applications!(projection_applications, snapshot, closure, fn ->
         validate_descriptorless_effective_env!(applications)
 
         rows =
           guard_descriptor_application_starts!(require_clean_start?, fn ->
             Projection.reconcile(components, projection_applications, release,
               sealed: true,
-              closed_applications: @applications
+              closed_applications: closure.applications
             )
             |> value!(:pack_projection)
           end)
@@ -226,11 +340,11 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     build_marker(checkpoint, release, rows, pack_projection_sha256, m1a3)
   end
 
-  defp validate_no_started_allbert_applications! do
+  defp validate_no_started_allbert_applications!(closure) do
     started =
       Application.started_applications()
       |> MapSet.new(&elem(&1, 0))
-      |> then(fn started -> Enum.filter(@applications, &MapSet.member?(started, &1)) end)
+      |> then(fn started -> Enum.filter(closure.applications, &MapSet.member?(started, &1)) end)
 
     unless started == [], do: fail!({:started_allbert_applications, started})
   end
@@ -344,7 +458,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     end
   end
 
-  defp validate_release!(root, rel_path, release) do
+  defp validate_release!(root, rel_path, release, closure) do
     expected_path = Path.join([root, "releases", release.version, "allbert.rel"])
 
     unless release.name == "allbert" and Path.expand(rel_path) == Path.expand(expected_path),
@@ -353,7 +467,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     allbert_applications =
       Enum.filter(release.applications, &allbert_application?(&1.application))
 
-    unless Enum.map(allbert_applications, & &1.application) == @applications,
+    unless Enum.map(allbert_applications, & &1.application) == closure.applications,
       do: fail!({:application_order, Enum.map(allbert_applications, & &1.application)})
 
     Enum.each(allbert_applications, fn application ->
@@ -389,7 +503,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     end
   end
 
-  defp validate_first_party_closure!(components) do
+  defp validate_first_party_closure!(components, closure) do
     Enum.each(components, &validate_manifest_component_shape!/1)
 
     first_party =
@@ -403,16 +517,16 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     unless length(applications) == length(Enum.uniq(applications)),
       do: fail!(:duplicate_first_party_application)
 
-    unless Enum.sort(applications) == Enum.sort(Enum.map(@applications, &Atom.to_string/1)),
+    unless Enum.sort(applications) == Enum.sort(Enum.map(closure.applications, &Atom.to_string/1)),
       do: fail!({:first_party_closure, applications})
 
     index = Map.new(first_party, &{&1["application"], &1})
 
-    Enum.each(@applications, fn application ->
+    Enum.each(closure.applications, fn application ->
       name = Atom.to_string(application)
       component = Map.fetch!(index, name)
 
-      unless component["id"] == Map.fetch!(@component_ids, application),
+      unless component["id"] == Map.fetch!(closure.component_ids, application),
         do: fail!({:component_id, application})
 
       unless component["provenance"] == %{
@@ -422,7 +536,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
              do: fail!({:first_party_provenance, application})
     end)
 
-    validate_canonical_pack_rows!(components, index)
+    validate_canonical_pack_rows!(components, index, closure)
 
     index
   end
@@ -433,11 +547,11 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   defp validate_manifest_component_shape!(component) when is_map(component), do: :ok
   defp validate_manifest_component_shape!(_component), do: fail!(:manifest_component_shape)
 
-  defp validate_canonical_pack_rows!(components, first_party_index) do
-    Enum.each(@applications, fn application ->
+  defp validate_canonical_pack_rows!(components, first_party_index, closure) do
+    Enum.each(closure.applications, fn application ->
       component = Map.fetch!(first_party_index, Atom.to_string(application))
 
-      case {Map.fetch!(@pack_modules, application), Map.fetch(component, "pack")} do
+      case {Map.fetch!(closure.pack_modules, application), Map.fetch(component, "pack")} do
         {module, {:ok, pack}} when not is_nil(module) and is_map(pack) -> :ok
         {nil, :error} -> :ok
         {_expected, actual} -> fail!({:canonical_pack_declaration, application, actual})
@@ -494,24 +608,24 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     end)
   end
 
-  defp validate_application_metadata!(applications, release_applications) do
+  defp validate_application_metadata!(applications, release_applications, closure) do
     release_index = Map.new(release_applications, &{&1.application, &1})
     release_set = release_index |> Map.keys() |> MapSet.new()
 
     Enum.each(applications, fn application ->
-      validate_application_metadata_record!(application)
+      validate_application_metadata_record!(application, closure)
       release_application = Map.fetch!(release_index, application.application)
       validate_application_dependency_closure!(application, release_application, release_set)
     end)
   end
 
-  defp validate_application_metadata_record!(application) do
-    case Map.fetch(@pack_modules, application.application) do
+  defp validate_application_metadata_record!(application, closure) do
+    case Map.fetch(closure.pack_modules, application.application) do
       {:ok, expected_module} ->
         unless application.pack_module == expected_module,
           do: fail!({:raw_descriptor, application.application, application.pack_module})
 
-        validate_allbert_application_metadata!(application)
+        validate_allbert_application_metadata!(application, closure)
 
       :error ->
         unless is_nil(application.pack_module),
@@ -519,7 +633,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     end
   end
 
-  defp validate_allbert_application_metadata!(application) do
+  defp validate_allbert_application_metadata!(application, closure) do
     optional_allbert_dependencies =
       application.optional_applications
       |> Enum.filter(&allbert_application?/1)
@@ -537,7 +651,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
       |> Enum.sort()
 
     expected_dependencies =
-      @dependencies
+      closure.dependencies
       |> Map.fetch!(application.application)
       |> Enum.sort()
 
@@ -590,7 +704,22 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
   end
 
   defp validate_unexpected_loaded_pack_applications! do
-    known = @pack_applications ++ @known_extracted_pack_applications
+    # v1.4 M13.3: `@known_extracted_pack_applications` is gone. It existed to
+    # tolerate a reviewed pack that was legitimately loaded but sat OUTSIDE this
+    # file's frozen four-application closure. The closure now contains every one
+    # of them, so the second list said nothing the first did not -- and the M17
+    # prerequisite called for removing it rather than leaving "a second, weaker
+    # list saying the same thing". What this guard is actually for is unchanged:
+    # catching an UNKNOWN pack-declaring application in the ambient state.
+    # Deliberately the RELEASE closure, not the checkpoint's. This guard is about
+    # the ambient BEAM rather than the release under verification, and it exists
+    # to catch an UNKNOWN pack-declaring application slipping into that state. A
+    # pack that ships in the product is known whichever checkpoint's fixture is
+    # being verified -- the suite's own VM has all thirteen loaded. Scoping it to
+    # `closure` instead would reject every real pack while verifying a
+    # four-application fixture, which is what `@known_extracted_pack_applications`
+    # used to paper over before the closures were split.
+    known = @release_closure.pack_applications
 
     unexpected =
       Application.loaded_applications()
@@ -710,10 +839,10 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     end
   end
 
-  defp with_loaded_pack_applications!(applications, snapshot, fun) do
+  defp with_loaded_pack_applications!(applications, snapshot, closure, fun) do
     pack_applications = Enum.reject(applications, &is_nil(&1.pack_module))
 
-    unless Enum.map(pack_applications, & &1.application) == @pack_applications,
+    unless Enum.map(pack_applications, & &1.application) == closure.pack_applications,
       do: fail!({:pack_application_order, Enum.map(pack_applications, & &1.application)})
 
     load_sealed_pack_applications!(pack_applications, snapshot)
@@ -797,11 +926,11 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
       do: fail!({:loaded_application_version, application.application, loaded_version})
   end
 
-  defp restore_application_state!(snapshot) do
+  defp restore_application_state!(snapshot, closure) do
     stop_newly_started_applications!(snapshot)
     stop_changed_start_type_applications!(snapshot)
 
-    @pack_applications
+    closure.pack_applications
     |> Enum.reverse()
     |> Enum.each(fn application ->
       state = Map.fetch!(snapshot.applications, application)
@@ -1091,8 +1220,8 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
 
     expected_applications =
       if checkpoint == "v14-m1a3",
-        do: @pack_applications ++ [:allbert_composition],
-        else: @pack_applications
+        do: Map.fetch!(@closures, checkpoint).pack_applications ++ [:allbert_composition],
+        else: Map.fetch!(@closures, checkpoint).pack_applications
 
     unless Enum.sort(Map.keys(app_sha256)) ==
              Enum.sort(Enum.map(expected_applications, &Atom.to_string/1)),
@@ -1125,8 +1254,26 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
     Path.join([root, "lib", "#{application}-#{version}", "ebin", "#{application}.app"])
   end
 
-  defp allbert_application?(application) when is_atom(application),
-    do: application |> Atom.to_string() |> String.starts_with?("allbert_")
+  # v1.4 M13.3: membership OR spelling, and it needs both.
+  #
+  # This tested the `allbert_` prefix alone, which silently excluded `stocksage`
+  # -- the one first-party application whose name does not carry it. The
+  # release-order check then compared sixteen applications against a
+  # seventeen-application closure and failed on an application that had been
+  # correctly present all along.
+  #
+  # Membership alone is not enough either, and the drift suite proved it: the
+  # prefix was doing a second job, catching an application that CLAIMS to be ours
+  # without being in any closure. A ghost `allbert_something` must still be seen,
+  # or the checks that exist to notice one stop noticing. Either condition
+  # qualifies, so this is strictly stronger than the rule it replaces rather than
+  # a trade between them.
+  @first_party_applications MapSet.new(@release_closure.applications)
+
+  defp allbert_application?(application) when is_atom(application) do
+    MapSet.member?(@first_party_applications, application) or
+      application |> Atom.to_string() |> String.starts_with?("allbert_")
+  end
 
   defp ensure_regular_release_file!(root, path, label) do
     root = Path.expand(root)
