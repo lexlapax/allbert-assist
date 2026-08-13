@@ -1,7 +1,6 @@
 defmodule AllbertAssist.PublicProtocol.OpenAI.FanoutWait do
   @moduledoc false
 
-  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Runtime
 
   @spec notify(map(), reference()) :: :ok
@@ -31,7 +30,9 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.FanoutWait do
     end
   else
     @spec await(String.t(), String.t(), non_neg_integer()) ::
-            {:ok, Fanout.report()} | {:timeout, Runtime.fanout_kickoff()} | {:error, term()}
+            {:ok, AllbertAssist.Objectives.Fanout.report()}
+            | {:timeout, Runtime.fanout_kickoff()}
+            | {:error, term()}
     def await(parent_id, user_id, timeout_ms),
       do: Runtime.await_fanout(parent_id, user_id, timeout_ms)
 
