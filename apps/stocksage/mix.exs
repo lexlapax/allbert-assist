@@ -55,7 +55,6 @@ defmodule StockSage.MixProject do
     [test: [&prepare_test_database/1, "test"]]
   end
 
-
   defp prepare_test_database(_args) do
     unless Application.get_env(:allbert_assist, :test_database_prepared?, false) do
       Mix.Task.run("allbert.ecto.migrate", ["--quiet"])
