@@ -444,13 +444,17 @@ defmodule AllbertAssist.Runtime do
     }
   end
 
-  @typep fanout_kickoff :: %{
-           parent_id: String.t(),
-           status: String.t(),
-           fanout_phase: atom(),
-           delivery_state: String.t() | nil,
-           children: [map()]
-         }
+  # v1.4 M13.3: public so `PublicProtocol.OpenAI.FanoutWait` can spec its
+  # non-test `await/3` as exactly what this returns. It used to spec `term()`,
+  # which is honest for the test seam and a supertype everywhere else -- the one
+  # finding in that module when dialyzer finally ran against the shipped build.
+  @type fanout_kickoff :: %{
+          parent_id: String.t(),
+          status: String.t(),
+          fanout_phase: atom(),
+          delivery_state: String.t() | nil,
+          children: [map()]
+        }
 
   defp normalize_request(attrs, effect_context) do
     text =

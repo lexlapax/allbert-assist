@@ -203,7 +203,14 @@ defmodule AllbertAssist.Umbrella.MixProject do
       {:phoenix_live_view, ">= 0.0.0"},
       # Tooling: static analysis, type checking, coverage, codemods
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      # v1.4 M13.3, operator decision 2026-08-12: `:prod` too. The gate measured
+      # MIX_ENV=test while the artifact ships MIX_ENV=prod, so the build being
+      # type-checked was not the build being shipped -- and the difference is not
+      # cosmetic, because every `if Mix.env() == :test` seam changes which
+      # branches exist. `runtime: false` keeps this out of the release: the
+      # release names its applications explicitly and dialyxir is in no
+      # application's closure. Verified by rebuilding and checking `lib/`.
+      {:dialyxir, "~> 1.4", only: [:dev, :test, :prod], runtime: false},
       {:excoveralls, "~> 0.18", only: :test, runtime: false},
       {:igniter, "~> 0.7", only: [:dev, :test]},
       {:owl, "~> 0.13"}

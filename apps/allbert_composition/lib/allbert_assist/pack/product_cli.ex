@@ -89,7 +89,16 @@ defmodule AllbertAssist.Pack.ProductCLI do
   end
 
   defp attach_result(argv, attach) when is_atom(attach), do: attach.run(argv)
-  defp attach_result(argv, attach) when is_function(attach, 1), do: attach.(argv)
+
+  # v1.4 M13.3: the function form is a test seam and now exists only where it is
+  # used. A shipped build always passes the module, so this clause was
+  # unreachable there -- one of the six findings that appeared the moment
+  # dialyzer ran against the build being shipped instead of the one being tested.
+  # Compiled out rather than suppressed: a seam that cannot be reached in
+  # production should not be in production.
+  if Mix.env() == :test do
+    defp attach_result(argv, attach) when is_function(attach, 1), do: attach.(argv)
+  end
 
   defp dispatch_runtime_plan({:attached, output, code}, _plan, _seams) do
     maybe_attach_marker()

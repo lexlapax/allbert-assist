@@ -251,7 +251,9 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
 
     closure = Map.fetch!(@closures, checkpoint)
 
-    if require_clean_start?, do: validate_no_started_allbert_applications!(closure)
+    when_clean_start(require_clean_start?, fn ->
+      validate_no_started_allbert_applications!(closure)
+    end)
 
     root = validate_release_root!(release_root)
     rel_path = find_single_rel!(root)
@@ -297,7 +299,10 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
       validate_packaged_descriptor_code!(root, applications)
     end)
 
-    if require_clean_start?, do: validate_started_application_state_unchanged!(snapshot)
+    when_clean_start(require_clean_start?, fn ->
+      validate_started_application_state_unchanged!(snapshot)
+    end)
+
     validate_unexpected_loaded_pack_applications!()
 
     projection_applications =
@@ -320,7 +325,9 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
         {rows, digest}
       end)
 
-    if require_clean_start?, do: validate_started_application_state_unchanged!(snapshot)
+    when_clean_start(require_clean_start?, fn ->
+      validate_started_application_state_unchanged!(snapshot)
+    end)
 
     m1a3 =
       if checkpoint == "v14-m1a3" do
@@ -361,7 +368,20 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
       do: fail!({:started_application_state_changed, expected, actual})
   end
 
-  defp guard_descriptor_application_starts!(false, fun), do: fun.()
+  # v1.4 M13.3: the `false` arms of both seams exist only where they are
+  # reachable. `verify_fixture!/2` is the sole caller that passes `false`, and it
+  # is itself test-only -- so in a shipped build these were dead branches, and
+  # four of the six findings dialyzer produced the first time it ran against the
+  # build being shipped rather than the one being tested. Compiled out rather
+  # than suppressed: a branch that cannot be reached in production should not be
+  # in production. `when_clean_start/2` exists so the three call sites can stay
+  # one line each instead of duplicating the whole body per environment.
+  defp when_clean_start(true, fun), do: fun.()
+
+  if Mix.env() == :test do
+    defp when_clean_start(false, _fun), do: :ok
+    defp guard_descriptor_application_starts!(false, fun), do: fun.()
+  end
 
   defp guard_descriptor_application_starts!(true, fun) do
     parent = self()
