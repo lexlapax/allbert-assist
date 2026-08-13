@@ -2,7 +2,6 @@ defmodule StockSage.Actions.Evidence.FetchSentiment do
   @moduledoc false
 
   use AllbertAssist.Action,
-  alias StockSage.Actions.Evidence
     registry_order: 279,
     permission: :stocksage_evidence_fetch,
     exposure: :internal,
@@ -26,6 +25,8 @@ defmodule StockSage.Actions.Evidence.FetchSentiment do
       status: [type: :atom, required: true],
       actions: [type: {:list, :map}, required: true]
     ]
+
+  alias StockSage.Actions.Evidence
 
   def capability, do: Evidence.capability()
 
