@@ -783,6 +783,6 @@ defmodule AllbertAssist.Channels.SlackTest do
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_slack, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_slack, key, value)
 end

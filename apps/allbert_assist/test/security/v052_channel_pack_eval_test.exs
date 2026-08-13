@@ -174,8 +174,8 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_app_env(:slack_client_stub_result, original_slack_stub_result)
-      restore_app_env(:discord_client_stub_result, original_discord_stub_result)
+      restore_app_env(:allbert_slack, :slack_client_stub_result, original_slack_stub_result)
+      restore_app_env(:allbert_discord, :discord_client_stub_result, original_discord_stub_result)
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -672,8 +672,9 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  # v1.4 M13.3: two packs' keys, so the application is explicit.
+  defp restore_app_env(app, key, nil), do: Application.delete_env(app, key)
+  defp restore_app_env(app, key, value), do: Application.put_env(app, key, value)
 
   # Registering only when absent, rather than clearing first. A clear closes
   # readiness while the catalog recomposes, and registration is itself
