@@ -45,62 +45,6 @@ if Mix.env() == :test do
       :ok
     end
 
-    @doc """
-    Load the applications that sit ABOVE Web, from a Mix alias, before the
-    `test` task starts anything.
-
-    v1.4 M13.2. `ProjectionProvider` reconciles metadata for every application in
-    the release, and `Application.app_dir/2` raises for one that is built but not
-    loaded. Artifacts and stocksage sit above Web since M13, so no owner's
-    dependency closure loads them -- yet an owner whose closure reaches the
-    composition host (through Web, or directly) has composition started by Mix
-    *before* `test_helper.exs` runs. Composition's first attempt therefore always
-    failed closed on `{:unknown_application, :stocksage}`, and the coordinator
-    crash-cascaded until the helper caught up.
-
-    Recovery worked, but not reliably: one M13 closeout census run lost the race
-    and readiness never opened, failing the lane. Calling this from a `test`
-    alias removes the trigger rather than tolerating the recovery, because an
-    alias step is the one window before application start that
-    `test_helper.exs` does not have.
-
-    A packaged release never needed any of this -- it loads every application
-    before starting any, which is why the defect is test-environment-only.
-
-    The roster is the applications above Web, which is a property of the DAG
-    rather than of any one caller, so it lives here and not in four `mix.exs`
-    files. It is written out rather than derived because this runs before
-    anything is loaded and before the projection can be asked -- but a
-    hand-maintained roster is the defect ADR 0098 catalogued, so
-    `AmbientApplicationsTest` derives the same set from the projection and the
-    dependency closure and fails if the two disagree.
-
-    Reachable, deliberately NOT loaded. `Application.app_dir/2` resolves through
-    `:code.lib_dir/1`, which needs the ebin on the code path and nothing more, so
-    the path alone is what closes the projection's gap. Loading is what must not
-    happen here: Mix starts what is loaded when it starts applications, and an
-    application above Web cannot start in a VM whose closure never reached Web.
-    Loading these two before `Test.run/1` is exactly how `mix test` under the
-    artifacts owner died on `Could not start application rewrite`. The test
-    helpers still load them, later, once starting is safe.
-    """
-    @spec ensure_ambient_reachable!() :: :ok
-    def ensure_ambient_reachable! do
-      Enum.each(ambient_applications(), fn application ->
-        if :code.lib_dir(application) == {:error, :bad_name} do
-          ebin = Path.join([Mix.Project.build_path(), "lib", Atom.to_string(application), "ebin"])
-
-          if File.dir?(ebin), do: Code.prepend_path(ebin)
-        end
-      end)
-    end
-
-    @doc """
-    The applications above Web that `ensure_ambient_loaded!/0` loads.
-    """
-    @spec ambient_applications() :: [atom()]
-    def ambient_applications, do: [:allbert_artifacts, :stocksage]
-
     defp walk(application, seen) do
       if MapSet.member?(seen, application) do
         seen

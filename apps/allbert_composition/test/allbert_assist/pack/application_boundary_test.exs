@@ -57,17 +57,12 @@ defmodule AllbertAssist.Pack.ApplicationBoundaryTest do
            ]
   end
 
-  # v1.4 M13.2 added the ambient load, and it has to come FIRST: it is only
-  # useful before any application starts, and `prepare_test_database/1` runs a
-  # Mix task that starts the residual. Order is the whole contract here, so the
-  # assertion pins the order rather than merely tolerating an extra step.
-  test "composition owner tests load the applications above Web, then prepare the residual database, before boot" do
+  test "composition owner tests prepare the residual database before boot" do
     aliases =
       AllbertComposition.MixProject.project()
       |> Keyword.fetch!(:aliases)
 
-    assert ["compile", load_ambient, prepare_database, "test"] = Keyword.fetch!(aliases, :test)
-    assert is_function(load_ambient, 1)
+    assert [prepare_database, "test"] = Keyword.fetch!(aliases, :test)
     assert is_function(prepare_database, 1)
   end
 end
