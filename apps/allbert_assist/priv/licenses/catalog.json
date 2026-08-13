@@ -1940,7 +1940,7 @@
       "bundled": true,
       "file": {
         "application": "allbert_artifacts",
-        "relative_path": "allbert_plugin.json"
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-allbert-artifacts",
       "kind": "managed_file",
@@ -2156,7 +2156,7 @@
       "bundled": true,
       "file": {
         "application": "stocksage",
-        "relative_path": "allbert_plugin.json"
+        "relative_path": "priv/allbert_plugin.json"
       },
       "id": "plugin-stocksage",
       "kind": "managed_file",

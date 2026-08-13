@@ -1088,7 +1088,7 @@ the offline drift check can pass.
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
 - Managed application: `allbert_artifacts`
-- Managed relative path: `allbert_plugin.json`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `plugin-allbert-browser` — allbert.browser umbrella pack
@@ -1208,7 +1208,7 @@ the offline drift check can pass.
 - Disposition: bundled when selected for the target
 - Required texts: `Apache-2.0`
 - Managed application: `stocksage`
-- Managed relative path: `allbert_plugin.json`
+- Managed relative path: `priv/allbert_plugin.json`
 - Provenance: `{"ecosystem":"allbert","repository":"https://github.com/lexlapax/allbert-assist"}`
 
 ### `release-launcher` — Mix release launcher
