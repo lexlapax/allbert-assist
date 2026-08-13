@@ -42,7 +42,7 @@ defmodule AllbertAssist.Pack.ProjectionProvider do
   real precondition with a real failure mode (v1.4 M13.2), and a test cannot
   check a module attribute.
   """
-  @spec closed_applications() :: [atom()]
+  @spec closed_applications() :: [atom(), ...]
   def closed_applications, do: @applications
 
   @spec closed() :: {:ok, Projection.Closed.t()} | {:error, term()}
