@@ -99,14 +99,21 @@ if Mix.env() == :test do
       if :code.lib_dir(application) == {:error, :bad_name} do
         ebin = Path.join([Mix.Project.build_path(), "lib", Atom.to_string(application), "ebin"])
 
-        if File.dir?(ebin) do
-          Code.prepend_path(ebin)
-          # Loaded, not merely reachable: CompiledInventory.default_applications/0
-          # reads Application.loaded_applications/0 to find descriptor-bearing
-          # applications, so a pack that is only on the path is invisible to it.
-          Application.load(application)
-        end
+        if File.dir?(ebin), do: Code.prepend_path(ebin)
       end
+
+      # Loaded, not merely reachable: CompiledInventory.default_applications/0
+      # reads Application.loaded_applications/0 to find descriptor-bearing
+      # applications, so a pack that is only on the path is invisible to it.
+      #
+      # v1.4 M13.2: unconditional, not only for an application this had to put on
+      # the path. Being reachable and being loaded are independent, and in an
+      # umbrella every sibling's ebin can already be on the path while nothing
+      # has loaded it -- in which case the old code skipped the load, the walk
+      # then read `Application.spec/2` as nil, and the whole transitive closure
+      # below that application was silently never loaded. That is how the
+      # composition owner's VM reached its own tests with Web unloaded.
+      Application.load(application)
 
       :ok
     end
