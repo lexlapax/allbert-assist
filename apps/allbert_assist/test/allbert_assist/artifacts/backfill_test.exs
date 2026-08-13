@@ -7,6 +7,7 @@ defmodule AllbertAssist.Artifacts.BackfillTest do
   alias AllbertAssist.Artifacts.Store
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @moduletag :app_env_serial
 
@@ -129,14 +130,14 @@ defmodule AllbertAssist.Artifacts.BackfillTest do
              Settings.put(
                "artifacts.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "artifacts.retention_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

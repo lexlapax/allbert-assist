@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Stocksage.AnalyzeTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Stocksage.Analyze, as: AnalyzeTask
   alias StockSage.Analyses
   alias StockSage.TraderBridge
@@ -105,7 +106,7 @@ defmodule Mix.Tasks.Stocksage.AnalyzeTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+           ReadyEffectContext.attach(%{actor: "test"})
          ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")

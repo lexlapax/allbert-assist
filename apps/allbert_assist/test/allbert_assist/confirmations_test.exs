@@ -1,5 +1,6 @@
 defmodule AllbertAssist.ConfirmationsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.DevGates.GateOwners
   @moduletag :app_env_serial
 
   alias AllbertAssist.Confirmations
@@ -200,7 +201,7 @@ defmodule AllbertAssist.ConfirmationsTest do
 
     files =
       repo_root
-      |> AllbertAssist.DevGates.GateOwners.load!()
+      |> GateOwners.load!()
       |> Enum.flat_map(& &1.production_source_roots)
       |> Enum.flat_map(&Path.wildcard(Path.join(repo_root, Path.join(&1, "**/*.ex"))))
       |> Enum.uniq()

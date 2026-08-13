@@ -5,15 +5,18 @@ defmodule AllbertTUI.Adapter do
 
   require Logger
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
+  alias AllbertAssist.CLI.Tui
   alias AllbertAssist.Coding.Config, as: CodingConfig
   alias AllbertAssist.Coding.Session, as: CodingSession
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Pack.EffectGuard
@@ -947,11 +950,11 @@ defmodule AllbertTUI.Adapter do
   defp emit_banner(state) do
     state.profile
     |> Renderer.banner()
-    |> append_startup_guidance(AllbertAssist.CLI.Tui.startup_guidance())
+    |> append_startup_guidance(Tui.startup_guidance())
     |> Enum.each(&emit_output(&1, state))
 
     _ =
-      AllbertAssist.FirstRun.Disclosure.render_and_ack(:tui, fn disclosure ->
+      Disclosure.render_and_ack(:tui, fn disclosure ->
         emit_output(disclosure, state)
       end)
 
@@ -2444,7 +2447,7 @@ defmodule AllbertTUI.Adapter do
   end
 
   defp run_coding_action(context, action_name, params) do
-    AllbertAssist.Actions.Runner.run(action_name, params, context)
+    Runner.run(action_name, params, context)
   end
 
   defp at_file_reference?(text, state) do

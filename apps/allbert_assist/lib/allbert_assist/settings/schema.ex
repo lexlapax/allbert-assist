@@ -1,4 +1,7 @@
 defmodule AllbertAssist.Settings.Schema do
+  alias AllbertAssist.Pack.Residual
+  alias AllbertAssist.Settings.FragmentOwner
+
   @moduledoc """
   Settings Central schema compatibility facade.
 
@@ -122,28 +125,28 @@ defmodule AllbertAssist.Settings.Schema do
   @doc false
   def core_schema,
     do:
-      AllbertAssist.Settings.FragmentOwner.schema!(
+      FragmentOwner.schema!(
         "allbert_assist",
         :allbert_assist,
-        AllbertAssist.Pack.Residual.settings_fragments()
+        Residual.settings_fragments()
       )
 
   @doc false
   def core_defaults,
     do:
-      AllbertAssist.Settings.FragmentOwner.defaults!(
+      FragmentOwner.defaults!(
         "allbert_assist",
         :allbert_assist,
-        AllbertAssist.Pack.Residual.settings_fragments()
+        Residual.settings_fragments()
       )
 
   @doc false
   def core_safe_write_keys,
     do:
-      AllbertAssist.Settings.FragmentOwner.safe_write_keys!(
+      FragmentOwner.safe_write_keys!(
         "allbert_assist",
         :allbert_assist,
-        AllbertAssist.Pack.Residual.settings_fragments()
+        Residual.settings_fragments()
       )
 
   def safe_write_key?(key) when is_binary(key) do

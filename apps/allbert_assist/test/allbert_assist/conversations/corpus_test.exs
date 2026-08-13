@@ -149,7 +149,7 @@ defmodule AllbertAssist.Conversations.CorpusTest do
              Settings.put(
                "search.origin_grants",
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :origin_grant_required} = Corpus.page(search_snapshot, nil, 10)
@@ -173,7 +173,7 @@ defmodule AllbertAssist.Conversations.CorpusTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _epoch} =

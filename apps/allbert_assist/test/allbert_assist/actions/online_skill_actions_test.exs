@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
@@ -305,7 +306,7 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
              Settings.put(
                "skills.online_import.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -344,7 +345,7 @@ defmodule AllbertAssist.Actions.OnlineSkillActionsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

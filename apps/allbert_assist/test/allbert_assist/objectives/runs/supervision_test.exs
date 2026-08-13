@@ -12,8 +12,8 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Objective
-  alias AllbertAssist.Objectives.Runs.Worker.{GroundedStepSpec, Grounding}
   alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler}
+  alias AllbertAssist.Objectives.Runs.Worker.{GroundedStepSpec, Grounding}
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings

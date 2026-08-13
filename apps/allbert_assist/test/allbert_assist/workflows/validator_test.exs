@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Workflows.ValidatorTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Objectives.AgentRegistry
@@ -128,7 +129,7 @@ defmodule AllbertAssist.Workflows.ValidatorTest do
              Settings.put(
                "workflows.max_param_bytes_per_step",
                8,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, workflow} = Loader.load("single_step")

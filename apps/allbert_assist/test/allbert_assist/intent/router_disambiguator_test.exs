@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.Router
@@ -108,7 +109,7 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
                Settings.put(
                  "intent.router_decisive_confidence",
                  0.95,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert %Outcome{kind: :clarify, diagnostics: %{note: :ambiguous_margin}} =
@@ -123,7 +124,7 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
                Settings.put(
                  "intent.router_decisive_confidence",
                  0.85,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert %Outcome{kind: :execute, action_name: "create_note"} =

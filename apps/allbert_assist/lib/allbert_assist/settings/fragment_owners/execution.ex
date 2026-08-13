@@ -6,7 +6,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Execution do
   @schema %{
     "execution.cancel.grace_ms" => %{
       default: 5000,
-      max: 60000,
+      max: 60_000,
       min: 100,
       sensitive?: false,
       type: :bounded_integer,
@@ -74,13 +74,13 @@ defmodule AllbertAssist.Settings.FragmentOwners.Execution do
       writable?: true
     },
     "execution.local.max_output_bytes" => %{
-      default: 65536,
+      default: 65_536,
       sensitive?: false,
       type: :positive_integer,
       writable?: true
     },
     "execution.local.max_timeout_ms" => %{
-      default: 30000,
+      default: 30_000,
       sensitive?: false,
       type: :timeout_ms,
       writable?: true
@@ -146,8 +146,8 @@ defmodule AllbertAssist.Settings.FragmentOwners.Execution do
         "default_timeout_ms" => 5000,
         "enabled" => false,
         "env_allowlist" => ["PATH", "LANG", "LC_ALL", "MIX_ENV"],
-        "max_output_bytes" => 65536,
-        "max_timeout_ms" => 30000,
+        "max_output_bytes" => 65_536,
+        "max_timeout_ms" => 30_000,
         "require_confirmation" => true,
         "require_path_operands_in_allowed_roots" => true
       },

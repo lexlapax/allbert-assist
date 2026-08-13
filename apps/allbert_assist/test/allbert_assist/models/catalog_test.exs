@@ -5,6 +5,7 @@ defmodule AllbertAssist.Models.CatalogTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Models.Catalog
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "merges curated, local runtime, configured, and hosted metadata without network calls" do
     profile = %{
@@ -110,7 +111,7 @@ defmodule AllbertAssist.Models.CatalogTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:11435/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, catalog} = Catalog.list(pulled_models: ["qwen2.5:7b"])

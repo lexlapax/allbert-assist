@@ -2,6 +2,7 @@ defmodule StockSage.Actions.Evidence.FetchFinancials do
   @moduledoc false
 
   use AllbertAssist.Action,
+  alias StockSage.Actions.Evidence
     registry_order: 281,
     permission: :stocksage_evidence_fetch,
     exposure: :internal,
@@ -26,9 +27,9 @@ defmodule StockSage.Actions.Evidence.FetchFinancials do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  def capability, do: StockSage.Actions.Evidence.capability()
+  def capability, do: Evidence.capability()
 
   @impl true
   def run(params, context),
-    do: StockSage.Actions.Evidence.run(:financials, name(), params, context)
+    do: Evidence.run(:financials, name(), params, context)
 end

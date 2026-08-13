@@ -7,6 +7,7 @@ defmodule AllbertSignal.Actions.DoctorTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertSignal.Actions.Doctor, as: SignalDoctor
   alias AllbertSignal.Doctor
 
@@ -103,35 +104,35 @@ defmodule AllbertSignal.Actions.DoctorTest do
              Settings.put(
                "channels.signal.account_identifier",
                "+15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.local_aci",
                @aci,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.data_dir",
                Path.join(root, "signal"),
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.identity_map",
                [%{external_user_id: @aci, user_id: "alice"}],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

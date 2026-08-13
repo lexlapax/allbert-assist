@@ -62,14 +62,14 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
              Settings.put(
                "browser.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "research.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
@@ -160,7 +160,7 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
              Settings.put(
                "research.max_sources",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     before_memory = memory_files(root)
@@ -210,7 +210,7 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
                  title: "Reject delegate command",
                  objective: "Reject unsupported research command."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -226,7 +226,7 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
                    params: %{url: "https://example.com/docs/a"}
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok,

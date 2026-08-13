@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.ExternalTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
@@ -68,21 +69,21 @@ defmodule Mix.Tasks.Allbert.ExternalTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/status"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

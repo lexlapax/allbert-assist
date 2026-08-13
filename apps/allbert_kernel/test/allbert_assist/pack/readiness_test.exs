@@ -3,10 +3,10 @@ defmodule AllbertAssist.Pack.ReadinessTest do
 
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Pack.Registry
-  alias AllbertAssist.Pack.Registry.Candidate
   alias AllbertAssist.Pack.{Compatibility, Contribution, Descriptor, Order, Owner}
   alias AllbertAssist.Pack.{Readiness, Supervisor}
+  alias AllbertAssist.Pack.Registry
+  alias AllbertAssist.Pack.Registry.Candidate
 
   defmodule MetadataSource do
     use GenServer

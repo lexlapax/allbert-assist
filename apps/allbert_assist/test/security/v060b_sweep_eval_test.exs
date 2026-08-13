@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V060bSweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.60b visual-design-language sweep.
 
@@ -227,7 +229,7 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
   end
 
   defp read!(relative_path),
-    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative_path)
+    do: GateOwners.read_owned_path!(@repo_root, relative_path)
 
   defp assert_contains!(text, phrases) when is_list(phrases) do
     for phrase <- phrases do

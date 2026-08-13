@@ -263,7 +263,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              Settings.put(
                "openai_api.models_enabled",
                ["local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     base = %{"model" => "local", "messages" => [%{"role" => "user", "content" => "hello"}]}
@@ -445,14 +445,14 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              Settings.put(
                "mcp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp_server.stdio.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -461,14 +461,14 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              Settings.put(
                "mcp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp_server.streamable_http.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -477,14 +477,14 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              Settings.put(
                "acp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "acp_server.stdio.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -493,7 +493,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              Settings.put(
                "mcp_server.tools_enabled",
                tools,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -502,7 +502,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              Settings.put(
                "mcp_server.memory_namespaces_enabled",
                namespaces,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -525,7 +525,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
              Settings.put(
                "mcp_server.clients",
                updated,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

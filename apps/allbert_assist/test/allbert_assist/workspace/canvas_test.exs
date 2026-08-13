@@ -3,6 +3,7 @@ defmodule AllbertAssist.Workspace.CanvasTest do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace.Canvas
   alias Jido.Signal.Bus
 
@@ -232,14 +233,14 @@ defmodule AllbertAssist.Workspace.CanvasTest do
              Settings.put(
                "workspace.canvas.max_tiles_per_thread",
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
       Settings.put(
         "workspace.canvas.max_tiles_per_thread",
         64,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
   end
@@ -249,14 +250,14 @@ defmodule AllbertAssist.Workspace.CanvasTest do
              Settings.put(
                "workspace.canvas.tile_body_max_bytes",
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
       Settings.put(
         "workspace.canvas.tile_body_max_bytes",
         65_536,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
   end

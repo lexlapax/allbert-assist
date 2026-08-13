@@ -7,6 +7,7 @@ defmodule AllbertTelegram.Actions.DoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertTelegram.Actions.Doctor, as: TelegramDoctor
   alias AllbertTelegram.Doctor
 
@@ -85,7 +86,7 @@ defmodule AllbertTelegram.Actions.DoctorTest do
              Settings.put(
                "channels.telegram.allow_group_chats",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = TelegramDoctor.run(%{}, context())

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Security.V050bArtifactsBrowserEvalTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Artifacts, as: ArtifactsTask
 
   @eval_ids [
@@ -84,7 +85,7 @@ defmodule AllbertAssist.Security.V050bArtifactsBrowserEvalTest do
              Settings.put(
                "permissions.artifact_read",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert [denied_panel] = App.workspace_panel_surfaces(context)
@@ -169,35 +170,35 @@ defmodule AllbertAssist.Security.V050bArtifactsBrowserEvalTest do
              Settings.put(
                "artifacts.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "artifacts.retention_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "permissions.artifact_read",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "permissions.artifact_write",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "permissions.artifact_delete",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

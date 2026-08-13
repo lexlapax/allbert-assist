@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
   alias AllbertAssist.PublicProtocol.RateLimiter
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyCap
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyReader
   alias AllbertAssistWeb.Plugs.PublicProtocolWebhookAuth
@@ -155,7 +156,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
              Settings.put(
                "public_protocol.max_body_bytes",
                1024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     conn =
@@ -195,7 +196,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
              Settings.put(
                "channels.whatsapp.phone_number_id",
                @phone_number_id,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -204,14 +205,14 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
              Settings.put(
                "channels.whatsapp.app_secret_ref",
                @app_secret_ref,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_verify_token_ref",
                @verify_token_ref,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -229,7 +230,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
              Settings.put(
                "channels.whatsapp.webhook_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -238,7 +239,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
              Settings.put(
                "channels.whatsapp.webhook_rate_limit.limit",
                rate_limit["limit"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -247,14 +248,14 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
              Settings.put(
                "channels.whatsapp.webhook_rate_limit.period_ms",
                rate_limit["period_ms"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_rate_limit.burst",
                rate_limit["burst"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

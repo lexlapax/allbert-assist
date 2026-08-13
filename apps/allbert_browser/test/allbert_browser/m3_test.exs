@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.{Cache, Extractors}
 
@@ -106,7 +107,7 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
              Settings.put(
                "browser.cache.max_bytes",
                10,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, oldest} =

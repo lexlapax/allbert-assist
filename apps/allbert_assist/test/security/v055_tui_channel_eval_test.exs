@@ -161,7 +161,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
              Settings.put(
                "channels.tui.identity_map",
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, unmapped} = start_tui_adapter()
@@ -187,7 +187,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
                  payload_summary:
                    "operator typed api_key=sk-test-1234567890 and phone +15551234567"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     stored =
@@ -427,7 +427,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
              Settings.put(
                "channels.tui.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
@@ -440,7 +440,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
                    "enabled" => true
                  }
                ],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

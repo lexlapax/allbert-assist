@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
   alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -33,14 +34,14 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "memory.collection.origin_grants",
                ["local_operator"],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     on_exit(fn ->
@@ -113,7 +114,7 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
              Settings.put(
                "permissions.memory_write",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} =
@@ -174,7 +175,7 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
              Settings.put(
                "memory.collection.origin_grants",
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, listed} = ListMemoryProposals.run(%{}, context)

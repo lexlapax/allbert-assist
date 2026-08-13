@@ -4,6 +4,7 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertTUI.Subscriptions
   alias Jido.Signal
 
@@ -16,7 +17,7 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
                  objective: "owned",
                  fanout_role: "parent"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, mallory} =
@@ -27,7 +28,7 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
                  objective: "foreign",
                  fanout_role: "parent"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     identity_map = [%{"external_user_id" => "local", "user_id" => "alice", "enabled" => true}]

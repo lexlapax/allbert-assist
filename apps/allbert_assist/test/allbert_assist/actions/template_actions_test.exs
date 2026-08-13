@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.TemplateActionsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Registry
@@ -245,7 +246,7 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -254,7 +255,7 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
              Settings.put(
                "dynamic_codegen.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -263,7 +264,7 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
              Settings.put(
                "dynamic_codegen.live_loader_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -272,7 +273,7 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
              Settings.put(
                "sandbox.elixir.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

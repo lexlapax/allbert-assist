@@ -1,5 +1,6 @@
 defmodule StockSage.Actions.EvidenceTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
@@ -124,7 +125,7 @@ defmodule StockSage.Actions.EvidenceTest do
              Settings.put(
                "stocksage.native_evidence_mode",
                "fixture",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert Evidence.mode(%{}) == "fixture"

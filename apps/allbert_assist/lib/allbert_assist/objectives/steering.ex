@@ -7,9 +7,9 @@ defmodule AllbertAssist.Objectives.Steering do
   makes steering safe across executor restarts.
   """
 
+  alias AllbertAssist.{Confirmations, Objectives, Repo}
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Runs.Scheduler
-  alias AllbertAssist.{Confirmations, Objectives, Repo}
 
   def steer(user_id, objective_id, directive)
       when is_binary(user_id) and is_binary(objective_id) and is_binary(directive) do

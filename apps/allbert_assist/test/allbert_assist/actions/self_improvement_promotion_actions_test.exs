@@ -12,6 +12,7 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workflows
 
   setup do
@@ -427,7 +428,7 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -436,21 +437,21 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
              Settings.put(
                "dynamic_codegen.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "dynamic_codegen.live_loader_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "sandbox.elixir.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -464,7 +465,7 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

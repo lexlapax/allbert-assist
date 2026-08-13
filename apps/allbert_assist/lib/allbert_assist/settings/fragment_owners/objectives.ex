@@ -58,7 +58,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Objectives do
       writable?: true
     },
     "objectives.fanout.max_output_tokens_per_plan" => %{
-      default: 32768,
+      default: 32_768,
       max: 1_000_000,
       min: 1024,
       sensitive?: false,
@@ -115,7 +115,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Objectives do
         "max_concurrent_runs_per_fanout" => 3,
         "max_elapsed_ms_per_plan" => 300_000,
         "max_model_calls_per_plan" => 64,
-        "max_output_tokens_per_plan" => 32768,
+        "max_output_tokens_per_plan" => 32_768,
         "max_worker_attempts_per_child" => 2,
         "rollout_mode" => "automatic"
       },

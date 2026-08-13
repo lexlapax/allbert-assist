@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v1.3 M9.b.6 (ADR 0021 A24): a healthy fan-out child makes exactly one physical
   provider call. The draft/critic/revision transitions are gone, so these rows
@@ -11,9 +13,9 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.ObservationSummary
+  alias AllbertAssist.Objectives.Runs.{CancelToken, Worker}
   alias AllbertAssist.Objectives.Runs.Worker.JidoAdapter
   alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
-  alias AllbertAssist.Objectives.Runs.{CancelToken, Worker}
 
   defmodule GenerationAnswerer do
     def answer(text, context) do
@@ -137,7 +139,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
       AllbertAssist.Settings.put(
         "intent.direct_answer_model_enabled",
         false,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
 
@@ -189,7 +191,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
              AllbertAssist.Settings.put(
                "intent.direct_answer_model_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -364,7 +366,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
              AllbertAssist.Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Actions.Mcp.ScanActionsTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.62 M8.19: MCP discovery scan lifecycle commands run on-spine through Runner.
   """
@@ -232,7 +234,7 @@ defmodule AllbertAssist.Actions.Mcp.ScanActionsTest do
     Settings.put(
       key,
       value,
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      ReadyEffectContext.attach(%{audit?: false})
     )
   end
 

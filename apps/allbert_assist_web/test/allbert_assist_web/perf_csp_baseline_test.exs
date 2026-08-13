@@ -1,5 +1,6 @@
 defmodule AllbertAssistWeb.PerfCspBaselineTest do
   use AllbertAssistWeb.ConnCase, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @moduletag :perf_csp_baseline
 
@@ -117,7 +118,7 @@ defmodule AllbertAssistWeb.PerfCspBaselineTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

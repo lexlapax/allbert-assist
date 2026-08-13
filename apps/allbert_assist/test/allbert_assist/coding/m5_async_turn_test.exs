@@ -7,6 +7,7 @@ defmodule AllbertAssist.Coding.M5AsyncTurnTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   setup do
@@ -146,7 +147,7 @@ defmodule AllbertAssist.Coding.M5AsyncTurnTest do
              Settings.put(
                "coding.turn.max_ms",
                100,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Application.put_env(:allbert_assist, Runtime,
@@ -185,7 +186,7 @@ defmodule AllbertAssist.Coding.M5AsyncTurnTest do
              Settings.put(
                "coding.turn.supervised",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Application.put_env(:allbert_assist, Runtime,

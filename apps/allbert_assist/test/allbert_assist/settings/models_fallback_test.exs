@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Settings.ModelsFallbackTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
@@ -41,14 +42,14 @@ defmodule AllbertAssist.Settings.ModelsFallbackTest do
              Settings.put(
                "models.fallback.max_failovers_per_turn",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, setting} =
              Settings.put(
                "models.fallback.max_failovers_per_turn",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert setting.value == 2
@@ -59,14 +60,14 @@ defmodule AllbertAssist.Settings.ModelsFallbackTest do
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["fast", "local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

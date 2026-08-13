@@ -162,7 +162,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
                Settings.put(
                  key,
                  "needs_confirmation",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
     end
 

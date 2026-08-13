@@ -8,6 +8,7 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
   alias AllbertAssist.Memory.Proposals
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -36,7 +37,7 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, ungranted} = Consolidator.run("alice")
@@ -90,7 +91,7 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
              Settings.put(
                "permissions.memory_propose",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, denied} = ConsolidateMemory.run(%{}, context)
@@ -155,14 +156,14 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "memory.collection.origin_grants",
                ["local_operator"],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

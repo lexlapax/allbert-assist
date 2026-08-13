@@ -47,14 +47,14 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "operator-test-key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.fanout_manager",
                ["fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->
@@ -87,14 +87,14 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.fanout_synthesis",
                ["fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->
@@ -127,7 +127,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.local_ollama.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->
@@ -160,14 +160,14 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "operator-test-key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.openai.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->
@@ -232,7 +232,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:1/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11435/v1")
@@ -265,7 +265,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:11435/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:1/v1")
@@ -320,7 +320,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "providers.local_ollama.endpoint_kind",
                "credentialed_remote",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11435/v1")
@@ -445,7 +445,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->

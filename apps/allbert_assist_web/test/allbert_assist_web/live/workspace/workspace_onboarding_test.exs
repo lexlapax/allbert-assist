@@ -4,14 +4,15 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Channels.Event
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertTUI.Adapter
   alias AllbertTUI.IdentityBootstrap
 
@@ -169,7 +170,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
                Settings.put(
                  "model_preferences.tasks.direct_answer",
                  ["direct_answer_local"],
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    audit?: false
                  })
                )
@@ -178,7 +179,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
                Settings.put(
                  "intent.direct_answer_model_enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert :ok = Disclosure.acknowledge(:web)
@@ -503,7 +504,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
                Settings.put(
                  "providers.local_ollama.base_url",
                  "http://127.0.0.1:2/v1",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    audit?: false
                  })
                )
@@ -586,7 +587,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
                Settings.put(
                  "intent.direct_answer_model_enabled",
                  false,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       FirstRun.merge_marker(%{
@@ -1062,7 +1063,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:1/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

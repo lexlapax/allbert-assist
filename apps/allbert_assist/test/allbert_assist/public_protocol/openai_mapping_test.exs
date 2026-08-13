@@ -1,5 +1,6 @@
 defmodule AllbertAssist.PublicProtocol.OpenAIMappingTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.PublicProtocol.OpenAI.Mapping
@@ -16,7 +17,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAIMappingTest do
              Settings.put(
                "openai_api.models_enabled",
                ["local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->

@@ -1,5 +1,6 @@
 defmodule StockSage.TraderBridgeTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Settings
@@ -343,7 +344,7 @@ defmodule StockSage.TraderBridgeTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+           ReadyEffectContext.attach(%{actor: "test"})
          ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")

@@ -117,7 +117,7 @@ defmodule AllbertAssist.FirstModelTest do
              AllbertAssist.Settings.put(
                "first_model.curated_model",
                "qwen2.5:3b",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -126,7 +126,7 @@ defmodule AllbertAssist.FirstModelTest do
              AllbertAssist.Settings.put(
                "first_model.curated_floor_gb",
                16,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert Ollama.curated_model() == "qwen2.5:3b"
@@ -268,7 +268,7 @@ defmodule AllbertAssist.FirstModelTest do
                AllbertAssist.Settings.put(
                  "permissions.command_execute",
                  "needs_confirmation",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    audit?: false
                  })
                )

@@ -35,7 +35,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
              Settings.put(
                "public_protocol.max_body_bytes",
                1024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert HttpIngress.max_body_bytes() == 1024
@@ -99,14 +99,14 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
              Settings.put(
                "mcp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp_server.streamable_http.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -115,7 +115,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
              Settings.put(
                "mcp_server.tools_enabled",
                tools,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -128,7 +128,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
              Settings.put(
                "mcp_server.clients",
                updated,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Workspace.OfflineTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Canvas.Revision
@@ -131,7 +132,7 @@ defmodule AllbertAssist.Workspace.OfflineTest do
              Settings.put(
                "workspace.canvas.tile_body_max_bytes",
                1024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, tile} =
@@ -157,7 +158,7 @@ defmodule AllbertAssist.Workspace.OfflineTest do
              Settings.put(
                "permissions.workspace_canvas_write",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =

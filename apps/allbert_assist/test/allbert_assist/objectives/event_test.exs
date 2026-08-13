@@ -3,6 +3,7 @@ defmodule AllbertAssist.Objectives.EventTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Event
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     {:ok, objective} =
@@ -12,7 +13,7 @@ defmodule AllbertAssist.Objectives.EventTest do
           title: "Analyze AAPL",
           objective: "Complete one analysis for AAPL."
         },
-        AllbertAssist.TestSupport.ReadyEffectContext.context()
+        ReadyEffectContext.context()
       )
 
     %{objective: objective}
@@ -27,7 +28,7 @@ defmodule AllbertAssist.Objectives.EventTest do
                  summary: "Objective created.",
                  payload: %{api_key: "sk-test", title: "Analyze AAPL"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert event.kind == "created"

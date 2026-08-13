@@ -1,4 +1,6 @@
 defmodule AllbertResearch.DelegateObjective do
+  alias AllbertAssist.Workspace.Emitters
+
   @moduledoc """
   Shared objective + `delegate_agent` step machinery for `research.specialist`.
 
@@ -87,7 +89,7 @@ defmodule AllbertResearch.DelegateObjective do
     delegate_response = Map.get(result, :delegate_response) || %{}
     output_data = Map.get(delegate_response, :output_data) || %{}
 
-    AllbertAssist.Workspace.Emitters.research_result(%{
+    Emitters.research_result(%{
       user_id: run.objective.user_id,
       thread_id: Map.get(run.objective, :source_thread_id),
       objective_id: run.objective.id,

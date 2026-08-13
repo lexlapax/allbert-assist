@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Onboarding.FlowEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.63 Guided Onboarding & Profiles — flow eval rows (`:v063`).
 
@@ -157,5 +159,5 @@ defmodule AllbertAssist.Onboarding.FlowEvalTest do
   end
 
   defp read!(relative),
-    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
+    do: GateOwners.read_owned_path!(@repo_root, relative)
 end

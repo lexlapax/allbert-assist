@@ -4,6 +4,7 @@ defmodule AllbertAssist.Pack.StagedChildren do
   use GenServer
 
   alias AllbertAssist.Pack.{ActivationContext, ActivationGuard}
+  alias AllbertAssist.Plugin.Bootstrap
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -32,7 +33,7 @@ defmodule AllbertAssist.Pack.StagedChildren do
          :ok <-
            AllbertAssist.App.Registry.activate_staged_children(carrier, server: app_registry),
          :ok <-
-           AllbertAssist.Plugin.Bootstrap.activate_staged_children(carrier,
+           Bootstrap.activate_staged_children(carrier,
              registry: plugin_registry,
              child_supervisor: plugin_child_supervisor
            ) do

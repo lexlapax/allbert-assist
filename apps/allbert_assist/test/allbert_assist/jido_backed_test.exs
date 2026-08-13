@@ -104,7 +104,7 @@ defmodule AllbertAssist.JidoBackedTest do
              Settings.put(
                "allbert.jido.debug_trace",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true

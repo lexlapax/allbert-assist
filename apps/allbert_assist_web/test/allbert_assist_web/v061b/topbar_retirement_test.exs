@@ -1,4 +1,6 @@
 defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.61b M7 proof (feedback #7, ADR 0080 §2): the per-shell top bars are
   retired and every control from the plan's M0 relocation table (rows 1–15)
@@ -54,7 +56,7 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
                  objective: "Objective badge fixture for the relocation sweep.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -107,14 +109,14 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
              Settings.put(
                "workspace.theme.mode",
                "system",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
       Settings.put(
         "workspace.theme.mode",
         "system",
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
 

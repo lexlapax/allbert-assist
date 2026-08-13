@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Skills.Online.SourceTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
@@ -65,7 +66,7 @@ defmodule AllbertAssist.Skills.Online.SourceTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

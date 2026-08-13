@@ -8,6 +8,7 @@ defmodule AllbertMatrix.Actions.DoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertMatrix.Actions.Doctor, as: MatrixDoctor
   alias AllbertMatrix.Doctor
 
@@ -127,7 +128,7 @@ defmodule AllbertMatrix.Actions.DoctorTest do
              Settings.put(
                "channels.matrix.homeserver_url",
                "https://matrix.example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -136,7 +137,7 @@ defmodule AllbertMatrix.Actions.DoctorTest do
              Settings.put(
                "channels.matrix.access_token_ref",
                "secret://channels/matrix/access_token",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -145,7 +146,7 @@ defmodule AllbertMatrix.Actions.DoctorTest do
              Settings.put(
                "channels.matrix.allowed_room_ids",
                ["!room:example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -157,7 +158,7 @@ defmodule AllbertMatrix.Actions.DoctorTest do
       channel: :test,
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
-    |> AllbertAssist.TestSupport.ReadyEffectContext.attach()
+    |> ReadyEffectContext.attach()
   end
 
   defp denied_context, do: %{selected_action: "unregistered_boundary_probe"}

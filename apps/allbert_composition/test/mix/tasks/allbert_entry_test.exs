@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.AllbertEntryTest do
   use ExUnit.Case, async: false
+  alias Mix.Tasks.Allbert
 
   @moduletag :global_process_serial
 
@@ -10,14 +11,14 @@ defmodule Mix.Tasks.AllbertEntryTest do
 
     output =
       capture_io(fn ->
-        assert :ok = Mix.Tasks.Allbert.run(["--help"])
+        assert :ok = Allbert.run(["--help"])
       end)
 
     assert output =~ "Allbert - local-first assistant workspace"
   end
 
   test "source Mix entry is compiled from composition rather than residual" do
-    path = :code.which(Mix.Tasks.Allbert) |> to_string()
+    path = :code.which(Allbert) |> to_string()
 
     assert path =~ "/allbert_composition/ebin/"
     refute path =~ "/allbert_assist/ebin/"

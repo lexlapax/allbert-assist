@@ -1,4 +1,6 @@
 defmodule AllbertAssist.ServeTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.62 M5 — health snapshot + per-user service management. The health read is
   bounded and read-only; service install/uninstall are named internal actions
@@ -174,7 +176,7 @@ defmodule AllbertAssist.ServeTest do
                AllbertAssist.Settings.put(
                  "permissions.command_execute",
                  "needs_confirmation",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    audit?: false
                  })
                )
@@ -245,7 +247,7 @@ defmodule AllbertAssist.ServeTest do
                AllbertAssist.Settings.put(
                  "permissions.command_execute",
                  "needs_confirmation",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 ReadyEffectContext.attach(%{
                    audit?: false
                  })
                )

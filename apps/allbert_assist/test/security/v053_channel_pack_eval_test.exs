@@ -649,7 +649,7 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
              Settings.put(
                key,
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

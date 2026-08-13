@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.DynamicPluginsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Registry
@@ -94,7 +95,7 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
              Settings.put(
                "permissions.dynamic_codegen_discard",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -173,7 +174,7 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
                  "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

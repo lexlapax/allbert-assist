@@ -16,6 +16,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssistWeb.PublicProtocol.OpenAIController
 
   setup do
@@ -217,7 +218,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
                  source_channel: "openai_api",
                  source_surface: "api"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     test_pid = self()
@@ -555,14 +556,14 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
              Settings.put(
                "openai_api.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "openai_api.models_enabled",
                ["local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -571,7 +572,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -584,7 +585,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
              Settings.put(
                "openai_api.clients",
                updated,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -624,7 +625,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   end
 
   defp context do
-    AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+    ReadyEffectContext.attach(%{
       actor: "test",
       channel: "test",
       audit?: false

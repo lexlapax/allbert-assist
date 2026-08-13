@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Coding.M3BashActionTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
@@ -159,7 +160,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
              Settings.put(
                "coding.bash.max_output_bytes",
                1_024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     output = String.duplicate("a", 1_500)
@@ -212,7 +213,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
              Settings.put(
                "coding.bash.allow_raw_shell",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     non_tier_context = put_in(context(workspace), [:coding, :trusted_operator_id], "other")
@@ -248,7 +249,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
              Settings.put(
                "coding.bash.allow_raw_shell",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -283,7 +284,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
              Settings.put(
                "coding.bash.allow_raw_shell",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, denied_env} =
@@ -350,7 +351,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

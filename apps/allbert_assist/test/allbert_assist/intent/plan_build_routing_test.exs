@@ -3,6 +3,7 @@ defmodule AllbertAssist.Intent.PlanBuildRoutingTest do
 
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Objectives
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "routes objective-backed Plan/Build corpus phrases through IntentAgent" do
     assert {:ok, objective} =
@@ -15,7 +16,7 @@ defmodule AllbertAssist.Intent.PlanBuildRoutingTest do
                  active_app: "allbert",
                  source_intent: "workflow:multi_step:1"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, list_response} =

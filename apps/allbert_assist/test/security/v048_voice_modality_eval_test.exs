@@ -122,7 +122,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, resolution} = Models.for(:direct_answer)
@@ -184,7 +184,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "voice.audio.max_bytes",
                4,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, denied} = Runner.run("transcribe_voice", %{audio_file: too_large}, context)
@@ -549,14 +549,14 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake_retryable", "voice_stt_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["voice_text_local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -586,7 +586,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake_nonretryable", "voice_stt_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, stopped} =
@@ -605,7 +605,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _openai_secret} =
@@ -621,7 +621,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake_retryable", "voice_stt_openai"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     voice_context =
@@ -688,7 +688,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "voice.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -697,7 +697,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -708,7 +708,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.text_to_speech",
                ["voice_tts_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -740,7 +740,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -770,7 +770,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -786,7 +786,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "channels.telegram.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     identity_map = Keyword.get(opts, :identity_map, [])
@@ -795,7 +795,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              Settings.put(
                "channels.telegram.identity_map",
                identity_map,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

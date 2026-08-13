@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.ExecTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
@@ -114,7 +115,7 @@ defmodule Mix.Tasks.Allbert.ExecTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

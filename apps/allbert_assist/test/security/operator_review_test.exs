@@ -331,7 +331,7 @@ defmodule AllbertAssist.Security.OperatorReviewTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+           ReadyEffectContext.attach(%{
              actor: "security_eval",
              audit?: false
            })

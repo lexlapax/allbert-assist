@@ -1,5 +1,6 @@
 defmodule AllbertAssist.SelfImprovement.TraceIndexTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
@@ -145,14 +146,14 @@ defmodule AllbertAssist.SelfImprovement.TraceIndexTest do
              Settings.put(
                "self_improvement.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _resolved} =
              Settings.put(
                "self_improvement.trace_index.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -161,7 +162,7 @@ defmodule AllbertAssist.SelfImprovement.TraceIndexTest do
              Settings.put(
                "self_improvement.trace_index.min_repetitions",
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

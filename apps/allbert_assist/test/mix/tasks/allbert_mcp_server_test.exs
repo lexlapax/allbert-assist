@@ -8,6 +8,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.StockSageRegistryCase
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.McpServer
 
   setup do
@@ -59,7 +60,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
              Settings.put(
                "mcp_server.tools_enabled",
                ["direct_answer"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     output =
@@ -78,7 +79,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
              Settings.put(
                "mcp_server.tools_enabled",
                ["direct_answer"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     output =
@@ -97,7 +98,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
              Settings.put(
                "mcp_server.memory_namespaces_enabled",
                ["stocksage.stocksage"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -177,14 +178,14 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
              Settings.put(
                "mcp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp_server.stdio.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -193,14 +194,14 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
              Settings.put(
                "mcp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp_server.streamable_http.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

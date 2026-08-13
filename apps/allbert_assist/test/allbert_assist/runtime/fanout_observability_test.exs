@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
   use AllbertAssist.DataCase, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :db_serial
 
   alias AllbertAssist.Conversations
@@ -23,35 +24,35 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
              Settings.put(
                "objectives.fanout.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "objectives.fanout.confirm_before_start",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.telegram.autonomous_notify.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Application.put_env(:allbert_assist, Runtime, decomposer: fn _text, _context -> :single end)
@@ -272,7 +273,7 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "shadow",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     text = "Research two options and compare them."

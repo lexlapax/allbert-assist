@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
@@ -53,7 +54,7 @@ defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
              Settings.put(
                "voice.local_runtime.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = Runner.run("voice_local_runtime_start", %{}, context())
@@ -68,7 +69,7 @@ defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
              Settings.put(
                "permissions.voice_local_runtime_manage",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = Runner.run("voice_local_runtime_start", %{}, context())
@@ -82,13 +83,13 @@ defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
     Settings.put(
       "voice.local_runtime.enabled",
       false,
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      ReadyEffectContext.attach(%{audit?: false})
     )
 
     Settings.put(
       "permissions.voice_local_runtime_manage",
       "allowed",
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      ReadyEffectContext.attach(%{audit?: false})
     )
   end
 

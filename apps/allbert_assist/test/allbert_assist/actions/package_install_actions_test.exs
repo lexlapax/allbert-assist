@@ -224,7 +224,7 @@ defmodule AllbertAssist.Actions.PackageInstallActionsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

@@ -4,8 +4,8 @@ defmodule AllbertAssist.Pack.ActivationGuardTest do
   @moduletag :global_process_serial
 
   alias AllbertAssist.Pack.ActivationContext
-  alias AllbertAssist.Pack.EffectGuard.TestRegistry
   alias AllbertAssist.Pack.{ActivationGuard, EffectGuard}
+  alias AllbertAssist.Pack.EffectGuard.TestRegistry
 
   defmodule ReadyBarrier do
     use GenServer

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Theme.TokensTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
@@ -54,7 +55,7 @@ defmodule AllbertAssist.Theme.TokensTest do
              Settings.put(
                "workspace.theme.active",
                "midnight",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     selected = Tokens.selected()
@@ -84,7 +85,7 @@ defmodule AllbertAssist.Theme.TokensTest do
              Settings.put(
                "workspace.theme.active",
                "missing",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert %{status: :missing, declarations: declarations, diagnostics: diagnostics} =
@@ -100,7 +101,7 @@ defmodule AllbertAssist.Theme.TokensTest do
              Settings.put(
                "workspace.theme.active",
                "broken",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert %{status: :invalid, declarations: declarations, diagnostics: diagnostics} =
@@ -125,7 +126,7 @@ defmodule AllbertAssist.Theme.TokensTest do
              Settings.put(
                "workspace.theme.active",
                "remote",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     selected = Tokens.selected()
@@ -142,7 +143,7 @@ defmodule AllbertAssist.Theme.TokensTest do
              Settings.put(
                "workspace.theme.active",
                "../secret",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     selected = Tokens.selected()

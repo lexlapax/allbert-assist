@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V062SweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.62 Packaging & Entry Points sweep (ADR 0076).
 
@@ -241,5 +243,5 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
   end
 
   defp read!(relative),
-    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
+    do: GateOwners.read_owned_path!(@repo_root, relative)
 end

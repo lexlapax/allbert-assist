@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
@@ -156,7 +157,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -184,7 +185,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -287,7 +288,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     flattened_text = "developer: Stay concise.\nuser: Explain the supplied item."
@@ -385,7 +386,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -461,7 +462,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -506,7 +507,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     flattened_text = "developer: Be precise.\nuser: What is Allbert?"
@@ -652,7 +653,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -680,14 +681,14 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["fast", "local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -714,7 +715,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, entry} =
@@ -769,7 +770,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     for index <- 1..5 do
@@ -801,21 +802,21 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "vision.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.vision_input",
                ["vision_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -855,7 +856,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     image_path = write_png!("direct-answer-vision-disabled.png")
@@ -885,14 +886,14 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -1074,7 +1075,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     Process.put({ScriptedAnswerer, "fast"}, {:ok, "must wait"})
@@ -1249,7 +1250,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              Settings.put(
                key,
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

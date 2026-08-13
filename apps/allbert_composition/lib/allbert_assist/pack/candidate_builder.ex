@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Pack.CandidateBuilder do
+  alias AllbertAssist.Pack.Projection
+
   @moduledoc """
   Composition-owned, fail-closed envelope for independently assembled Pack candidates.
 
@@ -205,7 +207,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder do
          entries: plugins
        })
        when is_list(apps) and is_list(plugins) do
-    case AllbertAssist.Pack.Projection.validate_closed(closed) do
+    case Projection.validate_closed(closed) do
       :ok -> :ok
       _ -> {:error, [diagnostic(:invalid_closed_projection)]}
     end

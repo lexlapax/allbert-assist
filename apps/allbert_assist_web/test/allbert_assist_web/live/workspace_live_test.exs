@@ -13,11 +13,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.{Confirmations, Conversations, Objectives, Repo, Runtime, Session, Settings}
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.{Confirmations, Conversations, Objectives, Repo, Runtime, Session, Settings}
 
   @runtime_async_timeout 60_000
 
@@ -481,14 +481,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "objectives.fanout.confirm_before_start",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -519,7 +519,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              Settings.put(
                "objectives.fanout.confirm_before_start",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => "forged"})
@@ -538,14 +538,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "automatic",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "objectives.fanout.confirm_before_start",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -624,21 +624,21 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 end

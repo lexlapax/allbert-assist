@@ -272,7 +272,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _epoch} =
@@ -297,7 +297,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert Enum.any?(enabled_setting.diagnostics, &(&1.source == :memory_policy))
@@ -307,7 +307,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
              Settings.put(
                "memory.collection.origin_grants",
                ["local_operator"],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert Enum.any?(grant_setting.diagnostics, &(&1.source == :memory_policy))
@@ -320,7 +320,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
              Settings.put(
                "memory.consolidation.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     disabled = managed_job("memory-consolidation")
@@ -336,7 +336,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _epoch} =

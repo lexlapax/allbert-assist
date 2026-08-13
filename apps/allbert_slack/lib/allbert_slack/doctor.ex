@@ -6,6 +6,7 @@ defmodule AllbertSlack.Doctor do
   alias AllbertAssist.Settings.Secrets
   alias AllbertSlack.Adapter
   alias AllbertSlack.Client
+  alias AllbertSlack.Settings.Fragment
 
   @state_path Path.join(["channels", "slack", "doctor", "state.json"])
 
@@ -32,7 +33,7 @@ defmodule AllbertSlack.Doctor do
   def state_path, do: Path.join(Paths.cache_root(), @state_path)
 
   defp run_checks(settings, opts) do
-    base_diagnostics = AllbertSlack.Settings.Fragment.required_when_enabled(settings)
+    base_diagnostics = Fragment.required_when_enabled(settings)
     bot_token_ref = Map.get(settings, "bot_token_ref")
     app_token_ref = Map.get(settings, "app_token_ref")
     workspace_team_id = Map.get(settings, "workspace_team_id", "")

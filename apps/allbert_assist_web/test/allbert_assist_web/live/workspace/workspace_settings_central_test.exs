@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.{Marketplace, Paths, Settings}
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "workspace settings destination renders Settings Central and updates through actions",
        %{conn: conn} do
@@ -70,14 +71,14 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "templates.allowed_patterns",
                ["llm_tool"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?#{[destination: "workspace:create"]}")
@@ -137,7 +138,7 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
@@ -180,7 +181,7 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _install} = Marketplace.install_bundle("allbert/workspace-brief")
@@ -207,7 +208,7 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
@@ -226,7 +227,7 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     slug = "new_llm_tool"
@@ -269,14 +270,14 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "dynamic_codegen.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     slug = "new_llm_tool"
@@ -312,28 +313,28 @@ defmodule AllbertAssistWeb.WorkspaceSettingsCentralTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "dynamic_codegen.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "dynamic_codegen.live_loader_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "sandbox.elixir.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     slug = "new_llm_tool"

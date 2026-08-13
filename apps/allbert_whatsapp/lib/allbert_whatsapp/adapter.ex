@@ -19,6 +19,7 @@ defmodule AllbertWhatsApp.Adapter do
   alias AllbertWhatsApp.Client
   alias AllbertWhatsApp.Parser
   alias AllbertWhatsApp.Renderer
+  alias AllbertWhatsApp.Settings.Fragment
 
   @provider "whatsapp_cloud_api"
   @redacted_phone "[REDACTED_PHONE]"
@@ -132,7 +133,7 @@ defmodule AllbertWhatsApp.Adapter do
       settings: settings,
       access_token: access_token,
       req_options: Keyword.get(opts, :req_options, []),
-      diagnostics: AllbertWhatsApp.Settings.Fragment.required_when_enabled(settings)
+      diagnostics: Fragment.required_when_enabled(settings)
     }
   end
 
@@ -902,7 +903,7 @@ defmodule AllbertWhatsApp.Adapter do
     with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "whatsapp"}),
          {:ok, settings} <- AllbertAssist.Channels.channel_settings("whatsapp"),
          {:ok, token} <-
-           AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "access_token_ref")),
+           Secrets.get_secret(Map.get(settings, "access_token_ref")),
          phone_id when is_binary(phone_id) <- Map.get(settings, "phone_number_id"),
          :ok <- validate_outbound_epoch(opts),
          {:ok, result} <- Client.send_text(token, phone_id, target, body, client_opts) do

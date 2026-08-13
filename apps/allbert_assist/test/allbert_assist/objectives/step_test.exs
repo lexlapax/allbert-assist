@@ -3,6 +3,7 @@ defmodule AllbertAssist.Objectives.StepTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Step
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     {:ok, objective} =
@@ -12,7 +13,7 @@ defmodule AllbertAssist.Objectives.StepTest do
           title: "Analyze AAPL",
           objective: "Complete one analysis for AAPL."
         },
-        AllbertAssist.TestSupport.ReadyEffectContext.context()
+        ReadyEffectContext.context()
       )
 
     %{objective: objective}
@@ -65,7 +66,7 @@ defmodule AllbertAssist.Objectives.StepTest do
                  kind: "action",
                  stage: "propose_steps"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, selected} =
@@ -73,7 +74,7 @@ defmodule AllbertAssist.Objectives.StepTest do
                step,
                :selected,
                %{stage: :authorize_step},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, running} =
@@ -81,7 +82,7 @@ defmodule AllbertAssist.Objectives.StepTest do
                selected,
                :running,
                %{stage: :execute_step},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, completed} =
@@ -92,7 +93,7 @@ defmodule AllbertAssist.Objectives.StepTest do
                  stage: :execute_step,
                  result_summary: "completed"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert completed.id == step.id
@@ -111,14 +112,14 @@ defmodule AllbertAssist.Objectives.StepTest do
                  stage: "authorize_step",
                  confirmation_resume_params_sha256: digest
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, unchanged} =
              Objectives.update_step(
                step,
                %{confirmation_resume_params_sha256: digest},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert unchanged.confirmation_resume_params_sha256 == digest
@@ -129,7 +130,7 @@ defmodule AllbertAssist.Objectives.StepTest do
                %{
                  confirmation_resume_params_sha256: String.duplicate("b", 64)
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert %{confirmation_resume_params_sha256: [_]} = errors_on(replacement)

@@ -7,6 +7,7 @@ defmodule AllbertSignal.Doctor do
   alias AllbertSignal.Adapter
   alias AllbertSignal.Client
   alias AllbertSignal.Daemon
+  alias AllbertSignal.Settings.Fragment
 
   @state_path Path.join(["channels", "signal", "doctor", "state.json"])
 
@@ -94,7 +95,7 @@ defmodule AllbertSignal.Doctor do
 
   defp settings_diagnostics(settings) do
     settings
-    |> AllbertSignal.Settings.Fragment.required_when_enabled()
+    |> Fragment.required_when_enabled()
     |> Kernel.++(aci_diagnostics(settings))
   end
 

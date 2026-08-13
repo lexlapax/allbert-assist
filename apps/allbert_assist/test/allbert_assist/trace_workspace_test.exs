@@ -2,6 +2,7 @@ defmodule AllbertAssist.TraceWorkspaceTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
@@ -106,7 +107,7 @@ defmodule AllbertAssist.TraceWorkspaceTest do
              Settings.put(
                "runtime.trace_recent_entries_limit",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     trace =

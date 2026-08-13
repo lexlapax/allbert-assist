@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Actions.Voice.EnsureVoiceTokenTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.62 M8.15: `ensure_voice_token` runs the local voice runtime authority-token
   ensure on-spine through the Runner (PermissionGate + audit). First use is a
@@ -28,7 +30,7 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceTokenTest do
     Settings.put(
       "permissions.voice_local_runtime_manage",
       "allowed",
-      AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+      ReadyEffectContext.attach(%{audit?: false})
     )
 
     on_exit(fn ->
@@ -68,7 +70,7 @@ defmodule AllbertAssist.Actions.Voice.EnsureVoiceTokenTest do
              Settings.put(
                "permissions.voice_local_runtime_manage",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = Runner.run("ensure_voice_token", %{}, ctx())

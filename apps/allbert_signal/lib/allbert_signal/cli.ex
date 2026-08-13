@@ -33,9 +33,9 @@ defmodule AllbertSignal.CLI do
 
   import Ecto.Query
 
+  alias AllbertAssist.Channels
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.CLI.Channels.Support
-  alias AllbertAssist.Channels
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertSignal.Adapter
   alias AllbertSignal.Parser

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
@@ -253,7 +254,7 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
                  "dynamic_codegen" => %{"enabled" => true}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -271,7 +272,7 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

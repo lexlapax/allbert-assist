@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.V047bSelfImprovementEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @eval_ids [
     "self-improvement-marketplace-metadata-no-authority-001",
@@ -194,7 +195,7 @@ defmodule AllbertAssist.Security.V047bSelfImprovementEvalTest do
              Settings.put(
                "permissions.marketplace_install",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -222,7 +223,7 @@ defmodule AllbertAssist.Security.V047bSelfImprovementEvalTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -237,7 +238,7 @@ defmodule AllbertAssist.Security.V047bSelfImprovementEvalTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

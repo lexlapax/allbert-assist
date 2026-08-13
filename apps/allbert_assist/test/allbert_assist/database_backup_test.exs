@@ -1,4 +1,6 @@
 defmodule AllbertAssist.DatabaseBackupTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.62 M2 (Locked Decision 15) — backup-before-migrate writes a recovery-point
   copy before version-changing migrations run in a packaged release, and a
@@ -110,7 +112,7 @@ defmodule AllbertAssist.DatabaseBackupTest do
              AllbertAssist.Settings.put(
                "permissions.command_execute",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

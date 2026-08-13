@@ -1,5 +1,6 @@
 defmodule AllbertAssist.External.MatrixInboundSmokeTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
   @moduletag timeout: :infinity
 
@@ -262,7 +263,7 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
              Settings.put(
                key,
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

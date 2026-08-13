@@ -132,7 +132,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     parent = fanout!("alice", "1001-provider-race")
     enable_notify!("alice-ext")
     barrier = start_supervised!({ReplacingBarrier, replace_on: 4})
-    assert {:ok, epoch} = AllbertAssist.Pack.EffectGuard.admit_ready(server: barrier)
+    assert {:ok, epoch} = EffectGuard.admit_ready(server: barrier)
 
     assert {:error, :stale_epoch} =
              Notify.deliver(parent, :completion, "must not send",
@@ -523,7 +523,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
              Settings.put(
                "channels.email.autonomous_notify.level",
                "status_and_completion",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1145,7 +1145,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
              Settings.put(
                key,
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

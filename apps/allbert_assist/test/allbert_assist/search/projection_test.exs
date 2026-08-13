@@ -7,6 +7,7 @@ defmodule AllbertAssist.Search.ProjectionTest do
   alias AllbertAssist.Search.Query
   alias AllbertAssist.Search.SQLite
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -92,7 +93,7 @@ defmodule AllbertAssist.Search.ProjectionTest do
              Settings.put(
                "search.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :consumer_disabled} = Projection.rebuild("alice")

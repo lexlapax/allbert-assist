@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Coding.M1ReadSearchActionsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Registry
@@ -189,7 +190,7 @@ defmodule AllbertAssist.Coding.M1ReadSearchActionsTest do
              Settings.put(
                "permissions.coding_file_read",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = Runner.run("read", %{path: "README.md"}, context(workspace))

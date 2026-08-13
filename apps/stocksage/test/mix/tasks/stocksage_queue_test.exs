@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Stocksage.QueueTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Stocksage.Queue, as: QueueTask
   alias StockSage.Queue
 
@@ -74,7 +75,7 @@ defmodule Mix.Tasks.Stocksage.QueueTest do
                  "permissions" => %{"stocksage_write" => "denied"}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert_raise Mix.Error, ~r/permission_denied/, fn ->

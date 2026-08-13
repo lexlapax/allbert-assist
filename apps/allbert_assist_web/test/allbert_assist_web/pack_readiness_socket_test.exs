@@ -4,7 +4,9 @@ defmodule AllbertAssistWeb.LiveSocketTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssistWeb.PackReadiness
+  alias Phoenix.LiveViewTest.UploadClient
 
   @endpoint AllbertAssistWeb.Endpoint
 
@@ -65,14 +67,14 @@ defmodule AllbertAssistWeb.LiveSocketTest do
              Settings.put(
                "vision.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.vision_input",
                ["vision_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -85,7 +87,7 @@ defmodule AllbertAssistWeb.LiveSocketTest do
       ])
 
     _rendered = render_upload(upload, "loss.png", 1)
-    %{"loss.png" => upload_pid} = Phoenix.LiveViewTest.UploadClient.channel_pids(upload)
+    %{"loss.png" => upload_pid} = UploadClient.channel_pids(upload)
 
     root_pid = view.pid
     root_ref = Process.monitor(root_pid)

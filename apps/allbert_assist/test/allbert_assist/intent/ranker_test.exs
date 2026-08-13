@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.RankerTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.EvalFixtures
@@ -319,14 +320,14 @@ defmodule AllbertAssist.Intent.RankerTest do
       Settings.put(
         "intent.router_scoring.ranker.descriptor_text_match_boost",
         0.0,
-        AllbertAssist.TestSupport.ReadyEffectContext.context()
+        ReadyEffectContext.context()
       )
 
     {:ok, _} =
       Settings.put(
         "intent.router_scoring.ranker.descriptor_text_match_unit_boost",
         0.0,
-        AllbertAssist.TestSupport.ReadyEffectContext.context()
+        ReadyEffectContext.context()
       )
 
     assert [%{id: "notes_files:search_notes"} | _rest] =

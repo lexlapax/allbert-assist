@@ -54,6 +54,8 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands do
 end
 
 defmodule AllbertAssist.Jobs.Scheduler.Commands.RunOnce do
+  alias AllbertAssist.Pack.EffectGuard
+
   @moduledoc false
 
   use Jido.Action,
@@ -68,7 +70,7 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.RunOnce do
     state = Map.fetch!(context, :state)
 
     result =
-      with :ok <- AllbertAssist.Pack.EffectGuard.validate(epoch) do
+      with :ok <- EffectGuard.validate(epoch) do
         Executor.poll_once(state, now, epoch)
       else
         {:error, _reason} -> {:error, :product_not_ready}
@@ -79,6 +81,8 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.RunOnce do
 end
 
 defmodule AllbertAssist.Jobs.Scheduler.Commands.CleanupStaleRuns do
+  alias AllbertAssist.Pack.EffectGuard
+
   @moduledoc false
 
   use Jido.Action,
@@ -93,7 +97,7 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.CleanupStaleRuns do
     state = Map.fetch!(context, :state)
 
     result =
-      with :ok <- AllbertAssist.Pack.EffectGuard.validate(epoch) do
+      with :ok <- EffectGuard.validate(epoch) do
         Executor.cleanup_stale_runs_for_state(state, now, epoch)
       else
         {:error, _reason} -> {:error, :product_not_ready}
@@ -104,6 +108,8 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.CleanupStaleRuns do
 end
 
 defmodule AllbertAssist.Jobs.Scheduler.Commands.Tick do
+  alias AllbertAssist.Pack.EffectGuard
+
   @moduledoc false
 
   use Jido.Action,
@@ -119,8 +125,8 @@ defmodule AllbertAssist.Jobs.Scheduler.Commands.Tick do
     now = Executor.utc_now()
 
     result =
-      with {:ok, epoch} <- AllbertAssist.Pack.EffectGuard.admit_ready(),
-           :ok <- AllbertAssist.Pack.EffectGuard.validate(epoch) do
+      with {:ok, epoch} <- EffectGuard.admit_ready(),
+           :ok <- EffectGuard.validate(epoch) do
         Executor.poll_once(state, now, epoch)
       else
         {:error, _reason} -> {:error, :product_not_ready}

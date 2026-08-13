@@ -5,6 +5,7 @@ defmodule AllbertAssist.PublicProtocol.AcpMappingTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Acp.Mapping
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -128,14 +129,14 @@ defmodule AllbertAssist.PublicProtocol.AcpMappingTest do
              Settings.put(
                "acp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "acp_server.stdio.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert Mapping.surface_enabled?()

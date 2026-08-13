@@ -9,6 +9,7 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertTUI.Adapter
@@ -247,7 +248,7 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
              Settings.put(
                "channels.tui.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
@@ -260,7 +261,7 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
                    "enabled" => true
                  }
                ],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

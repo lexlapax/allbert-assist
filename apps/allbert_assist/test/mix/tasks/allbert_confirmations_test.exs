@@ -126,7 +126,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
                  objective: "Complete one analysis for AAPL.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     attrs =
@@ -149,7 +149,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
                  status: "cancelled",
                  progress_summary: "Cancelled for stale confirmation test."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     show_output =
@@ -300,7 +300,7 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -323,28 +323,28 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "coding.pi_mode.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "coding.trusted_operator_id",
                "local",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "coding.default_approval_mode",
                "accept-edits",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

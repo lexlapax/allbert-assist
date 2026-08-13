@@ -139,7 +139,7 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
              Settings.put(
                "providers.local_voice.base_url",
                "http://192.168.1.10:5050/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -218,7 +218,7 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

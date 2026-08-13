@@ -252,7 +252,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
               Settings.put(
                 "providers.local_ollama.endpoint_kind",
                 "credentialed_remote",
-                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                ReadyEffectContext.attach(%{
                   audit?: false
                 })
               )
@@ -300,7 +300,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
               Settings.put(
                 "providers.local_ollama.endpoint_kind",
                 "local_endpoint",
-                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                ReadyEffectContext.attach(%{
                   audit?: false
                 })
               )
@@ -309,7 +309,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
               Settings.put(
                 "providers.local_ollama.base_url",
                 "http://localhost:11434/v1",
-                AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                ReadyEffectContext.attach(%{audit?: false})
               )
 
             expect_local_tags(%{
@@ -347,7 +347,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
       Settings.put(
         "providers.local_ollama.base_url",
         "http://localhost:11434/v1?token=#{@secret}",
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
 
     {:ok, rejected_url} =

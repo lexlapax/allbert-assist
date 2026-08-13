@@ -10,6 +10,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Encoder
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Theme.Snippets
   alias AllbertAssist.Workspace
@@ -406,7 +407,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
              Settings.put(
                "permissions.settings_write",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     eval =
@@ -552,7 +553,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
              Settings.put(
                "permissions.settings_write",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     eval =
@@ -695,14 +696,14 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
              Settings.put(
                "workspace.theme.snippets_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "workspace.theme.enabled_snippets",
                ["exfil"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     eval =
@@ -743,14 +744,14 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
              Settings.put(
                "workspace.theme.snippets_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "workspace.theme.enabled_snippets",
                ["../secret"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     eval =
@@ -803,7 +804,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
              Settings.put(
                "workspace.layout.override_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     eval =
@@ -871,7 +872,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
              Settings.put(
                "workspace.layout.override_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     eval =

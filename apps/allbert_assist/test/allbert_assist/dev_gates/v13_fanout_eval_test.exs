@@ -7,6 +7,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   defmodule ReplacingReadiness do
     use GenServer
@@ -251,7 +252,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
              AllbertAssist.Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -264,7 +265,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       AllbertAssist.Settings.put(
         "intent.direct_answer_model_enabled",
         false,
-        AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+        ReadyEffectContext.attach(%{audit?: false})
       )
     end)
 

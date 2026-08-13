@@ -202,7 +202,7 @@ defmodule AllbertAssist.Channels.EmailTest do
                    objective: "Complete one analysis for AAPL.",
                    status: "running"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       handoff = %{
@@ -226,7 +226,7 @@ defmodule AllbertAssist.Channels.EmailTest do
                    status: "cancelled",
                    progress_summary: "Cancelled in renderer test."
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, _subject, body, nil} =
@@ -347,7 +347,7 @@ defmodule AllbertAssist.Channels.EmailTest do
                    external_message_id: "1",
                    status: "received"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       server = :"email-resume-received-#{System.unique_integer([:positive])}"

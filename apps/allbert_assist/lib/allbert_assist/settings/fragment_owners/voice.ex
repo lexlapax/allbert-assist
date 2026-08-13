@@ -40,7 +40,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Voice do
       writable?: true
     },
     "voice.local_runtime.max_text_bytes" => %{
-      default: 16384,
+      default: 16_384,
       max: 262_144,
       min: 1,
       sensitive?: false,
@@ -61,7 +61,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Voice do
     },
     "voice.local_runtime.port" => %{
       default: 5050,
-      max: 65535,
+      max: 65_535,
       min: 1024,
       sensitive?: false,
       type: :bounded_integer,
@@ -119,7 +119,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Voice do
       "enabled" => false,
       "local_runtime" => %{
         "enabled" => false,
-        "max_text_bytes" => 16384,
+        "max_text_bytes" => 16_384,
         "ollama_base_url" => "http://127.0.0.1:11434/v1",
         "ollama_stt_model" => "gemma4:e2b",
         "port" => 5050,

@@ -10,8 +10,8 @@ defmodule AllbertAssist.Pack.Registry do
   use GenServer
 
   alias AllbertAssist.Pack.Canonical
-  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
   alias AllbertAssist.Pack.{CompatibilityDiagnostic, ValidationDiagnostic}
+  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
 
   @default_coordinator :allbert_pack_composition_owner
   @call_timeout 30_000

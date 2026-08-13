@@ -296,7 +296,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
                  status: "processed",
                  payload_summary: "matrix text message $old-sync"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     Req.Test.expect(__MODULE__, fn conn ->

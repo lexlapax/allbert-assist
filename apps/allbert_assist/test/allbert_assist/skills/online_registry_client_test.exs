@@ -94,7 +94,7 @@ defmodule AllbertAssist.Skills.Online.RegistryClientTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

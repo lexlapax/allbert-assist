@@ -14,9 +14,9 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
   alias AllbertAssist.App.MetadataSupervisor, as: AppMetadataSupervisor
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Kernel.Contract.Owner, as: ContractOwner
+  alias AllbertAssist.Pack.{CandidateBuilder, ProjectionProvider, Readiness}
   alias AllbertAssist.Pack.Registry, as: PackRegistry
   alias AllbertAssist.Pack.Supervisor, as: PackSupervisor
-  alias AllbertAssist.Pack.{CandidateBuilder, ProjectionProvider, Readiness}
   alias AllbertAssist.Plugin.Bootstrap, as: PluginBootstrap
   alias AllbertAssist.Plugin.MetadataSupervisor, as: PluginMetadataSupervisor
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry

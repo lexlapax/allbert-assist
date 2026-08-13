@@ -8,6 +8,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace.Fragment.Guard
   alias Jido.Signal.Bus
   alias Mix.Tasks.Allbert.Confirmations, as: ConfirmationsTask
@@ -439,7 +440,7 @@ defmodule StockSage.Actions.RunAnalysisTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+           ReadyEffectContext.attach(%{actor: "test"})
          ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")

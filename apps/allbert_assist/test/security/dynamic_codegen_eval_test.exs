@@ -15,6 +15,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -124,7 +125,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                      Settings.put(
                        "permissions.skill_write",
                        "denied",
-                       AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                       ReadyEffectContext.attach(%{audit?: false})
                      )
 
             {:ok, allowed_response} =
@@ -141,7 +142,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                      Settings.put(
                        "permissions.dynamic_codegen_request",
                        "denied",
-                       AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                       ReadyEffectContext.attach(%{
                          audit?: false
                        })
                      )
@@ -150,7 +151,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                      Settings.put(
                        "permissions.skill_write",
                        "allowed",
-                       AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                       ReadyEffectContext.attach(%{audit?: false})
                      )
 
             {:ok, denied_response} =
@@ -184,14 +185,14 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
              Settings.put(
                "permissions.dynamic_codegen_request",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "dynamic_codegen.max_provider_calls_per_gap",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     budget =
@@ -209,7 +210,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
              Settings.put(
                "dynamic_codegen.max_provider_calls_per_gap",
                8,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     secret = "sk-test-secret-v037"
@@ -683,7 +684,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                      Settings.put(
                        "dynamic_codegen.integration_approval_surfaces",
                        ["cli"],
-                       AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                       ReadyEffectContext.attach(%{
                          audit?: false
                        })
                      )
@@ -1026,7 +1027,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                      Settings.put(
                        "permissions.dynamic_codegen_discard",
                        "denied",
-                       AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                       ReadyEffectContext.attach(%{
                          audit?: false
                        })
                      )
@@ -1643,7 +1644,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                  "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -1658,7 +1659,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -1667,7 +1668,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                permissions,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1678,7 +1679,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
              Settings.put(
                "dynamic_codegen.allowed_facades",
                facades,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -1701,21 +1702,21 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/status"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

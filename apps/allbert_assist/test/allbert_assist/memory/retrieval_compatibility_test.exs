@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @moduletag :db_serial
 
@@ -158,7 +159,7 @@ defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
              Settings.put(
                "memory.index_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, result} =
@@ -181,7 +182,7 @@ defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
              Settings.put(
                "memory.index_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =

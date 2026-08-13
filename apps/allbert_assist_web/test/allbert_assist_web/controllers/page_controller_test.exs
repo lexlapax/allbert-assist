@@ -3,6 +3,7 @@ defmodule AllbertAssistWeb.PageControllerTest do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -79,21 +80,21 @@ defmodule AllbertAssistWeb.PageControllerTest do
              Settings.put(
                "workspace.theme.mode",
                "dark",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "workspace.accessibility.high_contrast",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "workspace.accessibility.reduce_motion",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     conn = get(conn, ~p"/")

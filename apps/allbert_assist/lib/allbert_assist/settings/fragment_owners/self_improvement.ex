@@ -50,7 +50,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.SelfImprovement do
     },
     "self_improvement.trace_index.max_indexed_entries" => %{
       default: 5000,
-      max: 50000,
+      max: 50_000,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,

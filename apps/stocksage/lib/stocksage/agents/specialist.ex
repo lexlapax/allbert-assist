@@ -1,4 +1,7 @@
 defmodule StockSage.Agents.Specialist do
+  alias StockSage.Agents.Commands.Execute
+  alias StockSage.Agents.Runtime
+
   @moduledoc false
 
   defmacro __using__(opts) do
@@ -8,7 +11,7 @@ defmodule StockSage.Agents.Specialist do
     description = Keyword.get(opts, :description, "StockSage #{role} specialist.")
 
     signal_routes = [
-      {"allbert.objectives.delegate.execute", StockSage.Agents.Commands.Execute}
+      {"allbert.objectives.delegate.execute", Execute}
     ]
 
     quote location: :keep do
@@ -47,17 +50,17 @@ defmodule StockSage.Agents.Specialist do
       def prompt_version, do: StockSage.Agents.prompt_version()
 
       def execute(request) when is_map(request) do
-        {:ok, StockSage.Agents.Commands.Execute.report_for(@agent_id, request)}
+        {:ok, Execute.report_for(@agent_id, request)}
       end
 
       @spec start_link(keyword()) :: GenServer.on_start()
       def start_link(opts \\ []) do
-        StockSage.Agents.Runtime.start_link(__MODULE__, @agent_id, opts)
+        Runtime.start_link(__MODULE__, @agent_id, opts)
       end
 
       @spec child_spec(keyword()) :: Supervisor.child_spec()
       def child_spec(opts) do
-        StockSage.Agents.Runtime.child_spec(__MODULE__, @agent_id, opts)
+        Runtime.child_spec(__MODULE__, @agent_id, opts)
       end
 
       defoverridable child_spec: 1

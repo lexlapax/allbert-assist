@@ -8,6 +8,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
   alias AllbertAssist.Intent.Router.PendingStore
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @env_vars [
     "ALLBERT_HOME",
@@ -818,7 +819,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
              Settings.put(
                "coding.bash.allow_raw_shell",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     parent = self()
@@ -1001,7 +1002,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

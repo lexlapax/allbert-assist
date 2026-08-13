@@ -275,7 +275,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
              Settings.put(
                "memory.prune_requires_confirmation",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, entry} = append("alice", "Prune immediately after review.")

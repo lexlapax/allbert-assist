@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Memory.ActiveMemoryTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
@@ -189,14 +190,14 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
              Settings.put(
                "active_memory.top_k",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "active_memory.chunk_max_bytes",
                128,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, result} =
@@ -213,7 +214,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
              Settings.put(
                "active_memory.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, disabled} =
@@ -237,21 +238,21 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
              Settings.put(
                "active_memory.top_k",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "active_memory.internal_candidate_limit",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "active_memory.excluded_sample_limit",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, result} =
@@ -284,14 +285,14 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
              Settings.put(
                "active_memory.top_k",
                3,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "active_memory.chunk_max_bytes",
                128,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, first} =

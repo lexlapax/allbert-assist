@@ -4,9 +4,9 @@ defmodule AllbertAssistWeb.WorkspaceConfirmationsTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.{Confirmations, Runtime}
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.{Confirmations, Runtime}
 
   @runtime_async_timeout 60_000
 

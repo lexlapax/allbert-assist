@@ -360,14 +360,14 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "model_preferences.tasks.fanout_manager",
                ["fast", "direct_answer_local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.fanout_synthesis",
                ["fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->
@@ -433,28 +433,28 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "operator-test-key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.fanout_manager",
                ["fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.fanout_synthesis",
                ["coding_local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -533,14 +533,14 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "intent.router_embedding_profile",
                "local",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "intent.router_escalation_profile",
                "fast",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->
@@ -627,7 +627,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["fast", "local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -649,14 +649,14 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["local", "fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -732,7 +732,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} =
@@ -764,7 +764,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, response} =
@@ -860,7 +860,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/anthropic/api_key",
                "sk-ant-test-key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })
@@ -903,7 +903,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "model_profiles.anthropic_fast.model",
                "claude-haiku-4-5",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -912,7 +912,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/anthropic/api_key",
                "sk-ant-test-key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })
@@ -947,7 +947,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/gemini/api_key",
                "AIza-test-key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })
@@ -1004,7 +1004,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "providers.openai.base_url",
                "http://127.0.0.1:11434/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1013,7 +1013,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "sk-test-private",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })
@@ -1115,14 +1115,14 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
                  "providers" => %{"openai" => %{"type" => "openai_compatible"}}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _secret} =
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                secret,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })
@@ -1198,14 +1198,14 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     refute Disclosure.hosted_pending?(:cli)

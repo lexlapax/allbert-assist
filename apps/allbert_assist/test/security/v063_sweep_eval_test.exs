@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V063SweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.63 Guided Onboarding & Profiles sweep (ADR 0069 / 0075).
 
@@ -114,5 +116,5 @@ defmodule AllbertAssist.Security.V063SweepEvalTest do
   end
 
   defp read!(relative),
-    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
+    do: GateOwners.read_owned_path!(@repo_root, relative)
 end

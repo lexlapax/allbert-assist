@@ -6,6 +6,7 @@ defmodule AllbertSlack.Actions.DoctorTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertSlack.Actions.Doctor, as: SlackDoctor
   alias AllbertSlack.Doctor
 
@@ -29,14 +30,14 @@ defmodule AllbertSlack.Actions.DoctorTest do
              Settings.put(
                "channels.slack.workspace_team_id",
                "T0123ABCDE",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.slack.allowed_channel_ids",
                ["C0123ABCDE"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->

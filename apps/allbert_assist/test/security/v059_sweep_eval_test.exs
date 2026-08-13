@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V059SweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.59 hardening sweep across already-shipped surfaces.
 
@@ -364,7 +366,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
         "apps/allbert_assist/lib/allbert_assist/actions/runner.ex",
         "apps/allbert_assist/lib/allbert_assist/actions/param_contract.ex"
       ]
-      |> Enum.map(&AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, &1))
+      |> Enum.map(&GateOwners.read_owned_path!(@repo_root, &1))
       |> Enum.join("\n")
 
     refute source =~ "String.to_atom"

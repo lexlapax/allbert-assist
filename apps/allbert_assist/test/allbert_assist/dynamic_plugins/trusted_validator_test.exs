@@ -1,5 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins.TrustedValidatorTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.DynamicPlugins
@@ -170,7 +171,7 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidatorTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                permissions,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -181,7 +182,7 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidatorTest do
              Settings.put(
                "dynamic_codegen.allowed_facades",
                facades,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

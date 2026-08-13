@@ -1,5 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins.LoaderTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Registry
@@ -118,14 +119,14 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                ["read_only", "memory_write"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "dynamic_codegen.allowed_facades",
                ["append_memory"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     fixture =
@@ -360,7 +361,7 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

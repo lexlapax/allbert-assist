@@ -10,6 +10,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Templates
   alias AllbertAssist.Templates.Scaffold
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @v038_eval_ids [
     "template-create-disabled-001",
@@ -301,7 +302,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
              Settings.put(
                "permissions.dynamic_codegen_request",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     canvas =
@@ -485,7 +486,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -494,7 +495,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
              Settings.put(
                "dynamic_codegen.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -503,7 +504,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
              Settings.put(
                "dynamic_codegen.live_loader_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -512,7 +513,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
              Settings.put(
                "sandbox.elixir.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

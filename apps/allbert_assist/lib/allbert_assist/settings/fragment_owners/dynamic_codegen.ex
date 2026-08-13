@@ -65,7 +65,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.DynamicCodegen do
       writable?: true
     },
     "dynamic_codegen.max_provider_usage_units_per_gap" => %{
-      default: 20000,
+      default: 20_000,
       sensitive?: false,
       type: :non_negative_integer_or_nil,
       writable?: true
@@ -104,7 +104,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.DynamicCodegen do
       "max_bytes" => 262_144,
       "max_files" => 32,
       "max_provider_calls_per_gap" => 8,
-      "max_provider_usage_units_per_gap" => 20000,
+      "max_provider_usage_units_per_gap" => 20_000,
       "max_repair_iterations" => 2,
       "provider_profile" => nil,
       "retention_days" => 30

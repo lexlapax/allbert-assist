@@ -2,6 +2,7 @@ defmodule AllbertAssist.Security.V13MemoryEvalTest do
   @moduledoc "M5 denial and compatibility proofs for projection-backed Memory retrieval."
 
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @moduletag :security_eval_serial
 
@@ -215,7 +216,7 @@ defmodule AllbertAssist.Security.V13MemoryEvalTest do
              Settings.put(
                "memory.index_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     refute indexed_memory_candidate?(Engine.collect_candidates(request))

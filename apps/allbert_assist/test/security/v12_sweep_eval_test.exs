@@ -5,8 +5,8 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.CLI.Tui
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.FirstRun.Enablement
   alias AllbertAssist.Paths
@@ -15,6 +15,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertTUI.IdentityBootstrap
 
   @ids ~w[
@@ -412,7 +413,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
           Settings.put(
             key,
             value,
-            AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+            ReadyEffectContext.attach(%{audit?: false})
           )
       )
 

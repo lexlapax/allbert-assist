@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
   alias AllbertAssist.SecurityEvalCase
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Theme.Version
 
   @env_vars [
@@ -51,7 +52,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.active",
                "midnight",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     conn = get(conn, ~p"/theme/user.css")
@@ -80,7 +81,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.active",
                "missing",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     conn = get(conn, ~p"/theme/user.css")
@@ -92,7 +93,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.active",
                "broken",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     conn = conn |> recycle() |> get(~p"/theme/user.css")
@@ -115,7 +116,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.enabled_snippets",
                ["compact"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     disabled = get(conn, ~p"/theme/snippets.css")
@@ -125,7 +126,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.snippets_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     enabled = conn |> recycle() |> get(~p"/theme/snippets.css")
@@ -151,7 +152,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.snippets_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert response(conn |> recycle() |> get(~p"/theme/snippets/compact.css"), 404) == ""
@@ -160,7 +161,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.enabled_snippets",
                ["compact"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert response(conn |> recycle() |> get(~p"/theme/snippets/compact.css"), 200) =~
@@ -172,14 +173,14 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.snippets_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "workspace.theme.enabled_snippets",
                ["../secret", "notes.txt"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -199,7 +200,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.active",
                "midnight",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     first_version = Version.stylesheet_version()
@@ -218,14 +219,14 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
              Settings.put(
                "workspace.theme.snippets_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "workspace.theme.enabled_snippets",
                ["compact"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     first_version = Version.stylesheet_version()

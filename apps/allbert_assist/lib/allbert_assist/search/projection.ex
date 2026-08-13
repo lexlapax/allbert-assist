@@ -20,8 +20,8 @@ defmodule AllbertAssist.Search.Projection do
   alias AllbertAssist.Search.Control
   alias AllbertAssist.Search.Purge
   alias AllbertAssist.Search.Query
-  alias AllbertAssist.Search.SQLite
   alias AllbertAssist.Search.Schema
+  alias AllbertAssist.Search.SQLite
   alias AllbertAssist.Settings
   alias Exqlite.Sqlite3
 

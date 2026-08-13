@@ -1,5 +1,6 @@
 defmodule StockSage.ProgressTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.{Paths, Plugin, Settings}
@@ -80,7 +81,7 @@ defmodule StockSage.ProgressTest do
              Settings.put(
                "stocksage.web.progress_stream_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert :ok = Progress.subscribe("local", analysis_id)

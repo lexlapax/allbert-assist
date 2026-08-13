@@ -47,7 +47,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Sandbox do
       writable?: true
     },
     "sandbox.elixir.output_bytes" => %{
-      default: 65536,
+      default: 65_536,
       sensitive?: false,
       type: :positive_integer,
       writable?: true
@@ -68,7 +68,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Sandbox do
         "image" => "allbert-elixir-otp:local",
         "memory_mb" => 1024,
         "network" => "none",
-        "output_bytes" => 65536,
+        "output_bytes" => 65_536,
         "timeout_ms" => 120_000
       }
     }

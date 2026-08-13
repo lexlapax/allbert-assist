@@ -18,6 +18,7 @@ defmodule AllbertSlack.Adapter do
   alias AllbertSlack.Client.SocketModePort
   alias AllbertSlack.Parser
   alias AllbertSlack.Renderer
+  alias AllbertSlack.Settings.Fragment
 
   @provider "slack_socket_mode"
 
@@ -111,7 +112,7 @@ defmodule AllbertSlack.Adapter do
       socket_mode_port: nil,
       socket_mode_status: :not_started,
       bot_user_id: nil,
-      diagnostics: AllbertSlack.Settings.Fragment.required_when_enabled(settings),
+      diagnostics: Fragment.required_when_enabled(settings),
       last_hello: nil
     }
     |> maybe_put_test_readiness_server(opts)

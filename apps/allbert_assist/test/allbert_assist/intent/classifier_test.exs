@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.ClassifierTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Agents.IntentAgent
@@ -72,7 +73,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
              Settings.put(
                "intent.model_assist_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, decision} =
@@ -91,7 +92,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
              Settings.put(
                "intent.model_assist_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, decision} =
@@ -322,7 +323,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
              Settings.put(
                "intent.model_assist_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

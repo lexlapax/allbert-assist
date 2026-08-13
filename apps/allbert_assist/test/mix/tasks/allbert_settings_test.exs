@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ProviderPreconditions
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Settings, as: SettingsTask
 
   setup do
@@ -122,7 +123,7 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.put(
                "mcp.servers.demo.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     json_map_output =
@@ -289,21 +290,21 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.put(
                "model_roles.fast.profile",
                "local",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "browser.driver.binary_path",
                "/tmp/browser",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:11434/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -312,21 +313,21 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.put(
                "providers.local_ollama.api_key_ref",
                "secret://providers/local_ollama/api_key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.servers.audit.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp.servers.audit.base_url",
                "http://127.0.0.1:9000/mcp",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -335,7 +336,7 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.put(
                "mcp.servers.audit.auth_ref",
                "secret://mcp/audit/bearer_token",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     for key <- [
@@ -377,7 +378,7 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:1/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

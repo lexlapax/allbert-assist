@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Stocksage.ImportSqliteTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Stocksage.ImportSqlite, as: ImportTask
   alias StockSage.Analyses
   alias StockSage.LegacyFixture
@@ -75,7 +76,7 @@ defmodule Mix.Tasks.Stocksage.ImportSqliteTest do
                  "permissions" => %{"stocksage_write" => "denied"}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert_raise Mix.Error, ~r/permission_denied/, fn ->

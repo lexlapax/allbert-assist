@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.V047SelfImprovementEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.SelfImprovement.TraceIndex
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Workflows
 
@@ -201,14 +202,14 @@ defmodule AllbertAssist.Security.V047SelfImprovementEvalTest do
              Settings.put(
                "self_improvement.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "self_improvement.trace_index.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

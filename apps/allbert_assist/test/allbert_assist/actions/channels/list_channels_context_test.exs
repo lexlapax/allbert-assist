@@ -33,6 +33,7 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsContextTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
   alias AllbertTUI.Plugin, as: TUIPlugin
 
@@ -66,7 +67,7 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsContextTest do
              Settings.put(
                "stocksage.bridge_enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "m3_composition",
                  audit?: false
                })

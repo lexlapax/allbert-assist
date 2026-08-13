@@ -133,7 +133,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              Settings.put(
                "providers.gemini.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     System.delete_env("GOOGLE_API_KEY")
@@ -156,7 +156,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              Settings.put(
                "dynamic_codegen.max_provider_calls_per_gap",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error,
@@ -220,7 +220,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              Settings.put(
                "dynamic_codegen.max_provider_calls_per_gap",
                3,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error,
@@ -248,7 +248,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
                  title: "Request diagnostic draft",
                  objective: "Create a read-only diagnostic draft"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, result} =
@@ -325,14 +325,14 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                ["read_only", "memory_write"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "dynamic_codegen.allowed_facades",
                ["append_memory"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, result} =
@@ -500,7 +500,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

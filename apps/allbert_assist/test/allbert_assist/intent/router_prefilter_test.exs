@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.RouterPrefilterTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.Descriptor
@@ -176,14 +177,14 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
         Settings.put(
           "intent.router_scoring.prefilter.descriptor_text_match_boost",
           0.0,
-          AllbertAssist.TestSupport.ReadyEffectContext.context()
+          ReadyEffectContext.context()
         )
 
       {:ok, _} =
         Settings.put(
           "intent.router_scoring.prefilter.descriptor_text_match_unit_boost",
           0.0,
-          AllbertAssist.TestSupport.ReadyEffectContext.context()
+          ReadyEffectContext.context()
         )
 
       assert %{shortlist: [%{action_name: "search_notes"} | _]} =

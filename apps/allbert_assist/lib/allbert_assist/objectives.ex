@@ -10,8 +10,8 @@ defmodule AllbertAssist.Objectives do
   import Ecto.Query
 
   alias AllbertAssist.Confirmations.ResumeParamsBinding
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.{AcceptanceCriteria, Event, Objective, Step}
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor

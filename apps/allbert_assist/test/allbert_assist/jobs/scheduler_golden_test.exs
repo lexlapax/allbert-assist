@@ -9,6 +9,7 @@ defmodule AllbertAssist.Jobs.SchedulerGoldenTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   @fixture_root Path.expand("../../fixtures/v0.23/jobs", __DIR__)
@@ -52,7 +53,7 @@ defmodule AllbertAssist.Jobs.SchedulerGoldenTest do
              Settings.put(
                "jobs.schedule_policy",
                "paused",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     scheduler = start_test_scheduler()

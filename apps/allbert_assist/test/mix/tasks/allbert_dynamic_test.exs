@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.DynamicTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
@@ -142,7 +143,7 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
                  "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

@@ -18,8 +18,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Objectives.Fanout.EndpointAdmission
   alias AllbertAssist.Objectives.Runs.CancelToken
-  alias AllbertAssist.Objectives.Runs.Worker.Commands.Execute
   alias AllbertAssist.Objectives.Runs.Worker.{Agent, QualityPolicy}
+  alias AllbertAssist.Objectives.Runs.Worker.Commands.Execute
 
   @default_timeout_ms 30_000
   @maximum_timeout_ms 120_000

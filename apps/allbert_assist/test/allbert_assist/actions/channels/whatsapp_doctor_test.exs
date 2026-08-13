@@ -8,6 +8,7 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertWhatsApp.Actions.Doctor, as: WhatsAppDoctor
   alias AllbertWhatsApp.Doctor
 
@@ -111,7 +112,7 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
              Settings.put(
                "channels.whatsapp.access_token_ref",
                "secret://channels/whatsapp/access_token",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -120,28 +121,28 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
              Settings.put(
                "channels.whatsapp.phone_number_id",
                "15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.identity_map",
                [%{external_user_id: "+15550001111", user_id: "alice"}],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

@@ -8,6 +8,7 @@ defmodule AllbertAssist.SearchTest do
   alias AllbertAssist.Search.Projection
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
@@ -33,7 +34,7 @@ defmodule AllbertAssist.SearchTest do
              Settings.put(
                "search.snippet.max_bytes",
                64,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Refill")

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.External.BrowserResearchSmokeTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   if System.get_env("ALLBERT_BROWSER_EXTERNAL_SMOKE") != "1" do
@@ -39,14 +40,14 @@ defmodule AllbertAssist.External.BrowserResearchSmokeTest do
              Settings.put(
                "browser.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "browser.driver.host_resolver_rules",
                "MAP #{@host} 127.0.0.1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

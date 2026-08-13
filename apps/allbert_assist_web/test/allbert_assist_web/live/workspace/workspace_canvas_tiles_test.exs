@@ -4,13 +4,14 @@ defmodule AllbertAssistWeb.WorkspaceCanvasTilesTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.{Settings, Workspace}
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.Guard, as: FragmentGuard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
-  alias AllbertAssist.{Settings, Workspace}
   alias AllbertAssistWeb.SignalBridge
 
   # The Guard action-emitter cache is captured once at application boot,
@@ -410,7 +411,7 @@ defmodule AllbertAssistWeb.WorkspaceCanvasTilesTest do
              Settings.put(
                "permissions.workspace_canvas_write",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   defmodule ForeignStockSageApp do
     use AllbertAssist.App
@@ -251,7 +252,7 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
              Settings.put(
                "workspace.signal_bridge.log_dropped_fragments",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -505,7 +506,7 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+           ReadyEffectContext.attach(%{
              actor: "security_eval",
              audit?: false
            })

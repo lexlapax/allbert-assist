@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Execution.CommandSpecTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Execution.CommandSpec
@@ -43,7 +44,7 @@ defmodule AllbertAssist.Execution.CommandSpecTest do
              Settings.put(
                "execution.local.allowed_roots",
                [workspace],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
@@ -58,21 +59,21 @@ defmodule AllbertAssist.Execution.CommandSpecTest do
                    "max_output_bytes" => 65_536
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "execution.local.command_profiles", _reason}} =
              Settings.put(
                "execution.local.command_profiles",
                %{"bad profile!" => %{"command" => "mix"}},
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "execution.local.command_profiles", _reason}} =
              Settings.put(
                "execution.local.command_profiles",
                %{"mix_test" => %{"command" => "mix", "command_class" => "network"}},
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -253,7 +254,7 @@ defmodule AllbertAssist.Execution.CommandSpecTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

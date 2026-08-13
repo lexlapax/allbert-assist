@@ -1,6 +1,7 @@
 defmodule AllbertAssist.CLI.Areas.PublicProtocolAcpTest do
   # async: false — `acp status`/`handshake` read Settings (global runtime state).
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :global_process_serial
 
   alias AllbertAssist.CLI.Areas.PublicProtocol, as: Area
@@ -64,7 +65,7 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocolAcpTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+           ReadyEffectContext.attach(%{audit?: false})
          ) do
       :ok -> :ok
       {:ok, _} -> :ok

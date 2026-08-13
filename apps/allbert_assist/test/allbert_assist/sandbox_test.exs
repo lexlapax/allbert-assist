@@ -287,7 +287,7 @@ defmodule AllbertAssist.SandboxTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     report =
@@ -1043,7 +1043,7 @@ defmodule AllbertAssist.SandboxTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

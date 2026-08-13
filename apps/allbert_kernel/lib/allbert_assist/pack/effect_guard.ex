@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Pack.EffectGuard do
   @moduledoc "Liveness guard for public and steady-state Pack effect boundaries."
 
+  alias AllbertAssist.Pack.EffectGuard.TestRegistry
   alias AllbertAssist.Pack.Readiness
 
   @type epoch :: %{barrier_pid: pid(), snapshot_digest: String.t()}
@@ -85,7 +86,7 @@ defmodule AllbertAssist.Pack.EffectGuard do
         {:ok, server} ->
           case GenServer.whereis(server) do
             pid when is_pid(pid) ->
-              AllbertAssist.Pack.EffectGuard.TestRegistry.register(epoch, pid)
+              TestRegistry.register(epoch, pid)
 
             nil ->
               :ok
@@ -97,7 +98,7 @@ defmodule AllbertAssist.Pack.EffectGuard do
     end
 
     defp trusted_validation_opts(epoch, []) do
-      case AllbertAssist.Pack.EffectGuard.TestRegistry.server(epoch) do
+      case TestRegistry.server(epoch) do
         {:ok, server} -> [server: server]
         :error -> []
       end

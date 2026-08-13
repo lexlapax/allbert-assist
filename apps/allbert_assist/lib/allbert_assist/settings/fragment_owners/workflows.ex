@@ -25,7 +25,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Workflows do
       writable?: false
     },
     "workflows.max_param_bytes_per_step" => %{
-      default: 65536,
+      default: 65_536,
       max: 1_048_576,
       min: 1,
       sensitive?: false,
@@ -71,7 +71,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Workflows do
       "enabled" => true,
       "expression_grammar" => "closed_v1",
       "id_pattern" => "^[a-z0-9][a-z0-9_-]*$",
-      "max_param_bytes_per_step" => 65536,
+      "max_param_bytes_per_step" => 65_536,
       "max_steps_per_workflow" => 3,
       "max_workflows_loaded_per_request" => 8,
       "max_yaml_bytes_per_file" => 262_144,

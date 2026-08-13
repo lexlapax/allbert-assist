@@ -19,9 +19,9 @@ defmodule StockSageWeb.AnalysisLive do
   import Phoenix.LiveView, only: [stream: 3, stream: 4, stream_insert: 4, connected?: 1]
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.{Confirmations, Objectives}
   alias AllbertAssist.Memory, as: AllbertMemory
   alias AllbertAssist.Surface.Node
-  alias AllbertAssist.{Confirmations, Objectives}
   alias AllbertAssistWeb.Surface.Renderer, as: SurfaceRenderer
   alias StockSage.Analyses
   alias StockSage.Memory, as: StockSageMemory

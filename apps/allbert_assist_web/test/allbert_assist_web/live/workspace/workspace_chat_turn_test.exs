@@ -5,10 +5,11 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
   import Ecto.Query
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.{Artifacts, Confirmations, Conversations, Repo, Settings}
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ConversationMessageRef
-  alias AllbertAssist.{Artifacts, Confirmations, Conversations, Repo, Settings}
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @runtime_async_timeout 60_000
   @png Base.decode64!(
@@ -348,7 +349,7 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
              Settings.put(
                "voice.audio.retention_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -459,7 +460,7 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
              Settings.put(
                "vision.media.retention_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -503,14 +504,14 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
              Settings.put(
                "voice.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.speech_to_text",
                ["voice_stt_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -521,14 +522,14 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
              Settings.put(
                "vision.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.vision_input",
                ["vision_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -539,14 +540,14 @@ defmodule AllbertAssistWeb.WorkspaceChatTurnTest do
              Settings.put(
                "artifacts.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "artifacts.retention_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

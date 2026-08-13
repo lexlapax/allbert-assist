@@ -42,8 +42,8 @@ defmodule AllbertAssist.Pack.Projection do
 
   alias __MODULE__.Closed
   alias __MODULE__.Row
-  alias AllbertAssist.Pack.OTPMetadata.{ApplicationSpec, ReleaseApplication, ReleaseSpec}
   alias AllbertAssist.Pack.{Descriptor, Identity, OTPMetadata}
+  alias AllbertAssist.Pack.OTPMetadata.{ApplicationSpec, ReleaseApplication, ReleaseSpec}
 
   @source_pack_keys ~w(descriptor_module id registry_order schema_version startup_role)
   @sealed_pack_keys Enum.sort(["app_sha256" | @source_pack_keys])

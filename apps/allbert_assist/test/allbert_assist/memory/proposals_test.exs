@@ -9,6 +9,7 @@ defmodule AllbertAssist.Memory.ProposalsTest do
   alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Ecto.Adapters.SQL
 
   setup do
@@ -25,14 +26,14 @@ defmodule AllbertAssist.Memory.ProposalsTest do
              Settings.put(
                "memory.consolidation.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "memory.collection.origin_grants",
                ["local_operator"],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     on_exit(fn ->
@@ -118,7 +119,7 @@ defmodule AllbertAssist.Memory.ProposalsTest do
              Settings.put(
                "memory.collection.origin_grants",
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :origin_grant_required} =

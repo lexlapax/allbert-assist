@@ -31,7 +31,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Workspace do
       writable?: true
     },
     "workspace.canvas.tile_body_max_bytes" => %{
-      default: 65536,
+      default: 65_536,
       max: 262_144,
       min: 1024,
       sensitive?: false,
@@ -53,7 +53,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Workspace do
       writable?: true
     },
     "workspace.fragment.payload_max_bytes" => %{
-      default: 65536,
+      default: 65_536,
       max: 262_144,
       min: 1024,
       sensitive?: false,
@@ -144,11 +144,11 @@ defmodule AllbertAssist.Settings.FragmentOwners.Workspace do
     "workspace" => %{
       "accessibility" => %{"high_contrast" => false, "reduce_motion" => false},
       "agui_bridge" => %{"enabled" => true},
-      "canvas" => %{"max_tiles_per_thread" => 64, "tile_body_max_bytes" => 65536},
+      "canvas" => %{"max_tiles_per_thread" => 64, "tile_body_max_bytes" => 65_536},
       "ephemeral" => %{"max_active_per_thread" => 16},
       "fragment" => %{
         "emission_enabled" => true,
-        "payload_max_bytes" => 65536,
+        "payload_max_bytes" => 65_536,
         "rate_limit_per_second" => 10,
         "receiver_rate_limit_per_second" => 10,
         "signing_secret" => nil

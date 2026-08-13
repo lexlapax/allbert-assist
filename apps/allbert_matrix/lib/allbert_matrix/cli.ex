@@ -25,9 +25,9 @@ defmodule AllbertMatrix.CLI do
 
   @behaviour AllbertAssist.CLI.Area
 
-  alias AllbertAssist.CLI.Channels.Support
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.CLI.Channels.Support
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surfaces.ContextBuilder

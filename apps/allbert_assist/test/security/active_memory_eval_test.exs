@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   @now "2026-05-28T12:00:00Z"
@@ -547,7 +548,7 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
              Settings.put(
                "intent.model_assist_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Application.put_env(:allbert_assist, Classifier, classifier: CaptureClassifier)
@@ -611,14 +612,14 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

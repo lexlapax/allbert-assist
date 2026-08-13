@@ -1,4 +1,6 @@
 defmodule AllbertAssistWeb.PackReadiness do
+  alias Phoenix.Channel.Server
+
   @moduledoc """
   Web-side observer for the current acknowledged Pack readiness epoch.
 
@@ -35,7 +37,7 @@ defmodule AllbertAssistWeb.PackReadiness do
   @doc false
   @spec disconnect() :: :ok | {:error, term()}
   def disconnect do
-    Phoenix.Channel.Server.broadcast(
+    Server.broadcast(
       AllbertAssist.PubSub,
       @disconnect_topic,
       "disconnect",

@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V066SweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.66 Product RC & No-Docs Validation sweep.
 
@@ -468,5 +470,5 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   # ── helpers ──────────────────────────────────────────────────────────────────
 
   defp read!(relative),
-    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
+    do: GateOwners.read_owned_path!(@repo_root, relative)
 end

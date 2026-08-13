@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.RunShellCommandTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
@@ -135,7 +136,7 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
              Settings.put(
                "permissions.command_execute",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, approve_response} =
@@ -179,7 +180,7 @@ defmodule AllbertAssist.Actions.RunShellCommandTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

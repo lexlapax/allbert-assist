@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V056IntentEvalTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.56 intent descriptor learning, routing-accuracy gate, model recommendation,
   and operator-action-layer release evals.
@@ -456,21 +458,21 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
              Settings.put(
                "intent.router_escalation_profile",
                "fast",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _secret} =
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "v056-operator-test-key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Req.Test.stub(__MODULE__, fn conn ->

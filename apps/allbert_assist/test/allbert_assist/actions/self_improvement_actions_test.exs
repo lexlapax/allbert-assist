@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Tools.Discovery
 
   setup do
@@ -139,7 +140,7 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
                  title: "Review diagnostic release plan",
                  objective: "Review diagnostic release plan evidence."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _event} =
@@ -149,7 +150,7 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
                  kind: "observed",
                  summary: "Observed a repeatable release-review shape."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     context = %{actor: "alice", user_id: "alice", channel: :test, active_app: "workspace"}
@@ -208,14 +209,14 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
              Settings.put(
                "self_improvement.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _resolved} =
              Settings.put(
                "self_improvement.trace_index.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

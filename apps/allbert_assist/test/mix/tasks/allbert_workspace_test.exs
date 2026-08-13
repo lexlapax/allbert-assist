@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
@@ -58,7 +59,7 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
              Settings.put(
                "workspace.theme.mode",
                "dark",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     output =

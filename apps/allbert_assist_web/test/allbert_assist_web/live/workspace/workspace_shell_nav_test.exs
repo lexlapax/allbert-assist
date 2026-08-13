@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.{Conversations, Objectives, Paths, Settings}
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "old operator home routes are absent", %{conn: conn} do
     for path <- ["/agent", "/settings"] do
@@ -97,7 +98,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
              Settings.put(
                "workspace.theme.mode",
                "dark",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -257,7 +258,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
              Settings.put(
                "workspace.layout.override_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -346,7 +347,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
              Settings.put(
                "workspace.offline.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, html} = live(conn, ~p"/workspace")
@@ -367,14 +368,14 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
              Settings.put(
                "workspace.theme.mode",
                "dark",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "workspace.accessibility.high_contrast",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, html} = live(conn, ~p"/workspace")
@@ -395,7 +396,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
              Settings.put(
                "workspace.accessibility.reduce_motion",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, html} = live(conn, ~p"/workspace")
@@ -419,7 +420,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
                  status: "blocked",
                  active_app: "stocksage"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")

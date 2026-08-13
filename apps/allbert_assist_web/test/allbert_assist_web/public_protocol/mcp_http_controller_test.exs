@@ -9,6 +9,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
   alias AllbertAssist.PublicProtocol.RateLimiter
   alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyCap
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyReader
   alias AllbertAssistWeb.PublicProtocol.McpHttpController
@@ -261,7 +262,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              Settings.put(
                "public_protocol.max_body_bytes",
                1024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     conn =
@@ -279,7 +280,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              Settings.put(
                "public_protocol.max_body_bytes",
                1024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     conn =
@@ -339,14 +340,14 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              Settings.put(
                "mcp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp_server.streamable_http.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -355,7 +356,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              Settings.put(
                "mcp_server.tools_enabled",
                tools,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -364,7 +365,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              Settings.put(
                "mcp_server.memory_namespaces_enabled",
                namespaces,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -377,12 +378,12 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              Settings.put(
                "mcp_server.clients",
                updated,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
   defp context do
-    AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+    ReadyEffectContext.attach(%{
       actor: "test",
       channel: "test",
       audit?: false

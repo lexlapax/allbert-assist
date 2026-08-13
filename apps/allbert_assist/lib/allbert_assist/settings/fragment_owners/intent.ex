@@ -185,8 +185,8 @@ defmodule AllbertAssist.Settings.FragmentOwners.Intent do
       writable?: true
     },
     "intent.router_model_timeout_ms" => %{
-      default: 20000,
-      max: 60000,
+      default: 20_000,
+      max: 60_000,
       min: 250,
       sensitive?: false,
       type: :bounded_integer,
@@ -316,7 +316,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Intent do
       "router_escalation_profile" => "router_escalation_local",
       "router_min_confidence" => 0.6,
       "router_model_profile" => "router_local",
-      "router_model_timeout_ms" => 20000,
+      "router_model_timeout_ms" => 20_000,
       "router_scoring" => %{
         "prefilter" => %{
           "complete_required_slots_boost" => 0.35,

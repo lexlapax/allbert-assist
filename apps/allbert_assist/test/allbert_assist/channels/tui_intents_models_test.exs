@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertTUI.Adapter
@@ -158,7 +159,7 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
              Settings.put(
                "channels.tui.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
@@ -171,14 +172,14 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
                    "enabled" => true
                  }
                ],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "providers.local_ollama.base_url",
                "http://127.0.0.1:1/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

@@ -302,7 +302,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
                    objective: "Complete one analysis for AAPL.",
                    status: "running"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       handoff = %{
@@ -326,7 +326,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
                    status: "cancelled",
                    progress_summary: "Cancelled in renderer test."
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, [text], _keyboard} = Renderer.render_response(%{approval_handoff: handoff})
@@ -406,7 +406,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
                    external_message_id: "10",
                    status: "received"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       Req.Test.stub(__MODULE__, fn
@@ -735,7 +735,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
                    external_event_id: "300",
                    status: "received"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       Req.Test.expect(__MODULE__, fn conn ->

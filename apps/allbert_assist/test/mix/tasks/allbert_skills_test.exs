@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.SkillsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   import ExUnit.CaptureIO
@@ -312,7 +313,7 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -335,7 +336,7 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 
@@ -358,7 +359,7 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

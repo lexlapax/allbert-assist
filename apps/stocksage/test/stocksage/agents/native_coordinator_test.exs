@@ -177,7 +177,7 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+           ReadyEffectContext.attach(%{actor: "test"})
          ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")

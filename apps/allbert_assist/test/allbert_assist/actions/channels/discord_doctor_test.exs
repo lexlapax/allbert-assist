@@ -6,6 +6,7 @@ defmodule AllbertDiscord.Actions.DoctorTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertDiscord.Actions.Doctor, as: DiscordDoctor
   alias AllbertDiscord.Doctor
 
@@ -29,14 +30,14 @@ defmodule AllbertDiscord.Actions.DoctorTest do
              Settings.put(
                "channels.discord.application_id",
                "123456",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.discord.allowed_guild_ids",
                ["987654321"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->
@@ -55,7 +56,7 @@ defmodule AllbertDiscord.Actions.DoctorTest do
              Settings.put(
                "channels.discord.gateway_intents",
                ["guild_messages", "direct_messages", "message_content"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = DiscordDoctor.run(%{}, context())
@@ -100,7 +101,7 @@ defmodule AllbertDiscord.Actions.DoctorTest do
              Settings.put(
                "channels.discord.gateway_intents",
                ["guild_messages", "direct_messages"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} = DiscordDoctor.run(%{}, context())

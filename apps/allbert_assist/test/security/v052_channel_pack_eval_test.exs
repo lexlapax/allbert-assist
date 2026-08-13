@@ -295,7 +295,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
              Settings.put(
                "permissions.channel_message_inbound",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     denied_by_policy =
@@ -422,7 +422,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
              Settings.put(
                "permissions.channel_message_inbound",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     slack_request =
@@ -621,7 +621,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
              Settings.put(
                key,
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

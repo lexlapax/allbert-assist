@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.{Confirmations, Paths, Runtime, Session, Settings}
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
   @runtime_async_timeout 60_000
@@ -99,7 +100,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
              Settings.put(
                "workspace.accessibility.reduce_motion",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -157,21 +158,21 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

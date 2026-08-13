@@ -6,6 +6,7 @@ defmodule AllbertDiscord.Doctor do
   alias AllbertAssist.Settings.Secrets
   alias AllbertDiscord.Adapter
   alias AllbertDiscord.Client
+  alias AllbertDiscord.Settings.Fragment
 
   @state_path Path.join(["channels", "discord", "doctor", "state.json"])
   # Privileged intent required to read inbound message text; without it the
@@ -35,7 +36,7 @@ defmodule AllbertDiscord.Doctor do
   def state_path, do: Path.join(Paths.cache_root(), @state_path)
 
   defp run_checks(settings, opts) do
-    base_diagnostics = AllbertDiscord.Settings.Fragment.required_when_enabled(settings)
+    base_diagnostics = Fragment.required_when_enabled(settings)
     token_ref = Map.get(settings, "bot_token_ref")
     application_id = Map.get(settings, "application_id", "")
     intents = Map.get(settings, "gateway_intents", [])

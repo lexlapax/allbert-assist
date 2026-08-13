@@ -20,7 +20,7 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
                  active_app: "stocksage",
                  source_thread_id: "thread_objectives_index"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _other_user} =
@@ -30,7 +30,7 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
                  title: "Alice only",
                  objective: "Should not leak."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, html} = live(conn, ~p"/objectives")
@@ -66,7 +66,7 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
                  objective: "Local operator work.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _alice} =
@@ -76,7 +76,7 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
                  title: "Alice private objective",
                  objective: "Must never leak via a URL param."
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     # Attempt the pre-M10.2 IDOR: request another user's objectives via the URL param.

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Templates.ScaffoldTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
@@ -407,7 +408,7 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                permissions,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -418,7 +419,7 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
              Settings.put(
                "dynamic_codegen.allowed_facades",
                facades,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
   alias AllbertAssist.Sandbox.ReportWriter
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   defmodule EvalDocker do
     @behaviour AllbertAssist.Sandbox.Backend
@@ -379,7 +380,7 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

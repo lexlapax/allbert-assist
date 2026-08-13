@@ -80,7 +80,7 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
                  objective: "Complete one analysis for AAPL.",
                  acceptance_criteria: AcceptanceCriteria.single_step()
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert objective.status == "open"
@@ -257,7 +257,7 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
                Objectives.update_objective(
                  child,
                  %{field => value},
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, unchanged} = Objectives.get_objective(child.id)

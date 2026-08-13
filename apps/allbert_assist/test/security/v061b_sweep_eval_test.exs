@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V061bSweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.61b UX-refinement sweep.
 
@@ -156,5 +158,5 @@ defmodule AllbertAssist.Security.V061bSweepEvalTest do
   end
 
   defp read!(relative),
-    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
+    do: GateOwners.read_owned_path!(@repo_root, relative)
 end

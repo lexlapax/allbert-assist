@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Security.V045MarketplaceEvalTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :security_eval_serial
 
   alias AllbertAssist.Actions.Runner
@@ -199,7 +200,7 @@ defmodule AllbertAssist.Security.V045MarketplaceEvalTest do
              Settings.put(
                "permissions.marketplace_install",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, denied} =

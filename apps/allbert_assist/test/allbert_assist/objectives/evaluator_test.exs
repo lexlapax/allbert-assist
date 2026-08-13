@@ -4,6 +4,7 @@ defmodule AllbertAssist.Objectives.EvaluatorTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AcceptanceCriteria
   alias AllbertAssist.Objectives.Evaluator
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   test "evaluates single-step RunAnalysis criteria deterministically" do
     criteria =
@@ -20,7 +21,7 @@ defmodule AllbertAssist.Objectives.EvaluatorTest do
                  objective: "Complete one analysis for AAPL.",
                  acceptance_criteria: criteria
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -33,7 +34,7 @@ defmodule AllbertAssist.Objectives.EvaluatorTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  action_params: %{"ticker" => "AAPL"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert :met = Evaluator.evaluate(objective, [step])

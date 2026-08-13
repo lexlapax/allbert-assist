@@ -1,5 +1,6 @@
 defmodule AllbertAssist.ActionTest do
   use ExUnit.Case, async: true
+  alias AllbertAssist.Runtime.Response
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Action
@@ -84,7 +85,7 @@ defmodule AllbertAssist.ActionTest do
              result: %{kept?: true}
            }
 
-    assert DemoAction.response_schema() == AllbertAssist.Runtime.Response.action_response_schema()
+    assert DemoAction.response_schema() == Response.action_response_schema()
   end
 
   test "validates required capability metadata" do

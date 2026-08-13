@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Packages.InstallSpecTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Packages.InstallSpec
@@ -157,7 +158,7 @@ defmodule AllbertAssist.Packages.InstallSpecTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

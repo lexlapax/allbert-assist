@@ -10,6 +10,7 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.StockSageRegistryCase
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -123,7 +124,7 @@ defmodule AllbertAssist.Security.IdentityContextEvalTest do
              Settings.put(
                "permissions.external_network",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     context = %{

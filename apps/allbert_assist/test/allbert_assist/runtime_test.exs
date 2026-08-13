@@ -12,6 +12,7 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.Session
   alias AllbertAssist.Session.Scratchpad
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   defmodule ReplacingThreadBarrier do
@@ -762,7 +763,7 @@ defmodule AllbertAssist.RuntimeTest do
              Settings.put(
                "runtime.trace_default",
                "enabled",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })
@@ -795,7 +796,7 @@ defmodule AllbertAssist.RuntimeTest do
              Settings.put(
                "runtime.trace_default",
                "denied_only",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })

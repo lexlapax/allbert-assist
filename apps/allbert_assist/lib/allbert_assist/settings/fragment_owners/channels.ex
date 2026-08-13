@@ -60,7 +60,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
       writable?: true
     },
     "channels.email.imap_poll_interval_ms" => %{
-      default: 60000,
+      default: 60_000,
       max: 3_600_000,
       min: 1000,
       sensitive?: false,
@@ -69,7 +69,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
     },
     "channels.email.imap_port" => %{
       default: 993,
-      max: 65535,
+      max: 65_535,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,
@@ -88,7 +88,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
       writable?: true
     },
     "channels.email.max_body_bytes" => %{
-      default: 65536,
+      default: 65_536,
       max: 1_048_576,
       min: 1,
       sensitive?: false,
@@ -116,7 +116,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
     },
     "channels.email.smtp_port" => %{
       default: 587,
-      max: 65535,
+      max: 65_535,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,
@@ -179,7 +179,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
     },
     "channels.telegram.max_text_bytes" => %{
       default: 4096,
-      max: 65536,
+      max: 65_536,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,
@@ -187,7 +187,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
     },
     "channels.telegram.poll_interval_ms" => %{
       default: 2000,
-      max: 60000,
+      max: 60_000,
       min: 250,
       sensitive?: false,
       type: :bounded_integer,
@@ -240,7 +240,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
     },
     "channels.whatsapp.webhook_rate_limit.burst" => %{
       default: 10,
-      max: 10000,
+      max: 10_000,
       min: 0,
       sensitive?: false,
       type: :bounded_integer,
@@ -248,14 +248,14 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
     },
     "channels.whatsapp.webhook_rate_limit.limit" => %{
       default: 60,
-      max: 10000,
+      max: 10_000,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,
       writable?: true
     },
     "channels.whatsapp.webhook_rate_limit.period_ms" => %{
-      default: 60000,
+      default: 60_000,
       max: 86_400_000,
       min: 100,
       sensitive?: false,
@@ -281,11 +281,11 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
         "imap_host" => "",
         "imap_mailbox" => "INBOX",
         "imap_password_ref" => "secret://channels/email/imap_password",
-        "imap_poll_interval_ms" => 60000,
+        "imap_poll_interval_ms" => 60_000,
         "imap_port" => 993,
         "imap_ssl" => true,
         "imap_username" => "",
-        "max_body_bytes" => 65536,
+        "max_body_bytes" => 65_536,
         "response_style" => "standard",
         "smtp_host" => "",
         "smtp_password_ref" => "secret://channels/email/smtp_password",
@@ -312,7 +312,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Channels do
         "phone_number_id" => "",
         "waba_id" => "",
         "webhook_enabled" => false,
-        "webhook_rate_limit" => %{"burst" => 10, "limit" => 60, "period_ms" => 60000},
+        "webhook_rate_limit" => %{"burst" => 10, "limit" => 60, "period_ms" => 60_000},
         "webhook_verify_token_ref" => "secret://channels/whatsapp/webhook_verify_token"
       }
     }

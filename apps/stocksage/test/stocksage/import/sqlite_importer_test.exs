@@ -1,8 +1,8 @@
 defmodule StockSage.Import.SqliteImporterTest do
   use StockSage.DataCase
 
-  alias StockSage.Import.SqliteImporter
   alias StockSage.{Analyses, LegacyFixture, Memory}
+  alias StockSage.Import.SqliteImporter
 
   setup do
     path =

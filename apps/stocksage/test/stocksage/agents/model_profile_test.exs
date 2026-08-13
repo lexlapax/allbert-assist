@@ -1,5 +1,6 @@
 defmodule StockSage.Agents.ModelProfileTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -36,7 +37,7 @@ defmodule StockSage.Agents.ModelProfileTest do
              Settings.put(
                "stocksage.native_model_profile_market_context",
                "deep-fast",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -49,7 +50,7 @@ defmodule StockSage.Agents.ModelProfileTest do
              Settings.put(
                "stocksage.native_model_profile",
                "global-fast",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert ModelProfile.resolve(:risk_aggressive) == "slow"

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Pack.CandidateBuilderTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.DevGates.GateOwners
 
   @moduletag :global_process_serial
   @moduletag timeout: 120_000
@@ -264,7 +265,7 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
 
     expected_rows =
       context.closed
-      |> AllbertAssist.DevGates.GateOwners.canonical_pack_rows!()
+      |> GateOwners.canonical_pack_rows!()
       |> Enum.sort_by(&{&1.owner_id, &1.identity.value})
 
     # v1.4 M13: fifteen lanes, one per descriptor-bearing application. Before the

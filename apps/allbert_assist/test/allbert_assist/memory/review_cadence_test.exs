@@ -4,6 +4,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
   alias AllbertAssist.Jobs
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)
@@ -33,7 +34,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
              Settings.put(
                "memory.review_cadence",
                "daily",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  audit?: false
                })
@@ -56,7 +57,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
              Settings.put(
                "memory.review_cadence",
                "daily",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  audit?: false
                })
@@ -66,7 +67,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
              Settings.put(
                "memory.review_cadence",
                "weekly",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  audit?: false
                })
@@ -86,7 +87,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
              Settings.put(
                "memory.review_cadence",
                "daily",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  audit?: false
                })
@@ -96,7 +97,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
              Settings.put(
                "memory.review_cadence",
                "manual",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  audit?: false
                })

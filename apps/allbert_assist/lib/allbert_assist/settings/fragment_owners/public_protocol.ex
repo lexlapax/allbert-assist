@@ -13,7 +13,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.PublicProtocol do
       writable?: true
     },
     "public_protocol.result_readback_sweep_interval_ms" => %{
-      default: 60000,
+      default: 60_000,
       max: 86_400_000,
       min: 1000,
       sensitive?: false,
@@ -23,7 +23,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.PublicProtocol do
     "public_protocol.result_readback_ttl_ms" => %{
       default: 3_600_000,
       max: 86_400_000,
-      min: 60000,
+      min: 60_000,
       sensitive?: false,
       type: :bounded_integer,
       writable?: true
@@ -40,7 +40,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.PublicProtocol do
   @defaults %{
     "public_protocol" => %{
       "max_body_bytes" => 1_048_576,
-      "result_readback_sweep_interval_ms" => 60000,
+      "result_readback_sweep_interval_ms" => 60_000,
       "result_readback_ttl_ms" => 3_600_000,
       "schema_version" => 1
     }

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.MarketplaceTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Marketplace.Doctor, as: MarketplaceDoctor
@@ -80,7 +81,7 @@ defmodule AllbertAssist.MarketplaceTest do
              Settings.put(
                "marketplace.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     actions = [

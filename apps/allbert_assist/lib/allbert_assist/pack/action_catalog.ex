@@ -8,8 +8,8 @@ defmodule AllbertAssist.Pack.ActionCatalog do
   static-first order without a central module list or numeric denominator.
   """
 
-  alias AllbertAssist.Pack.CompiledInventory
   alias AllbertAssist.{Action, Actions.Capability}
+  alias AllbertAssist.Pack.CompiledInventory
 
   @spec compiled_modules() :: CompiledInventory.action_modules_result()
   def compiled_modules, do: CompiledInventory.action_modules()

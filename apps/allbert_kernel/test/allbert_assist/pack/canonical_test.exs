@@ -3,14 +3,14 @@ defmodule AllbertAssist.Pack.CanonicalTest do
 
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Pack.Canonical
-  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
-  alias AllbertAssist.Pack.RowSchemas.Input
-  alias AllbertAssist.Pack.Target
   alias AllbertAssist.Pack.{ActionBinding, Compatibility, CompatibilityAlias}
+  alias AllbertAssist.Pack.Canonical
   alias AllbertAssist.Pack.{ChildSpecProjection, CompatibilityDiagnostic}
   alias AllbertAssist.Pack.{Contribution, Descriptor, Order, Owner, OwnerRef, Row, RowSchemas}
   alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
+  alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
+  alias AllbertAssist.Pack.RowSchemas.Input
+  alias AllbertAssist.Pack.Target
 
   test "candidate schema versions outside v1 return one typed validation diagnostic" do
     candidate = %Candidate{

@@ -44,7 +44,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Artifacts do
       writable?: false
     },
     "artifacts.ingestion_timeout_ms" => %{
-      default: 15000,
+      default: 15_000,
       sensitive?: false,
       type: :timeout_ms,
       writable?: true
@@ -91,7 +91,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Artifacts do
       "dedup" => "content_sha256",
       "enabled" => false,
       "gc" => %{"delete_orphans" => true, "enabled" => false, "mode" => "on_demand"},
-      "ingestion_timeout_ms" => 15000,
+      "ingestion_timeout_ms" => 15_000,
       "max_bytes" => 20_971_520,
       "retention_enabled" => false,
       "root" => "<ALLBERT_HOME>/artifacts",

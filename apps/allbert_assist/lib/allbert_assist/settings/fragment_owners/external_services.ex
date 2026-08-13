@@ -59,7 +59,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.ExternalServices do
       writable?: true
     },
     "external_services.max_timeout_ms" => %{
-      default: 30000,
+      default: 30_000,
       sensitive?: false,
       type: :timeout_ms,
       writable?: true
@@ -101,7 +101,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.ExternalServices do
       "enabled" => false,
       "max_redirects" => 0,
       "max_response_bytes" => 1_048_576,
-      "max_timeout_ms" => 30000,
+      "max_timeout_ms" => 30_000,
       "profiles" => %{},
       "redact_request_headers" => ["authorization", "cookie", "x-api-key"],
       "redact_response_headers" => ["set-cookie", "authorization"],

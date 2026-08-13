@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.RouterTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.ConversationContext
@@ -91,7 +92,7 @@ defmodule AllbertAssist.Intent.RouterTest do
                Settings.put(
                  "intent.router_strategy",
                  "two_stage_local",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, "two_stage_local"} = Settings.get("intent.router_strategy")
@@ -100,7 +101,7 @@ defmodule AllbertAssist.Intent.RouterTest do
                Settings.put(
                  "intent.router_strategy",
                  "deterministic",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, "deterministic"} = Settings.get("intent.router_strategy")

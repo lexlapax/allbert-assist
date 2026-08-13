@@ -14,8 +14,8 @@ defmodule StockSage.ActionsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias StockSage.LegacyFixture
   alias StockSage.{Analyses, Queue}
+  alias StockSage.LegacyFixture
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -292,7 +292,7 @@ defmodule StockSage.ActionsTest do
                  "permissions" => %{"stocksage_write" => "denied"}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, denied} =
@@ -313,7 +313,7 @@ defmodule StockSage.ActionsTest do
                  "permissions" => %{"stocksage_write" => "denied"}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, denied} =

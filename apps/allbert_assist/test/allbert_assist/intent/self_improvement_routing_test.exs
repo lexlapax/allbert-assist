@@ -4,6 +4,7 @@ defmodule AllbertAssist.Intent.SelfImprovementRoutingTest do
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -22,7 +23,7 @@ defmodule AllbertAssist.Intent.SelfImprovementRoutingTest do
              Settings.put(
                "self_improvement.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->

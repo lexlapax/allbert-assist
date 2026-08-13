@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v1.0.1 M4.2/M4.2.3 — `browser_research_handoff` is the honest turn-level
   dispatcher to the real `research.specialist` delegate path behind ONE
@@ -68,14 +70,14 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
                Settings.put(
                  "browser.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, _setting} =
                Settings.put(
                  "research.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       # The async approval resume runs as a supervised Task that shares this
@@ -316,14 +318,14 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
                Settings.put(
                  "browser.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, _setting} =
                Settings.put(
                  "research.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       :ok
@@ -372,7 +374,7 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
                    source_channel: "live_view",
                    source_surface: "/workspace"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, step} =
@@ -384,7 +386,7 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
                    stage: "execute_step",
                    candidate_action: "browser_start_session"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       _ = EngineAgent.execute_step(%{step_id: step.id, trace_id: "origin_attribution_test"})
@@ -405,14 +407,14 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
                Settings.put(
                  "browser.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, _setting} =
                Settings.put(
                  "research.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       # See the consent-gate describe: drain async resume tasks before the
@@ -601,7 +603,7 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
                Settings.put(
                  "browser.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, response} =
@@ -622,14 +624,14 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
                Settings.put(
                  "browser.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, _setting} =
                Settings.put(
                  "research.enabled",
                  true,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())

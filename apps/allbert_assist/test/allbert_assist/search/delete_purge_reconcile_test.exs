@@ -106,7 +106,7 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
              Settings.put(
                "search.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, preview} = Purge.preview(%{target_kind: :all}, "alice")
@@ -129,7 +129,7 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
              Settings.put(
                "search.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     stop_supervised!(Projection)
@@ -161,7 +161,7 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
              Settings.put(
                "search.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, %{phase: :complete, ready?: false}} =
@@ -181,7 +181,7 @@ defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
              Settings.put(
                "search.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     for {phase, index} <- Enum.with_index(~w[connections_closed files_replaced verified], 1) do

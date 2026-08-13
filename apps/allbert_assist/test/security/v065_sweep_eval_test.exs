@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V065SweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.65 Local Knowledge: Files, Notes, And Agent Memory sweep.
 
@@ -536,7 +538,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   end
 
   defp read!(relative),
-    do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, relative)
+    do: GateOwners.read_owned_path!(@repo_root, relative)
 
   defp restore_env(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore_env(key, value), do: Application.put_env(:allbert_assist, key, value)

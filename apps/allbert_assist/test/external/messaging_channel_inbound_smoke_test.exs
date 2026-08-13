@@ -1,5 +1,6 @@
 defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
   # The test waits for an operator to send a real inbound message; ExUnit's
   # default per-test timeout is 60s, which would kill the wait early. Let the
@@ -465,7 +466,7 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
              Settings.put(
                key,
                value,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

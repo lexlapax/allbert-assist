@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.BrowserTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
@@ -34,7 +35,7 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
              Settings.put(
                "browser.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     on_exit(fn ->

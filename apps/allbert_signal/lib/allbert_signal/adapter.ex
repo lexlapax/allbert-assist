@@ -17,6 +17,7 @@ defmodule AllbertSignal.Adapter do
   alias AllbertSignal.Daemon
   alias AllbertSignal.Parser
   alias AllbertSignal.Renderer
+  alias AllbertSignal.Settings.Fragment
 
   @provider "signal_cli_jsonrpc"
   @trust_class :e2ee_origin
@@ -108,7 +109,7 @@ defmodule AllbertSignal.Adapter do
       enabled?: Map.get(settings, "enabled", false),
       settings: settings,
       client_opts: Keyword.get(opts, :client_opts, default_client_opts(settings)),
-      diagnostics: AllbertSignal.Settings.Fragment.required_when_enabled(settings)
+      diagnostics: Fragment.required_when_enabled(settings)
     }
     |> maybe_put_test_readiness_server(opts)
   end

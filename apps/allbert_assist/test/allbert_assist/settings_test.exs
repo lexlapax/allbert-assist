@@ -1,5 +1,11 @@
 defmodule AllbertAssist.SettingsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.DevGates.V14M0RegistryLedger
+  alias AllbertAssist.Pack.Residual
+  alias AllbertAssist.Settings.Fragment
+  alias AllbertAssist.Settings.FragmentOwners.Workspace
+  alias AllbertAssist.Settings.VersionContract
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Marketplace.SettingsFragment, as: MarketplaceSettingsFragment
@@ -53,11 +59,11 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   defmodule MissingDefaultFragmentOwner do
-    @behaviour AllbertAssist.Settings.FragmentOwner
+    @behaviour FragmentOwner
 
     @impl true
     def fragment do
-      AllbertAssist.Settings.Fragment.new!(%{
+      Fragment.new!(%{
         id: "core:missing_default_fixture",
         owner: "missing_default_fixture",
         source: :core,
@@ -78,11 +84,11 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   defmodule MismatchedDefaultFragmentOwner do
-    @behaviour AllbertAssist.Settings.FragmentOwner
+    @behaviour FragmentOwner
 
     @impl true
     def fragment do
-      AllbertAssist.Settings.Fragment.new!(%{
+      Fragment.new!(%{
         id: "core:mismatched_default_fixture",
         owner: "mismatched_default_fixture",
         source: :core,
@@ -104,11 +110,11 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   defmodule UndeclaredDynamicDefaultFragmentOwner do
-    @behaviour AllbertAssist.Settings.FragmentOwner
+    @behaviour FragmentOwner
 
     @impl true
     def fragment do
-      AllbertAssist.Settings.Fragment.new!(%{
+      Fragment.new!(%{
         id: "core:undeclared_dynamic_fixture",
         owner: "undeclared_dynamic_fixture",
         source: :core,
@@ -132,11 +138,11 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   defmodule UndeclaredSupplementalWriteFragmentOwner do
-    @behaviour AllbertAssist.Settings.FragmentOwner
+    @behaviour FragmentOwner
 
     @impl true
     def fragment do
-      AllbertAssist.Settings.Fragment.new!(%{
+      Fragment.new!(%{
         id: "core:undeclared_supplemental_write_fixture",
         owner: "undeclared_supplemental_write_fixture",
         source: :core,
@@ -226,7 +232,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "intent.max_candidates",
                120,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 120
@@ -236,7 +242,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "intent.calendar_mcp_server",
                "work_calendar",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == "work_calendar"
@@ -246,7 +252,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "intent.router_decisive_confidence",
                0.9,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 0.9
@@ -255,7 +261,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "intent.eval.min_accuracy",
                0.9,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 0.9
@@ -264,7 +270,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "intent.eval.block_on_regression",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == false
@@ -273,7 +279,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "active_memory.score_weights.identity_inclusion",
                2.0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -284,7 +290,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "active_memory.internal_candidate_limit",
                20,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 20
@@ -293,7 +299,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "active_memory.excluded_sample_limit",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 2
@@ -302,56 +308,56 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "intent.model_min_confidence",
                1.5,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "intent.router_decisive_confidence", _reason}} =
              Settings.put(
                "intent.router_decisive_confidence",
                1.5,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "intent.eval.min_accuracy", _reason}} =
              Settings.put(
                "intent.eval.min_accuracy",
                1.5,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "intent.handoff_threshold", _reason}} =
              Settings.put(
                "intent.handoff_threshold",
                1.5,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "intent.max_candidates", _reason}} =
              Settings.put(
                "intent.max_candidates",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "active_memory.top_k", _reason}} =
              Settings.put(
                "active_memory.top_k",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "active_memory.internal_candidate_limit", _reason}} =
              Settings.put(
                "active_memory.internal_candidate_limit",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "active_memory.score_weights.identity_inclusion", _reason}} =
              Settings.put(
                "active_memory.score_weights.identity_inclusion",
                0.0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -455,7 +461,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "voice.audio.max_bytes",
                2048,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 2048
@@ -464,7 +470,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.voice_transcribe",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == "needs_confirmation"
@@ -473,21 +479,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "voice.audio.max_bytes",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "permissions.microphone_capture", _reason}} =
              Settings.put(
                "permissions.microphone_capture",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "voice.local_runtime.ollama_base_url", _reason}} =
              Settings.put(
                "voice.local_runtime.ollama_base_url",
                "http://192.168.1.10:11434/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -496,7 +502,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "voice.local_runtime.ollama_base_url",
                "http://user:pass@127.0.0.1:11434/v1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -539,7 +545,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "vision.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true
@@ -548,7 +554,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "image.generation.max_bytes",
                2048,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 2048
@@ -557,7 +563,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.image_generate",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == "needs_confirmation"
@@ -566,14 +572,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "vision.media.max_pixels",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "image.schema_version"}} =
              Settings.put(
                "image.schema_version",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -590,7 +596,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.artifact_write",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == "needs_confirmation"
@@ -599,7 +605,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.artifact_delete",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -633,7 +639,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "artifacts.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true
@@ -642,7 +648,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "artifacts.max_bytes",
                2048,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 2048
@@ -651,7 +657,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "artifacts.ingestion_timeout_ms",
                2_000,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 2_000
@@ -660,7 +666,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "artifacts.allowed_mime",
                ["image/*", "text/plain"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == ["image/*", "text/plain"]
@@ -669,21 +675,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "artifacts.max_bytes",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "artifacts.ingestion_timeout_ms", _reason}} =
              Settings.put(
                "artifacts.ingestion_timeout_ms",
                999,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "artifacts.schema_version"}} =
              Settings.put(
                "artifacts.schema_version",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, fragment} = Fragments.fragment_for_key("artifacts.enabled")
@@ -711,7 +717,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "objectives.fanout.rollout_mode",
                "explicit",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert explicit.value == "explicit"
@@ -721,7 +727,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "objectives.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == false
@@ -730,7 +736,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "conversations.unified_history.include_e2ee_origin",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -741,7 +747,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "objectives.max_steps_per_turn",
                8,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 8
@@ -750,7 +756,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "objectives.max_loop_count",
                12,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 12
@@ -759,7 +765,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "objectives.trace_detail",
                "debug",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == "debug"
@@ -768,21 +774,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "objectives.max_steps_per_turn",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "objectives.max_loop_count", _reason}} =
              Settings.put(
                "objectives.max_loop_count",
                33,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "objectives.trace_detail", _reason}} =
              Settings.put(
                "objectives.trace_detail",
                "verbose",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -811,7 +817,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workflows.max_steps_per_workflow",
                10,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 10
@@ -820,28 +826,28 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workflows.max_steps_per_workflow",
                11,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "workflows.max_yaml_bytes_per_file", _reason}} =
              Settings.put(
                "workflows.max_yaml_bytes_per_file",
                1_048_577,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "workflows.schema_version"}} =
              Settings.put(
                "workflows.schema_version",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "plan.run.default_concurrency"}} =
              Settings.put(
                "plan.run.default_concurrency",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, workflows_fragment} = Fragments.fragment_for_key("workflows.enabled")
@@ -882,7 +888,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "marketplace.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == false
@@ -891,7 +897,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "marketplace.catalog.cache_path",
                "<ALLBERT_HOME>/tmp/cache",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -902,14 +908,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "marketplace.schema_version",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "marketplace.install.default_state"}} =
              Settings.put(
                "marketplace.install.default_state",
                "enabled",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, fragment} = Fragments.fragment_for_key("marketplace.enabled")
@@ -936,7 +942,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "self_improvement.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true
@@ -945,7 +951,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "self_improvement.trace_index.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true
@@ -954,7 +960,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "self_improvement.trace_index.max_indexed_entries",
                50_000,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -965,7 +971,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "self_improvement.schema_version",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error,
@@ -973,7 +979,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "self_improvement.trace_index.max_indexed_entries",
                50_001,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -982,28 +988,28 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "self_improvement.trace_index.min_repetitions",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "self_improvement.suggestions.max_open", _reason}} =
              Settings.put(
                "self_improvement.suggestions.max_open",
                201,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "self_improvement.suggestions.ttl_days", _reason}} =
              Settings.put(
                "self_improvement.suggestions.ttl_days",
                366,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "self_improvement.drafts.max_open", _reason}} =
              Settings.put(
                "self_improvement.drafts.max_open",
                501,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, fragment} = Fragments.fragment_for_key("self_improvement.enabled")
@@ -1033,7 +1039,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -1042,7 +1048,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.backend",
                "docker_runsc",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert backend.value == "docker_runsc"
@@ -1051,7 +1057,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.image",
                "allbert-elixir-otp@sha256:abc",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1062,7 +1068,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.cpu_limit",
                2.5,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert cpu.value == 2.5
@@ -1071,7 +1077,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.memory_mb",
                2048,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert memory.value == 2048
@@ -1080,7 +1086,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.timeout_ms",
                60_000,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert timeout.value == 60_000
@@ -1089,7 +1095,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.output_bytes",
                131_072,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert output.value == 131_072
@@ -1098,7 +1104,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.sandbox_trial",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert sandbox_trial.value == "denied"
@@ -1107,42 +1113,42 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sandbox.elixir.backend",
                "firecracker",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "sandbox.elixir.network", _reason}} =
              Settings.put(
                "sandbox.elixir.network",
                "host",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "sandbox.elixir.cpu_limit", _reason}} =
              Settings.put(
                "sandbox.elixir.cpu_limit",
                99.0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "sandbox.elixir.memory_mb", _reason}} =
              Settings.put(
                "sandbox.elixir.memory_mb",
                64,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "permissions.sandbox_trial", _reason}} =
              Settings.put(
                "permissions.sandbox_trial",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, dynamic_integration} =
              Settings.put(
                "permissions.dynamic_integration",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert dynamic_integration.value == "denied"
@@ -1151,14 +1157,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.dynamic_integration",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, dynamic_codegen_request} =
              Settings.put(
                "permissions.dynamic_codegen_request",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert dynamic_codegen_request.value == "denied"
@@ -1167,7 +1173,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.dynamic_codegen_discard",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert dynamic_codegen_discard.value == "denied"
@@ -1194,7 +1200,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled_discovery.value == true
@@ -1203,7 +1209,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.sources.official.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert official_disabled.value == false
@@ -1212,14 +1218,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.sources.pulsemcp.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, api_key_ref} =
              Settings.put(
                "mcp.discovery.sources.pulsemcp.api_key_ref",
                "secret://mcp/discovery/pulsemcp_api_key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert api_key_ref.value == "[REDACTED]"
@@ -1228,7 +1234,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.sources.pulsemcp.tenant_ref",
                "secret://mcp/discovery/pulsemcp_tenant",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert tenant_ref.value == "secret://mcp/discovery/pulsemcp_tenant"
@@ -1237,7 +1243,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.sources.pulsemcp.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert pulsemcp_enabled.value == true
@@ -1246,7 +1252,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.scan.schedule",
                "weekly",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert scan_schedule.value == "weekly"
@@ -1255,7 +1261,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.scan.max_results",
                10,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert scan_max_results.value == 10
@@ -1264,7 +1270,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.registry_allowlist",
                ["official"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert allowlist.value == ["official"]
@@ -1273,7 +1279,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.registry_denylist",
                ["untrusted"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert denylist.value == ["untrusted"]
@@ -1282,7 +1288,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.discovery.auto_connect",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "mcp.discovery.auto_connect", _reason}} =
@@ -1291,14 +1297,14 @@ defmodule AllbertAssist.SettingsTest do
                  "mcp" => %{"discovery" => %{"auto_connect" => true}}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, disabled} =
              Settings.put(
                "mcp.servers.demo.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert disabled.value == false
@@ -1307,7 +1313,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.transport",
                "stdio",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert transport.value == "stdio"
@@ -1316,7 +1322,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.command",
                "npx",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert command.value == "npx"
@@ -1325,7 +1331,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.args",
                ["-y", "@example/server"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert args.value == ["-y", "@example/server"]
@@ -1334,7 +1340,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.tool_allowlist",
                ["search", "read"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1345,7 +1351,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.tool_denylist",
                ["delete"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert denylist.value == ["delete"]
@@ -1354,7 +1360,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.confirmation",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert confirmation.value == "denied"
@@ -1363,21 +1369,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.confirmation",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "mcp.servers.*.command", _reason}} =
              Settings.put(
                "mcp.servers.demo.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, launchers} =
              Settings.put(
                "mcp.stdio.allowed_launchers",
                ["npx"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert launchers.value == ["npx"]
@@ -1386,7 +1392,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -1395,7 +1401,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.demo.env",
                %{"API_KEY" => "raw-secret"},
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1404,14 +1410,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.http_demo.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _transport} =
              Settings.put(
                "mcp.servers.http_demo.transport",
                "streamable_http",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1420,7 +1426,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.http_demo.base_url",
                "https://mcp.example/rpc",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1431,7 +1437,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.http_demo.headers",
                %{"Authorization" => "secret://mcp/http_demo/bearer_token"},
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert headers.value == %{"Authorization" => "secret://mcp/http_demo/bearer_token"}
@@ -1440,7 +1446,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.http_demo.auth_ref",
                "secret://mcp/http_demo/bearer_token",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert auth_ref.value == "secret://mcp/http_demo/bearer_token"
@@ -1449,7 +1455,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.servers.http_demo.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert http_enabled.value == true
@@ -1458,21 +1464,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.mcp_server_connect",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "permissions.mcp_tool_call", _reason}} =
              Settings.put(
                "permissions.mcp_tool_call",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, absolute_launchers} =
              Settings.put(
                "mcp.stdio.allowed_launchers",
                ["npx", "/usr/bin/npx"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1483,7 +1489,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "mcp.stdio.allowed_launchers",
                ["npx --yes"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -1511,7 +1517,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -1520,7 +1526,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.provider_profile",
                "local",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert provider_profile.value == "local"
@@ -1529,7 +1535,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.integration_approval_surfaces",
                ["cli"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1540,7 +1546,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                ["read_only", "memory_write", "external_network"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert action_permissions.value == ["read_only", "memory_write", "external_network"]
@@ -1549,7 +1555,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.allowed_facades",
                ["append_memory", "external_network_request"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert facades.value == ["append_memory", "external_network_request"]
@@ -1558,7 +1564,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.allowed_action_permissions",
                ["command_execute"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1567,7 +1573,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.allowed_facades",
                ["run_shell_command"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1576,7 +1582,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.integration_approval_surfaces",
                ["telegram"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1585,21 +1591,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "dynamic_codegen.allowed_targets",
                ["route"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "dynamic_codegen.allowed_targets", _reason}} =
              Settings.put(
                "dynamic_codegen.allowed_targets",
                ["panel"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "dynamic_codegen.max_files", _reason}} =
              Settings.put(
                "dynamic_codegen.max_files",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -1613,7 +1619,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "templates.create.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -1622,7 +1628,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "templates.allowed_patterns",
                ["llm_tool", "plugin"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1633,7 +1639,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "templates.allowed_patterns",
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert no_patterns.value == []
@@ -1642,14 +1648,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "templates.allowed_patterns",
                ["route_page"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "templates.allowed_patterns", _reason}} =
              Settings.put(
                "templates.allowed_patterns",
                "llm_tool",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -1668,7 +1674,7 @@ defmodule AllbertAssist.SettingsTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, ["action"]} = Settings.get("dynamic_codegen.allowed_targets")
@@ -1706,7 +1712,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.theme.mode",
                "dark",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert theme.value == "dark"
@@ -1716,7 +1722,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.theme",
                "light",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert legacy_theme.value == "light"
@@ -1726,7 +1732,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.theme.active",
                "midnight",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert active_theme.value == "midnight"
@@ -1735,7 +1741,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.theme.snippets_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert snippets_enabled.value == true
@@ -1744,7 +1750,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.theme.enabled_snippets",
                ["compact"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled_snippets.value == ["compact"]
@@ -1753,7 +1759,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.layout.override_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert layout_enabled.value == true
@@ -1762,7 +1768,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.canvas.max_tiles_per_thread",
                3,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert max_tiles.value == 3
@@ -1771,7 +1777,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.accessibility.high_contrast",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert high_contrast.value == true
@@ -1786,7 +1792,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.fragment.receiver_rate_limit_per_second",
                3,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1797,7 +1803,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.mobile.breakpoint_px",
                640,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, signing_secret} = Settings.explain("workspace.fragment.signing_secret")
@@ -1809,7 +1815,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.fragment.signing_secret",
                String.duplicate("a", 64),
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -1818,21 +1824,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "workspace.theme.mode",
                "sepia",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "workspace.canvas.max_tiles_per_thread", _reason}} =
              Settings.put(
                "workspace.canvas.max_tiles_per_thread",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "workspace.mobile.breakpoint_px"}} =
              Settings.put(
                "workspace.mobile.breakpoint_px",
                200,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -1845,7 +1851,7 @@ defmodule AllbertAssist.SettingsTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, "dark"} = Settings.get("workspace.theme.mode")
@@ -1883,7 +1889,7 @@ defmodule AllbertAssist.SettingsTest do
     assert provenance.source == :core
     assert provenance.pack_id == "allbert_assist"
     assert provenance.application == :allbert_assist
-    assert provenance.owner_module == AllbertAssist.Settings.FragmentOwners.Workspace
+    assert provenance.owner_module == Workspace
   end
 
   test "pack-owned fragments preserve the complete M0 settings projection" do
@@ -1902,15 +1908,15 @@ defmodule AllbertAssist.SettingsTest do
         |> Map.put(:index, index)
       end)
 
-    assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(current_fragments) ==
-             AllbertAssist.DevGates.V14M0RegistryLedger.digest(frozen["fragments"])
+    assert V14M0RegistryLedger.digest(current_fragments) ==
+             V14M0RegistryLedger.digest(frozen["fragments"])
 
     assert Fragments.safe_write_keys() == frozen["safe_write_rows"]
 
-    assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(Fragments.schema()) ==
+    assert V14M0RegistryLedger.digest(Fragments.schema()) ==
              frozen["effective_schema_sha256"]
 
-    assert AllbertAssist.DevGates.V14M0RegistryLedger.digest(Fragments.defaults()) ==
+    assert V14M0RegistryLedger.digest(Fragments.defaults()) ==
              frozen["effective_defaults_sha256"]
   end
 
@@ -1985,19 +1991,19 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "fragment ownership rejects omitted owners and duplicate ids or keys" do
-    owner_modules = AllbertAssist.Pack.Residual.settings_fragments()
+    owner_modules = Residual.settings_fragments()
     [omitted | incomplete] = owner_modules
 
     assert {:error,
             {:settings_fragment_owner_census_mismatch,
              %{pack_id: "allbert_assist", missing: [^omitted], unexpected: []}}} =
-             AllbertAssist.Settings.FragmentOwner.resolve_pack(
+             FragmentOwner.resolve_pack(
                "allbert_assist",
                :allbert_assist,
                incomplete
              )
 
-    workspace = AllbertAssist.Settings.FragmentOwners.Workspace.fragment()
+    workspace = Workspace.fragment()
 
     assert {:error, {:duplicate_settings_fragment_id, "core:workspace", claims}} =
              Fragments.validate_ownership([workspace, workspace])
@@ -2019,14 +2025,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.write_user_settings(
                %{"operator" => %{"display_name" => "M5 parity"}},
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     settings_path = Path.join([home, "settings", "settings.yml"])
     stored_before = File.read!(settings_path)
 
     versions_before =
-      AllbertAssist.Settings.VersionContract.inventory()
+      VersionContract.inventory()
       |> Enum.map(&{&1.fragment_id, &1.known_schema_version})
 
     Fragments.clear_cache()
@@ -2034,7 +2040,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "M5 parity"} = Settings.get("operator.display_name")
 
     versions_after =
-      AllbertAssist.Settings.VersionContract.inventory()
+      VersionContract.inventory()
       |> Enum.map(&{&1.fragment_id, &1.known_schema_version})
 
     assert File.read!(settings_path) == stored_before
@@ -2064,7 +2070,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "memory.auto_promote_sensitive_entries",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert auto_promote_true.value
@@ -2077,7 +2083,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "memory.auto_promote_sensitive_entries",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     refute auto_promote_false.value
@@ -2087,7 +2093,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "memory.review_cadence",
                "weekly",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert cadence.value == "weekly"
@@ -2096,7 +2102,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "memory.retention_policy",
                "prune_traces_after_30d",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert retention.value == "prune_traces_after_30d"
@@ -2105,7 +2111,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "memory.prune_requires_confirmation",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert prune_confirmation.value == false
@@ -2114,7 +2120,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "memory.max_entries_per_category",
                10,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert max_entries.value == 10
@@ -2123,14 +2129,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "memory.review_cadence",
                "hourly",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "memory.max_index_entries", _reason}} =
              Settings.put(
                "memory.max_index_entries",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -2139,7 +2145,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "operator.communication_style",
                "detailed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })
@@ -2173,21 +2179,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "operator.communication_style",
                "purple",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:read_only_setting, "agents.primary_intent.module"}} =
              Settings.put(
                "agents.primary_intent.module",
                "Other.Module",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:unknown_setting, "nope.value"}} =
              Settings.put(
                "nope.value",
                "x",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2198,7 +2204,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "skills.scan_paths",
                [scan_path],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == [scan_path]
@@ -2209,7 +2215,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "skills.imported_cache_policy",
                "enabled_manual_trust",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert policy.value == "enabled_manual_trust"
@@ -2218,14 +2224,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "skills.enabled",
                ["ok", 123],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "skills.imported_cache_policy", _reason}} =
              Settings.put(
                "skills.imported_cache_policy",
                "auto",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2239,7 +2245,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "plugins.scan_paths",
                [project_plugins],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == [project_plugins]
@@ -2249,7 +2255,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "plugins.disabled",
                ["example.disabled"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert disabled.value == ["example.disabled"]
@@ -2258,7 +2264,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "plugins.load_policy",
                "shipped_only",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert policy.value == "shipped_only"
@@ -2267,14 +2273,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "plugins.load_policy",
                "load_everything",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "plugins.enabled", _reason}} =
              Settings.put(
                "plugins.enabled",
                ["ok", 123],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2326,7 +2332,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "plugins.example.settings.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true
@@ -2336,7 +2342,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "plugins.example.settings.mode",
                "reckless",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -2373,7 +2379,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.acme.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true
@@ -2382,7 +2388,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.acme.bot_token_ref",
                "secret://channels/acme/bot_token",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert token_ref.value == "[REDACTED]"
@@ -2416,7 +2422,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.zeta.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     home_context = RegistryIsolationFixtures.start_isolated_registries(:home_channel_settings)
@@ -2438,7 +2444,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.acme.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -2459,7 +2465,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "browser.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -2468,7 +2474,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "browser.navigation.max_redirects",
                3,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert redirects.value == 3
@@ -2477,7 +2483,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "browser.driver.host_resolver_rules",
                "MAP example.test 127.0.0.1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -2488,28 +2494,28 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "browser.driver.kind",
                "raw_cdp",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "browser.session.headless"}} =
              Settings.put(
                "browser.session.headless",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "browser.screenshot.full_page"}} =
              Settings.put(
                "browser.screenshot.full_page",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "browser.navigation.max_redirects", _reason}} =
              Settings.put(
                "browser.navigation.max_redirects",
                4,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -2536,7 +2542,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "research.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -2545,7 +2551,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "research.max_sources",
                8,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert max_sources.value == 8
@@ -2554,7 +2560,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "research.max_extract_bytes_per_source",
                1_048_576,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert max_bytes.value == 1_048_576
@@ -2563,21 +2569,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "research.schema_version",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:read_only_setting, "research.summary.engine"}} =
              Settings.put(
                "research.summary.engine",
                "runtime_default",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "research.max_sources", _reason}} =
              Settings.put(
                "research.max_sources",
                9,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, fragment} = Fragments.fragment_for_key("research.enabled")
@@ -2608,7 +2614,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "apps.settings_fixture_app.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == true
@@ -2620,7 +2626,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "confirmations.default_ttl_minutes",
                30,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 30
@@ -2630,7 +2636,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "confirmations.allow_cross_channel_approval",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert approval.value == false
@@ -2639,7 +2645,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.confirmation_decide",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert policy.value == "denied"
@@ -2648,14 +2654,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "confirmations.default_ttl_minutes",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "confirmations.allow_cli_approval", _reason}} =
              Settings.put(
                "confirmations.allow_cli_approval",
                "yes",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2666,7 +2672,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sessions.scratchpad_ttl_minutes",
                60,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == 60
@@ -2676,14 +2682,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "sessions.scratchpad_ttl_minutes",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "sessions.scratchpad_ttl_minutes", _reason}} =
              Settings.put(
                "sessions.scratchpad_ttl_minutes",
                1441,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2711,7 +2717,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.telegram.identity_map",
                telegram_map,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert resolved.value == telegram_map
@@ -2720,21 +2726,21 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.telegram.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _chats} =
              Settings.put(
                "channels.telegram.allowed_chat_ids",
                ["456"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _interval} =
              Settings.put(
                "channels.telegram.poll_interval_ms",
                5000,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "channels.telegram.identity_map", _reason}} =
@@ -2744,70 +2750,70 @@ defmodule AllbertAssist.SettingsTest do
                  %{"external_user_id" => "123", "user_id" => "alice"},
                  %{"external_user_id" => "123", "user_id" => "bob"}
                ],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "channels.telegram.poll_timeout_seconds", _reason}} =
              Settings.put(
                "channels.telegram.poll_timeout_seconds",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:ok, _imap_host} =
              Settings.put(
                "channels.email.imap_host",
                "imap.example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _smtp_host} =
              Settings.put(
                "channels.email.smtp_host",
                "smtp.example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _imap_user} =
              Settings.put(
                "channels.email.imap_username",
                "alice",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _smtp_user} =
              Settings.put(
                "channels.email.smtp_username",
                "alice",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _from} =
              Settings.put(
                "channels.email.from_address",
                "allbert@example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _enabled} =
              Settings.put(
                "channels.email.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "channels.email.from_address", _reason}} =
              Settings.put(
                "channels.email.from_address",
                "not-email",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "channels.email.imap_ssl", _reason}} =
              Settings.put(
                "channels.email.imap_ssl",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2821,7 +2827,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.whatsapp.phone_number_id",
                "15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -2830,42 +2836,42 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "channels.whatsapp.app_secret_ref",
                "secret://channels/whatsapp/app_secret",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_verify_token_ref",
                "secret://channels/whatsapp/webhook_verify_token",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_rate_limit.limit",
                10,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "channels.whatsapp.app_secret_ref", _reason}} =
              Settings.put(
                "channels.whatsapp.app_secret_ref",
                "secret://providers/meta/api_key",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "channels.whatsapp.webhook_rate_limit.limit", _reason}} =
              Settings.put(
                "channels.whatsapp.webhook_rate_limit.limit",
                0,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2874,7 +2880,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.skill_script_execute",
                "allowed",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert policy.value == "allowed"
@@ -2883,7 +2889,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "execution.skill_scripts.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -2904,7 +2910,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "execution.skill_scripts.interpreter_profiles",
                profile,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -2915,7 +2921,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.skill_script_execute",
                "auto",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     invalid_profile = %{"sh" => %{"executable" => "/bin/sh"}}
@@ -2924,7 +2930,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "execution.skill_scripts.interpreter_profiles",
                invalid_profile,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -2935,7 +2941,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.package_install",
                "needs_confirmation",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert package_policy.value == "needs_confirmation"
@@ -2944,7 +2950,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "permissions.online_skill_import",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert import_policy.value == "denied"
@@ -2953,7 +2959,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert enabled.value == true
@@ -2962,7 +2968,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert hosts.value == ["example.com"]
@@ -2971,7 +2977,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "external_services.allowed_paths",
                ["/status"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert paths.value == ["/status"]
@@ -2980,7 +2986,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "external_services.allowed_methods",
                ["GET", "HEAD"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert methods.value == ["GET", "HEAD"]
@@ -3007,7 +3013,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "external_services.profiles",
                external_profile,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert external_profiles.value == external_profile
@@ -3030,7 +3036,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "package_installs.manager_profiles",
                manager_profile,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert profiles.value == manager_profile
@@ -3039,7 +3045,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "skills.online_import.sources.skills_sh.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -3050,7 +3056,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "skills.online_import.max_download_bytes",
                1_048_576,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert max_download.value == 1_048_576
@@ -3059,28 +3065,28 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "external_services.allowed_methods",
                ["TRACE"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "external_services.profiles", _reason}} =
              Settings.put(
                "external_services.profiles",
                %{"bad" => %{"base_url" => "file:///tmp"}},
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "package_installs.manager_profiles", _reason}} =
              Settings.put(
                "package_installs.manager_profiles",
                %{"npm" => %{"install_args" => []}},
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
 
     assert {:error, {:invalid_setting, "skills.online_import.trust_after_import", _reason}} =
              Settings.put(
                "skills.online_import.trust_after_import",
                "yes",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+               ReadyEffectContext.attach(%{})
              )
   end
 
@@ -3151,7 +3157,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "model_profiles.fast.max_tokens",
                8,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, anthropic} = Settings.resolve_model_profile("anthropic_fast")
@@ -3221,7 +3227,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "providers.local_ollama.endpoint_kind",
                "credentialed_remote",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -3232,7 +3238,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "model_profiles.fast.capabilities",
                ["text_generation", "token_streaming"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -3247,7 +3253,7 @@ defmodule AllbertAssist.SettingsTest do
                  "output_modalities" => ["text"],
                  "deployment_mode" => "remote_credentialed"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert media.value["deployment_mode"] == "remote_credentialed"
@@ -3256,14 +3262,14 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "model_profiles.fast.capabilities",
                ["shell_execute"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, {:invalid_setting, "model_profiles.fast.media", _reason}} =
              Settings.put(
                "model_profiles.fast.media",
                %{"permission" => "allowed"},
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -3278,7 +3284,7 @@ defmodule AllbertAssist.SettingsTest do
                  actor: "local",
                  channel: :test
                }
-               |> AllbertAssist.TestSupport.ReadyEffectContext.attach()
+               |> ReadyEffectContext.attach()
              )
 
     assert {:ok, coding} = Settings.resolve_model_profile("coding")
@@ -3335,7 +3341,7 @@ defmodule AllbertAssist.SettingsTest do
                  actor: "local",
                  channel: :test
                }
-               |> AllbertAssist.TestSupport.ReadyEffectContext.attach()
+               |> ReadyEffectContext.attach()
              )
 
     assert {:ok, "test-key"} = Secrets.get_secret("secret://providers/openai/api_key")
@@ -3409,7 +3415,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put(
                "operator.communication_style",
                "balanced",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })

@@ -1,4 +1,6 @@
 defmodule AllbertAssistWeb.DarkModeResolutionTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.61 M9 proof: `system` theme mode resolves to the OS `prefers-color-scheme`
   instead of silently falling back to light. The server emits an explicit
@@ -54,7 +56,7 @@ defmodule AllbertAssistWeb.DarkModeResolutionTest do
              Settings.put(
                "workspace.theme.mode",
                "system",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     html = conn |> get(~p"/") |> html_response(200)
@@ -68,7 +70,7 @@ defmodule AllbertAssistWeb.DarkModeResolutionTest do
              Settings.put(
                "workspace.theme.mode",
                "dark",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     html = conn |> get(~p"/") |> html_response(200)

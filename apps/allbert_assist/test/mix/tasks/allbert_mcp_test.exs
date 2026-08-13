@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.McpTest do
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.ToolCandidate
   alias Mix.Tasks.Allbert.Mcp, as: McpTask
@@ -66,7 +67,7 @@ defmodule Mix.Tasks.Allbert.McpTest do
              Settings.put(
                "mcp.discovery.scan.schedule",
                "daily",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     resume_output =

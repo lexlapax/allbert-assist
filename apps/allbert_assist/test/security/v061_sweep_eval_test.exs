@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Security.V061SweepEvalTest do
+  alias AllbertAssist.DevGates.GateOwners
+
   @moduledoc """
   v0.61 presentation-overhaul sweep.
 
@@ -134,5 +136,5 @@ defmodule AllbertAssist.Security.V061SweepEvalTest do
              )
   end
 
-  defp read!(rel), do: AllbertAssist.DevGates.GateOwners.read_owned_path!(@repo_root, rel)
+  defp read!(rel), do: GateOwners.read_owned_path!(@repo_root, rel)
 end

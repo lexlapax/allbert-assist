@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.FanoutManager
@@ -91,7 +92,7 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
              Settings.put(
                "objectives.fanout.max_model_calls_per_plan",
                10,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error,
@@ -108,7 +109,7 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
              Settings.put(
                "objectives.fanout.max_output_tokens_per_plan",
                30_719,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -151,7 +152,7 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
              Settings.put(
                "objectives.fanout.max_model_calls_per_plan",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, %{"configured_model_calls" => 64}} = Budget.resolve(2, 0, limits)
@@ -179,28 +180,28 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
                Settings.put(
                  key,
                  minimum,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:error, {:invalid_setting, ^key, _reason}} =
                Settings.put(
                  key,
                  minimum - 1,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, %{value: ^maximum}} =
                Settings.put(
                  key,
                  maximum,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:error, {:invalid_setting, ^key, _reason}} =
                Settings.put(
                  key,
                  maximum + 1,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
     end
   end
@@ -341,7 +342,7 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
              Settings.put(
                "objectives.fanout.max_model_calls_per_plan",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok,
@@ -365,14 +366,14 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
              Settings.put(
                "objectives.fanout.max_model_calls_per_plan",
                2,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "objectives.fanout.max_output_tokens_per_plan",
                1_024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok,

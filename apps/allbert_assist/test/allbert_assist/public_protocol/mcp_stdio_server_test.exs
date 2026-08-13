@@ -13,6 +13,7 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   alias AllbertAssist.PublicProtocol.ResultReadback
   alias AllbertAssist.Settings
   alias AllbertAssist.StockSageRegistryCase
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Hermes.Server.Frame
 
   setup do
@@ -258,14 +259,14 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
              Settings.put(
                "mcp_server.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "mcp_server.stdio.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -274,7 +275,7 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
              Settings.put(
                "mcp_server.tools_enabled",
                tools,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -283,7 +284,7 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
              Settings.put(
                "mcp_server.memory_namespaces_enabled",
                namespaces,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -302,21 +303,21 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

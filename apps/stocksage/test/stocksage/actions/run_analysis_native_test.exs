@@ -1,5 +1,6 @@
 defmodule StockSage.Actions.RunAnalysisNativeTest do
   use StockSage.DataCase, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   defmodule FakeLLMProvider do
     def generate_report(spec, request, _evidence, prior_reports, model_profile) do
@@ -390,7 +391,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+           ReadyEffectContext.attach(%{actor: "test"})
          ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")

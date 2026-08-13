@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
@@ -197,7 +198,7 @@ defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
              Settings.put(
                "permissions.coding_file_write",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =

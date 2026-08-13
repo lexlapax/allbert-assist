@@ -15,6 +15,7 @@ defmodule AllbertAssist.Intent.Eval.GateTest do
   # shipped-baseline registry pair (ADR 0082 seam) instead of re-asserting
   # corpus domains into the global registries.
   use ExUnit.Case, async: true
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :pure_async
 
   alias AllbertAssist.ConfigContext
@@ -142,7 +143,7 @@ defmodule AllbertAssist.Intent.Eval.GateTest do
                  Settings.put(
                    "intent.eval.min_accuracy",
                    floor,
-                   AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                   ReadyEffectContext.attach(%{audit?: false})
                  )
 
         send(parent, {:ready, self()})

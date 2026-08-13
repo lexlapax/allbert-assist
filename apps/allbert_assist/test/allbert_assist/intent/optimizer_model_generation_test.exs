@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.Router.OptimizerModelGenerationTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Channels.SendChannelMessage
@@ -125,7 +126,7 @@ defmodule AllbertAssist.Intent.Router.OptimizerModelGenerationTest do
              Settings.put(
                "intent.router_model_profile",
                "fast",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     attrs = generate_with(ForbiddenLLM)
@@ -141,7 +142,7 @@ defmodule AllbertAssist.Intent.Router.OptimizerModelGenerationTest do
              Settings.put(
                "providers.local_ollama.enabled",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     attrs = generate_with(ForbiddenLLM)

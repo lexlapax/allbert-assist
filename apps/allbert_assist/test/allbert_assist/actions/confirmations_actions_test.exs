@@ -216,7 +216,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
              Settings.put(
                "permissions.external_network",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, response} =
@@ -239,7 +239,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
              Settings.put(
                "confirmations.allow_cross_channel_approval",
                false,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, record} =
@@ -266,7 +266,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
              Settings.put(
                "confirmations.require_reason_for_denial",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, record} = Confirmations.create(base_attrs(), ReadyEffectContext.context())
@@ -285,7 +285,7 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
              Settings.put(
                "permissions.confirmation_decide",
                "denied",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, record} = Confirmations.create(base_attrs(), ReadyEffectContext.context())

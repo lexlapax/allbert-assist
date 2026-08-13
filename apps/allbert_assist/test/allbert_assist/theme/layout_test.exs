@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Theme.LayoutTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
@@ -75,7 +76,7 @@ defmodule AllbertAssist.Theme.LayoutTest do
              Settings.put(
                "workspace.layout.override_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     context = %{
@@ -122,7 +123,7 @@ defmodule AllbertAssist.Theme.LayoutTest do
              Settings.put(
                "workspace.layout.override_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     layout = Layout.current()

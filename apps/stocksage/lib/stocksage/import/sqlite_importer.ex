@@ -1,4 +1,9 @@
 defmodule StockSage.Import.SqliteImporter do
+  alias StockSage.Domain.Analysis
+  alias StockSage.Domain.AnalysisDetail
+  alias StockSage.Domain.MemoryEntry
+  alias StockSage.Domain.Outcome
+
   @moduledoc """
   Imports a representative legacy StockSage SQLite database into local
   `stocksage_*` domain tables.
@@ -269,28 +274,28 @@ defmodule StockSage.Import.SqliteImporter do
   defp dry_run_row(_table, _row, _opts), do: :skipped
 
   defp validate_row(:analysis, attrs) do
-    case StockSage.Domain.Analysis.changeset(%StockSage.Domain.Analysis{}, attrs) do
+    case Analysis.changeset(%Analysis{}, attrs) do
       %{valid?: true} -> :inserted
       changeset -> {:invalid, errors_on(changeset)}
     end
   end
 
   defp validate_row(:detail, attrs) do
-    case StockSage.Domain.AnalysisDetail.changeset(%StockSage.Domain.AnalysisDetail{}, attrs) do
+    case AnalysisDetail.changeset(%AnalysisDetail{}, attrs) do
       %{valid?: true} -> :inserted
       changeset -> {:invalid, errors_on(changeset)}
     end
   end
 
   defp validate_row(:outcome, attrs) do
-    case StockSage.Domain.Outcome.changeset(%StockSage.Domain.Outcome{}, attrs) do
+    case Outcome.changeset(%Outcome{}, attrs) do
       %{valid?: true} -> :inserted
       changeset -> {:invalid, errors_on(changeset)}
     end
   end
 
   defp validate_row(:memory, attrs) do
-    case StockSage.Domain.MemoryEntry.changeset(%StockSage.Domain.MemoryEntry{}, attrs) do
+    case MemoryEntry.changeset(%MemoryEntry{}, attrs) do
       %{valid?: true} -> :inserted
       changeset -> {:invalid, errors_on(changeset)}
     end

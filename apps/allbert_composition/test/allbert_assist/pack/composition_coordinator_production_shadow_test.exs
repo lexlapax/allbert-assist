@@ -8,8 +8,8 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   alias AllbertAssist.DevGates.V14M1RegistryShadowParity, as: ShadowParity
 
   alias AllbertAssist.Pack.{
-    Canonical,
     CandidateBuilder,
+    Canonical,
     CompositionCoordinator,
     ProjectionProvider,
     Readiness

@@ -234,7 +234,7 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
              Settings.put(
                "coding.command_grants.max_entries_per_repo",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _grant} =
@@ -278,14 +278,14 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
              Settings.put(
                "coding.pi_mode.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "coding.trusted_operator_id",
                "local",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -307,7 +307,7 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

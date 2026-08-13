@@ -1,4 +1,6 @@
 defmodule AllbertAssist.Settings.FragmentOwners.ModelPreferences do
+  alias AllbertAssist.Settings.ProviderCatalog
+
   @moduledoc false
   @behaviour AllbertAssist.Settings.FragmentOwner
   alias AllbertAssist.Settings.Fragment
@@ -140,7 +142,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.ModelPreferences do
   def composition_defaults do
     @defaults
     |> Map.merge(@legacy_routing_profiles)
-    |> AllbertAssist.Settings.ProviderCatalog.merge_defaults()
+    |> ProviderCatalog.merge_defaults()
   end
 
   @impl true

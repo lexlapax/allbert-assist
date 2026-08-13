@@ -3,6 +3,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
   import ExUnit.CaptureLog, only: [capture_log: 1]
 
+  alias __MODULE__.ReadyInputReceipt, as: InputReceipt
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Health
@@ -17,13 +18,12 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
   alias AllbertTUI.Adapter
-  alias __MODULE__.ReadyInputReceipt, as: InputReceipt
 
   defmodule ReadyInputReceipt do
     @moduledoc false
 
-    alias AllbertTUI.InputReceipt
     alias AllbertAssist.TestSupport.ReadyEffectContext
+    alias AllbertTUI.InputReceipt
 
     def gate(attrs, opts),
       do: InputReceipt.gate(ReadyEffectContext.attach(attrs), opts)
@@ -196,7 +196,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                    status: "received",
                    receipt_hmac_key_ref: "secret://providers/openai/api_key"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert "is invalid" in errors_on(changeset).receipt_hmac_key_ref
@@ -368,7 +368,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Channels.update_event(
                  event,
                  %{thread_id: "durable-thread"},
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:error, :invalid_receipt_transition} =
@@ -414,7 +414,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                      thread_id: thread_id,
                      receipt_result_ref: result_ref
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         assert {:ok, terminal} =
@@ -456,7 +456,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                    status: "processed",
                    thread_id: "durable-thread"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:error, :invalid_receipt_transition} =
@@ -490,7 +490,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Channels.update_event(
                  admitted,
                  %{receipt_outcome: "rejected"},
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:error, :invalid_receipt_transition} =
@@ -602,7 +602,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                        receipt_message_id: message_id,
                        receipt_result_ref: result_ref
                      },
-                     AllbertAssist.TestSupport.ReadyEffectContext.context()
+                     ReadyEffectContext.context()
                    )
 
           assert {:ok,
@@ -644,7 +644,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                    receipt_state: "completed",
                    receipt_outcome: "completed"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:error, :receipt_conflict} =
@@ -807,7 +807,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Settings.put(
                  "channels.tui.profile",
                  "work",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, _setting} =
@@ -820,7 +820,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                      "enabled" => true
                    }
                  ],
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       server = start_supervised!(AttachServer)
@@ -1029,7 +1029,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Settings.put(
                  "channels.tui.enabled",
                  false,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       server = start_supervised!(AttachServer)
@@ -1122,7 +1122,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Settings.put(
                  "channels.tui.max_text_bytes",
                  7,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       server = start_controllable_server()
@@ -1166,7 +1166,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Settings.put(
                  "channels.tui.max_text_bytes",
                  32_000,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       server = start_controllable_server()
@@ -1192,7 +1192,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Settings.put(
                  "channels.tui.max_text_bytes",
                  7,
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       server = start_controllable_server()
@@ -1479,7 +1479,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                Channels.update_event(
                  error_event,
                  %{receipt_outcome: "rejected"},
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       Enum.each(1..31, fn index ->

@@ -123,7 +123,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     defp with_context(context), do: Map.merge(effect_context(), context)
 
     defp effect_context do
-      AllbertAssist.TestSupport.ReadyEffectContext.context()
+      ReadyEffectContext.context()
     end
   end
 
@@ -430,7 +430,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                    title: "Newer unrelated objective #{index}",
                    objective: "Unrelated work #{index}"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end
 
@@ -645,7 +645,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  candidate_action: "list_objectives",
                  action_params: %{}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     modern_record = %{
@@ -709,7 +709,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                %{
                  confirmation_id: confirmation_id
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _parked} =
@@ -776,7 +776,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  candidate_action: "list_objectives",
                  action_params: %{}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _sibling_step} =
@@ -786,7 +786,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                %{
                  confirmation_id: confirmation_id
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :ambiguous_confirmation_target} =
@@ -815,7 +815,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  candidate_action: "list_objectives",
                  action_params: %{}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, parked_step} =
@@ -825,7 +825,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                %{
                  confirmation_id: confirmation_id
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _parked} =
@@ -854,7 +854,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  candidate_action: "list_objectives",
                  action_params: %{}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _sibling_step} =
@@ -864,7 +864,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                %{
                  confirmation_id: confirmation_id
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :ambiguous_confirmation_target} =
@@ -920,7 +920,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                    trace_id: "trace-selected-#{child.queue_position}",
                    result_summary: summary
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       complete_action_child!(child, step)
@@ -1085,7 +1085,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  trace_id: "trace-frozen",
                  result_summary: "effect completed"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     complete_action_child!(first, action_step)
@@ -1103,7 +1103,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              Objectives.update_step(
                action_step,
                %{trace_id: "trace-mutated"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :fanout_report_input_frozen} =
@@ -1116,7 +1116,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  candidate_action: "late_action",
                  trace_id: "trace-late"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, frozen_after} = Fanout.report_input(parent.id)
@@ -1141,7 +1141,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  trace_id: "trace-before-freeze",
                  result_summary: "effect completed"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     complete_action_child!(first, action_step)
@@ -1341,7 +1341,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  report_delivery_state: "not_ready",
                  completed_at: DateTime.add(now, -10, :second)
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     corrupt_child_ids =
@@ -1359,7 +1359,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                      last_observation_summary: "corrupt result #{queue_position}",
                      completed_at: DateTime.add(now, -10, :second)
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
 
         child.id
@@ -2332,7 +2332,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  objective: "No children",
                  fanout_role: "parent"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert %{
@@ -2436,7 +2436,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                      |> Base.encode16(case: :lower)
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert %{phase: :inconsistent, authoritatively_joined?: false} =
@@ -2502,7 +2502,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                      |> Base.encode16(case: :lower)
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert Fanout.parent_projection(parent).phase == :joined
@@ -2533,7 +2533,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                    status: "completed",
                    completed_at: DateTime.utc_now()
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end
 
@@ -2552,7 +2552,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              Objectives.update_objective(
                child,
                %{status: "completed"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :fanout_parent_transition_required} =
@@ -2563,14 +2563,14 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  join_outcome: "success",
                  report_delivery_state: "pending"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, :fanout_active_transition_required} =
              Objectives.update_objective(
                child,
                %{status: "running"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     for attrs <- [
@@ -2584,7 +2584,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                Objectives.update_objective(
                  child,
                  attrs,
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end
 
@@ -2610,7 +2610,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              Objectives.update_objective(
                stale,
                %{progress_summary: "stale writer"},
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, {:active_transition_compare_and_set_failed, "completed"}} =
@@ -2637,13 +2637,13 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert {:ok, _first} =
              Objectives.create_objective(
                Map.put(attrs, :fanout_start_receipt_digest, "same"),
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:error, changeset} =
              Objectives.create_objective(
                Map.put(attrs, :fanout_start_receipt_digest, "same"),
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert "has already been taken" in errors_on(changeset).fanout_start_receipt_digest
@@ -2657,7 +2657,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                  fanout_role: "parent",
                  kickoff_delivery_state: "sent"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert "is invalid" in errors_on(invalid).kickoff_delivery_state
@@ -2840,7 +2840,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                    kind: "run_completed",
                    payload: %{summary: String.slice(summary, 0, 500)}
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end)
   end

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.FirstRun.DisclosureTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @moduletag :app_env_serial
 
@@ -348,7 +349,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "providers" => %{"openai" => %{"enabled" => true}}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert Disclosure.hosted_pending?(:cli)
@@ -359,7 +360,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert Disclosure.pending?(:cli)
@@ -381,7 +382,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "providers" => %{"openai" => %{"enabled" => true}}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, routes} = Disclosure.current_model_routes()
@@ -413,7 +414,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              Settings.put(
                "model_preferences.tasks.fanout_synthesis",
                ["direct_answer_local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -439,7 +440,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "providers" => %{"openai" => %{"enabled" => true}}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, [route]} = Disclosure.current_model_routes()
@@ -493,7 +494,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, routes} = Disclosure.current_model_routes()
@@ -524,7 +525,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     text = Disclosure.text(:cli)
@@ -552,7 +553,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "providers" => %{"openai" => %{"enabled" => true}}
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
@@ -562,7 +563,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              Settings.put(
                "model_preferences.tasks.fanout_manager",
                ["direct_answer_local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -575,7 +576,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              Settings.put(
                "model_preferences.tasks.fanout_synthesis",
                ["fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert Disclosure.pending?(:cli)
@@ -600,7 +601,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  }
                },
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     manager = %{
@@ -627,7 +628,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              Settings.put(
                "model_preferences.tasks.fanout_synthesis",
                ["direct_answer_local"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

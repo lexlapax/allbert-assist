@@ -12,6 +12,7 @@ defmodule AllbertAssist.ChannelsTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertDiscord.Plugin, as: DiscordPlugin
   alias AllbertEmail.Plugin, as: EmailPlugin
   alias AllbertSlack.Plugin, as: SlackPlugin
@@ -44,7 +45,7 @@ defmodule AllbertAssist.ChannelsTest do
                    status: "received",
                    payload_summary: String.duplicate("x", 700)
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert event.payload_summary == String.duplicate("x", 500)
@@ -58,7 +59,7 @@ defmodule AllbertAssist.ChannelsTest do
                    thread_id: "thread_1",
                    trace_id: "trace_1"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert updated.status == "processed"
@@ -81,7 +82,7 @@ defmodule AllbertAssist.ChannelsTest do
                    status: "received",
                    payload_summary: "from +15551234567"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert event.external_user_id == "[REDACTED_PHONE]"
@@ -107,13 +108,13 @@ defmodule AllbertAssist.ChannelsTest do
       assert {:ok, _event} =
                Channels.create_event(
                  attrs,
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:error, %Ecto.Changeset{}} =
                Channels.create_event(
                  attrs,
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert {:ok, _event} =
@@ -123,7 +124,7 @@ defmodule AllbertAssist.ChannelsTest do
                    | direction: "outbound",
                      external_event_id: "101"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end
 
@@ -144,7 +145,7 @@ defmodule AllbertAssist.ChannelsTest do
                          external_user_id: "123",
                          status: "received"
                        },
-                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                       ReadyEffectContext.context()
                      )
 
             assert {:ok, _event} =
@@ -158,7 +159,7 @@ defmodule AllbertAssist.ChannelsTest do
                          trace_id: "trace_signal",
                          input_signal_id: "sig_signal"
                        },
-                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                       ReadyEffectContext.context()
                      )
 
             assert {:ok, _callback} =
@@ -171,7 +172,7 @@ defmodule AllbertAssist.ChannelsTest do
                          external_user_id: "alice@example.com",
                          status: "received"
                        },
-                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                       ReadyEffectContext.context()
                      )
 
             assert {:ok, _rejected} =
@@ -184,7 +185,7 @@ defmodule AllbertAssist.ChannelsTest do
                          status: "rejected",
                          reason: ":not_mapped"
                        },
-                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                       ReadyEffectContext.context()
                      )
 
             assert {:ok, failed} =
@@ -196,7 +197,7 @@ defmodule AllbertAssist.ChannelsTest do
                          external_event_id: "signal-failed",
                          status: "received"
                        },
-                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                       ReadyEffectContext.context()
                      )
 
             assert {:ok, _event} =
@@ -206,7 +207,7 @@ defmodule AllbertAssist.ChannelsTest do
                          status: "failed",
                          error: "smtp unavailable"
                        },
-                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                       ReadyEffectContext.context()
                      )
           end)
         after
@@ -231,7 +232,7 @@ defmodule AllbertAssist.ChannelsTest do
                    external_event_id: "signal-receipt-enrichment",
                    status: "processed"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       original_logger_level = Logger.level()
@@ -248,7 +249,7 @@ defmodule AllbertAssist.ChannelsTest do
                          receipt_result_ref: "thread:receipt-enrichment",
                          receipt_outcome: "completed"
                        },
-                       AllbertAssist.TestSupport.ReadyEffectContext.context()
+                       ReadyEffectContext.context()
                      )
 
             assert enriched.status == "processed"
@@ -274,7 +275,7 @@ defmodule AllbertAssist.ChannelsTest do
                      external_event_id: id,
                      status: "received"
                    },
-                   AllbertAssist.TestSupport.ReadyEffectContext.context()
+                   ReadyEffectContext.context()
                  )
       end
 
@@ -291,7 +292,7 @@ defmodule AllbertAssist.ChannelsTest do
                    direction: "outbound",
                    status: "processed"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
 
       assert String.starts_with?(event.external_event_id, "out_")

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Marketplace.CatalogInstallTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Marketplace
@@ -48,7 +49,7 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
              Settings.put(
                "marketplace.catalog.cache_path",
                cache_dir,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _catalog} = Catalog.read(index_path: fixture.index_path, home: home)
@@ -64,7 +65,7 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
              Settings.put(
                "marketplace.catalog.cache_path",
                "/tmp/allbert-marketplace-cache-escape",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:error, diagnostic} = Catalog.read(index_path: fixture.index_path, home: home)
@@ -171,7 +172,7 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
              Settings.put(
                "marketplace.install.target_dir_skills",
                "<ALLBERT_HOME>/custom-skills",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -200,7 +201,7 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
              Settings.put(
                "marketplace.install.target_dir_templates",
                "<ALLBERT_HOME>/custom-templates",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, template} =
@@ -223,7 +224,7 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
              Settings.put(
                "marketplace.install.target_dir_skills",
                "/tmp/allbert-marketplace-escape",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

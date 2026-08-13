@@ -6,6 +6,7 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workflows
   alias AllbertAssist.Workflows.{Loader, Validator}
 
@@ -149,7 +150,7 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
              Settings.put(
                "workflows.max_param_bytes_per_step",
                8,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, workflow} = Loader.load("single_step")

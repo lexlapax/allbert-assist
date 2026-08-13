@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.PlanTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Plan, as: PlanTask
 
   setup do
@@ -22,7 +23,7 @@ defmodule Mix.Tasks.Allbert.PlanTest do
                  active_app: "allbert",
                  source_intent: "workflow:multi_step:1"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, _step} =
@@ -35,7 +36,7 @@ defmodule Mix.Tasks.Allbert.PlanTest do
                  provider: "plan_build",
                  candidate_action: "direct_answer"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     list_output =

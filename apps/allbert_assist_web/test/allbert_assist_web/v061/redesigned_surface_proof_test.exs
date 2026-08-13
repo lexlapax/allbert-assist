@@ -1,4 +1,6 @@
 defmodule AllbertAssistWeb.V061.RedesignedSurfaceProofTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.61 M10.1 proof for redesigned live surfaces.
 
@@ -12,8 +14,8 @@ defmodule AllbertAssistWeb.V061.RedesignedSurfaceProofTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
-  alias AllbertAssist.Surface.Catalog
   alias AllbertAssist.{Confirmations, Jobs, Objectives, Paths, Runtime, Session, Settings}
+  alias AllbertAssist.Surface.Catalog
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -72,7 +74,7 @@ defmodule AllbertAssistWeb.V061.RedesignedSurfaceProofTest do
                  status: "running",
                  active_app: "allbert"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, workspace_view, workspace_html} = live(conn, ~p"/workspace")

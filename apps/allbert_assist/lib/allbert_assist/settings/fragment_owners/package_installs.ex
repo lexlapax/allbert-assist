@@ -17,7 +17,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.PackageInstalls do
       writable?: true
     },
     "package_installs.default_timeout_ms" => %{
-      default: 30000,
+      default: 30_000,
       sensitive?: false,
       type: :timeout_ms,
       writable?: true
@@ -75,7 +75,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.PackageInstalls do
     "package_installs" => %{
       "allowed_managers" => ["npm"],
       "allowed_roots" => [],
-      "default_timeout_ms" => 30000,
+      "default_timeout_ms" => 30_000,
       "enabled" => false,
       "git_dependencies_allowed" => false,
       "global_installs_allowed" => false,

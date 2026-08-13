@@ -28,7 +28,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.ActiveMemory do
     },
     "active_memory.internal_candidate_limit" => %{
       default: 1000,
-      max: 50000,
+      max: 50_000,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,

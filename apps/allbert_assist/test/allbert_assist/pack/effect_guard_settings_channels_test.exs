@@ -7,6 +7,7 @@ defmodule AllbertAssist.Pack.EffectGuardSettingsChannelsTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Audit
+  alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.TestSupport.ReadyEffectContext
@@ -190,7 +191,7 @@ defmodule AllbertAssist.Pack.EffectGuardSettingsChannelsTest do
     assert {:ok, e1} = EffectGuard.admit_ready()
 
     assert {:ok, _secret} =
-             AllbertAssist.Settings.Secrets.put_secret(
+             Secrets.put_secret(
                "secret://public_protocol/mcp_http/epoch-client/bearer_token",
                "token-value",
                %{allbert_pack_epoch: e1, audit?: false}

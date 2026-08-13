@@ -3,8 +3,8 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
 
   @moduletag :app_env_serial
 
-  alias AllbertAssist.CLI.Tui
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Enablement
   alias AllbertAssist.FirstRun.Presentation
   alias AllbertAssist.Paths

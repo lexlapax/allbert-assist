@@ -8,6 +8,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
@@ -193,7 +194,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
              Settings.put(
                "workspace.fragment.rate_limit_per_second",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     envelope = signed_envelope()
@@ -207,7 +208,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
              Settings.put(
                "workspace.fragment.receiver_rate_limit_per_second",
                1,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -235,7 +236,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
              Settings.put(
                "workspace.fragment.payload_max_bytes",
                1024,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     envelope =

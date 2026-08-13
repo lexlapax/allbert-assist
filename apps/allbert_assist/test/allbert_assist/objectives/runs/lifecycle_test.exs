@@ -1,8 +1,9 @@
 defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle do
   @moduledoc false
 
-  alias AllbertAssist.Objectives.Lifecycle
+  alias AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness
   alias AllbertAssist.Pack.EffectGuard
+  alias RealLifecycle
 
   def run(child_id, opts \\ []) do
     with {:ok, epoch} <- EffectGuard.admit_ready() do
@@ -23,8 +24,8 @@ end
 defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering do
   @moduledoc false
 
-  alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Pack.EffectGuard
+  alias RealSteering
 
   def steer(user_id, objective_id, directive) do
     with {:ok, epoch} <- EffectGuard.admit_ready() do
@@ -146,11 +147,17 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Objective
+  # The real modules. This module aliases EpochLifecycle/EpochSteering AS
+  # Lifecycle/Steering -- test doubles that shadow the short names on purpose --
+  # so these two call sites spelled the real ones out in full. Naming them keeps
+  # that intent visible instead of leaving it to whoever reads the long form.
+  alias AllbertAssist.Objectives.Lifecycle, as: RealLifecycle
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle, as: Lifecycle
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering, as: Steering
   alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
+  alias AllbertAssist.Objectives.Steering, as: RealSteering
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
@@ -1510,9 +1517,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     true = Process.unregister(AllbertAssist.Pack.Readiness)
 
     {:ok, replacement} =
-      AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness.start_link(
-        name: AllbertAssist.Pack.Readiness
-      )
+      SameDigestReadiness.start_link(name: AllbertAssist.Pack.Readiness)
 
     on_exit(fn ->
       if Process.whereis(AllbertAssist.Pack.Readiness) == replacement,
@@ -1527,15 +1532,13 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert {:ok, e1} = EffectGuard.admit_ready()
 
     assert {:error, :stale_epoch} =
-             AllbertAssist.Objectives.Lifecycle.reconcile_quality_protocol_upgrade(
+             RealLifecycle.reconcile_quality_protocol_upgrade(
                child,
                allbert_pack_epoch: e1,
                force_quality_protocol_upgrade?: true,
                transaction_hook: fn _child ->
                  :ok =
-                   AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness.replace(
-                     replacement
-                   )
+                   SameDigestReadiness.replace(replacement)
                end
              )
 
@@ -1553,7 +1556,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     true = Process.unregister(AllbertAssist.Pack.Readiness)
 
     {:ok, replacement} =
-      AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness.start_link(
+      SameDigestReadiness.start_link(
         name: AllbertAssist.Pack.Readiness,
         replace_after_status_calls: 5
       )
@@ -1571,7 +1574,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert {:ok, e1} = EffectGuard.admit_ready()
 
     assert {:error, :stale_epoch} =
-             AllbertAssist.Objectives.Steering.steer(
+             RealSteering.steer(
                "alice",
                child.id,
                "Use primary sources.",

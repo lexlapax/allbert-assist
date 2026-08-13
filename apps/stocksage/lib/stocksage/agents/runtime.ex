@@ -4,6 +4,7 @@ defmodule StockSage.Agents.Runtime do
   alias AllbertAssist.Objectives.AgentRegistry
   alias Jido.AgentServer
   alias StockSage.Agents
+  alias StockSage.Agents.ModelProfile
 
   @spec start_link(module(), String.t(), keyword()) :: GenServer.on_start()
   def start_link(module, agent_id, opts \\ []) do
@@ -48,7 +49,7 @@ defmodule StockSage.Agents.Runtime do
   end
 
   defp model_profile(%{role: :quality_gate}), do: nil
-  defp model_profile(spec), do: StockSage.Agents.ModelProfile.resolve(spec.role)
+  defp model_profile(spec), do: ModelProfile.resolve(spec.role)
 
   defp register_if_available(agent_id, server, module, spec) do
     if Process.whereis(AgentRegistry) do

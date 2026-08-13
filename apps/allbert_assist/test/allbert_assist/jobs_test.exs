@@ -16,6 +16,7 @@ defmodule AllbertAssist.JobsTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
@@ -101,7 +102,7 @@ defmodule AllbertAssist.JobsTest do
                Settings.put(
                  "jobs.timezone",
                  "UTC",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert timezone.value == "UTC"
@@ -111,7 +112,7 @@ defmodule AllbertAssist.JobsTest do
                Settings.put(
                  "jobs.default_state",
                  "active",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert default_state.value == "active"
@@ -120,7 +121,7 @@ defmodule AllbertAssist.JobsTest do
                Settings.put(
                  "jobs.schedule_policy",
                  "paused",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert schedule_policy.value == "paused"
@@ -129,7 +130,7 @@ defmodule AllbertAssist.JobsTest do
                Settings.put(
                  "jobs.default_state",
                  "archived",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{})
+                 ReadyEffectContext.attach(%{})
                )
     end
   end
@@ -161,14 +162,14 @@ defmodule AllbertAssist.JobsTest do
                Settings.put(
                  "jobs.timezone",
                  "UTC",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, _status} =
                Settings.put(
                  "jobs.default_state",
                  "active",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, job} =
@@ -833,7 +834,7 @@ defmodule AllbertAssist.JobsTest do
                Settings.put(
                  "jobs.schedule_policy",
                  "paused",
-                 AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       now = ~U[2026-05-14 08:00:00Z]
@@ -992,21 +993,21 @@ defmodule AllbertAssist.JobsTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

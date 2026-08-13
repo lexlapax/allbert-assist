@@ -9,6 +9,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
@@ -223,7 +224,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
              Settings.put(
                "conversations.unified_history.include_e2ee_origin",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

@@ -18,6 +18,7 @@ defmodule AllbertDiscord.Adapter do
   alias AllbertDiscord.Client.GatewayPort
   alias AllbertDiscord.Parser
   alias AllbertDiscord.Renderer
+  alias AllbertDiscord.Settings.Fragment
 
   @provider "discord_gateway"
 
@@ -99,7 +100,7 @@ defmodule AllbertDiscord.Adapter do
       settings: settings,
       token_ref: Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token"),
       client_opts: client_opts,
-      diagnostics: AllbertDiscord.Settings.Fragment.required_when_enabled(settings),
+      diagnostics: Fragment.required_when_enabled(settings),
       gateway_port_module: Keyword.get(opts, :gateway_port, GatewayPort.Real),
       gateway_opts: Keyword.get(opts, :gateway_opts, []),
       gateway_port: nil,

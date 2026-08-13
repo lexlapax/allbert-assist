@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.ModelTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Mix.Tasks.Allbert.Model, as: ModelTask
 
   setup do
@@ -53,7 +54,7 @@ defmodule Mix.Tasks.Allbert.ModelTest do
              Settings.put(
                "model_preferences.tasks.direct_answer",
                ["local", "fast"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

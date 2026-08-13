@@ -3,9 +3,9 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   import ExUnit.CaptureIO
 
-  alias AllbertAssist.CLI.Areas.Channels, as: ChannelsArea
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.CLI.Areas.Channels, as: ChannelsArea
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Pack.EffectGuard
@@ -308,7 +308,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.matrix.homeserver_url",
                "https://matrix.example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -317,7 +317,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.matrix.allowed_room_ids",
                ["!room:example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -326,14 +326,14 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.matrix.identity_map",
                [%{external_user_id: "@alice:example.com", user_id: "alice"}],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.matrix.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Mix.Task.reenable("allbert.channels")
@@ -372,49 +372,49 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.whatsapp.app_secret_ref",
                "secret://channels/whatsapp/app_secret",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_verify_token_ref",
                "secret://channels/whatsapp/webhook_verify_token",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.phone_number_id",
                "15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.waba_id",
                "waba-1",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.identity_map",
                [%{external_user_id: "+15550001111", user_id: "alice"}],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Mix.Task.reenable("allbert.channels")
@@ -441,35 +441,35 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.signal.account_identifier",
                "+15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.local_aci",
                local_aci,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.identity_map",
                [%{external_user_id: aci, user_id: "alice"}],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.allowed_aci_ids",
                [aci],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Mix.Task.reenable("allbert.channels")
@@ -638,35 +638,35 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.email.imap_host",
                "imap.example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.email.smtp_host",
                "smtp.example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.email.imap_username",
                "alice",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.email.smtp_username",
                "alice",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.email.from_address",
                "allbert@example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Mix.Task.reenable("allbert.channels")
@@ -692,7 +692,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.matrix.homeserver_url",
                "https://matrix.example.com",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -701,7 +701,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.matrix.allowed_room_ids",
                ["!room:example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -728,21 +728,21 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.whatsapp.phone_number_id",
                "15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.identity_map",
                [%{external_user_id: "+15550001111", user_id: "alice"}],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.webhook_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Mix.Task.reenable("allbert.channels")
@@ -765,21 +765,21 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.signal.account_identifier",
                "+15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.local_aci",
                "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     signal_doctor =
@@ -1145,7 +1145,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.discord.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     discord_doctor =
@@ -1270,7 +1270,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.slack.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     slack_doctor =
@@ -1347,14 +1347,14 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.whatsapp.phone_number_id",
                "15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.whatsapp.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Mix.Task.reenable("allbert.channels")
@@ -1414,14 +1414,14 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              Settings.put(
                "channels.signal.account_identifier",
                "+15551234567",
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "channels.signal.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     Mix.Task.reenable("allbert.channels")

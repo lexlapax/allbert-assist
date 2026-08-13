@@ -1,4 +1,6 @@
 defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
+  alias AllbertAssist.TestSupport.ReadyEffectContext
+
   @moduledoc """
   v0.61b M2 proof (feedback #5, ADR 0080 §5): the chat-header objective chip is
   a labeled link-chip — its visible label names status + the truncated
@@ -28,7 +30,7 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
                  objective: "Produce and send the weekly digest.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -61,7 +63,7 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
                  objective: "Must not render.",
                  status: "running"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     for objective_id <- ["missing-objective", foreign.id, String.duplicate("x", 161)] do
@@ -89,7 +91,7 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
                  objective: "Long-running analysis objective.",
                  status: "open"
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -112,7 +114,7 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
                    objective: "Objective #{index} body.",
                    status: "open"
                  },
-                 AllbertAssist.TestSupport.ReadyEffectContext.context()
+                 ReadyEffectContext.context()
                )
     end
 

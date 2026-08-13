@@ -167,7 +167,7 @@ defmodule AllbertAssist.Execution.LocalRunnerTest do
              Settings.write_user_settings(
                settings,
                [],
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
   end
 

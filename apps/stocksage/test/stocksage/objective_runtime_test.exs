@@ -452,7 +452,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
                    ]
                  }
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, step} =
@@ -465,7 +465,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
                  candidate_action: "StockSage.Actions.RunAnalysis",
                  action_params: %{ticker: "AAPL"}
                },
-               AllbertAssist.TestSupport.ReadyEffectContext.context()
+               ReadyEffectContext.context()
              )
 
     assert {:ok, %{objective: blocked, verdict: :needs_more_steps}} =
@@ -523,7 +523,7 @@ defmodule StockSage.ObjectiveRuntimeTest do
     case Settings.put(
            key,
            value,
-           AllbertAssist.TestSupport.ReadyEffectContext.attach(%{actor: "test"})
+           ReadyEffectContext.attach(%{actor: "test"})
          ) do
       {:ok, _resolved} -> :ok
       {:error, reason} -> flunk("Settings.put #{inspect(key)} failed: #{inspect(reason)}")

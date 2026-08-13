@@ -5,11 +5,11 @@ defmodule AllbertAssist.Intent.FanoutManagerTest do
   import ExUnit.CaptureLog, only: [with_log: 1]
 
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy, as: DirectAnswerPolicy
+  alias AllbertAssist.Intent.{FanoutManager, FanoutPlan}
   alias AllbertAssist.Intent.FanoutManager.Agent, as: ManagerAgent
   alias AllbertAssist.Intent.FanoutManager.Commands.Adjudicate
   alias AllbertAssist.Intent.FanoutManager.Policy, as: FanoutPolicy
   alias AllbertAssist.Intent.FanoutManager.ReqLLMImplementation
-  alias AllbertAssist.Intent.{FanoutManager, FanoutPlan}
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.Fanout.RoleProfileConfiguration
   alias Jido.Agent.Directive.Error, as: JidoErrorDirective

@@ -28,7 +28,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Coding do
     },
     "coding.cancel.grace_ms" => %{
       default: 2000,
-      max: 60000,
+      max: 60_000,
       min: 100,
       sensitive?: false,
       type: :bounded_integer,
@@ -37,7 +37,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Coding do
     "coding.command_grants.default_ttl_ms" => %{
       default: 86_400_000,
       max: 2_592_000_000,
-      min: 60000,
+      min: 60_000,
       sensitive?: false,
       type: :bounded_integer,
       writable?: true
@@ -94,7 +94,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Coding do
     },
     "coding.read.default_limit" => %{
       default: 2000,
-      max: 20000,
+      max: 20_000,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,
@@ -118,7 +118,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Coding do
     },
     "coding.search.max_results" => %{
       default: 100,
-      max: 10000,
+      max: 10_000,
       min: 1,
       sensitive?: false,
       type: :bounded_integer,

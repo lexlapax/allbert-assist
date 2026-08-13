@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.TraceActionsTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Trace.RecordTrace
@@ -274,7 +275,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
              Settings.put(
                "allbert.jido.debug_trace",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
                })

@@ -92,14 +92,14 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "vision.media.max_bytes",
                8,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.capabilities.vision_input",
                ["image_fake", "vision_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, resolution} = Models.for(:vision_input)
@@ -192,7 +192,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.vision_input",
                ["vision_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -290,7 +290,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "intent.direct_answer_model_enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -299,7 +299,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "vision.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -308,7 +308,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "image.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 
@@ -317,7 +317,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.image_generation",
                ["image_fake"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )
@@ -328,7 +328,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "providers.openai.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _secret} =
@@ -344,7 +344,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
              Settings.put(
                "model_preferences.capabilities.image_generation",
                ["image_openai"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+               ReadyEffectContext.attach(%{
                  audit?: false
                })
              )

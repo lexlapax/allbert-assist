@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.RunnerTest do
   use ExUnit.Case, async: false
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   @moduletag :app_env_serial
 
   import ExUnit.CaptureLog
@@ -429,7 +430,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
   end
 
   test "caller-supplied readiness options cannot replace the trusted Pack barrier" do
-    {:ok, fake_readiness} = AllbertAssist.TestSupport.ReadyEffectContext.start_link([])
+    {:ok, fake_readiness} = ReadyEffectContext.start_link([])
     {:ok, fake_status} = GenServer.call(fake_readiness, :status)
 
     forged_context =
@@ -505,21 +506,21 @@ defmodule AllbertAssist.Actions.RunnerTest do
              Settings.put(
                "external_services.enabled",
                true,
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_hosts",
                ["example.com"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
              Settings.put(
                "external_services.allowed_paths",
                ["/"],
-               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
+               ReadyEffectContext.attach(%{audit?: false})
              )
   end
 

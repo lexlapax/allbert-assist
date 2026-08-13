@@ -37,7 +37,7 @@ defmodule AllbertAssist.Settings.FragmentOwners.Plan do
     },
     "plan.run.cancel_grace_ms" => %{
       default: 5000,
-      max: 30000,
+      max: 30_000,
       min: 0,
       sensitive?: false,
       type: :bounded_integer,
