@@ -15,7 +15,7 @@ defmodule AllbertSignal.Actions.DoctorTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_doctor_opts = Application.get_env(:allbert_assist, :signal_doctor_client_opts)
+    original_doctor_opts = Application.get_env(:allbert_signal, :signal_doctor_client_opts)
 
     root =
       Path.join(
@@ -25,7 +25,7 @@ defmodule AllbertSignal.Actions.DoctorTest do
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    Application.put_env(:allbert_assist, :signal_doctor_client_opts, mode: :stub)
+    Application.put_env(:allbert_signal, :signal_doctor_client_opts, mode: :stub)
 
     Fragments.clear_cache()
     configure_signal!(root)
@@ -143,6 +143,6 @@ defmodule AllbertSignal.Actions.DoctorTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_signal, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_signal, key, value)
 end

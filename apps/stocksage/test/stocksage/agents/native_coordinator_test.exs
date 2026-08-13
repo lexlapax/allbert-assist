@@ -94,14 +94,14 @@ defmodule StockSage.Agents.NativeCoordinatorTest do
   end
 
   test "LLM specialist failures preserve a visible failure reason" do
-    original = Application.get_env(:allbert_assist, StockSage.Agents.LLM, [])
+    original = Application.get_env(:stocksage, StockSage.Agents.LLM, [])
 
-    Application.put_env(:allbert_assist, StockSage.Agents.LLM,
+    Application.put_env(:stocksage, StockSage.Agents.LLM,
       provider: ErrorLLMProvider,
       enabled?: true
     )
 
-    on_exit(fn -> Application.put_env(:allbert_assist, StockSage.Agents.LLM, original) end)
+    on_exit(fn -> Application.put_env(:stocksage, StockSage.Agents.LLM, original) end)
 
     put_setting!("stocksage.native_llm_enabled", true)
 

@@ -72,19 +72,19 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     original_trace_config = Application.get_env(:allbert_assist, Trace)
 
     original_telegram_doctor_opts =
-      Application.get_env(:allbert_assist, :telegram_doctor_client_opts)
+      Application.get_env(:allbert_telegram, :telegram_doctor_client_opts)
 
     original_email_doctor_imap_client =
-      Application.get_env(:allbert_assist, :email_doctor_imap_client)
+      Application.get_env(:allbert_email, :email_doctor_imap_client)
 
     original_matrix_doctor_opts =
-      Application.get_env(:allbert_assist, :matrix_doctor_client_opts)
+      Application.get_env(:allbert_matrix, :matrix_doctor_client_opts)
 
     original_whatsapp_doctor_opts =
-      Application.get_env(:allbert_assist, :whatsapp_doctor_client_opts)
+      Application.get_env(:allbert_whatsapp, :whatsapp_doctor_client_opts)
 
     original_signal_doctor_opts =
-      Application.get_env(:allbert_assist, :signal_doctor_client_opts)
+      Application.get_env(:allbert_signal, :signal_doctor_client_opts)
 
     root =
       Path.join(
@@ -95,11 +95,11 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    Application.put_env(:allbert_assist, :telegram_doctor_client_opts, mode: :stub)
-    Application.put_env(:allbert_assist, :email_doctor_imap_client, FakeDoctorImapClient)
-    Application.put_env(:allbert_assist, :matrix_doctor_client_opts, plug: {Req.Test, __MODULE__})
-    Application.put_env(:allbert_assist, :whatsapp_doctor_client_opts, mode: :stub)
-    Application.put_env(:allbert_assist, :signal_doctor_client_opts, mode: :stub)
+    Application.put_env(:allbert_telegram, :telegram_doctor_client_opts, mode: :stub)
+    Application.put_env(:allbert_email, :email_doctor_imap_client, FakeDoctorImapClient)
+    Application.put_env(:allbert_matrix, :matrix_doctor_client_opts, plug: {Req.Test, __MODULE__})
+    Application.put_env(:allbert_whatsapp, :whatsapp_doctor_client_opts, mode: :stub)
+    Application.put_env(:allbert_signal, :signal_doctor_client_opts, mode: :stub)
     Application.delete_env(:allbert_assist, Trace)
     Fragments.clear_cache()
 
@@ -118,11 +118,28 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_app_env(:telegram_doctor_client_opts, original_telegram_doctor_opts)
-      restore_app_env(:email_doctor_imap_client, original_email_doctor_imap_client)
-      restore_app_env(:matrix_doctor_client_opts, original_matrix_doctor_opts)
-      restore_app_env(:whatsapp_doctor_client_opts, original_whatsapp_doctor_opts)
-      restore_app_env(:signal_doctor_client_opts, original_signal_doctor_opts)
+
+      restore_app_env(
+        :allbert_telegram,
+        :telegram_doctor_client_opts,
+        original_telegram_doctor_opts
+      )
+
+      restore_app_env(
+        :allbert_email,
+        :email_doctor_imap_client,
+        original_email_doctor_imap_client
+      )
+
+      restore_app_env(:allbert_matrix, :matrix_doctor_client_opts, original_matrix_doctor_opts)
+
+      restore_app_env(
+        :allbert_whatsapp,
+        :whatsapp_doctor_client_opts,
+        original_whatsapp_doctor_opts
+      )
+
+      restore_app_env(:allbert_signal, :signal_doctor_client_opts, original_signal_doctor_opts)
       Mix.Task.reenable("allbert.channels")
       Fragments.clear_cache()
       File.rm_rf!(root)
@@ -1444,8 +1461,11 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  # v1.4 M13.3: the application is passed in now. These keys live in the packs
+  # that read them, not in the residual's namespace, and one helper serves five
+  # different packs.
+  defp restore_app_env(app, key, nil), do: Application.delete_env(app, key)
+  defp restore_app_env(app, key, value), do: Application.put_env(app, key, value)
 
   defp unregister_if_current(pid) do
     if Process.whereis(AllbertAssist.Pack.Readiness) == pid do

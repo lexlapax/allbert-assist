@@ -43,7 +43,7 @@ defmodule AllbertAssist.Channels.SlackTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_stub_result = Application.get_env(:allbert_assist, :slack_client_stub_result)
+    original_stub_result = Application.get_env(:allbert_slack, :slack_client_stub_result)
 
     root =
       Path.join(
@@ -141,7 +141,7 @@ defmodule AllbertAssist.Channels.SlackTest do
 
     assert socket_url =~ "wss://wss-primary.slack.com"
 
-    Application.put_env(:allbert_assist, :slack_client_stub_result, :unauthorized)
+    Application.put_env(:allbert_slack, :slack_client_stub_result, :unauthorized)
 
     assert {:error, {:slack_error, "invalid_auth"}} =
              Client.auth_test("secret://channels/slack/bot_token")

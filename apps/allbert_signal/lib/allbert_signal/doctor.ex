@@ -111,7 +111,7 @@ defmodule AllbertSignal.Doctor do
   defp client_opts(settings, opts) do
     opts
     |> Keyword.get_lazy(:client_opts, fn ->
-      Application.get_env(:allbert_assist, :signal_doctor_client_opts, [])
+      Application.get_env(:allbert_signal, :signal_doctor_client_opts, [])
     end)
     |> then(&Daemon.client_opts(settings, &1))
   end

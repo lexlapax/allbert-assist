@@ -86,7 +86,7 @@ defmodule AllbertEmail.Doctor do
       Keyword.get(
         opts,
         :imap_client,
-        Application.get_env(:allbert_assist, :email_doctor_imap_client, ImapClient)
+        Application.get_env(:allbert_email, :email_doctor_imap_client, ImapClient)
       )
 
     with {:ok, conn} <-
@@ -105,7 +105,7 @@ defmodule AllbertEmail.Doctor do
 
   defp imap_opts(settings, opts) do
     opts
-    |> Keyword.get(:imap_opts, Application.get_env(:allbert_assist, :email_doctor_imap_opts, []))
+    |> Keyword.get(:imap_opts, Application.get_env(:allbert_email, :email_doctor_imap_opts, []))
     |> Keyword.put_new(:ssl, Map.get(settings, "imap_ssl", true))
   end
 

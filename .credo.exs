@@ -2,7 +2,10 @@
   configs: [
     %{
       name: "default",
-      requires: ["priv/credo_checks/settings_central_no_bypass.ex"],
+      requires: [
+        "priv/credo_checks/settings_central_no_bypass.ex",
+        "priv/credo_checks/pack_owns_its_application_env.ex"
+      ],
       files: %{
         included: [
           "apps/*/lib/",
@@ -77,7 +80,8 @@
           {Credo.Check.Warning.UnusedRegexOperation, []},
           {Credo.Check.Warning.UnusedStringOperation, []},
           {Credo.Check.Warning.UnusedTupleOperation, []},
-          {AllbertAssist.Credo.Check.SettingsCentralNoBypass, []}
+          {AllbertAssist.Credo.Check.SettingsCentralNoBypass, []},
+          {AllbertAssist.Credo.Check.PackOwnsItsApplicationEnv, []}
         ],
         disabled: [
           {Credo.Check.Refactor.MapInto, []},

@@ -141,7 +141,7 @@ defmodule AllbertSignal.Adapter do
 
   defp default_client_opts(settings) do
     settings
-    |> Daemon.client_opts(Application.get_env(:allbert_assist, :signal_client_opts, []))
+    |> Daemon.client_opts(Application.get_env(:allbert_signal, :signal_client_opts, []))
   end
 
   defp process_notification(notification, auth_context, state) do

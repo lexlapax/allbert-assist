@@ -13,8 +13,8 @@ defmodule AllbertTelegram.Actions.DoctorTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_doctor_opts = Application.get_env(:allbert_assist, :telegram_doctor_client_opts)
-    original_stub_result = Application.get_env(:allbert_assist, :telegram_client_stub_result)
+    original_doctor_opts = Application.get_env(:allbert_telegram, :telegram_doctor_client_opts)
+    original_stub_result = Application.get_env(:allbert_telegram, :telegram_client_stub_result)
 
     root =
       Path.join(
@@ -24,7 +24,7 @@ defmodule AllbertTelegram.Actions.DoctorTest do
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    Application.put_env(:allbert_assist, :telegram_doctor_client_opts, mode: :stub)
+    Application.put_env(:allbert_telegram, :telegram_doctor_client_opts, mode: :stub)
 
     Fragments.clear_cache()
 
@@ -95,7 +95,7 @@ defmodule AllbertTelegram.Actions.DoctorTest do
   end
 
   test "reports token rejection without leaking credentials" do
-    Application.put_env(:allbert_assist, :telegram_client_stub_result, :unauthorized)
+    Application.put_env(:allbert_telegram, :telegram_client_stub_result, :unauthorized)
 
     assert {:ok, response} = TelegramDoctor.run(%{}, context())
 
@@ -137,6 +137,6 @@ defmodule AllbertTelegram.Actions.DoctorTest do
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_telegram, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_telegram, key, value)
 end

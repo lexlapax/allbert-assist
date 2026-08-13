@@ -22,8 +22,8 @@ defmodule AllbertEmail.Actions.DoctorTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_imap_client = Application.get_env(:allbert_assist, :email_doctor_imap_client)
-    original_imap_opts = Application.get_env(:allbert_assist, :email_doctor_imap_opts)
+    original_imap_client = Application.get_env(:allbert_email, :email_doctor_imap_client)
+    original_imap_opts = Application.get_env(:allbert_email, :email_doctor_imap_opts)
 
     root =
       Path.join(
@@ -33,8 +33,8 @@ defmodule AllbertEmail.Actions.DoctorTest do
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
-    Application.put_env(:allbert_assist, :email_doctor_imap_client, FakeImapClient)
-    Application.put_env(:allbert_assist, :email_doctor_imap_opts, uids: ["1"])
+    Application.put_env(:allbert_email, :email_doctor_imap_client, FakeImapClient)
+    Application.put_env(:allbert_email, :email_doctor_imap_opts, uids: ["1"])
 
     Fragments.clear_cache()
 
@@ -183,6 +183,6 @@ defmodule AllbertEmail.Actions.DoctorTest do
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_email, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_email, key, value)
 end

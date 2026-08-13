@@ -327,9 +327,9 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
   end
 
   test "approved native run can use Jido.AI provider-backed specialist generation" do
-    original = Application.get_env(:allbert_assist, StockSage.Agents.LLM, [])
+    original = Application.get_env(:stocksage, StockSage.Agents.LLM, [])
 
-    Application.put_env(:allbert_assist, StockSage.Agents.LLM,
+    Application.put_env(:stocksage, StockSage.Agents.LLM,
       provider: FakeLLMProvider,
       enabled?: true
     )
@@ -337,7 +337,7 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
     Application.put_env(:allbert_assist, :stocksage_llm_test_pid, self())
 
     on_exit(fn ->
-      Application.put_env(:allbert_assist, StockSage.Agents.LLM, original)
+      Application.put_env(:stocksage, StockSage.Agents.LLM, original)
       Application.delete_env(:allbert_assist, :stocksage_llm_test_pid)
     end)
 
@@ -419,18 +419,18 @@ defmodule StockSage.Actions.RunAnalysisNativeTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp with_missing_anthropic_key(fun) do
-    original_llm = Application.get_env(:allbert_assist, StockSage.Agents.LLM, [])
+    original_llm = Application.get_env(:stocksage, StockSage.Agents.LLM, [])
     original_req_llm_key = Application.get_env(:req_llm, :anthropic_api_key)
     original_env_key = System.get_env("ANTHROPIC_API_KEY")
 
     try do
-      Application.put_env(:allbert_assist, StockSage.Agents.LLM, enabled?: true)
+      Application.put_env(:stocksage, StockSage.Agents.LLM, enabled?: true)
       Application.delete_env(:req_llm, :anthropic_api_key)
       System.delete_env("ANTHROPIC_API_KEY")
 
       fun.()
     after
-      Application.put_env(:allbert_assist, StockSage.Agents.LLM, original_llm)
+      Application.put_env(:stocksage, StockSage.Agents.LLM, original_llm)
       restore_req_llm_key(:anthropic_api_key, original_req_llm_key)
       restore_system_env("ANTHROPIC_API_KEY", original_env_key)
     end

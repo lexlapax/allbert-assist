@@ -50,9 +50,9 @@ defmodule StockSage.Agents.DecisionSynthesizerTest do
   end
 
   setup do
-    original = Application.get_env(:allbert_assist, StockSage.Agents.LLM, [])
+    original = Application.get_env(:stocksage, StockSage.Agents.LLM, [])
 
-    Application.put_env(:allbert_assist, StockSage.Agents.LLM,
+    Application.put_env(:stocksage, StockSage.Agents.LLM,
       provider: FakeLLMProvider,
       enabled?: true
     )
@@ -60,7 +60,7 @@ defmodule StockSage.Agents.DecisionSynthesizerTest do
     Application.put_env(:allbert_assist, :stocksage_decision_synthesizer_test_pid, self())
 
     on_exit(fn ->
-      Application.put_env(:allbert_assist, StockSage.Agents.LLM, original)
+      Application.put_env(:stocksage, StockSage.Agents.LLM, original)
       Application.delete_env(:allbert_assist, :stocksage_decision_synthesizer_test_pid)
     end)
 

@@ -16,7 +16,7 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_doctor_opts = Application.get_env(:allbert_assist, :whatsapp_doctor_client_opts)
+    original_doctor_opts = Application.get_env(:allbert_whatsapp, :whatsapp_doctor_client_opts)
 
     root =
       Path.join(
@@ -27,7 +27,7 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    Application.put_env(:allbert_assist, :whatsapp_doctor_client_opts,
+    Application.put_env(:allbert_whatsapp, :whatsapp_doctor_client_opts,
       plug: {Req.Test, __MODULE__}
     )
 
@@ -153,6 +153,6 @@ defmodule AllbertWhatsApp.Actions.DoctorTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_whatsapp, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_whatsapp, key, value)
 end

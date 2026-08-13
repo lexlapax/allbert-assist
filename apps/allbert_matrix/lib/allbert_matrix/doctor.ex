@@ -101,7 +101,7 @@ defmodule AllbertMatrix.Doctor do
   defp client_opts(opts) do
     client_opts =
       Keyword.get_lazy(opts, :client_opts, fn ->
-        Application.get_env(:allbert_assist, :matrix_doctor_client_opts, [])
+        Application.get_env(:allbert_matrix, :matrix_doctor_client_opts, [])
       end)
 
     case Keyword.fetch(opts, :allbert_pack_epoch) do

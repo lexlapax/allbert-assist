@@ -12,7 +12,7 @@ defmodule AllbertSlack.Actions.DoctorTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_stub_result = Application.get_env(:allbert_assist, :slack_client_stub_result)
+    original_stub_result = Application.get_env(:allbert_slack, :slack_client_stub_result)
 
     root =
       Path.join(
@@ -114,7 +114,7 @@ defmodule AllbertSlack.Actions.DoctorTest do
   end
 
   test "reports token rejection without leaking credentials" do
-    Application.put_env(:allbert_assist, :slack_client_stub_result, :unauthorized)
+    Application.put_env(:allbert_slack, :slack_client_stub_result, :unauthorized)
 
     assert {:ok, response} = SlackDoctor.run(%{}, context())
 
@@ -157,6 +157,6 @@ defmodule AllbertSlack.Actions.DoctorTest do
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 
-  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
-  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_slack, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_slack, key, value)
 end

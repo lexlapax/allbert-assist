@@ -99,7 +99,11 @@ defmodule StockSage.Agents.LLM do
     Keyword.get(config(), :provider, __MODULE__.JidoAI)
   end
 
-  defp config, do: Application.get_env(:allbert_assist, __MODULE__, [])
+  # v1.4 M13.3: this pack's own application env, not the residual's. Extraction
+  # moved the code and left the namespace behind, so a pack was reading
+  # `:allbert_assist` config at runtime -- a boundary crossing no compile-time
+  # gate sees, because it is a namespace dependency rather than a dependency.
+  defp config, do: Application.get_env(:stocksage, __MODULE__, [])
 
   defp native_model_profiles do
     Agents.ids()

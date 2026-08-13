@@ -124,10 +124,10 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_slack_stub_result = Application.get_env(:allbert_assist, :slack_client_stub_result)
+    original_slack_stub_result = Application.get_env(:allbert_slack, :slack_client_stub_result)
 
     original_discord_stub_result =
-      Application.get_env(:allbert_assist, :discord_client_stub_result)
+      Application.get_env(:allbert_discord, :discord_client_stub_result)
 
     parent = self()
 

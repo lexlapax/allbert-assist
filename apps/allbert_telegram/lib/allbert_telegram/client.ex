@@ -349,14 +349,14 @@ defmodule AllbertTelegram.Client do
   defp validate_non_empty_token(_token), do: {:error, :missing_telegram_token}
 
   defp client_mode(opts) do
-    Keyword.get(opts, :mode, Application.get_env(:allbert_assist, :telegram_client_mode, :real))
+    Keyword.get(opts, :mode, Application.get_env(:allbert_telegram, :telegram_client_mode, :real))
   end
 
   defp stub_result(opts) do
     Keyword.get(
       opts,
       :stub_result,
-      Application.get_env(:allbert_assist, :telegram_client_stub_result, :success)
+      Application.get_env(:allbert_telegram, :telegram_client_stub_result, :success)
     )
   end
 

@@ -90,7 +90,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_stub_result = Application.get_env(:allbert_assist, :discord_client_stub_result)
+    original_stub_result = Application.get_env(:allbert_discord, :discord_client_stub_result)
 
     root =
       Path.join(
@@ -201,7 +201,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:ok, %{"url" => "wss://gateway.discord.gg"}} =
              Client.gateway_bot("secret://channels/discord/bot_token")
 
-    Application.put_env(:allbert_assist, :discord_client_stub_result, :unauthorized)
+    Application.put_env(:allbert_discord, :discord_client_stub_result, :unauthorized)
 
     assert {:error, {:discord_error, 401, _body}} =
              Client.users_me("secret://channels/discord/bot_token")

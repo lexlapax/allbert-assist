@@ -90,7 +90,7 @@ defmodule AllbertTelegram.Doctor do
 
   defp client_opts(opts) do
     Keyword.get_lazy(opts, :client_opts, fn ->
-      Application.get_env(:allbert_assist, :telegram_doctor_client_opts, [])
+      Application.get_env(:allbert_telegram, :telegram_doctor_client_opts, [])
     end)
   end
 

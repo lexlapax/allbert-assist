@@ -126,7 +126,7 @@ config :allbert_assist, AllbertAssist.Objectives.Runs.Scheduler, rehydrate?: fal
 
 config :allbert_assist, AllbertAssist.Workspace.Fragment.SigningSecret, bootstrap_on_start?: false
 
-config :allbert_assist, StockSage.Agents.LLM, enabled?: false
+config :stocksage, StockSage.Agents.LLM, enabled?: false
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false

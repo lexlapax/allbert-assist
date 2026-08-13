@@ -326,14 +326,14 @@ defmodule AllbertSlack.Client do
   end
 
   defp client_mode(opts) do
-    Keyword.get(opts, :mode, Application.get_env(:allbert_assist, :slack_client_mode, :stub))
+    Keyword.get(opts, :mode, Application.get_env(:allbert_slack, :slack_client_mode, :stub))
   end
 
   defp stub_result(opts) do
     Keyword.get(
       opts,
       :stub_result,
-      Application.get_env(:allbert_assist, :slack_client_stub_result, :success)
+      Application.get_env(:allbert_slack, :slack_client_stub_result, :success)
     )
   end
 

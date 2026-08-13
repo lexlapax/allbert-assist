@@ -299,9 +299,25 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
 
   defp dotted_setting_key(window) do
     case Regex.run(~r/"([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)"/, window) do
-      [_match, key] -> key
+      [_match, key] -> if version_literal?(key), do: nil, else: key
       _other -> nil
     end
+  end
+
+  # v1.4 M13.3: a dotted literal is not automatically a Settings Central key.
+  # This matched `"v23.0"` -- the WhatsApp Graph API version -- because it sat
+  # within the four-line window of an unrelated `Application.get_env`, and
+  # reported a settings bypass on code whose actual settings read was already
+  # going through Settings. A false positive in a check like this is expensive
+  # twice over: it costs the investigation, and it teaches people that the one
+  # architectural finding in a 1,640-item inventory is probably noise.
+  #
+  # No Settings Central key has a purely numeric segment; every version string
+  # does. That is the whole distinction, and it needs no allowlist to maintain.
+  defp version_literal?(key) do
+    key
+    |> String.split(".")
+    |> Enum.any?(&Regex.match?(~r/^\d+$/, &1))
   end
 
   # Catch a single-segment operator key (no dot) that matches a known Settings

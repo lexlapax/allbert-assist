@@ -111,7 +111,7 @@ defmodule AllbertWhatsApp.Doctor do
   defp client_opts(settings, opts) do
     opts
     |> Keyword.get_lazy(:client_opts, fn ->
-      Application.get_env(:allbert_assist, :whatsapp_doctor_client_opts, [])
+      Application.get_env(:allbert_whatsapp, :whatsapp_doctor_client_opts, [])
     end)
     |> Keyword.put_new(:api_version, Map.get(settings, "graph_api_version", "v23.0"))
   end
