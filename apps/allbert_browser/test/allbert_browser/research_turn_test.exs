@@ -23,7 +23,6 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Workspace
   alias AllbertBrowser.Session
 

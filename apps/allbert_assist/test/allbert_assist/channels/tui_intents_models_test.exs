@@ -10,7 +10,6 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertTUI.Adapter
   alias AllbertTUI.Plugin, as: TUIPlugin

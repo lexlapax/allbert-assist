@@ -3,7 +3,6 @@ defmodule AllbertAssist.Security.PermissionGateIntegrationTest do
   @moduletag :global_process_serial
 
   alias AllbertAssist.Security
-  alias AllbertAssist.Security.Policy
 
   # This row resolves a shipped action by name, so it needs the real catalog.
   # The M7.1 closure gate scans module references and cannot see an action

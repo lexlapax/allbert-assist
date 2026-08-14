@@ -17,6 +17,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertTUI.Adapter
 
   defmodule ReadyInputReceipt do

@@ -10,7 +10,6 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.{Cache, Extractors}
 
   setup do

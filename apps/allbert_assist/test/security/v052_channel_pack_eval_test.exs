@@ -23,7 +23,6 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertDiscord.Adapter, as: DiscordAdapter
   alias AllbertDiscord.Client, as: DiscordClient

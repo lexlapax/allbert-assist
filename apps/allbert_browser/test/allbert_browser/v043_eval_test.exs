@@ -13,7 +13,6 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.{Extractors, NetworkPolicy, Session}
 
   @eval_ids [

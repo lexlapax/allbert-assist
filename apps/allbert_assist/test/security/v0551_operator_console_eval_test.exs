@@ -17,7 +17,6 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertTUI.Adapter, as: TUIAdapter
   alias AllbertTUI.SlashCommands

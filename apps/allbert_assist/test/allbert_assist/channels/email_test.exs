@@ -12,7 +12,6 @@ defmodule AllbertAssist.Channels.EmailTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertEmail.Adapter
   alias AllbertEmail.Parser

@@ -19,7 +19,6 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertMatrix.Adapter, as: MatrixAdapter
   alias AllbertTUI.Adapter, as: TUIAdapter

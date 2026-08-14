@@ -14,7 +14,6 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.Session
 
   @eval_ids [

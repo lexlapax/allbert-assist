@@ -8,7 +8,6 @@ defmodule Mix.Tasks.Allbert.ConversationsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Mix.Tasks.Allbert.Conversations, as: ConversationsTask
 
   setup do

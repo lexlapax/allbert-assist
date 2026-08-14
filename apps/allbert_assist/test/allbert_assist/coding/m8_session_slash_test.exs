@@ -15,7 +15,6 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertTUI.Adapter
   alias AllbertTUI.Plugin, as: TUIPlugin

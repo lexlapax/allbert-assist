@@ -25,7 +25,6 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertTUI.SlashCommands
 
   defmodule ValidLLM do

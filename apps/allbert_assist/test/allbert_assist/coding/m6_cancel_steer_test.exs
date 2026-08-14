@@ -10,7 +10,6 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertTUI.Adapter
   alias AllbertTUI.Plugin, as: TUIPlugin

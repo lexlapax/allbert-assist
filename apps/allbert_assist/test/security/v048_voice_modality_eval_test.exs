@@ -16,7 +16,6 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertAssist.Voice.ProviderAdapter
   alias AllbertAssist.Voice.ProviderHTTP

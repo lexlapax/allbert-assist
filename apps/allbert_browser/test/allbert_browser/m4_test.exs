@@ -7,7 +7,6 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Security.Redactor
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     ensure_plugin!("allbert.browser", AllbertBrowser.Plugin)

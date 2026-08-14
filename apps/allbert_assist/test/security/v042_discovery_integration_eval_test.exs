@@ -14,7 +14,6 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store, as: SettingsStore
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.ToolCandidate
   alias AllbertAssist.Workspace.McpIntegrationPanels

@@ -11,7 +11,6 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.Session
 
   setup do

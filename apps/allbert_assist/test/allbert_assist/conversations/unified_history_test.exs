@@ -10,7 +10,6 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

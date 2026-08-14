@@ -7,7 +7,6 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     ensure_plugin!("allbert.research", AllbertResearch.Plugin)

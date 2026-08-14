@@ -16,6 +16,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
