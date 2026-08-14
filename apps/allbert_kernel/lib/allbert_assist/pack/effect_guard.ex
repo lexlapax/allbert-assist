@@ -1,7 +1,6 @@
 defmodule AllbertAssist.Pack.EffectGuard do
   @moduledoc "Liveness guard for public and steady-state Pack effect boundaries."
 
-  alias AllbertAssist.Pack.EffectGuard.TestRegistry
   alias AllbertAssist.Pack.Readiness
 
   @type epoch :: %{barrier_pid: pid(), snapshot_digest: String.t()}
@@ -74,6 +73,14 @@ defmodule AllbertAssist.Pack.EffectGuard do
   # :test. Deciding here keeps both environments warning-free without weakening
   # the test-only failure path.
   if Mix.env() == :test do
+    # v1.4 source FV: this alias belongs inside the branch that uses it. Left at
+    # the top of the module it was unused in `dev` and `prod`, so those builds
+    # emitted `unused alias TestRegistry` -- a warning no gate could see, because
+    # every gate compiles MIX_ENV=test where the alias IS used. Same env-skew
+    # class M13.3 found in Dialyzer, and the comment above claimed both
+    # environments were warning-free while one was not.
+    alias AllbertAssist.Pack.EffectGuard.TestRegistry
+
     defp admitted_epoch(epoch, opts) do
       case maybe_register_test_epoch(epoch, opts) do
         :ok -> {:ok, epoch}
