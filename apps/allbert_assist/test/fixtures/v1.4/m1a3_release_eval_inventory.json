@@ -2,13 +2,6 @@
   "normalization": "v14_m1a3_release_eval_inventory_v1",
   "rows": [
     {
-      "classification": "runtime_free",
-      "line": 79,
-      "line_sha256": "57061873fe9bb82bbef1396331c1d2178c15fc518728877bc5cccb2eea2ce34a",
-      "path": "apps/allbert_assist/.github/workflows/release-artifacts.yml",
-      "reason": "release identity expression only"
-    },
-    {
       "classification": "runtime_bearing_bootstrapped",
       "line": 357,
       "line_sha256": "a23cb39b0dc54caec70e8b201fcf1b765fcc6d5b640e9db7294e05af9a6763d4",

@@ -741,3 +741,26 @@ Primary-source constraints:
   [curl CA extract](https://curl.se/docs/caextract.html),
   [MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/),
   [IANA tzdb license](https://data.iana.org/time-zones/tzdb/LICENSE)).
+
+## Amendment (v1.4 M14, 2026-08-13) — `macos-x64` is non-blocking compatibility
+
+The M0/S2 sign-off obligation above — "explicitly promote `macos-x64` or record
+it as non-blocking compatibility" — was never discharged in writing. The
+decision was taken in practice and not recorded, which is the shape M14 exists
+to catch.
+
+**Operator decision 2026-08-13: `macos-x64` is recorded as non-blocking
+compatibility.** It is not promoted to a freeze-blocking target.
+
+The evidence is the shipped matrix rather than an intention. Every artifact path
+names exactly three triples — `macos-arm64`, `linux-x64`, `linux-arm64` — in the
+release build script, the qualification matrix, and the Homebrew formula's three
+`url`/`sha256` pairs. No `macos-x64` asset has ever been built, signed,
+qualified, or published, from v0.62 through v1.3. Intel Macs remain served by
+the `macos-arm64` build under Rosetta 2, which is the same posture the tap and
+the curl installer have carried since v0.62.
+
+This closes the obligation rather than restating it. Promoting `macos-x64` later
+is a packaging workstream in its own right — a target to build, smoke, sign,
+qualify, and add to the formula — and would need its own milestone under a
+release that intends it.
