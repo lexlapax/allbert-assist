@@ -1,9 +1,8 @@
 defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle do
   @moduledoc false
 
-  alias AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness
-  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Objectives.Lifecycle
+  alias AllbertAssist.Pack.EffectGuard
 
   def run(child_id, opts \\ []) do
     with {:ok, epoch} <- EffectGuard.admit_ready() do
@@ -24,8 +23,8 @@ end
 defmodule AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering do
   @moduledoc false
 
-  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Objectives.Steering
+  alias AllbertAssist.Pack.EffectGuard
 
   def steer(user_id, objective_id, directive) do
     with {:ok, epoch} <- EffectGuard.admit_ready() do
@@ -153,10 +152,10 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   # that intent visible instead of leaving it to whoever reads the long form.
   alias AllbertAssist.Objectives.Lifecycle, as: RealLifecycle
   alias AllbertAssist.Objectives.Runs.CancelToken
-  alias AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochLifecycle, as: Lifecycle
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochObjectives, as: Objectives
   alias AllbertAssist.Objectives.Runs.LifecycleTest.EpochSteering, as: Steering
+  alias AllbertAssist.Objectives.Runs.LifecycleTest.SameDigestReadiness
   alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
   alias AllbertAssist.Objectives.Steering, as: RealSteering
   alias AllbertAssist.Pack.EffectGuard
