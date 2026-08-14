@@ -952,12 +952,11 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
       rejected = connect_socket()
 
-      assert %{
-               kind: :tui_session,
-               frame: :close,
-               session_protocol: 1,
-               code: :capacity
-             } = recv_term(rejected)
+      # v1.4 M15.1: this rejection fires at handshake reservation, before the
+      # request's kind (TUI session vs. plain command) is ever classified, so
+      # it can no longer be a TUI-only protocol frame -- see the dedicated
+      # regression coverage in `AllbertAssist.CLI.DispatcherTest`.
+      assert {:error, :busy} = recv_term(rejected)
 
       :gen_tcp.close(rejected)
       Enum.each(stalled, &:gen_tcp.close/1)

@@ -6030,14 +6030,14 @@
           "apps/allbert_assist/test/allbert_assist/channels/tui_test.exs",
           "apps/allbert_assist/test/allbert_assist/cli/dispatcher_test.exs",
           "apps/allbert_assist/test/allbert_assist/cli/req_boot_test.exs",
-          "apps/allbert_assist/test/allbert_assist/cli/tui_test.exs",
+          "apps/allbert_tui/test/allbert_assist/cli/tui_test.exs",
           "apps/allbert_assist/test/allbert_assist/database/sqlite_topology_test.exs",
           "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_client_test.exs",
           "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_protocol_test.exs",
-          "apps/allbert_assist/test/allbert_assist/runtime/tui_session_test.exs",
+          "apps/allbert_tui/test/allbert_assist/runtime/tui_session_test.exs",
           "apps/allbert_assist/test/allbert_assist/settings/settings_central_no_bypass_check_test.exs",
           "apps/allbert_assist/test/allbert_assist/settings/system_integrity_test.exs",
-          "apps/allbert_assist/test/mix/tasks/allbert_tui_test.exs"
+          "apps/allbert_tui/test/mix/tasks/allbert_tui_test.exs"
         ],
         "coverage": [
           "legacy unary compatibility, attach-only client, durable receipts, pressure, cancellation, restoration, and no embedded fallback"
@@ -6444,14 +6444,14 @@
           "apps/allbert_assist/test/allbert_assist/channels/tui_test.exs",
           "apps/allbert_assist/test/allbert_assist/cli/dispatcher_test.exs",
           "apps/allbert_assist/test/allbert_assist/cli/req_boot_test.exs",
-          "apps/allbert_assist/test/allbert_assist/cli/tui_test.exs",
+          "apps/allbert_tui/test/allbert_assist/cli/tui_test.exs",
           "apps/allbert_assist/test/allbert_assist/database/sqlite_topology_test.exs",
           "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_client_test.exs",
           "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_protocol_test.exs",
-          "apps/allbert_assist/test/allbert_assist/runtime/tui_session_test.exs",
+          "apps/allbert_tui/test/allbert_assist/runtime/tui_session_test.exs",
           "apps/allbert_assist/test/allbert_assist/settings/settings_central_no_bypass_check_test.exs",
           "apps/allbert_assist/test/allbert_assist/settings/system_integrity_test.exs",
-          "apps/allbert_assist/test/mix/tasks/allbert_tui_test.exs"
+          "apps/allbert_tui/test/mix/tasks/allbert_tui_test.exs"
         ],
         "coverage": [
           "legacy unary compatibility, attach-only client, durable receipts, pressure, cancellation, restoration, and no embedded fallback"
@@ -7229,7 +7229,7 @@
     },
     {
       "disposition": "owner_manifest_resolved",
-      "literal": "apps/allbert_assist/test/allbert_assist/cli/tui_test.exs",
+      "literal": "apps/allbert_tui/test/allbert_assist/cli/tui_test.exs",
       "reason": null,
       "source_file": "apps/allbert_assist/lib/mix/tasks/allbert.test.ex"
     },
@@ -7511,7 +7511,7 @@
     },
     {
       "disposition": "owner_manifest_resolved",
-      "literal": "apps/allbert_assist/test/allbert_assist/runtime/tui_session_test.exs",
+      "literal": "apps/allbert_tui/test/allbert_assist/runtime/tui_session_test.exs",
       "reason": null,
       "source_file": "apps/allbert_assist/lib/mix/tasks/allbert.test.ex"
     },
@@ -7637,7 +7637,7 @@
     },
     {
       "disposition": "owner_manifest_resolved",
-      "literal": "apps/allbert_assist/test/mix/tasks/allbert_tui_test.exs",
+      "literal": "apps/allbert_tui/test/mix/tasks/allbert_tui_test.exs",
       "reason": null,
       "source_file": "apps/allbert_assist/lib/mix/tasks/allbert.test.ex"
     },
@@ -8255,7 +8255,7 @@
     },
     {
       "disposition": "intentionally_fixed",
-      "literal": "apps/allbert_assist/test/allbert_assist/cli/tui_test.exs",
+      "literal": "apps/allbert_tui/test/allbert_assist/cli/tui_test.exs",
       "reason": "repository-topology assertion or fixture path; relocation is not intended",
       "source_file": "apps/allbert_assist/test/mix/tasks/allbert_test_lane_packing_test.exs"
     },

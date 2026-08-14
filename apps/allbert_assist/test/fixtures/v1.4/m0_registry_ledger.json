@@ -5,8 +5,8 @@
     "explicit_server_parity_sha256": "69eba632ad70ef8dd9d140a736b7e9e435257cfe6b31e7f287c4c0f5493d76d2",
     "extensions_sha256": "ef2712b3759c92727c5596e2f68a52c9032d9dc40b88361610fa950bcbf7a4c5",
     "isolated_mutation_diagnostics_sha256": "0793e2f8008e50b9022ea1f2e7e044952013f42cea1ab6e97b912e59e1afc276",
-    "payload_sha256": "5b90c666c9cfbf390d924f89b9abccc3eadbab984e29c9f1d7fccad2a6fee039",
-    "plugins_sha256": "ac7d4581ea77e0591fbb87b9f2e1945b59b4a3bb70c03fe777939597b758ea3d",
+    "payload_sha256": "d15639eb13c58d81cb2397a0c8cf2122a4b167574dc0bbc4101280878b8dc554",
+    "plugins_sha256": "1abee161b1e92723b928775625985219ba2b64988fefe64f8e38e59f620adffc",
     "settings_sha256": "2f1ac6a742e86c1f64df40447f3dff80ed4a8e02f64ddf95b86158964946510d"
   },
   "normalization": "v14_m0_registry_ledger_v1",
@@ -37823,7 +37823,7 @@
           "channel_id": "tui",
           "child_id": "AllbertTUI.Adapter",
           "plugin_id": "allbert.tui",
-          "row_sha256": "81177e7592d3244bab56056c35953d311555eb1ad4fd6cf29249700ff5cd51bb",
+          "row_sha256": "2fff5b6a579e11562220da408b162cc95ae008a2c4e46a5aac512dbd16781d4a",
           "status": "enabled"
         },
         {
@@ -38498,6 +38498,7 @@
               ],
               "provider": "terminal",
               "secret_refs": [],
+              "session_owner": "AllbertAssist.Runtime.Attach.TUISession",
               "session_strategy": {
                 "$tuple": [
                   "tui_session",
@@ -49428,7 +49429,7 @@
         "milestone": "M13.1",
         "payload_sha256": "5b90c666c9cfbf390d924f89b9abccc3eadbab984e29c9f1d7fccad2a6fee039",
         "reason": "the ledger subject left production for test/support and declares product?: false, so the compiled plugin inventory no longer mistakes a gate fixture for a shipped plugin",
-        "refrozen_at_sha": "ba5011fedfa3a97e1411bfbf1276a5801a29eb38"
+        "refrozen_at_sha": "ace1709fdaf5549f1626d95e50af6b063a9ffbb6"
       }
     ]
   },

@@ -364,11 +364,11 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   require Logger
 
+  alias AllbertAssist.Channels
   alias AllbertAssist.CLI
   alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.TUIProtocol
-  alias AllbertAssist.Runtime.Attach.TUISession
 
   @accept_timeout 1_000
   @recv_timeout 5_000
@@ -408,7 +408,13 @@ defmodule AllbertAssist.Runtime.Attach.Server do
       pending: %{},
       pending_limit: Keyword.get(opts, :pending_handshake_limit, @max_pending_handshakes),
       session: nil,
-      session_module: Keyword.get(opts, :session_module, TUISession),
+      # v1.4 M15.1 extracted `TUISession` into the `allbert_tui` pack; the R0
+      # frozen DAG forbids a compile-time residual-to-pack alias, so this no
+      # longer defaults to a compile-time module reference. `nil` here means
+      # "resolve the pack's owner lazily," done in `start_tui_session/4`
+      # rather than here, because the pack descriptor is not registered yet
+      # at `init/1` time (composition boots after this listener does).
+      session_module: Keyword.get(opts, :session_module, nil),
       session_opts: Keyword.get(opts, :session_opts, []),
       effect_guard_opts: effect_guard_opts(opts),
       status: :up,
@@ -619,32 +625,59 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   end
 
   defp start_tui_session(open, worker, state, epoch) do
-    opts =
-      [attach_server: self(), open: open, allbert_pack_epoch: epoch]
-      |> Keyword.merge(state.session_opts)
+    case resolve_session_module(state) do
+      nil ->
+        reject_session_start(:pack_owner_unavailable, state)
 
-    case state.session_module.start(opts) do
-      {:ok, session_pid} ->
-        monitor_ref = Process.monitor(session_pid)
+      session_module ->
+        opts =
+          [attach_server: self(), open: open, allbert_pack_epoch: epoch]
+          |> Keyword.merge(state.session_opts)
 
-        pending =
-          Map.update!(state.pending, worker, fn handshake ->
-            %{handshake | session_pid: session_pid}
-          end)
+        case session_module.start(opts) do
+          {:ok, session_pid} -> finish_session_start(session_pid, worker, state)
+          {:error, reason} -> reject_session_start(reason, state)
+        end
+    end
+  end
 
-        session = %{
-          pid: session_pid,
-          monitor_ref: monitor_ref,
-          worker: worker,
-          ready?: false,
-          active?: false
-        }
+  defp finish_session_start(session_pid, worker, state) do
+    monitor_ref = Process.monitor(session_pid)
+    pending = Map.update!(state.pending, worker, &%{&1 | session_pid: session_pid})
 
-        {nil, %{state | pending: pending, session: session}}
+    session = %{
+      pid: session_pid,
+      monitor_ref: monitor_ref,
+      worker: worker,
+      ready?: false,
+      active?: false
+    }
 
-      {:error, reason} ->
-        Logger.warning("TUI session owner could not start: #{inspect(reason)}")
-        reject_open(:runtime_unavailable, "TUI session could not start.", state)
+    {nil, %{state | pending: pending, session: session}}
+  end
+
+  defp reject_session_start(reason, state) do
+    Logger.warning("TUI session owner could not start: #{inspect(reason)}")
+    reject_open(:runtime_unavailable, "TUI session could not start.", state)
+  end
+
+  # v1.4 M15.1 extracted the TUI channel's daemon-side session owner into its
+  # own pack; the R0 frozen DAG forbids a compile-time residual-to-pack alias,
+  # so this listener resolves the owner from the same "tui" channel descriptor
+  # `AllbertTUI.Plugin.channels/0` publishes for the adapter/bootstrap/receipt
+  # modules (see the parallel resolution in
+  # `AllbertAssist.Runtime.Attach.TUISession.tui_pack_module/1` and
+  # `AllbertAssist.CLI.Tui.Client.tui_input_driver_module/0`). `nil` here is a
+  # real outcome, not a bug: if the pack is not registered (a stripped or
+  # mid-boot build), there is no owner to start, and `start_tui_session/4`
+  # rejects the open instead of calling `nil.start/1`.
+  defp resolve_session_module(%{session_module: module}) when not is_nil(module), do: module
+  defp resolve_session_module(_state), do: tui_session_owner()
+
+  defp tui_session_owner do
+    case Channels.channel_descriptor("tui") do
+      {:ok, %{session_owner: module}} when is_atom(module) and not is_nil(module) -> module
+      _other -> nil
     end
   end
 
@@ -812,10 +845,18 @@ defmodule AllbertAssist.Runtime.Attach.Server do
         end
 
       {:error, :capacity} ->
-        send_response_and_close(
-          socket,
-          TUIProtocol.open_close(:capacity, "Attach handshake capacity reached.")
-        )
+        # v1.4 M15.1 fix: this rejection fires before request bytes are even
+        # read, let alone kind-classified (`TUIProtocol.classify_kind/1` runs
+        # inside `route_request/4`, much later). Sending a `%{kind:
+        # :tui_session}` open-close frame here previously assumed every
+        # capacity-exceeded caller was a TUI session open, but a plain unary
+        # CLI client hits this same reservation limit — `Attach.recv_response/1`
+        # cannot decode a TUI frame, so the client fell through to "the command
+        # may have already run" for a command that was refused before it ran.
+        # `{:error, :busy}` is the same reply the other capacity path
+        # (`route_runtime_command/2`, `route_runtime_free_command/2`) already
+        # sends, and every client -- TUI or unary -- decodes it correctly.
+        send_response_and_close(socket, {:error, :busy})
     end
   catch
     :exit, _reason -> :gen_tcp.close(socket)

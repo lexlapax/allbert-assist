@@ -25,6 +25,13 @@ defmodule AllbertTUI.Plugin do
         identity_bootstrap: AllbertTUI.IdentityBootstrap,
         input_receipt: AllbertTUI.InputReceipt,
         input_driver: AllbertTUI.InputDriver,
+        # v1.4 M15.1: the daemon-side bounded session owner, resolved at
+        # runtime by `AllbertAssist.Runtime.Attach.Server` the same way the
+        # adapter/bootstrap/receipt/driver keys above already are (R0 frozen
+        # DAG forbids a compile-time residual-to-pack alias). Module name
+        # kept as `AllbertAssist.Runtime.Attach.TUISession` -- see
+        # `apps/allbert_tui/lib/allbert_assist/runtime/attach/tui_session.ex`.
+        session_owner: AllbertAssist.Runtime.Attach.TUISession,
         child_spec: {AllbertTUI.Adapter, []},
         secret_refs: [],
         summary_fields: ["enabled", "profile"],

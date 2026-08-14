@@ -6991,14 +6991,18 @@ defmodule Mix.Tasks.Allbert.Test do
         "apps/allbert_assist/test/allbert_assist/channels/tui_test.exs",
         "apps/allbert_assist/test/allbert_assist/cli/dispatcher_test.exs",
         "apps/allbert_assist/test/allbert_assist/cli/req_boot_test.exs",
-        "apps/allbert_assist/test/allbert_assist/cli/tui_test.exs",
+        # v1.4 M15.1 moved these three suites (and their production subjects)
+        # into the `allbert_tui` pack's own test root; kept in this gate's
+        # coverage since the daemon-owned TUI protocol/custody/terminal
+        # contracts they prove are unchanged by the move.
+        "apps/allbert_tui/test/allbert_assist/cli/tui_test.exs",
         "apps/allbert_assist/test/allbert_assist/database/sqlite_topology_test.exs",
         "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_client_test.exs",
         "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_protocol_test.exs",
-        "apps/allbert_assist/test/allbert_assist/runtime/tui_session_test.exs",
+        "apps/allbert_tui/test/allbert_assist/runtime/tui_session_test.exs",
         "apps/allbert_assist/test/allbert_assist/settings/settings_central_no_bypass_check_test.exs",
         "apps/allbert_assist/test/allbert_assist/settings/system_integrity_test.exs",
-        "apps/allbert_assist/test/mix/tasks/allbert_tui_test.exs"
+        "apps/allbert_tui/test/mix/tasks/allbert_tui_test.exs"
       ],
       coverage: [
         "legacy unary compatibility, attach-only client, durable receipts, pressure, cancellation, restoration, and no embedded fallback"
@@ -7304,7 +7308,13 @@ defmodule Mix.Tasks.Allbert.Test do
   # v1.3.1 M0.3 freezes a small corrective gate without mutating or nesting the
   # accepted v1.3 gate. The digest is over the normalized public definitions,
   # not source text, so harmless formatting changes do not create drift.
-  @release_v13_frozen_sha256 "e37893726e7192e3484f3a5fda19c8fcfaafd6168132280cceed49a5440f91f1"
+  #
+  # v1.4 M15.1 re-pointed the `v121_daemon_tui_contracts` step's test targets
+  # (embedded in this v1.3 prefix through release.v121) to the `allbert_tui`
+  # pack's own test root when its subjects moved there; that intentional,
+  # in-place re-key changed the normalized digest, so this constant is
+  # refrozen to the new observed value rather than a stale one masking drift.
+  @release_v13_frozen_sha256 "51093725a883a0b66ba01d4ad2434434196bb51bca045255c9656feaaab26c26"
   @release_v131_target_allowlist [
     "apps/allbert_assist/test/allbert_assist/memory/projection_test.exs",
     "apps/allbert_assist/test/allbert_assist/memory/claim_writer_propagation_test.exs",
@@ -11754,8 +11764,11 @@ defmodule Mix.Tasks.Allbert.Test do
     "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_protocol_test.exs" => :pure_async,
     # DataCase owns the database, but the suite also drives the live singleton
     # attach server and mutates its adapter application environment serially.
-    "apps/allbert_assist/test/allbert_assist/runtime/tui_session_test.exs" =>
-      :global_process_serial,
+    # v1.4 M15.1 moved this suite into the `allbert_tui` pack's own test root
+    # (its subject, `TUISession`, moved with it); the audited resource class
+    # is unchanged, so this entry is re-keyed to the new live path rather than
+    # dropped.
+    "apps/allbert_tui/test/allbert_assist/runtime/tui_session_test.exs" => :global_process_serial,
     # This suite mutates environment and application configuration around the
     # live KeyCustody singleton; global-process ownership is the binding class.
     "apps/allbert_assist/test/allbert_assist/settings/system_integrity_test.exs" =>

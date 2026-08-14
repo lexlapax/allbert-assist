@@ -608,6 +608,27 @@ defmodule AllbertAssist.DevGates.GateOwners do
       Enum.map(owner.test_support_roots, &{:test_support_root, &1})
   end
 
+  # v1.4 M15.1. A declared test root that holds no test made its owner vanish
+  # from the census rather than fail it: no rows, no lanes, nothing that could
+  # be red. `allbert_tui` shipped that way from M13 and was found by counting
+  # census owners by hand, not by a gate. The schema check above rejects an
+  # empty `test_roots` list and never looked inside the directory it named, so
+  # an owner that owned nothing read as an owner in good standing.
+  defp path_issue(owner, :test_root, path, repository_root) do
+    absolute = Path.join(repository_root, path)
+
+    cond do
+      not File.dir?(absolute) ->
+        ["owner #{owner.owner_id} test_root is missing: #{path}"]
+
+      Path.wildcard(Path.join(absolute, "**/*_test.exs")) == [] ->
+        ["owner #{owner.owner_id} test_root holds no test: #{path}"]
+
+      true ->
+        []
+    end
+  end
+
   defp path_issue(owner, kind, path, repository_root) do
     if File.dir?(Path.join(repository_root, path)),
       do: [],

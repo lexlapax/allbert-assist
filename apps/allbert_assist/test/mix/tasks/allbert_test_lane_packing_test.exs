@@ -196,7 +196,7 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
              "apps/allbert_assist/test/allbert_assist/objectives/report_synthesis_agent_test.exs"
            ] == :pure_async
 
-    assert records["apps/allbert_assist/test/allbert_assist/cli/tui_test.exs"] ==
+    assert records["apps/allbert_tui/test/allbert_assist/cli/tui_test.exs"] ==
              :app_env_serial
 
     assert records["apps/allbert_assist/test/mix/tasks/allbert_dispatcher_test.exs"] ==

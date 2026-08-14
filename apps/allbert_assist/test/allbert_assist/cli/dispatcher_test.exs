@@ -455,6 +455,44 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
   end
 
+  # v1.4 M15.1 regression: a bounded handshake reservation at capacity used to
+  # reject with a `%{kind: :tui_session, ...}` protocol frame BEFORE the
+  # request's kind was ever classified, so a plain unary CLI client received a
+  # frame `Attach.recv_response/1` cannot decode. That surfaced as
+  # `:invalid_response`, which `CLI.classify_attach/1` turns into "the command
+  # may have already run" -- wrong, since the command was refused at
+  # reservation and never reached the daemon. The fix makes this path reply
+  # with the same `{:error, :busy}` the other capacity path
+  # (`route_runtime_command/2`) already sends.
+  #
+  # This reads the raw wire reply instead of driving it through `Attach.run/1`:
+  # a real client sends its request immediately after connecting, and the
+  # daemon rejects at reservation before ever reading those bytes -- a
+  # send/close race against the client's own write that exists independent of
+  # this fix (unread inbound bytes at close time can undermine the outbound
+  # write) and is not what this defect or its regression coverage is about.
+  # `connect_attach_socket/0` mirrors `tui_session_test.exs`'s capacity
+  # coverage: connect and read without writing, which is what
+  # `Attach.recv_response/1` decodes regardless of when the client sends.
+  test "a capacity-exceeded handshake reply decodes as the same :busy the other capacity path sends" do
+    with_attach_home(fn ->
+      start_supervised!({Attach.Server, pending_handshake_limit: 0})
+
+      socket = connect_attach_socket()
+      {:ok, payload} = :gen_tcp.recv(socket, 0, 5_000)
+      :gen_tcp.close(socket)
+
+      # The exact term `Attach.recv_response/1`'s `{:ok, {:error, reason}} ->
+      # {:error, reason}` clause matches -- proving a plain unary client
+      # decodes this the same way the other capacity path already does.
+      assert {:error, :busy} = :erlang.binary_to_term(payload, [:safe])
+
+      assert {:error, message} = CLI.classify_attach({:error, :busy})
+      assert message =~ "busy"
+      refute message =~ "may have already run"
+    end)
+  end
+
   test "pending handshake closes promptly when the listener is killed" do
     with_attach_home(fn ->
       child_spec = Supervisor.child_spec(Attach.Server, restart: :temporary)

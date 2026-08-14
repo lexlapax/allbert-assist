@@ -13,6 +13,14 @@ defmodule AllbertTUI.Pack do
   alias AllbertAssist.Pack.Descriptor
 
   @application_version Mix.Project.config()[:version]
+  # v1.4 M15.1: `channels` stays here deliberately, matching every other
+  # channel pack (allbert_slack, allbert_discord, allbert_matrix,
+  # allbert_signal, allbert_email, allbert_whatsapp, allbert_telegram all
+  # leave it in the same list). `AllbertAssist.Pack.channels/0` is a distinct,
+  # currently-unconsumed contribution-row callback -- the real channel
+  # registry is `AllbertTUI.Plugin.channels/0` below, already implemented and
+  # read by `AllbertAssist.Plugin.Registry`/`Channels`. Promoting this one
+  # would diverge from that precedent for no consumer.
   @empty_callbacks [
     :apps,
     :actions,
@@ -25,7 +33,6 @@ defmodule AllbertTUI.Pack do
     :stores,
     :prompt_rules,
     :intent_descriptors,
-    :cli_groups,
     :release_assets
   ]
 
@@ -49,6 +56,26 @@ defmodule AllbertTUI.Pack do
 
   @impl true
   def settings_fragments, do: [AllbertTUI.SettingsFragment]
+
+  # v1.4 M15.1: every other extracted channel pack declares a CLI group under
+  # `["admin", "channels", <channel>]`; TUI was the one channel pack with
+  # none. The TUI channel is `trust_class: :local` with no external identity,
+  # bot token, or secret to configure (`secret_refs: []`), so there is no
+  # channel-specific administration surface to add beyond what
+  # `AllbertAssist.CLI.Areas.Channels` already provides generically (`list`,
+  # `show`, `status`, `--parity`, `setup-check`). Declaring the group closes
+  # the mechanism gap without inventing product surface this milestone did
+  # not ask for; see `AllbertTUI.CLI` for the usage-only dispatch.
+  @impl true
+  def cli_groups do
+    [
+      %{
+        group_id: "allbert_tui.channels",
+        command_path: ["admin", "channels", "tui"],
+        module: AllbertTUI.CLI
+      }
+    ]
+  end
 
   @impl true
   def test_lanes do
