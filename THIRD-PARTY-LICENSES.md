@@ -14,7 +14,7 @@ the offline drift check can pass.
 
 | Identifier | Reviewed input | SHA-256 |
 | --- | --- | --- |
-| `beam-lock` | `mix.lock` | `c82a7dbc9d729c7a2df5d7387125ff24cc91abc128ce0b9464f433e03dfe814a` |
+| `beam-lock` | `mix.lock` | `b4dbce0314287215cbf0676d4837bbe92b4f722d6ab37a645143ae14dc921f0f` |
 | `browser-bridge-lock` | `apps/allbert_browser/priv/playwright_bridge/package-lock.json` | `270043d292abadbe73b3928aee49a29058b3d7c90aab910065f7ef4c1fe9c1f4` |
 | `web-assets-lock` | `apps/allbert_assist_web/assets/package-lock.json` | `d8a9a0c92afa7c6802a50a5dc73cd95693c8ee0c902a01336ee3ffebbfebc0d7` |
 
