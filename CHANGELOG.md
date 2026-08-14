@@ -10,6 +10,54 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.4 - Kernel And Pack Contract
+
+Status: **source complete, not yet packaged (2026-08-14).** No tag, native
+archive, GitHub Release, signature, Homebrew update, or packaged FV exists for
+this line yet; `v1.3.0` remains the packaged Latest and v1.4 is still the next
+binary carrier, so it also still owes the v1.3.1 and v1.3.2 source-only deltas
+their first artifact. Source evidence at the R4 candidate: preflight 10/10,
+`release.v1` 10/10, the thirteen-step `release.v14` 13/13 on the same
+exact-clean SHA, `release.v132` 8/8, `mix precommit` 4/4, the Linux
+Elixir 1.20.2 / OTP 29 compatibility probe green, and a 50-pair /
+5,164-test / 0-failure census. Attended source FV was **agent-executed under
+operator direction** rather than operator-driven — see
+`docs/validation/v1.4/README.md`, which states plainly what that does and does
+not evidence. Plan: `docs/plans/v1.4-plan.md`.
+
+- **Pack topology.** Capability now contributes through one kernel-owned
+  contract instead of a hand-maintained list. `allbert_kernel` holds the Pack
+  behaviour, registry, readiness and the relocated Home/Identity, Security
+  Central and Capability Plane concerns; `allbert_composition` hosts assembly.
+  Thirteen first-party plugins became umbrella applications — `notes_files`,
+  `telegram`, `email`, `discord`, `matrix`, `signal`, `slack`, `whatsapp`,
+  `tui`, `artifacts`, `browser`, `research`, and `stocksage` — and `plugins/`
+  now holds no first-party code. The kernel is compile-enforced never to depend
+  on a pack. Module names are independent of application names on the BEAM,
+  which is what makes relocation a move rather than a rename: no frozen symbol
+  moved, was removed, or changed meaning.
+- **Compatibility behavior.** The external `allbert_plugin.json` contract keeps
+  its data-only declared-tier shape, and every surviving legacy plugin keeps its
+  adapter. Channel registration still runs through the legacy
+  `Plugin.channels/0` path — all seven channel packs leave the native
+  `Pack.channels/0` callback empty — so the new contribution seam is proven but
+  not yet adopted for channels. Nothing about the installed surface changes for
+  a user: same commands, same settings keys, same Home layout.
+- **The one deliberate observable change.** Retiring the direct `PermissionGate`
+  facade into Security Central means an authorization decision now reports
+  `decision.source: AllbertAssist.Security` rather than the retired facade. That
+  is the only intended user-visible difference in this release; permission
+  classes, safety floors, and every action-local `Security.authorize/2` check
+  are unchanged, and the confirmation and effect boundaries behave exactly as
+  before.
+- **Upgrading.** No action is required and no migration is needed. This line is
+  source-only so far, so nothing is installed from it; when v1.4 does ship a
+  binary it supersedes `v1.3.0` and carries the v1.3.1 and v1.3.2 deltas with
+  it. Existing Allbert Homes are read unchanged — roots, settings keys, secret
+  refs, and the database are untouched by the extraction. Anyone matching on
+  `decision.source` in traces, audits, or tooling should expect
+  `AllbertAssist.Security`.
+
 ## v1.3.2 - Foundational Preflight And Model Roles
 
 Status: **shipped source-only on 2026-08-06.** Annotated `[skip-artifacts]` tag
