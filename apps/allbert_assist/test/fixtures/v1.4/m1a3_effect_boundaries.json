@@ -4,7 +4,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 85,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/artifacts/delete_artifact.ex"
     },
@@ -12,7 +12,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 107,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/channels/configure_channel_secret.ex"
     },
@@ -20,7 +20,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 49,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/channels/configure_channel_setting.ex"
     },
@@ -28,7 +28,7 @@
       "boundary": "AllbertAssist.Channels.Outbound.send",
       "disposition": "inherited_context",
       "evidence": "Runner owner carries the exact E1 through the action into the adapter boundary.",
-      "line": 80,
+      "occurrence": 0,
       "roster_id": "outbound-transport",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/channels/send_channel_message.ex"
     },
@@ -36,7 +36,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 676,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -44,7 +44,7 @@
       "boundary": "AllbertAssist.Confirmations.annotate_resolution",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 692,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -52,7 +52,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 713,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -60,7 +60,7 @@
       "boundary": "AllbertAssist.Confirmations.annotate_resolution",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 810,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -68,7 +68,7 @@
       "boundary": "AllbertAssist.Confirmations.annotate_resolution",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 826,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -76,7 +76,7 @@
       "boundary": "Task.Supervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 842,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -84,7 +84,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 855,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -92,7 +92,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 956,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -100,7 +100,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 993,
+      "occurrence": 4,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -108,7 +108,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1049,
+      "occurrence": 5,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -116,7 +116,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1100,
+      "occurrence": 6,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -124,7 +124,7 @@
       "boundary": "AllbertAssist.Confirmations.resolve",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1141,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -132,7 +132,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1218,
+      "occurrence": 7,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -140,7 +140,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1290,
+      "occurrence": 8,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -148,7 +148,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1331,
+      "occurrence": 9,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -156,7 +156,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1380,
+      "occurrence": 10,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -164,7 +164,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1435,
+      "occurrence": 11,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -172,7 +172,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1484,
+      "occurrence": 12,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -180,7 +180,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1532,
+      "occurrence": 13,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -188,7 +188,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1579,
+      "occurrence": 14,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -196,7 +196,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1625,
+      "occurrence": 15,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -204,7 +204,7 @@
       "boundary": "AllbertAssist.Confirmations.annotate_resolution",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1691,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -212,7 +212,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1716,
+      "occurrence": 16,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -220,7 +220,7 @@
       "boundary": "AllbertAssist.Confirmations.resolve",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1756,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -228,7 +228,7 @@
       "boundary": "AllbertAssist.Confirmations.annotate_resolution",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1762,
+      "occurrence": 4,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -236,7 +236,7 @@
       "boundary": "AllbertAssist.Confirmations.annotate_resolution",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1789,
+      "occurrence": 5,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -244,7 +244,7 @@
       "boundary": "Task.Supervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1801,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -252,7 +252,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 1806,
+      "occurrence": 17,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -260,7 +260,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 2034,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -268,7 +268,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 2037,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -276,7 +276,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 2048,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/approve_confirmation.ex"
     },
@@ -284,7 +284,7 @@
       "boundary": "AllbertAssist.Confirmations.resolve",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 76,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/deny_confirmation.ex"
     },
@@ -292,7 +292,7 @@
       "boundary": "AllbertAssist.Confirmations.expire",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 32,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/confirmations/expire_confirmations.ex"
     },
@@ -300,7 +300,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 119,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/conversations/delete_conversation_content.ex"
     },
@@ -308,7 +308,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 98,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/conversations/resume_thread_on_channel.ex"
     },
@@ -316,7 +316,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 86,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/dynamic_plugins/integrate_draft.ex"
     },
@@ -324,7 +324,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 85,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/dynamic_plugins/rollback_integration.ex"
     },
@@ -332,7 +332,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 260,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/first_model/pull_model.ex"
     },
@@ -340,7 +340,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 20,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/helper.ex"
     },
@@ -348,7 +348,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 198,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/image/generate_image.ex"
     },
@@ -356,7 +356,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 382,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/image/generate_image.ex"
     },
@@ -364,7 +364,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 642,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/intent/direct_answer.ex"
     },
@@ -372,7 +372,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 180,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/intent/external_network_request.ex"
     },
@@ -380,7 +380,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 139,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/intent/run_shell_command.ex"
     },
@@ -388,7 +388,7 @@
       "boundary": "AllbertAssist.Jobs.Runner.run_now",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 33,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/jobs/run_job.ex"
     },
@@ -396,7 +396,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 130,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/marketplace/support.ex"
     },
@@ -404,7 +404,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 171,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/mcp/call_tool.ex"
     },
@@ -412,7 +412,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 128,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/mcp/connect_server.ex"
     },
@@ -420,7 +420,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 159,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/mcp/connect_server.ex"
     },
@@ -428,7 +428,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 146,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/mcp/read_resource.ex"
     },
@@ -436,7 +436,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 88,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/confirm_destination_memory_chain.ex"
     },
@@ -444,7 +444,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 81,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/confirm_manual_memory_revision.ex"
     },
@@ -452,7 +452,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 102,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/delete_memory_entry.ex"
     },
@@ -460,7 +460,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 86,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/forget_memory_claim.ex"
     },
@@ -468,7 +468,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 95,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/promote_conversation_turn.ex"
     },
@@ -476,7 +476,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 170,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/prune_memory_entries.ex"
     },
@@ -484,7 +484,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 130,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/memory/sync_app_lesson.ex"
     },
@@ -492,7 +492,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 63,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/objectives/cancel_objective.ex"
     },
@@ -500,7 +500,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 202,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/objectives/cancel_objective_run.ex"
     },
@@ -508,7 +508,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 92,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/outbound/gate.ex"
     },
@@ -516,7 +516,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 157,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/packages/run_package_install.ex"
     },
@@ -524,7 +524,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 27,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/plan_build/cancel_plan_run.ex"
     },
@@ -532,7 +532,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 111,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/search/authorize_search_query_scope.ex"
     },
@@ -540,7 +540,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 120,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/search/purge_search_projection.ex"
     },
@@ -548,7 +548,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 77,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/self_improvement/promote_template_draft.ex"
     },
@@ -556,7 +556,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 50,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/self_improvement/promotion_action.ex"
     },
@@ -564,7 +564,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 157,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/apply_persona_profile.ex"
     },
@@ -572,7 +572,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 196,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/apply_persona_profile.ex"
     },
@@ -580,7 +580,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 112,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/migrate_secrets.ex"
     },
@@ -588,7 +588,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 70,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/set_active_model_profile.ex"
     },
@@ -596,7 +596,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 72,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/set_active_model_profile.ex"
     },
@@ -604,7 +604,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 78,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/set_active_model_profile.ex"
     },
@@ -612,7 +612,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 91,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/set_active_model_profile.ex"
     },
@@ -620,7 +620,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 51,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/set_notes_root.ex"
     },
@@ -628,7 +628,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 33,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/settings/update_setting.ex"
     },
@@ -636,7 +636,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 112,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/skills/audit_online_skill.ex"
     },
@@ -644,7 +644,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 114,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/skills/import_local_skill.ex"
     },
@@ -652,7 +652,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 117,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/skills/import_online_skill.ex"
     },
@@ -660,7 +660,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 113,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/skills/import_remote_skill.ex"
     },
@@ -668,7 +668,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 165,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/skills/run_skill_script.ex"
     },
@@ -676,7 +676,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 115,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/skills/search_online_skills.ex"
     },
@@ -684,7 +684,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 115,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/skills/show_online_skill.ex"
     },
@@ -692,7 +692,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 31,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/support/confirmation_request.ex"
     },
@@ -700,7 +700,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 47,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/surface_policy/update.ex"
     },
@@ -708,7 +708,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 78,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/voice/capture_workspace_voice.ex"
     },
@@ -716,7 +716,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 218,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/voice/synthesize_voice.ex"
     },
@@ -724,7 +724,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 219,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/voice/transcribe_voice.ex"
     },
@@ -732,7 +732,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 37,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/actions/workspace/set_theme.ex"
     },
@@ -740,7 +740,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2018,
+      "occurrence": 0,
       "roster_id": "intent-agent-respond-2",
       "source_path": "apps/allbert_assist/lib/allbert_assist/agents/intent_agent.ex"
     },
@@ -748,7 +748,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 684,
+      "occurrence": 0,
       "roster_id": "app-registry-register-2",
       "source_path": "apps/allbert_assist/lib/allbert_assist/app/registry.ex"
     },
@@ -756,7 +756,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 730,
+      "occurrence": 1,
       "roster_id": "app-registry-register-2",
       "source_path": "apps/allbert_assist/lib/allbert_assist/app/registry.ex"
     },
@@ -764,7 +764,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 135,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/artifacts/ingestion_consumer.ex"
     },
@@ -772,7 +772,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 30,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/confirmation_callback.ex"
     },
@@ -780,7 +780,7 @@
       "boundary": "AllbertAssist.Channels.Outbound.send",
       "disposition": "inherited_context",
       "evidence": "Notify owner forwards its exact E1 to the registered adapter boundary.",
-      "line": 521,
+      "occurrence": 0,
       "roster_id": "outbound-transport",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify.ex"
     },
@@ -788,7 +788,7 @@
       "boundary": "AllbertAssist.Channels.Outbound.edit",
       "disposition": "inherited_context",
       "evidence": "Notify owner forwards its exact E1 to the registered adapter boundary.",
-      "line": 584,
+      "occurrence": 0,
       "roster_id": "outbound-transport",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify.ex"
     },
@@ -796,7 +796,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 31,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consent_callback.ex"
     },
@@ -804,7 +804,7 @@
       "boundary": "AllbertAssist.Channels.Notify.accept_consent",
       "disposition": "inherited_context",
       "evidence": "Notify owner receives the Runner-carried E1 context at consent settlement.",
-      "line": 44,
+      "occurrence": 0,
       "roster_id": "notify-consent-writes",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consent_callback.ex"
     },
@@ -812,7 +812,7 @@
       "boundary": "AllbertAssist.Channels.Notify.deliver",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 261,
+      "occurrence": 0,
       "roster_id": "notify-consumer",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex"
     },
@@ -820,7 +820,7 @@
       "boundary": "AllbertAssist.Channels.Notify.deliver",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 400,
+      "occurrence": 1,
       "roster_id": "notify-consumer",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex"
     },
@@ -828,7 +828,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 390,
+      "occurrence": 0,
       "roster_id": "cli-run-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli.ex"
     },
@@ -836,7 +836,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 52,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/database.ex"
     },
@@ -844,7 +844,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 99,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/exec.ex"
     },
@@ -852,7 +852,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 61,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/external.ex"
     },
@@ -860,7 +860,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 286,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/jobs.ex"
     },
@@ -868,7 +868,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 258,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/marketplace.ex"
     },
@@ -876,7 +876,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 236,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/mcp.ex"
     },
@@ -884,7 +884,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 296,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/mcp.ex"
     },
@@ -892,7 +892,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 305,
+      "occurrence": 2,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/mcp.ex"
     },
@@ -900,7 +900,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 715,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/memory.ex"
     },
@@ -908,7 +908,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 114,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -916,7 +916,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 150,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -924,7 +924,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 185,
+      "occurrence": 2,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -932,7 +932,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 354,
+      "occurrence": 3,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -940,7 +940,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 400,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -948,7 +948,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 414,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -956,7 +956,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 431,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -964,7 +964,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 442,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -972,7 +972,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 459,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -980,7 +980,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 462,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/objectives.ex"
     },
@@ -988,7 +988,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 330,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/onboarding.ex"
     },
@@ -996,7 +996,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 428,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/onboarding.ex"
     },
@@ -1004,7 +1004,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 467,
+      "occurrence": 2,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/onboarding.ex"
     },
@@ -1012,7 +1012,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 512,
+      "occurrence": 3,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/onboarding.ex"
     },
@@ -1020,7 +1020,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 533,
+      "occurrence": 4,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/onboarding.ex"
     },
@@ -1028,7 +1028,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 86,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/packages.ex"
     },
@@ -1036,7 +1036,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 87,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/packages.ex"
     },
@@ -1044,7 +1044,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 53,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/plan.ex"
     },
@@ -1052,7 +1052,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 68,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/plan.ex"
     },
@@ -1060,7 +1060,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 88,
+      "occurrence": 2,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/plan.ex"
     },
@@ -1068,7 +1068,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 94,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/plugins.ex"
     },
@@ -1076,7 +1076,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 247,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/plugins.ex"
     },
@@ -1084,7 +1084,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 160,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/public_protocol.ex"
     },
@@ -1092,7 +1092,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 178,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/sessions.ex"
     },
@@ -1100,7 +1100,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 190,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/sessions.ex"
     },
@@ -1108,7 +1108,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 219,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/skills.ex"
     },
@@ -1116,7 +1116,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 232,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/skills.ex"
     },
@@ -1124,7 +1124,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 276,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/threads.ex"
     },
@@ -1132,7 +1132,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 311,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/threads.ex"
     },
@@ -1140,7 +1140,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 342,
+      "occurrence": 2,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/threads.ex"
     },
@@ -1148,7 +1148,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 58,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/voice.ex"
     },
@@ -1156,7 +1156,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 65,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/voice.ex"
     },
@@ -1164,7 +1164,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 76,
+      "occurrence": 2,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/voice.ex"
     },
@@ -1172,7 +1172,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 36,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/workflows.ex"
     },
@@ -1180,7 +1180,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 42,
+      "occurrence": 1,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/workflows.ex"
     },
@@ -1188,7 +1188,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 58,
+      "occurrence": 2,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/workflows.ex"
     },
@@ -1196,7 +1196,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed CLI-area owner receives the Mix-area ingress E1 and carries it into this Runner boundary.",
-      "line": 55,
+      "occurrence": 0,
       "roster_id": "mix-area-ingress",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/areas/workspace.ex"
     },
@@ -1204,7 +1204,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 77,
+      "occurrence": 0,
       "roster_id": "cli-ask",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/ask.ex"
     },
@@ -1212,7 +1212,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 103,
+      "occurrence": 0,
       "roster_id": "cli-ask",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/ask.ex"
     },
@@ -1220,7 +1220,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 192,
+      "occurrence": 0,
       "roster_id": "channel-cli-support",
       "source_path": "apps/allbert_assist/lib/allbert_assist/cli/channels/support.ex"
     },
@@ -1228,7 +1228,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 188,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/coding/tool_loop.ex"
     },
@@ -1236,7 +1236,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 235,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/conversations/corpus.ex"
     },
@@ -1244,7 +1244,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 875,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex"
     },
@@ -1252,7 +1252,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 877,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex"
     },
@@ -1260,7 +1260,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 879,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex"
     },
@@ -1268,7 +1268,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 880,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex"
     },
@@ -1276,7 +1276,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 917,
+      "occurrence": 4,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex"
     },
@@ -1284,7 +1284,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 939,
+      "occurrence": 5,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex"
     },
@@ -1292,7 +1292,7 @@
       "boundary": "AllbertAssist.Actions.Intent.DirectAnswer.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 1026,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_fanout_eval.ex"
     },
@@ -1300,7 +1300,7 @@
       "boundary": "AllbertAssist.Actions.Intent.DirectAnswer.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 176,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_zero_shot_eval.ex"
     },
@@ -1308,7 +1308,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Reviewed evaluation owner admits one E1, carries it through the evaluation context, and revalidates it before this effect boundary.",
-      "line": 405,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dev_gates/v13_zero_shot_eval.ex"
     },
@@ -1316,7 +1316,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 236,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/codegen/producer.ex"
     },
@@ -1324,7 +1324,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 269,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/codegen/producer.ex"
     },
@@ -1332,7 +1332,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 54,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/delegate.ex"
     },
@@ -1340,7 +1340,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 104,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/loader.ex"
     },
@@ -1348,7 +1348,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 36,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/execution/process_owner.ex"
     },
@@ -1356,7 +1356,7 @@
       "boundary": "Task.Supervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 242,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/execution/process_owner.ex"
     },
@@ -1364,7 +1364,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 18,
+      "occurrence": 0,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-external-http-client-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/external/http_client.ex"
     },
@@ -1372,7 +1372,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 179,
+      "occurrence": 0,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-first-model-ollama-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/first_model/ollama.ex"
     },
@@ -1380,7 +1380,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 201,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/intent/steering.ex"
     },
@@ -1388,7 +1388,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 212,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/intent/steering.ex"
     },
@@ -1396,7 +1396,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 91,
+      "occurrence": 0,
       "roster_id": "jobs-runner",
       "source_path": "apps/allbert_assist/lib/allbert_assist/jobs/runner.ex"
     },
@@ -1404,7 +1404,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 102,
+      "occurrence": 0,
       "roster_id": "jobs-runner",
       "source_path": "apps/allbert_assist/lib/allbert_assist/jobs/runner.ex"
     },
@@ -1412,7 +1412,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 212,
+      "occurrence": 0,
       "roster_id": "jobs-runner",
       "source_path": "apps/allbert_assist/lib/allbert_assist/jobs/runner.ex"
     },
@@ -1420,7 +1420,7 @@
       "boundary": "AllbertAssist.Jobs.Runner.execute_run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 189,
+      "occurrence": 0,
       "roster_id": "jobs-scheduler-executor",
       "source_path": "apps/allbert_assist/lib/allbert_assist/jobs/scheduler/executor.ex"
     },
@@ -1428,7 +1428,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 195,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/marketplace/panels/catalog.ex"
     },
@@ -1436,7 +1436,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 219,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1444,7 +1444,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 221,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1452,7 +1452,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 312,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1460,7 +1460,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 331,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1468,7 +1468,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 374,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1476,7 +1476,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 384,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1484,7 +1484,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 420,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1492,7 +1492,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 424,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1500,7 +1500,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 433,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1508,7 +1508,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed Objectives.Commands action owner receives the Runner E1 and carries it through this nested effect boundary.",
-      "line": 571,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1516,7 +1516,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 588,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1524,7 +1524,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 603,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1532,7 +1532,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 661,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1540,7 +1540,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 675,
+      "occurrence": 4,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1548,7 +1548,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 723,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1556,7 +1556,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 736,
+      "occurrence": 5,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1564,7 +1564,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 776,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1572,7 +1572,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 789,
+      "occurrence": 6,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1580,7 +1580,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 839,
+      "occurrence": 4,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1588,7 +1588,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 853,
+      "occurrence": 5,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1596,7 +1596,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed Objectives.Commands action owner receives the Runner E1 and carries it through this nested effect boundary.",
-      "line": 1007,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1604,7 +1604,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed Objectives.Commands action owner receives the Runner E1 and carries it through this nested effect boundary.",
-      "line": 1049,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1612,7 +1612,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1073,
+      "occurrence": 4,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1620,7 +1620,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1087,
+      "occurrence": 7,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1628,7 +1628,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1098,
+      "occurrence": 6,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1636,7 +1636,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1145,
+      "occurrence": 5,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1644,7 +1644,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1163,
+      "occurrence": 6,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1652,7 +1652,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1176,
+      "occurrence": 8,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1660,7 +1660,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1187,
+      "occurrence": 7,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1668,7 +1668,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1473,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1676,7 +1676,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1484,
+      "occurrence": 9,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1684,7 +1684,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1514,
+      "occurrence": 8,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1692,7 +1692,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1534,
+      "occurrence": 9,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1700,7 +1700,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1549,
+      "occurrence": 10,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1708,7 +1708,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1840,
+      "occurrence": 10,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1716,7 +1716,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1857,
+      "occurrence": 11,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1724,7 +1724,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1903,
+      "occurrence": 7,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex"
     },
@@ -1732,7 +1732,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1062,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/fanout.ex"
     },
@@ -1740,7 +1740,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1090,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/fanout.ex"
     },
@@ -1748,7 +1748,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1109,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/fanout.ex"
     },
@@ -1756,7 +1756,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1215,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/fanout.ex"
     },
@@ -1764,7 +1764,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 564,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/fanout/terminal_transitions.ex"
     },
@@ -1772,7 +1772,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 411,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1780,7 +1780,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 606,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1788,7 +1788,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 888,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1796,7 +1796,7 @@
       "boundary": "AllbertAssist.Confirmations.annotate_resolution",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1030,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1804,7 +1804,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1097,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1812,7 +1812,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1110,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1820,7 +1820,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1141,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1828,7 +1828,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1279,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex"
     },
@@ -1836,7 +1836,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 74,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/runs/coordinator.ex"
     },
@@ -1844,7 +1844,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 507,
+      "occurrence": 0,
       "roster_id": "objective-run-scheduler",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/runs/scheduler.ex"
     },
@@ -1852,7 +1852,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 17,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/runs/worker/action_adapter.ex"
     },
@@ -1860,7 +1860,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 36,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/runs/worker/commands/execute.ex"
     },
@@ -1868,7 +1868,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 96,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/steering.ex"
     },
@@ -1876,7 +1876,7 @@
       "boundary": "AllbertAssist.Confirmations.resolve",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 138,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/steering.ex"
     },
@@ -1884,7 +1884,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 379,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/onboarding.ex"
     },
@@ -1892,7 +1892,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 385,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/onboarding.ex"
     },
@@ -1900,7 +1900,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 428,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/onboarding.ex"
     },
@@ -1908,7 +1908,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 429,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/onboarding.ex"
     },
@@ -1916,7 +1916,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 811,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/onboarding.ex"
     },
@@ -1924,7 +1924,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 85,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build.ex"
     },
@@ -1932,7 +1932,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 87,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build.ex"
     },
@@ -1940,7 +1940,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 132,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build.ex"
     },
@@ -1948,7 +1948,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 136,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -1956,7 +1956,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 147,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -1964,7 +1964,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 176,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -1972,7 +1972,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 187,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -1980,7 +1980,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 237,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -1988,7 +1988,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 239,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -1996,7 +1996,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 251,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2004,7 +2004,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 261,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2012,7 +2012,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 286,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2020,7 +2020,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 297,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2028,7 +2028,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 313,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2036,7 +2036,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 323,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2044,7 +2044,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 339,
+      "occurrence": 3,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2052,7 +2052,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 350,
+      "occurrence": 4,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2060,7 +2060,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 369,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex"
     },
@@ -2068,7 +2068,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 163,
+      "occurrence": 0,
       "roster_id": "plugin-bootstrap-staged-boot",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plugin/bootstrap.ex"
     },
@@ -2076,7 +2076,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 163,
+      "occurrence": 0,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2084,7 +2084,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 176,
+      "occurrence": 0,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2092,7 +2092,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result_durable",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 226,
+      "occurrence": 0,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2100,7 +2100,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 256,
+      "occurrence": 0,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2108,7 +2108,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 320,
+      "occurrence": 0,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2116,7 +2116,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 102,
+      "occurrence": 0,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2124,7 +2124,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 113,
+      "occurrence": 0,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2132,7 +2132,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 132,
+      "occurrence": 0,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2140,7 +2140,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_rejected",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 279,
+      "occurrence": 0,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2148,7 +2148,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 282,
+      "occurrence": 0,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2156,7 +2156,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 46,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/token_auth.ex"
     },
@@ -2164,7 +2164,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 167,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/token_auth.ex"
     },
@@ -2172,7 +2172,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 50,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/resources/grants.ex"
     },
@@ -2180,7 +2180,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 68,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/resources/grants.ex"
     },
@@ -2188,7 +2188,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 80,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/resources/grants.ex"
     },
@@ -2196,7 +2196,7 @@
       "boundary": "AllbertAssist.Channels.Notify.mark_consent_offer_delivered",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 307,
+      "occurrence": 0,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2204,7 +2204,7 @@
       "boundary": "AllbertAssist.Channels.Notify.prepare_consent_offer",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1348,
+      "occurrence": 0,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2212,7 +2212,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1409,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2220,7 +2220,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1556,
+      "occurrence": 0,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2228,7 +2228,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1724,
+      "occurrence": 1,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2236,7 +2236,7 @@
       "boundary": "Task.Supervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 652,
+      "occurrence": 0,
       "roster_id": "runtime-attach-dispatch",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime/attach.ex"
     },
@@ -2244,7 +2244,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 179,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/search/surface.ex"
     },
@@ -2252,7 +2252,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 182,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/search/surface.ex"
     },
@@ -2260,7 +2260,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 186,
+      "occurrence": 2,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/search/surface.ex"
     },
@@ -2268,7 +2268,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 24,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/settings/direct_answer_selection.ex"
     },
@@ -2276,7 +2276,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 26,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/settings/direct_answer_selection.ex"
     },
@@ -2284,7 +2284,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 501,
+      "occurrence": 0,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-settings-model-doctor-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/settings/model_doctor.ex"
     },
@@ -2292,7 +2292,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 589,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/settings/secrets.ex"
     },
@@ -2300,7 +2300,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 49,
+      "occurrence": 0,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-skills-direct-import-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/skills/direct_import.ex"
     },
@@ -2308,7 +2308,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 76,
+      "occurrence": 0,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-skills-online-registry-client-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/skills/online/registry_client.ex"
     },
@@ -2316,7 +2316,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 102,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/surface/event_recorder.ex"
     },
@@ -2324,7 +2324,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 143,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/surface/event_recorder.ex"
     },
@@ -2332,7 +2332,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 150,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/surface/event_recorder.ex"
     },
@@ -2340,7 +2340,7 @@
       "boundary": "AllbertAssist.Settings.put",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 33,
+      "occurrence": 0,
       "roster_id": "discovery-scan-run",
       "source_path": "apps/allbert_assist/lib/allbert_assist/tools/discovery/scan.ex"
     },
@@ -2348,7 +2348,7 @@
       "boundary": "AllbertAssist.Jobs.Runner.run_now",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 62,
+      "occurrence": 0,
       "roster_id": "discovery-scan-run",
       "source_path": "apps/allbert_assist/lib/allbert_assist/tools/discovery/scan.ex"
     },
@@ -2356,7 +2356,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 82,
+      "occurrence": 0,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-voice-local-runtime-backends-ollama-stt-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/voice/local_runtime/backends/ollama_stt.ex"
     },
@@ -2364,7 +2364,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 64,
+      "occurrence": 0,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-voice-provider-http-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/voice/provider_http.ex"
     },
@@ -2372,7 +2372,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 413,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/workspace/mcp_integration_panels.ex"
     },
@@ -2380,7 +2380,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 472,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/workspace/mcp_integration_panels.ex"
     },
@@ -2388,7 +2388,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 147,
+      "occurrence": 0,
       "roster_id": "mix-ask-ingress",
       "source_path": "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex"
     },
@@ -2396,7 +2396,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 151,
+      "occurrence": 0,
       "roster_id": "mix-ask-ingress",
       "source_path": "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex"
     },
@@ -2404,7 +2404,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 155,
+      "occurrence": 0,
       "roster_id": "mix-ask-ingress",
       "source_path": "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex"
     },
@@ -2412,7 +2412,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 214,
+      "occurrence": 0,
       "roster_id": "mix-ask-ingress",
       "source_path": "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex"
     },
@@ -2420,7 +2420,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 326,
+      "occurrence": 0,
       "roster_id": "mix-ask-ingress",
       "source_path": "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex"
     },
@@ -2428,7 +2428,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 344,
+      "occurrence": 1,
       "roster_id": "mix-ask-ingress",
       "source_path": "apps/allbert_assist/lib/mix/tasks/allbert.ask.ex"
     },
@@ -2436,7 +2436,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 637,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/components/layouts.ex"
     },
@@ -2444,7 +2444,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 57,
+      "occurrence": 0,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2452,7 +2452,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 72,
+      "occurrence": 0,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2460,7 +2460,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 81,
+      "occurrence": 0,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2468,7 +2468,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 85,
+      "occurrence": 1,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2476,7 +2476,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 114,
+      "occurrence": 2,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2484,7 +2484,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 142,
+      "occurrence": 3,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2492,7 +2492,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result_durable",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 171,
+      "occurrence": 0,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2500,7 +2500,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 173,
+      "occurrence": 0,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2508,7 +2508,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 235,
+      "occurrence": 0,
       "roster_id": "web-jobs-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/jobs_live.ex"
     },
@@ -2516,7 +2516,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 246,
+      "occurrence": 1,
       "roster_id": "web-jobs-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/jobs_live.ex"
     },
@@ -2524,7 +2524,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 69,
+      "occurrence": 0,
       "roster_id": "web-objective-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/objective_live.ex"
     },
@@ -2532,7 +2532,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 92,
+      "occurrence": 1,
       "roster_id": "web-objective-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/objective_live.ex"
     },
@@ -2540,7 +2540,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 104,
+      "occurrence": 2,
       "roster_id": "web-objective-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/objective_live.ex"
     },
@@ -2548,7 +2548,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 129,
+      "occurrence": 3,
       "roster_id": "web-objective-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/objective_live.ex"
     },
@@ -2556,7 +2556,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 145,
+      "occurrence": 4,
       "roster_id": "web-objective-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/objective_live.ex"
     },
@@ -2564,7 +2564,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 690,
+      "occurrence": 5,
       "roster_id": "web-objective-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/objective_live.ex"
     },
@@ -2572,7 +2572,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 109,
+      "occurrence": 0,
       "roster_id": "web-objectives-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/objectives_live.ex"
     },
@@ -2580,7 +2580,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "SharedShellHooks validates the connected socket E1 before ContextBuilder carries that exact epoch into the theme-setting Runner action.",
-      "line": 53,
+      "occurrence": 0,
       "roster_id": "web-shared-shell-hooks",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/shared_shell_hooks.ex"
     },
@@ -2588,7 +2588,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "SharedShellHooks validates the connected socket E1 before ContextBuilder carries that exact epoch into the resolved-settings Runner action.",
-      "line": 136,
+      "occurrence": 1,
       "roster_id": "web-shared-shell-hooks",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/shared_shell_hooks.ex"
     },
@@ -2596,7 +2596,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 801,
+      "occurrence": 0,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2604,7 +2604,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1104,
+      "occurrence": 0,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2612,7 +2612,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1409,
+      "occurrence": 1,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2620,7 +2620,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2349,
+      "occurrence": 2,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2628,7 +2628,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2797,
+      "occurrence": 0,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2636,7 +2636,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2822,
+      "occurrence": 0,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2644,7 +2644,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_rejected",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2829,
+      "occurrence": 0,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2652,7 +2652,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2943,
+      "occurrence": 1,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2660,7 +2660,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2967,
+      "occurrence": 0,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2668,7 +2668,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2971,
+      "occurrence": 1,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2676,7 +2676,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 3192,
+      "occurrence": 3,
       "roster_id": "web-workspace-live",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex"
     },
@@ -2684,7 +2684,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 39,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/signal_bridge_supervisor.ex"
     },
@@ -2692,7 +2692,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 141,
+      "occurrence": 0,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2700,7 +2700,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 484,
+      "occurrence": 1,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2708,7 +2708,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 864,
+      "occurrence": 2,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2716,7 +2716,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 866,
+      "occurrence": 3,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2724,7 +2724,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 876,
+      "occurrence": 4,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2732,7 +2732,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 889,
+      "occurrence": 5,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2740,7 +2740,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1092,
+      "occurrence": 6,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2748,7 +2748,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1584,
+      "occurrence": 7,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2756,7 +2756,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1622,
+      "occurrence": 8,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2764,7 +2764,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1944,
+      "occurrence": 9,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2772,7 +2772,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1985,
+      "occurrence": 10,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2780,7 +2780,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2006,
+      "occurrence": 11,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2788,7 +2788,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2023,
+      "occurrence": 12,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2796,7 +2796,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2036,
+      "occurrence": 13,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2804,7 +2804,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2049,
+      "occurrence": 14,
       "roster_id": "web-operator-panels",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
     },
@@ -2812,7 +2812,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 50,
+      "occurrence": 0,
       "roster_id": "web-plan-build",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/plan_build.ex"
     },
@@ -2820,7 +2820,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 503,
+      "occurrence": 0,
       "roster_id": "web-template-create",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/template_create.ex"
     },
@@ -2828,7 +2828,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 585,
+      "occurrence": 1,
       "roster_id": "web-template-create",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/template_create.ex"
     },
@@ -2836,7 +2836,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 629,
+      "occurrence": 2,
       "roster_id": "web-template-create",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/template_create.ex"
     },
@@ -2844,7 +2844,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 220,
+      "occurrence": 0,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2852,7 +2852,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 248,
+      "occurrence": 0,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2860,7 +2860,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 417,
+      "occurrence": 0,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2868,7 +2868,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 486,
+      "occurrence": 0,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2876,7 +2876,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 566,
+      "occurrence": 0,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2884,7 +2884,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 581,
+      "occurrence": 1,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2892,7 +2892,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 585,
+      "occurrence": 2,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2900,7 +2900,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 589,
+      "occurrence": 3,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2908,7 +2908,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 595,
+      "occurrence": 4,
       "roster_id": "email-adapter",
       "source_path": "apps/allbert_email/lib/allbert_email/adapter.ex"
     },
@@ -2916,7 +2916,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 149,
+      "occurrence": 0,
       "roster_id": "email-cli",
       "source_path": "apps/allbert_email/lib/allbert_email/cli.ex"
     },
@@ -2924,7 +2924,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 162,
+      "occurrence": 0,
       "roster_id": "email-cli",
       "source_path": "apps/allbert_email/lib/allbert_email/cli.ex"
     },
@@ -2932,7 +2932,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 180,
+      "occurrence": 0,
       "roster_id": "email-cli",
       "source_path": "apps/allbert_email/lib/allbert_email/cli.ex"
     },
@@ -2940,7 +2940,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 121,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_notes_files/lib/allbert_notes_files/actions/write_note.ex"
     },
@@ -2948,7 +2948,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 97,
+      "occurrence": 0,
       "roster_id": "notes-cli",
       "source_path": "apps/allbert_notes_files/lib/allbert_notes_files/cli.ex"
     },
@@ -2956,7 +2956,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 131,
+      "occurrence": 0,
       "roster_id": "telegram-cli",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/cli.ex"
     },
@@ -2964,7 +2964,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 145,
+      "occurrence": 0,
       "roster_id": "telegram-cli",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/cli.ex"
     },
@@ -2972,7 +2972,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 163,
+      "occurrence": 0,
       "roster_id": "telegram-cli",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/cli.ex"
     },
@@ -2980,7 +2980,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 145,
+      "occurrence": 0,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/client.ex"
     },
@@ -2988,7 +2988,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 178,
+      "occurrence": 1,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/client.ex"
     },
@@ -2996,7 +2996,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action or surface owner carries the Runner E1 into this nested Runner boundary.",
-      "line": 14,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_artifacts/lib/allbert_artifacts/surface_provider.ex"
     },
@@ -3004,7 +3004,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 163,
+      "occurrence": 0,
       "roster_id": "artifacts-mix-task",
       "source_path": "apps/allbert_artifacts/lib/mix/tasks/allbert.artifacts.ex"
     },
@@ -3012,7 +3012,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 88,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_browser/lib/allbert_browser/actions.ex"
     },
@@ -3020,7 +3020,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Reviewed action body executes only after Actions.Runner validates the carried E1.",
-      "line": 40,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_browser/lib/allbert_browser/actions/analyze_screenshot.ex"
     },
@@ -3028,7 +3028,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 40,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_browser/lib/allbert_browser/session.ex"
     },
@@ -3036,7 +3036,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 18,
+      "occurrence": 0,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3044,7 +3044,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 35,
+      "occurrence": 1,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3052,7 +3052,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 51,
+      "occurrence": 2,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3060,7 +3060,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 98,
+      "occurrence": 3,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3068,7 +3068,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 100,
+      "occurrence": 4,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3076,7 +3076,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 113,
+      "occurrence": 5,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3084,7 +3084,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 115,
+      "occurrence": 6,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3092,7 +3092,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 149,
+      "occurrence": 7,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3100,7 +3100,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 235,
+      "occurrence": 0,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3108,7 +3108,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 249,
+      "occurrence": 1,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3116,7 +3116,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 296,
+      "occurrence": 0,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3124,7 +3124,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 429,
+      "occurrence": 0,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3132,7 +3132,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 626,
+      "occurrence": 0,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3140,7 +3140,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 641,
+      "occurrence": 1,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3148,7 +3148,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 675,
+      "occurrence": 2,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3156,7 +3156,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 133,
+      "occurrence": 0,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/client.ex"
     },
@@ -3164,7 +3164,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 161,
+      "occurrence": 1,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/client.ex"
     },
@@ -3172,7 +3172,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 288,
+      "occurrence": 0,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3180,7 +3180,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 376,
+      "occurrence": 0,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3188,7 +3188,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 392,
+      "occurrence": 1,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3196,7 +3196,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 538,
+      "occurrence": 0,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3204,7 +3204,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 623,
+      "occurrence": 0,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3212,7 +3212,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 638,
+      "occurrence": 1,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3220,7 +3220,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 642,
+      "occurrence": 2,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3228,7 +3228,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 646,
+      "occurrence": 3,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3236,7 +3236,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 118,
+      "occurrence": 0,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/client.ex"
     },
@@ -3244,7 +3244,7 @@
       "boundary": "AllbertAssist.Objectives.Engine.Agent.execute_step",
       "disposition": "inherited_context",
       "evidence": "Reviewed owner chains carry E1 from the research task or Runner action context and revalidate it before the objective engine execute effect.",
-      "line": 57,
+      "occurrence": 0,
       "roster_ids": [
         "research-mix-task",
         "runner-run-3"
@@ -3255,7 +3255,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "inherited_context",
       "evidence": "Reviewed owner chains carry E1 from the research task or Runner action context and revalidate it before the durable objective create effect.",
-      "line": 138,
+      "occurrence": 0,
       "roster_ids": [
         "research-mix-task",
         "runner-run-3"
@@ -3266,7 +3266,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "inherited_context",
       "evidence": "Reviewed owner chains carry E1 from the research task or Runner action context and revalidate it before the durable objective step effect.",
-      "line": 142,
+      "occurrence": 0,
       "roster_ids": [
         "research-mix-task",
         "runner-run-3"
@@ -3277,7 +3277,7 @@
       "boundary": "AllbertAssist.Objectives.Engine.Agent.observe_step",
       "disposition": "inherited_context",
       "evidence": "Reviewed owner chains carry E1 from the research task or Runner action context and revalidate it before the objective engine observe effect.",
-      "line": 195,
+      "occurrence": 0,
       "roster_ids": [
         "research-mix-task",
         "runner-run-3"
@@ -3288,7 +3288,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed research task admits one E1 at ingress and carries it into this Runner call.",
-      "line": 129,
+      "occurrence": 0,
       "roster_id": "research-mix-task",
       "source_path": "apps/allbert_research/lib/mix/tasks/allbert.research.ex"
     },
@@ -3296,7 +3296,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed research task admits one E1 at ingress and carries it into this Runner call.",
-      "line": 190,
+      "occurrence": 1,
       "roster_id": "research-mix-task",
       "source_path": "apps/allbert_research/lib/mix/tasks/allbert.research.ex"
     },
@@ -3304,7 +3304,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 219,
+      "occurrence": 0,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3312,7 +3312,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 250,
+      "occurrence": 0,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3320,7 +3320,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 266,
+      "occurrence": 1,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3328,7 +3328,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 364,
+      "occurrence": 0,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3336,7 +3336,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 540,
+      "occurrence": 0,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3344,7 +3344,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 555,
+      "occurrence": 1,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3352,7 +3352,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 563,
+      "occurrence": 2,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3360,7 +3360,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 572,
+      "occurrence": 3,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/adapter.ex"
     },
@@ -3368,7 +3368,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 111,
+      "occurrence": 0,
       "roster_id": "signal-adapter",
       "source_path": "apps/allbert_signal/lib/allbert_signal/client.ex"
     },
@@ -3376,7 +3376,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 260,
+      "occurrence": 0,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3384,7 +3384,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 274,
+      "occurrence": 1,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3392,7 +3392,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 321,
+      "occurrence": 0,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3400,7 +3400,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 482,
+      "occurrence": 0,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3408,7 +3408,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 671,
+      "occurrence": 0,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3416,7 +3416,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 686,
+      "occurrence": 1,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3424,7 +3424,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 720,
+      "occurrence": 2,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3432,7 +3432,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 100,
+      "occurrence": 0,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/client.ex"
     },
@@ -3440,7 +3440,7 @@
       "boundary": "Task.Supervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1668,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3448,7 +3448,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2193,
+      "occurrence": 0,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3456,7 +3456,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2242,
+      "occurrence": 0,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3464,7 +3464,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2426,
+      "occurrence": 0,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3472,7 +3472,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2438,
+      "occurrence": 0,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3480,7 +3480,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2664,
+      "occurrence": 0,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3488,7 +3488,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2692,
+      "occurrence": 1,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3496,7 +3496,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2700,
+      "occurrence": 2,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3504,7 +3504,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "inherited_context",
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
-      "line": 110,
+      "occurrence": 0,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
@@ -3512,7 +3512,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "inherited_context",
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
-      "line": 170,
+      "occurrence": 1,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
@@ -3520,7 +3520,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "inherited_context",
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
-      "line": 200,
+      "occurrence": 2,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
@@ -3528,7 +3528,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "inherited_context",
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
-      "line": 284,
+      "occurrence": 0,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
@@ -3536,7 +3536,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "inherited_context",
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
-      "line": 338,
+      "occurrence": 3,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
@@ -3544,7 +3544,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "inherited_context",
       "evidence": "Reviewed TUI receipt owner carries the adapter E1 into channel event persistence.",
-      "line": 353,
+      "occurrence": 4,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/input_receipt.ex"
     },
@@ -3552,7 +3552,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 93,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_tui/lib/allbert_tui/slash_commands.ex"
     },
@@ -3560,7 +3560,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 253,
+      "occurrence": 0,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3568,7 +3568,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 400,
+      "occurrence": 0,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3576,7 +3576,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 416,
+      "occurrence": 1,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3584,7 +3584,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 515,
+      "occurrence": 0,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3592,7 +3592,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 775,
+      "occurrence": 0,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3600,7 +3600,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 790,
+      "occurrence": 1,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3608,7 +3608,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 804,
+      "occurrence": 2,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3616,7 +3616,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 812,
+      "occurrence": 3,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3624,7 +3624,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 828,
+      "occurrence": 4,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3632,7 +3632,7 @@
       "boundary": "Req.request",
       "disposition": "inherited_context",
       "evidence": "Reviewed adapter-owned client transport executes under the adapter's admitted and validated E1.",
-      "line": 153,
+      "occurrence": 0,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/client.ex"
     },
@@ -3640,7 +3640,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 99,
+      "occurrence": 0,
       "roster_id": "stocksage-agents-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
@@ -3648,7 +3648,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 244,
+      "occurrence": 0,
       "roster_id": "stocksage-agents-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
@@ -3656,7 +3656,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 260,
+      "occurrence": 0,
       "roster_id": "stocksage-agents-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
@@ -3664,7 +3664,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 277,
+      "occurrence": 0,
       "roster_id": "stocksage-agents-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
@@ -3672,7 +3672,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 291,
+      "occurrence": 0,
       "roster_id": "stocksage-agents-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
@@ -3680,7 +3680,7 @@
       "boundary": "AllbertAssist.Objectives.update_step",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 308,
+      "occurrence": 1,
       "roster_id": "stocksage-agents-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
@@ -3688,7 +3688,7 @@
       "boundary": "AllbertAssist.Objectives.update_objective",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 318,
+      "occurrence": 1,
       "roster_id": "stocksage-agents-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.agents.ex"
     },
@@ -3696,7 +3696,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 67,
+      "occurrence": 0,
       "roster_id": "stocksage-analyses-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.analyses.ex"
     },
@@ -3704,7 +3704,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 64,
+      "occurrence": 0,
       "roster_id": "stocksage-analyze-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.analyze.ex"
     },
@@ -3712,7 +3712,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 46,
+      "occurrence": 0,
       "roster_id": "stocksage-import-sqlite-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.import_sqlite.ex"
     },
@@ -3720,7 +3720,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster task admits and validates its E1 before this discovered boundary.",
-      "line": 79,
+      "occurrence": 0,
       "roster_id": "stocksage-queue-mix-task",
       "source_path": "apps/stocksage/lib/mix/tasks/stocksage.queue.ex"
     },
@@ -3728,7 +3728,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 221,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex"
     },
@@ -3736,7 +3736,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 396,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex"
     },
@@ -3744,7 +3744,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 94,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/agents/commands/execute.ex"
     },
@@ -3752,7 +3752,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 375,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
@@ -3760,7 +3760,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 387,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
@@ -3768,7 +3768,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 404,
+      "occurrence": 1,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
@@ -3776,7 +3776,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 77,
+      "occurrence": 0,
       "roster_id": "artifacts-plugin-live",
       "source_path": "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex"
     },
@@ -3784,7 +3784,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 189,
+      "occurrence": 1,
       "roster_id": "artifacts-plugin-live",
       "source_path": "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex"
     },
@@ -3792,7 +3792,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 209,
+      "occurrence": 2,
       "roster_id": "artifacts-plugin-live",
       "source_path": "apps/allbert_artifacts/lib/allbert_artifacts_web/artifact_live.ex"
     },
@@ -3800,7 +3800,7 @@
       "boundary": "Supervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 531,
+      "occurrence": 0,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime/attach/tui_session.ex"
     },
@@ -3808,7 +3808,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 112,
+      "occurrence": 0,
       "roster_id": "stocksage-plugin-live",
       "source_path": "apps/stocksage/lib/stocksage_web/analysis_live.ex"
     },
@@ -3816,7 +3816,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 140,
+      "occurrence": 1,
       "roster_id": "stocksage-plugin-live",
       "source_path": "apps/stocksage/lib/stocksage_web/analysis_live.ex"
     },
@@ -3824,7 +3824,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 185,
+      "occurrence": 2,
       "roster_id": "stocksage-plugin-live",
       "source_path": "apps/stocksage/lib/stocksage_web/analysis_live.ex"
     },
@@ -3832,7 +3832,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 218,
+      "occurrence": 0,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3840,7 +3840,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 232,
+      "occurrence": 1,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3848,7 +3848,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 263,
+      "occurrence": 0,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3856,7 +3856,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 707,
+      "occurrence": 1,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3864,7 +3864,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 501,
+      "occurrence": 0,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3872,7 +3872,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 639,
+      "occurrence": 0,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3880,7 +3880,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 878,
+      "occurrence": 1,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3888,7 +3888,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 788,
+      "occurrence": 0,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3896,7 +3896,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 803,
+      "occurrence": 1,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3904,7 +3904,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 807,
+      "occurrence": 2,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3912,7 +3912,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 811,
+      "occurrence": 3,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3920,7 +3920,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 935,
+      "occurrence": 4,
       "roster_id": "telegram-adapter",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/adapter.ex"
     },
@@ -3928,7 +3928,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 132,
+      "occurrence": 0,
       "roster_id": "matrix-cli",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/cli.ex"
     },
@@ -3936,7 +3936,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 146,
+      "occurrence": 0,
       "roster_id": "matrix-cli",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/cli.ex"
     },
@@ -3944,7 +3944,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 164,
+      "occurrence": 0,
       "roster_id": "matrix-cli",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/cli.ex"
     },
@@ -3952,7 +3952,7 @@
       "boundary": "Req.post",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 232,
+      "occurrence": 0,
       "roster_id": "whatsapp-cli",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/cli.ex"
     }
@@ -4227,7 +4227,7 @@
     "apps/stocksage/lib/stocksage/evidence.ex",
     "apps/stocksage/lib/stocksage_web/analysis_live.ex"
   ],
-  "normalization": "v14_m1a3_effect_boundaries_v1",
+  "normalization": "v14_m1a3_effect_boundaries_v2",
   "rows": [
     {
       "admission_mode": "ready_carried",

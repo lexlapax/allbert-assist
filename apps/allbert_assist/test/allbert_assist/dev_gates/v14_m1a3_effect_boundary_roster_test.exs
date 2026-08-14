@@ -42,8 +42,8 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   ]
 
   @activation_carrier_definition "apps/allbert_kernel/lib/allbert_assist/pack/activation_guard.ex"
-  @candidate_fields ~w[source_path line boundary disposition roster_id evidence]
-  @multi_owner_candidate_fields ~w[source_path line boundary disposition roster_ids evidence]
+  @candidate_fields ~w[source_path occurrence boundary disposition roster_id evidence]
+  @multi_owner_candidate_fields ~w[source_path occurrence boundary disposition roster_ids evidence]
   @effect_boundaries %{
     "AllbertAssist.Actions.Runner" => MapSet.new([:run]),
     "AllbertAssist.Channels" => MapSet.new([:create_event, :update_event]),
@@ -89,7 +89,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     rows = fixture["rows"]
 
     assert fixture["schema_version"] == 1
-    assert fixture["normalization"] == "v14_m1a3_effect_boundaries_v1"
+    assert fixture["normalization"] == "v14_m1a3_effect_boundaries_v2"
     assert is_list(rows) and rows != []
     assert Enum.uniq_by(rows, & &1["id"]) == rows
 
@@ -111,7 +111,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     rows_by_id = Map.new(fixture["rows"], &{&1["id"], &1})
     classifications = fixture["candidate_classifications"] || []
 
-    assert Enum.uniq_by(classifications, &Map.take(&1, ["source_path", "line", "boundary"])) ==
+    assert Enum.uniq_by(classifications, &Map.take(&1, ["source_path", "occurrence", "boundary"])) ==
              classifications,
            "candidate classifications must be unique by source path, line, and boundary"
 
@@ -122,7 +122,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
              ]
 
       assert is_binary(classification["evidence"]) and classification["evidence"] != ""
-      assert is_integer(classification["line"]) and classification["line"] > 0
+      assert is_integer(classification["occurrence"]) and classification["occurrence"] >= 0
       assert classification["disposition"] in ["external_e1", "inherited_context", "pure_inert"]
 
       roster_ids = classification_roster_ids(classification)
@@ -143,7 +143,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
 
                 :error ->
                   flunk(
-                    "#{classification["source_path"]}:#{classification["line"]} has no roster classification"
+                    "#{classification["source_path"]}##{classification["occurrence"]} has no roster classification"
                   )
               end
             end)
@@ -166,8 +166,10 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
       end
     end)
 
-    classified = MapSet.new(classifications, &Map.take(&1, ["source_path", "line", "boundary"]))
-    discovered = MapSet.new(discovered_effect_calls())
+    classified =
+      MapSet.new(classifications, &Map.take(&1, ["source_path", "occurrence", "boundary"]))
+
+    discovered = MapSet.new(discovered_effect_occurrences())
 
     missing = MapSet.difference(discovered, classified) |> MapSet.to_list() |> Enum.sort()
     stale = MapSet.difference(classified, discovered) |> MapSet.to_list() |> Enum.sort()
@@ -185,6 +187,36 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     assert stale == [],
            "stale effect candidate classifications:\n" <>
              inspect(stale, pretty: true, limit: :infinity)
+  end
+
+  # v1.4 M15. The occurrence key exists to survive code movement, so the thing
+  # worth proving is that it survives movement WITHOUT going blind: it must
+  # still notice a call site appearing or disappearing. A key that never fails
+  # would be worse than the line numbers it replaced.
+  test "the occurrence key is invariant under movement and still fails closed" do
+    call = fn line, boundary ->
+      %{"source_path" => "apps/a/lib/a.ex", "line" => line, "boundary" => boundary}
+    end
+
+    original = [call.(10, "X.run"), call.(20, "X.run"), call.(30, "Y.put")]
+
+    # Every line moved; nothing about the call sites changed.
+    moved = [call.(110, "X.run"), call.(140, "X.run"), call.(999, "Y.put")]
+
+    assert MapSet.new(occurrences_of(original)) == MapSet.new(occurrences_of(moved)),
+           "occurrence keys must not move when only line numbers do"
+
+    # Order within a group is source order, not discovery order.
+    assert occurrences_of([call.(20, "X.run"), call.(10, "X.run")]) ==
+             occurrences_of([call.(10, "X.run"), call.(20, "X.run")])
+
+    added = MapSet.new(occurrences_of(original ++ [call.(40, "X.run")]))
+    assert MapSet.size(added) == MapSet.size(MapSet.new(occurrences_of(original))) + 1
+
+    assert %{"source_path" => "apps/a/lib/a.ex", "boundary" => "X.run", "occurrence" => 2} in added
+
+    removed = MapSet.new(occurrences_of(tl(original)))
+    assert MapSet.size(removed) == MapSet.size(MapSet.new(occurrences_of(original))) - 1
   end
 
   test "callsite discovery resolves grouped, qualified, and renamed aliases from the production AST" do
@@ -439,6 +471,36 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
     |> Enum.map(&Path.relative_to(&1, project_root()))
     |> Enum.reject(&inventory_excluded?/1)
     |> Enum.sort()
+  end
+
+  # v1.4 M15. Classified call sites used to be addressed by absolute line
+  # number, so this contract broke whenever anything moved above a classified
+  # line, whether or not the call site itself changed. It broke four times
+  # across the M13 series, and one M13.4 refactor pass moved 67 of the 493 at
+  # once. That is a standing tax on exactly the cleanup 1.5 and 1.6 need to do,
+  # paid by the person doing the cleanup rather than by whoever benefits.
+  #
+  # The key is the occurrence index instead: the Nth call to that boundary in
+  # that file, counted in source order. It is invariant under code movement and
+  # still fails closed on what actually matters -- add a call site and it
+  # appears unclassified, remove one and its classification goes stale.
+  def discovered_effect_occurrences, do: occurrences_of(discovered_effect_calls())
+
+  def occurrences_of(calls) do
+    calls
+    |> Enum.group_by(&{&1["source_path"], &1["boundary"]})
+    |> Enum.flat_map(fn {{source_path, boundary}, calls} ->
+      calls
+      |> Enum.sort_by(& &1["line"])
+      |> Enum.with_index()
+      |> Enum.map(fn {_call, occurrence} ->
+        %{
+          "source_path" => source_path,
+          "boundary" => boundary,
+          "occurrence" => occurrence
+        }
+      end)
+    end)
   end
 
   def discovered_effect_calls do
