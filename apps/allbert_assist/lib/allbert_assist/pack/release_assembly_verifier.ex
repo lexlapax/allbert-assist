@@ -237,6 +237,25 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
           "unsupported release-assembly checkpoint: #{inspect(checkpoint)}"
   end
 
+  @doc """
+  Applications whose `app_sha256` a checkpoint's sealed marker carries.
+
+  The release-assembly gate validates an emitted marker against this rather
+  than against its own copy of the closure. M13.3 deleted one hand-maintained
+  application list; this exists so the gate does not grow a second one that can
+  drift from the closure it is supposed to be checking.
+  """
+  @spec marker_applications(String.t()) :: [atom()]
+  def marker_applications(checkpoint) when is_map_key(@closures, checkpoint) do
+    closure = Map.fetch!(@closures, checkpoint)
+
+    if checkpoint == "v14-m1a3" do
+      closure.pack_applications ++ [:allbert_composition]
+    else
+      closure.pack_applications
+    end
+  end
+
   if Mix.env() == :test do
     @doc false
     def verify_fixture!(release_root, checkpoint)
@@ -1238,10 +1257,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifier do
           app_sha256
       end
 
-    expected_applications =
-      if checkpoint == "v14-m1a3",
-        do: Map.fetch!(@closures, checkpoint).pack_applications ++ [:allbert_composition],
-        else: Map.fetch!(@closures, checkpoint).pack_applications
+    expected_applications = marker_applications(checkpoint)
 
     unless Enum.sort(Map.keys(app_sha256)) ==
              Enum.sort(Enum.map(expected_applications, &Atom.to_string/1)),

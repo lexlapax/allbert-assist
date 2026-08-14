@@ -10,8 +10,16 @@ defmodule AllbertAssist.DevGates.ReleaseAssembly do
   alias AllbertAssist.DevGates.PhaseRunner
   alias AllbertAssist.DevGates.TestMetrics
   alias AllbertAssist.Licenses
+  alias AllbertAssist.Pack.ReleaseAssemblyVerifier
 
-  @checkpoints ~w[v14-m1a1 v14-m1a3]
+  # v1.4 M13.4. `v14-m13` was reachable from the verifier and from nowhere
+  # else: M13.3 built the seventeen-application release closure and proved it by
+  # hand, but this wrapper -- the only `mix allbert.test release-assembly` entry
+  # point -- declared two checkpoints and hard-coded the marker's expected keys
+  # to two or three applications, so a fifteen-key marker was rejected even if
+  # the name had been accepted. A closure nothing re-runs is a closure that
+  # rots, which is the shape R3's own lesson warns about.
+  @checkpoints ~w[v14-m1a1 v14-m1a3 v14-m13]
   @marker "ALLBERT_RELEASE_ASSEMBLY_V1="
   @hash ~r/\A[0-9a-f]{64}\z/
   @verifier_eval ~S|AllbertAssist.Pack.ReleaseAssemblyVerifier.verify!(System.fetch_env!("ALLBERT_RELEASE_ROOT"), System.fetch_env!("ALLBERT_RELEASE_ASSEMBLY_CHECKPOINT"))|
@@ -402,10 +410,13 @@ defmodule AllbertAssist.DevGates.ReleaseAssembly do
       Mix.raise("release-assembly verifier app_sha256 must be an object")
     end
 
+    # Ask the verifier which applications its closure expects rather than
+    # keeping a second copy here; a duplicated list is what M13.3 deleted.
     expected_apps =
-      if checkpoint == "v14-m1a3",
-        do: ~w[allbert_assist allbert_composition allbert_kernel],
-        else: ~w[allbert_assist allbert_kernel]
+      checkpoint
+      |> ReleaseAssemblyVerifier.marker_applications()
+      |> Enum.map(&Atom.to_string/1)
+      |> Enum.sort()
 
     unless Enum.sort(Map.keys(apps)) == expected_apps do
       Mix.raise(

@@ -653,7 +653,7 @@ defmodule AllbertAssist.DevGates.ReleaseAssemblyTest do
     parent = self()
 
     assert_raise Mix.Error,
-                 "unknown release-assembly checkpoint v14-m2; expected one of v14-m1a1, v14-m1a3",
+                 "unknown release-assembly checkpoint v14-m2; expected one of v14-m1a1, v14-m1a3, v14-m13",
                  fn ->
                    ReleaseAssembly.run!("v14-m2",
                      temp_root_factory: fn ->
