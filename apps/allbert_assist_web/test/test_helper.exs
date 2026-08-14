@@ -19,7 +19,18 @@ AllbertAssist.TestSupport.PackBootstrap.ensure_registered!()
 # every application before starting any, so `Application.app_dir/2` resolves
 # there and the ordering never bites; an owner-scoped test VM loads them late, so
 # the pack's tables would be absent. Re-run after the packs are loaded.
-AllbertAssist.Database.migrate_repo(AllbertAssist.Repo, :up, all: true)
+#
+# v1.4 M15.1: unboxed, because this helper is not always the only one in the
+# VM. A gate step whose test targets span two owners resolves to the repository
+# root, which boots both owners' helpers -- and `release.v132`'s
+# `v132_version_contract` step spans Web and core. When core's helper wins the
+# race it has already put the Repo in `:manual` sandbox mode, and a bare
+# migration then has no owner and dies with `DBConnection.OwnershipError`.
+# Alone, either helper is fine, which is why this only ever fails inside that
+# gate and never in an owner-scoped run.
+Ecto.Adapters.SQL.Sandbox.unboxed_run(AllbertAssist.Repo, fn ->
+  AllbertAssist.Database.migrate_repo(AllbertAssist.Repo, :up, all: true)
+end)
 
 # v1.0.2 M2 drift-fix (v0.63 F5 oversight): F5 hides capability-gated and demo
 # (StockSage) intents from the default shortlist and bypassed the gate in the
