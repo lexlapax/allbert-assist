@@ -258,27 +258,27 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
 
       with :ok <- EffectGuard.validate(epoch),
            result <- Req.request(opts) do
-        case result do
-          {:ok, %{status: 200} = resp} ->
-            {events, progress} =
-              resp
-              |> collector()
-              |> flush_collector(model, progress_context)
-
-            {:ok, summarize_events(events), progress}
-
-          {:ok, %{status: code}} ->
-            {:error, {:http, code}}
-
-          {:error, %Req.TransportError{} = error} ->
-            {:error, error.reason}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
+        handle_pull_response(result, model, progress_context)
       end
     end
   end
+
+  defp handle_pull_response({:ok, %{status: 200} = resp}, model, progress_context) do
+    {events, progress} =
+      resp
+      |> collector()
+      |> flush_collector(model, progress_context)
+
+    {:ok, summarize_events(events), progress}
+  end
+
+  defp handle_pull_response({:ok, %{status: code}}, _model, _progress_context),
+    do: {:error, {:http, code}}
+
+  defp handle_pull_response({:error, %Req.TransportError{} = error}, _model, _progress_context),
+    do: {:error, error.reason}
+
+  defp handle_pull_response({:error, reason}, _model, _progress_context), do: {:error, reason}
 
   defp carried_epoch(%{allbert_pack_epoch: epoch}), do: {:ok, epoch}
   defp carried_epoch(_context), do: {:error, :product_not_ready}

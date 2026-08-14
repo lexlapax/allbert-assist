@@ -322,47 +322,48 @@ defmodule AllbertAssist.Pack.Readiness do
   def handle_info(_message, state), do: {:noreply, state}
 
   defp subscribe_state(pack_id, subscriber, state) do
+    if is_binary(pack_id) and Identity.canonical_id?(pack_id) and is_pid(subscriber) do
+      subscribe_state_for_pack(pack_id, subscriber, state)
+    else
+      {:error,
+       diagnostic(
+         :invalid_pack_id,
+         state.phase,
+         nil,
+         state.expected_ids,
+         subscribed_ids(state),
+         state.snapshot_digest
+       ), state}
+    end
+  end
+
+  defp subscribe_state_for_pack(pack_id, subscriber, state) do
+    case Map.fetch(state.subscribers, pack_id) do
+      {:ok, existing} -> subscribe_state_existing(existing, pack_id, subscriber, state)
+      :error -> subscribe_state_new(pack_id, subscriber, state)
+    end
+  end
+
+  defp subscribe_state_existing(existing, pack_id, subscriber, state) do
+    if existing.pid == subscriber do
+      {:ok, subscription_reply(existing.ref, state.phase), state}
+    else
+      {:error,
+       diagnostic(
+         :duplicate_subscriber,
+         state.phase,
+         pack_id,
+         state.expected_ids,
+         subscribed_ids(state),
+         state.snapshot_digest
+       ), state}
+    end
+  end
+
+  defp subscribe_state_new(pack_id, subscriber, state) do
     cond do
-      not (is_binary(pack_id) and Identity.canonical_id?(pack_id) and is_pid(subscriber)) ->
-        {:error,
-         diagnostic(
-           :invalid_pack_id,
-           state.phase,
-           nil,
-           state.expected_ids,
-           subscribed_ids(state),
-           state.snapshot_digest
-         ), state}
-
-      Map.has_key?(state.subscribers, pack_id) ->
-        existing = state.subscribers[pack_id]
-
-        if existing.pid == subscriber do
-          {:ok, subscription_reply(existing.ref, state.phase), state}
-        else
-          {:error,
-           diagnostic(
-             :duplicate_subscriber,
-             state.phase,
-             pack_id,
-             state.expected_ids,
-             subscribed_ids(state),
-             state.snapshot_digest
-           ), state}
-        end
-
       state.phase == :authorizing and pack_id in state.expected_ids ->
-        ref = make_ref()
-        monitor = Process.monitor(subscriber)
-        subscriber_state = %{pid: subscriber, ref: ref, monitor: monitor}
-        next_state = put_in(state.subscribers[pack_id], subscriber_state)
-
-        next_state =
-          if Enum.sort(subscribed_ids(next_state)) == next_state.expected_ids,
-            do: activate_all(next_state),
-            else: next_state
-
-        {:ok, subscription_reply(ref, :authorizing), next_state}
+        register_expected_subscriber(pack_id, subscriber, state)
 
       state.phase != :collecting ->
         {:error,
@@ -376,18 +377,35 @@ defmodule AllbertAssist.Pack.Readiness do
          ), state}
 
       true ->
-        ref = make_ref()
-        monitor = Process.monitor(subscriber)
-        subscriber_state = %{pid: subscriber, ref: ref, monitor: monitor}
-        next_state = put_in(state.subscribers[pack_id], subscriber_state)
-        {:ok, subscription_reply(ref, :collecting), next_state}
+        register_collecting_subscriber(pack_id, subscriber, state)
     end
+  end
+
+  defp register_expected_subscriber(pack_id, subscriber, state) do
+    ref = make_ref()
+    monitor = Process.monitor(subscriber)
+    subscriber_state = %{pid: subscriber, ref: ref, monitor: monitor}
+    next_state = put_in(state.subscribers[pack_id], subscriber_state)
+
+    next_state =
+      if Enum.sort(subscribed_ids(next_state)) == next_state.expected_ids,
+        do: activate_all(next_state),
+        else: next_state
+
+    {:ok, subscription_reply(ref, :authorizing), next_state}
+  end
+
+  defp register_collecting_subscriber(pack_id, subscriber, state) do
+    ref = make_ref()
+    monitor = Process.monitor(subscriber)
+    subscriber_state = %{pid: subscriber, ref: ref, monitor: monitor}
+    next_state = put_in(state.subscribers[pack_id], subscriber_state)
+    {:ok, subscription_reply(ref, :collecting), next_state}
   end
 
   defp begin_open({caller, _tag} = from, digest, expected_ids, metadata_sources, state) do
     cond do
-      state.phase == :authorizing and digest == state.snapshot_digest and
-          expected_ids == state.expected_ids ->
+      open_matches_current_snapshot?(state, :authorizing, digest, expected_ids) ->
         {:reply,
          {:error,
           diagnostic(
@@ -399,8 +417,7 @@ defmodule AllbertAssist.Pack.Readiness do
             state.snapshot_digest
           )}, state}
 
-      state.phase == :ready and digest == state.snapshot_digest and
-          expected_ids == state.expected_ids ->
+      open_matches_current_snapshot?(state, :ready, digest, expected_ids) ->
         {:reply, {:ok, ready_reply(state)}, state}
 
       state.phase != :collecting ->
@@ -420,7 +437,7 @@ defmodule AllbertAssist.Pack.Readiness do
          {:error, diagnostic(:not_coordinator, state.phase, nil, [], subscribed_ids(state), nil)},
          state}
 
-      not valid_digest?(digest) or not valid_ids?(expected_ids) ->
+      not valid_open_request?(digest, expected_ids) ->
         {:reply,
          {:error,
           diagnostic(:expected_ids_mismatch, state.phase, nil, [], subscribed_ids(state), nil)},
@@ -431,7 +448,16 @@ defmodule AllbertAssist.Pack.Readiness do
     end
   end
 
-  defp validate_open_inputs({caller, _tag} = from, digest, expected_ids, metadata_sources, state) do
+  defp open_matches_current_snapshot?(state, phase, digest, expected_ids) do
+    state.phase == phase and digest == state.snapshot_digest and
+      expected_ids == state.expected_ids
+  end
+
+  defp valid_open_request?(digest, expected_ids) do
+    valid_digest?(digest) and valid_ids?(expected_ids)
+  end
+
+  defp validate_open_inputs(from, digest, expected_ids, metadata_sources, state) do
     case Registry.snapshot(server: state.registry) do
       {:error, :collecting} ->
         {:reply,
@@ -452,88 +478,125 @@ defmodule AllbertAssist.Pack.Readiness do
          state}
 
       {:ok, snapshot} ->
-        with {:ok, effectful_ids} <- Registry.effectful_ids(server: state.registry) do
-          cond do
-            snapshot.behavior_digest != digest ->
-              {:reply,
-               {:error,
-                diagnostic(
-                  :digest_mismatch,
-                  state.phase,
-                  nil,
-                  expected_ids,
-                  subscribed_ids(state),
-                  digest
-                )}, state}
+        validate_open_against_registry(
+          from,
+          digest,
+          expected_ids,
+          metadata_sources,
+          snapshot,
+          state
+        )
+    end
+  end
 
-            expected_ids != effectful_ids ->
-              {:reply,
-               {:error,
-                diagnostic(
-                  :expected_ids_mismatch,
-                  state.phase,
-                  nil,
-                  expected_ids,
-                  subscribed_ids(state),
-                  digest
-                )}, state}
+  defp validate_open_against_registry(
+         from,
+         digest,
+         expected_ids,
+         metadata_sources,
+         snapshot,
+         state
+       ) do
+    case Registry.effectful_ids(server: state.registry) do
+      {:ok, effectful_ids} ->
+        check_open_preconditions(
+          from,
+          digest,
+          expected_ids,
+          metadata_sources,
+          snapshot,
+          effectful_ids,
+          state
+        )
 
-            not metadata_sources_match?(metadata_sources, state.metadata_bindings) ->
-              {:reply,
-               {:error,
-                diagnostic(
-                  :metadata_binding_mismatch,
-                  state.phase,
-                  nil,
-                  expected_ids,
-                  subscribed_ids(state),
-                  digest
-                )}, state}
+      {:error, _reason} ->
+        {:reply,
+         {:error,
+          diagnostic(:barrier_down, state.phase, nil, expected_ids, subscribed_ids(state), digest)},
+         state}
+    end
+  end
 
-            subscribed_ids(state) -- expected_ids != [] ->
-              {:reply,
-               {:error,
-                diagnostic(
-                  :unexpected_subscriber,
-                  state.phase,
-                  nil,
-                  expected_ids,
-                  subscribed_ids(state),
-                  digest
-                )}, state}
+  defp check_open_preconditions(
+         from,
+         digest,
+         expected_ids,
+         metadata_sources,
+         snapshot,
+         effectful_ids,
+         state
+       ) do
+    cond do
+      snapshot.behavior_digest != digest ->
+        {:reply,
+         {:error,
+          diagnostic(
+            :digest_mismatch,
+            state.phase,
+            nil,
+            expected_ids,
+            subscribed_ids(state),
+            digest
+          )}, state}
 
-            true ->
-              monitor = Process.monitor(caller)
+      expected_ids != effectful_ids ->
+        {:reply,
+         {:error,
+          diagnostic(
+            :expected_ids_mismatch,
+            state.phase,
+            nil,
+            expected_ids,
+            subscribed_ids(state),
+            digest
+          )}, state}
 
-              initial = %{
-                state
-                | phase: :authorizing,
-                  snapshot_digest: digest,
-                  expected_ids: expected_ids,
-                  coordinator_monitor: monitor,
-                  open_from: from
-              }
+      not metadata_sources_match?(metadata_sources, state.metadata_bindings) ->
+        {:reply,
+         {:error,
+          diagnostic(
+            :metadata_binding_mismatch,
+            state.phase,
+            nil,
+            expected_ids,
+            subscribed_ids(state),
+            digest
+          )}, state}
 
-              if initial.expected_ids == [] do
-                ready = %{initial | phase: :ready, open_from: nil}
-                {:reply, {:ok, ready_reply(ready)}, ready}
-              else
-                {:wait, start_or_wait_open(initial, caller)}
-              end
-          end
-        else
-          {:error, _reason} ->
-            {:reply,
-             {:error,
-              diagnostic(
-                :barrier_down,
-                state.phase,
-                nil,
-                expected_ids,
-                subscribed_ids(state),
-                digest
-              )}, state}
-        end
+      subscribed_ids(state) -- expected_ids != [] ->
+        {:reply,
+         {:error,
+          diagnostic(
+            :unexpected_subscriber,
+            state.phase,
+            nil,
+            expected_ids,
+            subscribed_ids(state),
+            digest
+          )}, state}
+
+      true ->
+        start_authorizing(from, digest, expected_ids, state)
+    end
+  end
+
+  defp start_authorizing({caller, _tag} = from, digest, expected_ids, state) do
+    monitor = Process.monitor(caller)
+
+    initial = %{
+      state
+      | phase: :authorizing,
+        snapshot_digest: digest,
+        expected_ids: expected_ids,
+        coordinator_monitor: monitor,
+        open_from: from
+    }
+
+    if initial.expected_ids == [] do
+      ready = %{initial | phase: :ready, open_from: nil}
+      {:reply, {:ok, ready_reply(ready)}, ready}
+    else
+      {:wait, start_or_wait_open(initial, caller)}
     end
   end
 
@@ -629,26 +692,33 @@ defmodule AllbertAssist.Pack.Readiness do
       state.phase != :collecting ->
         {:reply, {:error, :invalid_phase}, state}
 
-      barrier_pid != self() or caller != registry_pid or not is_pid(registry_pid) or
-        not is_integer(generation) or generation < 0 or not is_reference(subscription_ref) ->
+      invalid_bind_request?(barrier_pid, registry_pid, generation, subscription_ref, caller) ->
         {:reply, {:error, :stale_epoch}, state}
 
-      Map.has_key?(state.metadata_bindings, registry_pid) and
-          state.metadata_bindings[registry_pid].tuple == binding ->
+      matching_metadata_binding?(state, registry_pid, binding) ->
         {:reply, :ok, state}
 
       Map.has_key?(state.metadata_bindings, registry_pid) ->
         {:reply, {:error, :stale_epoch}, state}
 
       true ->
-        binding_state = %{tuple: binding, monitor: Process.monitor(registry_pid)}
-
-        {:reply, :ok,
-         %{
-           state
-           | metadata_bindings: Map.put(state.metadata_bindings, registry_pid, binding_state)
-         }}
+        {:reply, :ok, put_metadata_binding(state, registry_pid, binding)}
     end
+  end
+
+  defp invalid_bind_request?(barrier_pid, registry_pid, generation, subscription_ref, caller) do
+    barrier_pid != self() or caller != registry_pid or not is_pid(registry_pid) or
+      not is_integer(generation) or generation < 0 or not is_reference(subscription_ref)
+  end
+
+  defp matching_metadata_binding?(state, registry_pid, binding) do
+    Map.has_key?(state.metadata_bindings, registry_pid) and
+      state.metadata_bindings[registry_pid].tuple == binding
+  end
+
+  defp put_metadata_binding(state, registry_pid, binding) do
+    binding_state = %{tuple: binding, monitor: Process.monitor(registry_pid)}
+    %{state | metadata_bindings: Map.put(state.metadata_bindings, registry_pid, binding_state)}
   end
 
   defp invalidate_metadata_state(barrier_pid, registry_pid, generation, caller, state) do
@@ -789,26 +859,38 @@ defmodule AllbertAssist.Pack.Readiness do
   end
 
   defp call_options(opts, mode) when is_list(opts) do
-    allowed =
-      [:server, :timeout] ++
-        if(mode == :subscribe or mode == :ack or mode == :nack, do: [:subscriber], else: []) ++
-        if(mode == :open, do: [:metadata_sources], else: [])
+    allowed = allowed_call_option_keys(mode)
 
-    if Keyword.keyword?(opts) and Enum.uniq(Keyword.keys(opts)) == Keyword.keys(opts) and
-         Enum.all?(Keyword.keys(opts), &(&1 in allowed)) do
-      server = Keyword.get(opts, :server, __MODULE__)
-      timeout = Keyword.get(opts, :timeout, @default_timeout)
-      subscriber = Keyword.get(opts, :subscriber, self())
-
-      if valid_server?(server) and valid_timeout?(timeout) and is_pid(subscriber),
-        do: {:ok, server, timeout, subscriber},
-        else: :error
+    if valid_call_option_shape?(opts, allowed) do
+      build_call_options(opts)
     else
       :error
     end
   end
 
   defp call_options(_opts, _mode), do: :error
+
+  defp allowed_call_option_keys(mode) do
+    subscriber_key = if mode in [:subscribe, :ack, :nack], do: [:subscriber], else: []
+    metadata_key = if mode == :open, do: [:metadata_sources], else: []
+
+    [:server, :timeout] ++ subscriber_key ++ metadata_key
+  end
+
+  defp valid_call_option_shape?(opts, allowed) do
+    Keyword.keyword?(opts) and Enum.uniq(Keyword.keys(opts)) == Keyword.keys(opts) and
+      Enum.all?(Keyword.keys(opts), &(&1 in allowed))
+  end
+
+  defp build_call_options(opts) do
+    server = Keyword.get(opts, :server, __MODULE__)
+    timeout = Keyword.get(opts, :timeout, @default_timeout)
+    subscriber = Keyword.get(opts, :subscriber, self())
+
+    if valid_server?(server) and valid_timeout?(timeout) and is_pid(subscriber),
+      do: {:ok, server, timeout, subscriber},
+      else: :error
+  end
 
   defp activation_server(%ActivationContext{barrier_pid: server}, opts) when is_pid(server) do
     case Keyword.get(opts, :server, server) do

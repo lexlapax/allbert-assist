@@ -63,16 +63,18 @@ defmodule AllbertSlack.Settings.Fragment do
   @spec required_when_enabled(map()) :: [atom()]
   def required_when_enabled(settings) when is_map(settings) do
     if Map.get(settings, "enabled", false) do
-      Enum.flat_map(@required_when_enabled, fn key ->
-        case Map.get(settings, key) do
-          value when value in [nil, "", []] -> [String.to_atom("missing_" <> key)]
-          _value -> []
-        end
-      end)
+      Enum.flat_map(@required_when_enabled, &missing_diagnostic(&1, settings))
     else
       []
     end
   end
 
   def required_when_enabled(_settings), do: [:invalid_settings]
+
+  defp missing_diagnostic(key, settings) do
+    case Map.get(settings, key) do
+      value when value in [nil, "", []] -> [String.to_atom("missing_" <> key)]
+      _value -> []
+    end
+  end
 end

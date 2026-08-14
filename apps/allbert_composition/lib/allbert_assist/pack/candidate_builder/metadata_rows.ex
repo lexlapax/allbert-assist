@@ -187,29 +187,19 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
         payload = RowSchemas.canonical_projection(normalized)
 
         row =
-          row(
-            :settings_fragments,
-            owner_id,
-            :fragment_id,
-            fragment_id,
-            :legacy_index,
-            index,
-            :settings_fragment_ref_v1,
-            payload,
-            RowSchemas.source_authority_projection(normalized)
-          )
+          row(%{
+            kind: :settings_fragments,
+            owner: owner_id,
+            namespace: :fragment_id,
+            identity: fragment_id,
+            order_namespace: :legacy_index,
+            order: index,
+            schema: :settings_fragment_ref_v1,
+            payload: payload,
+            authority: RowSchemas.source_authority_projection(normalized)
+          })
 
-        refs =
-          if fragment.source == :app do
-            Map.update(
-              acc.refs,
-              fragment.owner,
-              [fragment_ref(payload)],
-              &(&1 ++ [fragment_ref(payload)])
-            )
-          else
-            acc.refs
-          end
+        refs = merge_settings_fragment_ref(acc.refs, fragment, payload)
 
         {:cont, {:ok, %{rows: append(acc.rows, owner_id, row), refs: refs}}}
       else
@@ -217,6 +207,12 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
       end
     end)
   end
+
+  defp merge_settings_fragment_ref(refs, %{source: :app, owner: owner}, payload) do
+    Map.update(refs, owner, [fragment_ref(payload)], &(&1 ++ [fragment_ref(payload)]))
+  end
+
+  defp merge_settings_fragment_ref(refs, _fragment, _payload), do: refs
 
   defp settings_owner(%{source: :core}, _owners), do: {:ok, @residual_owner_id}
   defp settings_owner(%{source: :plugin, owner: owner}, _owners), do: canonical_id(owner)
@@ -231,55 +227,59 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
     if Enum.any?(apps, &(&1.surfaces != [])) do
       invalid(:legacy_surface_list_present)
     else
-      apps
-      |> Enum.flat_map(fn app -> Enum.map(app.provider_surfaces, &{app, &1}) end)
-      |> Enum.with_index(1)
-      |> Enum.reduce_while({:ok, %{rows: %{}, refs: %{}}}, fn {{app, surface}, index},
-                                                              {:ok, acc} ->
-        with true <- surface.app_id == app.app_id,
-             {:ok, owner_id} <-
-               Map.fetch(owners.by_module, app.module) |> map_fetch_result(:unknown_surface_app),
-             {:ok, authority} <- surface_authority(surface) do
-          normalized =
-            reference!(
-              :surface_ref_v1,
-              %{
-                "surface_id" => surface.id,
-                "module" => module_name(app.surface_provider)
-              },
-              authority,
-              "projection_sha256"
-            )
-
-          payload = RowSchemas.canonical_projection(normalized)
-          surface_id = payload["surface_id"]
-
-          row =
-            row(
-              :surfaces,
-              owner_id,
-              :surface_id,
-              surface_id,
-              :legacy_index,
-              index,
-              :surface_ref_v1,
-              payload,
-              RowSchemas.source_authority_projection(normalized)
-            )
-
-          ref = %{"surface_id" => surface_id, "projection_sha256" => payload["projection_sha256"]}
-
-          {:cont,
-           {:ok,
-            %{
-              rows: append(acc.rows, owner_id, row),
-              refs: Map.update(acc.refs, app.app_id, [ref], &(&1 ++ [ref]))
-            }}}
-        else
-          _ -> {:halt, invalid(:invalid_surface)}
-        end
-      end)
+      build_surface_rows(apps, owners)
     end
+  end
+
+  defp build_surface_rows(apps, owners) do
+    apps
+    |> Enum.flat_map(fn app -> Enum.map(app.provider_surfaces, &{app, &1}) end)
+    |> Enum.with_index(1)
+    |> Enum.reduce_while({:ok, %{rows: %{}, refs: %{}}}, fn {{app, surface}, index},
+                                                             {:ok, acc} ->
+      with true <- surface.app_id == app.app_id,
+           {:ok, owner_id} <-
+             Map.fetch(owners.by_module, app.module) |> map_fetch_result(:unknown_surface_app),
+           {:ok, authority} <- surface_authority(surface) do
+        normalized =
+          reference!(
+            :surface_ref_v1,
+            %{
+              "surface_id" => surface.id,
+              "module" => module_name(app.surface_provider)
+            },
+            authority,
+            "projection_sha256"
+          )
+
+        payload = RowSchemas.canonical_projection(normalized)
+        surface_id = payload["surface_id"]
+
+        row =
+          row(%{
+            kind: :surfaces,
+            owner: owner_id,
+            namespace: :surface_id,
+            identity: surface_id,
+            order_namespace: :legacy_index,
+            order: index,
+            schema: :surface_ref_v1,
+            payload: payload,
+            authority: RowSchemas.source_authority_projection(normalized)
+          })
+
+        ref = %{"surface_id" => surface_id, "projection_sha256" => payload["projection_sha256"]}
+
+        {:cont,
+         {:ok,
+          %{
+            rows: append(acc.rows, owner_id, row),
+            refs: Map.update(acc.refs, app.app_id, [ref], &(&1 ++ [ref]))
+          }}}
+      else
+        _ -> {:halt, invalid(:invalid_surface)}
+      end
+    end)
   end
 
   defp surface_authority(%AllbertAssist.Surface{} = surface) do
@@ -359,17 +359,17 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
         intent_id = payload["intent_id"]
 
         row =
-          row(
-            :intent_descriptors,
-            owner_id,
-            :intent_id,
-            intent_id,
-            :legacy_index,
-            index,
-            :intent_descriptor_ref_v1,
-            payload,
-            RowSchemas.source_authority_projection(normalized)
-          )
+          row(%{
+            kind: :intent_descriptors,
+            owner: owner_id,
+            namespace: :intent_id,
+            identity: intent_id,
+            order_namespace: :legacy_index,
+            order: index,
+            schema: :intent_descriptor_ref_v1,
+            payload: payload,
+            authority: RowSchemas.source_authority_projection(normalized)
+          })
 
         ref = %{"intent_id" => intent_id, "projection_sha256" => payload["projection_sha256"]}
 
@@ -437,23 +437,27 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
 
   defp skill_rows(apps, plugins) do
     with :ok <- validate_skill_closure(apps, plugins) do
-      plugins
-      |> Enum.filter(&(&1.status == :enabled))
-      |> Enum.reduce_while({:ok, %{rows: %{}, refs: %{}}}, fn plugin, {:ok, acc} ->
-        case plugin_skill_rows(plugin, apps) do
-          {:ok, rows, refs} ->
-            {:cont,
-             {:ok,
-              %{
-                rows: Map.put(acc.rows, plugin.plugin_id, rows),
-                refs: Map.merge(acc.refs, refs, fn _, left, right -> left ++ right end)
-              }}}
-
-          {:error, _} = error ->
-            {:halt, error}
-        end
-      end)
+      accumulate_skill_rows(apps, plugins)
     end
+  end
+
+  defp accumulate_skill_rows(apps, plugins) do
+    plugins
+    |> Enum.filter(&(&1.status == :enabled))
+    |> Enum.reduce_while({:ok, %{rows: %{}, refs: %{}}}, fn plugin, {:ok, acc} ->
+      case plugin_skill_rows(plugin, apps) do
+        {:ok, rows, refs} ->
+          {:cont,
+           {:ok,
+            %{
+              rows: Map.put(acc.rows, plugin.plugin_id, rows),
+              refs: Map.merge(acc.refs, refs, fn _, left, right -> left ++ right end)
+            }}}
+
+        {:error, _} = error ->
+          {:halt, error}
+      end
+    end)
   end
 
   defp validate_skill_closure(apps, plugins) do
@@ -544,17 +548,17 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
 
     payload = RowSchemas.canonical_projection(normalized)
 
-    {row(
-       :skill_roots,
-       owner_id,
-       :root_id,
-       root_id,
-       :lexical,
-       root_id,
-       :skill_root_v1,
-       payload,
-       RowSchemas.source_authority_projection(normalized)
-     ),
+    {row(%{
+       kind: :skill_roots,
+       owner: owner_id,
+       namespace: :root_id,
+       identity: root_id,
+       order_namespace: :lexical,
+       order: root_id,
+       schema: :skill_root_v1,
+       payload: payload,
+       authority: RowSchemas.source_authority_projection(normalized)
+     }),
      %{
        "owner_id" => owner_id,
        "root_id" => root_id,
@@ -711,17 +715,17 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
         payload = RowSchemas.canonical_projection(normalized)
 
         row =
-          row(
-            :apps,
-            owner_id,
-            :app_id,
-            payload["app_id"],
-            :legacy_index,
-            index,
-            :app_descriptor_v1,
-            payload,
-            RowSchemas.source_authority_projection(normalized)
-          )
+          row(%{
+            kind: :apps,
+            owner: owner_id,
+            namespace: :app_id,
+            identity: payload["app_id"],
+            order_namespace: :legacy_index,
+            order: index,
+            schema: :app_descriptor_v1,
+            payload: payload,
+            authority: RowSchemas.source_authority_projection(normalized)
+          })
 
         {:cont, {:ok, append(rows, owner_id, row)}}
       else
@@ -797,16 +801,16 @@ defmodule AllbertAssist.Pack.CandidateBuilder.MetadataRows do
       "projection_sha256" => payload["projection_sha256"]
     }
 
-  defp row(kind, owner, namespace, identity, order_namespace, order, schema, payload, authority),
+  defp row(fields),
     do: %Row{
       schema_version: 1,
-      kind: kind,
-      owner_id: owner,
-      identity: %{namespace: namespace, value: identity},
-      order: %{namespace: order_namespace, value: order},
-      payload_schema: schema,
-      payload: payload,
-      source_authority: authority,
+      kind: fields.kind,
+      owner_id: fields.owner,
+      identity: %{namespace: fields.namespace, value: fields.identity},
+      order: %{namespace: fields.order_namespace, value: fields.order},
+      payload_schema: fields.schema,
+      payload: fields.payload,
+      source_authority: fields.authority,
       m0_payload_sha256: nil
     }
 

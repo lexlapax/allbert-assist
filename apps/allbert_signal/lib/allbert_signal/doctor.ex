@@ -37,7 +37,9 @@ defmodule AllbertSignal.Doctor do
     release_decision = Channels.channel_release_decision("signal")
     adapter_status = transport_status(opts)
 
-    unless release_decision.live_use_allowed? do
+    if release_decision.live_use_allowed? do
+      run_live_checks(settings, opts, release_decision, adapter_status)
+    else
       diagnostics = [:implemented_not_released]
 
       %{
@@ -55,8 +57,6 @@ defmodule AllbertSignal.Doctor do
         diagnostics: diagnostics,
         checked_at: DateTime.utc_now() |> DateTime.to_iso8601()
       }
-    else
-      run_live_checks(settings, opts, release_decision, adapter_status)
     end
   end
 

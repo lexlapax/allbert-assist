@@ -132,40 +132,54 @@ defmodule AllbertAssist.DevGates.GateBaseline do
   end
 
   defp path_disposition_issues(references, repository_root) when is_list(references) do
-    Enum.flat_map(references, fn reference ->
-      file = reference["source_file"]
-      literal = reference["literal"]
-      disposition = reference["disposition"]
-      reason = reference["reason"]
-
-      source =
-        case File.read(Path.join(repository_root, file)) do
-          {:ok, bytes} -> bytes
-          _ -> ""
-        end
-
-      cond do
-        not is_binary(file) or not is_binary(literal) ->
-          ["invalid path-reference carrier"]
-
-        disposition == "owner_manifest_resolved" and
-            not (String.contains?(source, literal) and String.contains?(source, "GateOwners")) ->
-          ["owner-resolved path disposition drift: #{file}:#{literal}"]
-
-        disposition == "intentionally_fixed" and not (is_binary(reason) and reason != "") ->
-          ["fixed path has no reason: #{file}:#{literal}"]
-
-        disposition not in ["owner_manifest_resolved", "intentionally_fixed"] ->
-          ["unknown path disposition: #{file}:#{literal}"]
-
-        true ->
-          []
-      end
-    end)
+    Enum.flat_map(references, &reference_disposition_issue(&1, repository_root))
   end
 
   defp path_disposition_issues(_references, _repository_root),
     do: ["path-reference inventory is missing"]
+
+  defp reference_disposition_issue(reference, repository_root) do
+    file = reference["source_file"]
+    literal = reference["literal"]
+    disposition = reference["disposition"]
+    reason = reference["reason"]
+    source = read_reference_source(repository_root, file)
+
+    disposition_issue(file, literal, disposition, reason, source)
+  end
+
+  defp read_reference_source(repository_root, file) do
+    case File.read(Path.join(repository_root, file)) do
+      {:ok, bytes} -> bytes
+      _ -> ""
+    end
+  end
+
+  defp disposition_issue(file, literal, _disposition, _reason, _source)
+       when not is_binary(file) or not is_binary(literal) do
+    ["invalid path-reference carrier"]
+  end
+
+  defp disposition_issue(file, literal, "owner_manifest_resolved", _reason, source) do
+    if String.contains?(source, literal) and String.contains?(source, "GateOwners") do
+      []
+    else
+      ["owner-resolved path disposition drift: #{file}:#{literal}"]
+    end
+  end
+
+  defp disposition_issue(file, literal, "intentionally_fixed", reason, _source) do
+    if is_binary(reason) and reason != "" do
+      []
+    else
+      ["fixed path has no reason: #{file}:#{literal}"]
+    end
+  end
+
+  defp disposition_issue(file, literal, disposition, _reason, _source)
+       when disposition not in ["owner_manifest_resolved", "intentionally_fixed"] do
+    ["unknown path disposition: #{file}:#{literal}"]
+  end
 
   defp add(issues, true, issue), do: [issue | issues]
   defp add(issues, false, _issue), do: issues

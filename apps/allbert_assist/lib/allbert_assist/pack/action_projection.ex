@@ -43,15 +43,17 @@ defmodule AllbertAssist.Pack.ActionProjection do
     with {:ok, modules} <- ActionCatalog.residual_modules() do
       modules
       |> Enum.with_index(1)
-      |> Enum.reduce_while({:ok, []}, fn {module, legacy_index}, {:ok, projections} ->
-        case project_module(module, legacy_index, nil, nil) do
-          {:ok, projection} -> {:cont, {:ok, [projection | projections]}}
-          {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
-        end
-      end)
+      |> Enum.reduce_while({:ok, []}, &project_static_module/2)
       |> reverse_projections()
     else
       {:error, reason} -> {:error, [diagnostic(reason)]}
+    end
+  end
+
+  defp project_static_module({module, legacy_index}, {:ok, projections}) do
+    case project_module(module, legacy_index, nil, nil) do
+      {:ok, projection} -> {:cont, {:ok, [projection | projections]}}
+      {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
     end
   end
 
@@ -129,34 +131,37 @@ defmodule AllbertAssist.Pack.ActionProjection do
 
   defp membership_index(entries, id_key, actions_key, ambiguity_code) do
     entries
-    |> Enum.reduce_while({:ok, %{}}, fn entry, {:ok, acc} ->
-      id = entry_value(entry, id_key)
-      actions = entry_value(entry, actions_key, [])
+    |> Enum.reduce_while({:ok, %{}}, &accumulate_membership(&1, &2, id_key, actions_key))
+    |> resolve_membership(ambiguity_code)
+  end
 
-      if valid_owner_id?(id) and is_list(actions) and Enum.all?(actions, &is_atom/1) do
-        memberships =
-          Enum.reduce(actions, acc, fn module, memberships ->
-            Map.update(memberships, module, [id], &[id | &1])
-          end)
+  defp accumulate_membership(entry, {:ok, acc}, id_key, actions_key) do
+    id = entry_value(entry, id_key)
+    actions = entry_value(entry, actions_key, [])
 
-        {:cont, {:ok, memberships}}
-      else
-        {:halt, invalid(:invalid_metadata_entry)}
-      end
-    end)
-    |> then(fn
-      {:ok, memberships} ->
-        if Enum.any?(memberships, fn {_module, owners} ->
-             owners |> Enum.uniq() |> length() > 1
-           end) do
-          invalid(ambiguity_code)
-        else
-          {:ok, Map.new(memberships, fn {module, [owner | _]} -> {module, owner} end)}
-        end
+    if valid_owner_id?(id) and is_list(actions) and Enum.all?(actions, &is_atom/1) do
+      memberships = Enum.reduce(actions, acc, &record_membership(&1, &2, id))
+      {:cont, {:ok, memberships}}
+    else
+      {:halt, invalid(:invalid_metadata_entry)}
+    end
+  end
 
-      error ->
-        error
-    end)
+  defp record_membership(module, memberships, id),
+    do: Map.update(memberships, module, [id], &[id | &1])
+
+  defp resolve_membership({:ok, memberships}, ambiguity_code) do
+    if ambiguous_membership?(memberships) do
+      invalid(ambiguity_code)
+    else
+      {:ok, Map.new(memberships, fn {module, [owner | _]} -> {module, owner} end)}
+    end
+  end
+
+  defp resolve_membership(error, _ambiguity_code), do: error
+
+  defp ambiguous_membership?(memberships) do
+    Enum.any?(memberships, fn {_module, owners} -> owners |> Enum.uniq() |> length() > 1 end)
   end
 
   defp enabled_plugins(entries),
@@ -192,40 +197,60 @@ defmodule AllbertAssist.Pack.ActionProjection do
 
   defp plugin_declarations(plugin_entries, app_memberships, plugin_memberships) do
     plugin_entries
-    |> Enum.reduce_while({:ok, []}, fn plugin, {:ok, declarations} ->
-      plugin_id = entry_value(plugin, :plugin_id)
-      actions = entry_value(plugin, :actions, [])
-
-      cond do
-        not valid_owner_id?(plugin_id) or not is_list(actions) or
-            not Enum.all?(actions, &is_atom/1) ->
-          {:halt, invalid(:invalid_metadata_entry)}
-
-        entry_value(plugin, :status) != :enabled ->
-          {:cont, {:ok, declarations}}
-
-        true ->
-          result =
-            Enum.reduce_while(actions, {:ok, declarations}, fn module, {:ok, acc} ->
-              with ^plugin_id <- Map.get(plugin_memberships, module),
-                   {:ok, projection} <-
-                     project_module(module, nil, Map.get(app_memberships, module), plugin_id) do
-                {:cont, {:ok, [projection | acc]}}
-              else
-                nil -> {:halt, invalid(:dangling_plugin_action_membership)}
-                {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
-                _ -> {:halt, invalid(:ambiguous_plugin_action_membership)}
-              end
-            end)
-
-          case result do
-            {:ok, next} -> {:cont, {:ok, next}}
-            error -> {:halt, error}
-          end
-      end
-    end)
+    |> Enum.reduce_while(
+      {:ok, []},
+      &collect_plugin_declaration(&1, &2, app_memberships, plugin_memberships)
+    )
     |> reverse_projections()
   end
+
+  defp collect_plugin_declaration(
+         plugin,
+         {:ok, declarations},
+         app_memberships,
+         plugin_memberships
+       ) do
+    plugin_id = entry_value(plugin, :plugin_id)
+    actions = entry_value(plugin, :actions, [])
+
+    cond do
+      not valid_owner_id?(plugin_id) or not is_list(actions) or
+          not Enum.all?(actions, &is_atom/1) ->
+        {:halt, invalid(:invalid_metadata_entry)}
+
+      entry_value(plugin, :status) != :enabled ->
+        {:cont, {:ok, declarations}}
+
+      true ->
+        actions
+        |> Enum.reduce_while(
+          {:ok, declarations},
+          &project_plugin_action(&1, &2, plugin_id, app_memberships, plugin_memberships)
+        )
+        |> continue_or_halt()
+    end
+  end
+
+  defp project_plugin_action(
+         module,
+         {:ok, acc},
+         plugin_id,
+         app_memberships,
+         plugin_memberships
+       ) do
+    with ^plugin_id <- Map.get(plugin_memberships, module),
+         {:ok, projection} <-
+           project_module(module, nil, Map.get(app_memberships, module), plugin_id) do
+      {:cont, {:ok, [projection | acc]}}
+    else
+      nil -> {:halt, invalid(:dangling_plugin_action_membership)}
+      {:error, diagnostic} -> {:halt, {:error, [diagnostic]}}
+      _ -> {:halt, invalid(:ambiguous_plugin_action_membership)}
+    end
+  end
+
+  defp continue_or_halt({:ok, next}), do: {:cont, {:ok, next}}
+  defp continue_or_halt(error), do: {:halt, error}
 
   defp assemble(effective_static, declarations, mode) do
     static_modules = MapSet.new(Enum.map(effective_static, & &1.module))

@@ -58,13 +58,13 @@ defmodule AllbertArtifacts.SurfaceProvider do
       Map.get(context, :artifacts_browser_filters) ||
         Map.get(context, "artifacts_browser_filters") || %{}
 
-    Map.get(context, key) ||
-      Map.get(context, Atom.to_string(key)) ||
-      Map.get(filters, key) ||
-      Map.get(filters, Atom.to_string(key)) ||
-      Map.get(request, key) ||
-      Map.get(request, Atom.to_string(key)) ||
-      default
+    lookup(key, [context, filters, request]) || default
+  end
+
+  defp lookup(key, sources) do
+    Enum.find_value(sources, fn source ->
+      Map.get(source, key) || Map.get(source, Atom.to_string(key))
+    end)
   end
 
   defp normalize_filters(filters) when is_map(filters) do

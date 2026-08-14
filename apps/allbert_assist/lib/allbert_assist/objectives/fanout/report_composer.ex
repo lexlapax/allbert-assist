@@ -129,61 +129,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   @impl true
   def handle_info(:recover, %{enabled?: true} = state) do
     case admit_ready_epoch(state) do
-      {:ok, epoch} ->
-        case validate_epoch(epoch, state) do
-          :ok ->
-            case store_call(state.store, :recover_composition, [effect_options(epoch, state)]) do
-              {:ok, _count} ->
-                {:noreply, recovery_succeeded(state)}
-
-              {:error, reason} ->
-                {:noreply, retry_or_degrade(:recover, nil, reason, state)}
-            end
-
-          {:error, :product_not_ready} ->
-            {:noreply, retry_ready_recovery(state)}
-
-          {:error, :stale_epoch} ->
-            {:noreply, state}
-        end
-
-      {:error, :product_not_ready} ->
-        {:noreply, retry_ready_recovery(state)}
+      {:ok, epoch} -> recover_with_epoch(epoch, state)
+      {:error, :product_not_ready} -> {:noreply, retry_ready_recovery(state)}
     end
   end
 
   @impl true
   def handle_info(:drain, %{phase: :ready} = state) do
     case admit_ready_epoch(state) do
-      {:ok, epoch} ->
-        case validate_epoch(epoch, state) do
-          :ok ->
-            case store_call(state.store, :claim_next_composition, [effect_options(epoch, state)]) do
-              :none ->
-                {:noreply, claim_queue_drained(state)}
-
-              {:ok, claim} ->
-                claim = Map.put_new(claim, :effect_context, effect_context(epoch, state))
-
-                with {:ok, selection} <- selected_body(claim, state, epoch) do
-                  {:noreply, persist_selection(claim, selection, state, epoch)}
-                else
-                  {:error, _reason} -> {:noreply, state}
-                end
-
-              {:error, reason} ->
-                {:noreply, retry_or_degrade(:claim, nil, reason, state)}
-            end
-
-          {:error, :product_not_ready} ->
-            {:noreply, retry_ready_drain(state)}
-
-          {:error, :stale_epoch} ->
-            {:noreply, state}
-        end
-
-      {:error, :product_not_ready} ->
-        {:noreply, retry_ready_drain(state)}
+      {:ok, epoch} -> drain_with_epoch(epoch, state)
+      {:error, :product_not_ready} -> {:noreply, retry_ready_drain(state)}
     end
   end
 
@@ -220,6 +175,51 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   end
 
   def handle_info(:reconcile, state), do: {:noreply, state}
+
+  defp recover_with_epoch(epoch, state) do
+    case validate_epoch(epoch, state) do
+      :ok -> recover_composition(epoch, state)
+      {:error, :product_not_ready} -> {:noreply, retry_ready_recovery(state)}
+      {:error, :stale_epoch} -> {:noreply, state}
+    end
+  end
+
+  defp recover_composition(epoch, state) do
+    case store_call(state.store, :recover_composition, [effect_options(epoch, state)]) do
+      {:ok, _count} -> {:noreply, recovery_succeeded(state)}
+      {:error, reason} -> {:noreply, retry_or_degrade(:recover, nil, reason, state)}
+    end
+  end
+
+  defp drain_with_epoch(epoch, state) do
+    case validate_epoch(epoch, state) do
+      :ok -> claim_next_composition(epoch, state)
+      {:error, :product_not_ready} -> {:noreply, retry_ready_drain(state)}
+      {:error, :stale_epoch} -> {:noreply, state}
+    end
+  end
+
+  defp claim_next_composition(epoch, state) do
+    case store_call(state.store, :claim_next_composition, [effect_options(epoch, state)]) do
+      :none ->
+        {:noreply, claim_queue_drained(state)}
+
+      {:ok, claim} ->
+        claim = Map.put_new(claim, :effect_context, effect_context(epoch, state))
+        {:noreply, select_composition(claim, state, epoch)}
+
+      {:error, reason} ->
+        {:noreply, retry_or_degrade(:claim, nil, reason, state)}
+    end
+  end
+
+  defp select_composition(claim, state, epoch) do
+    with {:ok, selection} <- selected_body(claim, state, epoch) do
+      persist_selection(claim, selection, state, epoch)
+    else
+      {:error, _reason} -> state
+    end
+  end
 
   defp persist_selection(claim, selection, state, epoch) do
     case validate_claim_epoch(claim, epoch, state) do

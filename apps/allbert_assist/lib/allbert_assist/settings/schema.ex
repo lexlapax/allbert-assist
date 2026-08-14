@@ -1984,29 +1984,32 @@ defmodule AllbertAssist.Settings.Schema do
     entries
     |> Enum.with_index(1)
     |> Enum.reduce_while({:ok, %{}, MapSet.new()}, fn {entry, index}, {:ok, schema, seen} ->
-      case normalizer.(entry) do
-        {:entry, key, attrs} ->
-          if MapSet.member?(seen, key) do
-            {:halt, {:error, {duplicate_schema_reason(source), key}}}
-          else
-            {:cont, {:ok, Map.put(schema, key, attrs), MapSet.put(seen, key)}}
-          end
-
-        {:binding, key} ->
-          if MapSet.member?(seen, key) do
-            {:halt, {:error, {duplicate_schema_reason(source), key}}}
-          else
-            {:cont, {:ok, schema, MapSet.put(seen, key)}}
-          end
-
-        _invalid ->
-          {:halt, {:error, {invalid_schema_reason(source), index}}}
-      end
+      reduce_schema_entry(normalizer.(entry), index, schema, seen, source)
     end)
     |> case do
       {:ok, schema, _seen} -> {:ok, schema}
       {:error, _reason} = error -> error
     end
+  end
+
+  defp reduce_schema_entry({:entry, key, attrs}, _index, schema, seen, source) do
+    if MapSet.member?(seen, key) do
+      {:halt, {:error, {duplicate_schema_reason(source), key}}}
+    else
+      {:cont, {:ok, Map.put(schema, key, attrs), MapSet.put(seen, key)}}
+    end
+  end
+
+  defp reduce_schema_entry({:binding, key}, _index, schema, seen, source) do
+    if MapSet.member?(seen, key) do
+      {:halt, {:error, {duplicate_schema_reason(source), key}}}
+    else
+      {:cont, {:ok, schema, MapSet.put(seen, key)}}
+    end
+  end
+
+  defp reduce_schema_entry(_invalid, index, _schema, _seen, source) do
+    {:halt, {:error, {invalid_schema_reason(source), index}}}
   end
 
   defp invalid_schema_reason(:app), do: :invalid_app_settings_schema_entry

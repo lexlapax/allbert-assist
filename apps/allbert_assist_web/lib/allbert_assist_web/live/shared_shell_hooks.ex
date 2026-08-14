@@ -31,9 +31,7 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
         # disconnected HTTP render defaulted to a per-request Runner invocation
         # any anonymous GET triggered; the root layout resolves the page theme
         # itself, so "system" is a safe first-paint default for the toggle icon.
-        |> assign_new(:workspace_theme, fn ->
-          if connected?(socket), do: theme_from_settings(socket), else: "system"
-        end)
+        |> assign_new(:workspace_theme, fn -> initial_workspace_theme(socket) end)
         |> assign_new(:workspace_high_contrast?, fn -> false end)
         |> assign_new(:workspace_overflow_open?, fn -> false end)
         |> assign_new(:sidebar_state, fn -> "expanded" end)
@@ -119,6 +117,12 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   defp next_workspace_theme("dark"), do: "light"
   defp next_workspace_theme("light"), do: "system"
   defp next_workspace_theme(_theme), do: "dark"
+
+  # See the M9.2 note above `assign_new(:workspace_theme, ...)` in `on_mount/4`
+  # for why the disconnected render always gets the "system" default.
+  defp initial_workspace_theme(socket) do
+    if connected?(socket), do: theme_from_settings(socket), else: "system"
+  end
 
   # The theme read rides the registered resolved-settings snapshot action —
   # the same one-spine read the workspace shell uses at mount.

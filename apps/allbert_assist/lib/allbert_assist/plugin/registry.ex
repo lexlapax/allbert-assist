@@ -482,29 +482,33 @@ defmodule AllbertAssist.Plugin.Registry do
         {:error, :stale_generation}
 
       {:ok, _subscription} ->
-        case Readiness.bind_metadata(barrier_pid, self(), generation, subscription_ref) do
-          :ok ->
-            monitor_ref = Process.monitor(barrier_pid)
-
-            {:ok,
-             %{
-               state
-               | epoch_binding: %{
-                   barrier_pid: barrier_pid,
-                   generation: generation,
-                   subscription_ref: subscription_ref,
-                   monitor_ref: monitor_ref
-                 }
-             }}
-
-          {:error, _reason} ->
-            {:error, :unavailable}
-        end
+        bind_epoch_via_readiness(state, generation, subscription_ref, barrier_pid)
     end
   end
 
   defp bind_epoch_state(_subscription_ref, _generation, _barrier_pid, _state),
     do: {:error, :unavailable}
+
+  defp bind_epoch_via_readiness(state, generation, subscription_ref, barrier_pid) do
+    case Readiness.bind_metadata(barrier_pid, self(), generation, subscription_ref) do
+      :ok ->
+        monitor_ref = Process.monitor(barrier_pid)
+
+        {:ok,
+         %{
+           state
+           | epoch_binding: %{
+               barrier_pid: barrier_pid,
+               generation: generation,
+               subscription_ref: subscription_ref,
+               monitor_ref: monitor_ref
+             }
+         }}
+
+      {:error, _reason} ->
+        {:error, :unavailable}
+    end
+  end
 
   defp drop_metadata_monitor(state, monitor_ref) do
     subscriptions =

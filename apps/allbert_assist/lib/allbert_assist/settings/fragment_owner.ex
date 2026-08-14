@@ -127,36 +127,7 @@ defmodule AllbertAssist.Settings.FragmentOwner do
 
   defp resolve_modules(pack_id, application, modules) do
     Enum.reduce_while(modules, {:ok, []}, fn module, {:ok, contributions} ->
-      if owner_module?(module) do
-        case module.fragment() do
-          %Fragment{} = fragment ->
-            with {:ok, defaults} <- composition_defaults(module, fragment),
-                 {:ok, dynamic_default_rows} <-
-                   validate_defaults_contract(module, fragment, defaults),
-                 {:ok, safe_write_rows, supplemental_safe_write_keys} <-
-                   safe_write_rows(module, fragment) do
-              contribution = %{
-                pack_id: pack_id,
-                application: application,
-                owner_module: module,
-                fragment: fragment,
-                defaults: defaults,
-                dynamic_default_rows: dynamic_default_rows,
-                safe_write_rows: safe_write_rows,
-                supplemental_safe_write_keys: supplemental_safe_write_keys
-              }
-
-              {:cont, {:ok, [contribution | contributions]}}
-            else
-              {:error, reason} -> {:halt, {:error, reason}}
-            end
-
-          value ->
-            {:halt, {:error, {:invalid_settings_fragment, module, value}}}
-        end
-      else
-        {:halt, {:error, {:invalid_settings_fragment_owner, module}}}
-      end
+      resolve_module(module, pack_id, application, contributions)
     end)
     |> case do
       {:ok, contributions} -> {:ok, Enum.reverse(contributions)}
@@ -166,6 +137,47 @@ defmodule AllbertAssist.Settings.FragmentOwner do
     exception -> {:error, {:settings_fragment_owner_raised, exception.__struct__}}
   catch
     kind, reason -> {:error, {:settings_fragment_owner_caught, kind, reason}}
+  end
+
+  defp resolve_module(module, pack_id, application, contributions) do
+    if owner_module?(module) do
+      resolve_owner_fragment(module, pack_id, application, contributions)
+    else
+      {:halt, {:error, {:invalid_settings_fragment_owner, module}}}
+    end
+  end
+
+  defp resolve_owner_fragment(module, pack_id, application, contributions) do
+    case module.fragment() do
+      %Fragment{} = fragment ->
+        build_contribution(module, pack_id, application, fragment, contributions)
+
+      value ->
+        {:halt, {:error, {:invalid_settings_fragment, module, value}}}
+    end
+  end
+
+  defp build_contribution(module, pack_id, application, fragment, contributions) do
+    with {:ok, defaults} <- composition_defaults(module, fragment),
+         {:ok, dynamic_default_rows} <-
+           validate_defaults_contract(module, fragment, defaults),
+         {:ok, safe_write_rows, supplemental_safe_write_keys} <-
+           safe_write_rows(module, fragment) do
+      contribution = %{
+        pack_id: pack_id,
+        application: application,
+        owner_module: module,
+        fragment: fragment,
+        defaults: defaults,
+        dynamic_default_rows: dynamic_default_rows,
+        safe_write_rows: safe_write_rows,
+        supplemental_safe_write_keys: supplemental_safe_write_keys
+      }
+
+      {:cont, {:ok, [contribution | contributions]}}
+    else
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
   end
 
   defp merge_schema!(left, right) do
@@ -202,47 +214,92 @@ defmodule AllbertAssist.Settings.FragmentOwner do
 
   defp validate_schema_contract(module, fragment, defaults) do
     Enum.reduce_while(fragment.schema, :ok, fn {key, entry}, :ok ->
-      cond do
-        not is_binary(key) or key == "" or not is_map(entry) ->
-          {:halt,
-           {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_entry}}}
-
-        not Map.has_key?(entry, :type) ->
-          {:halt, {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_type}}}
-
-        not is_atom(Map.get(entry, :type)) ->
-          {:halt, {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_type}}}
-
-        not Map.has_key?(entry, :default) ->
-          {:halt,
-           {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_default}}}
-
-        not Map.has_key?(entry, :writable?) ->
-          {:halt,
-           {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_writable}}}
-
-        not is_boolean(Map.get(entry, :writable?)) ->
-          {:halt,
-           {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_writable}}}
-
-        not Map.has_key?(entry, :sensitive?) ->
-          {:halt,
-           {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_sensitive}}}
-
-        not is_boolean(Map.get(entry, :sensitive?)) ->
-          {:halt,
-           {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_sensitive}}}
-
-        fetch_dotted(fragment.defaults, key) != {:ok, Map.fetch!(entry, :default)} ->
-          {:halt, {:error, {:settings_fragment_default_mismatch, module, key}}}
-
-        fetch_dotted(defaults, key) != {:ok, Map.fetch!(entry, :default)} ->
-          {:halt, {:error, {:settings_fragment_composition_default_mismatch, module, key}}}
-
-        true ->
-          {:cont, :ok}
+      case schema_entry_error(module, fragment, defaults, key, entry) do
+        nil -> {:cont, :ok}
+        error -> {:halt, error}
       end
     end)
+  end
+
+  defp schema_entry_error(module, fragment, defaults, key, entry) do
+    Enum.find_value(schema_entry_checks(), fn check ->
+      check.(module, fragment, defaults, key, entry)
+    end)
+  end
+
+  defp schema_entry_checks do
+    [
+      &check_entry_shape/5,
+      &check_type_present/5,
+      &check_type_valid/5,
+      &check_default_present/5,
+      &check_writable_present/5,
+      &check_writable_valid/5,
+      &check_sensitive_present/5,
+      &check_sensitive_valid/5,
+      &check_fragment_default_match/5,
+      &check_composition_default_match/5
+    ]
+  end
+
+  defp check_entry_shape(module, _fragment, _defaults, key, entry) do
+    if not is_binary(key) or key == "" or not is_map(entry) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_entry}}
+    end
+  end
+
+  defp check_type_present(module, _fragment, _defaults, key, entry) do
+    if not Map.has_key?(entry, :type) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_type}}
+    end
+  end
+
+  defp check_type_valid(module, _fragment, _defaults, key, entry) do
+    if not is_atom(Map.get(entry, :type)) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_type}}
+    end
+  end
+
+  defp check_default_present(module, _fragment, _defaults, key, entry) do
+    if not Map.has_key?(entry, :default) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_default}}
+    end
+  end
+
+  defp check_writable_present(module, _fragment, _defaults, key, entry) do
+    if not Map.has_key?(entry, :writable?) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_writable}}
+    end
+  end
+
+  defp check_writable_valid(module, _fragment, _defaults, key, entry) do
+    if not is_boolean(Map.get(entry, :writable?)) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_writable}}
+    end
+  end
+
+  defp check_sensitive_present(module, _fragment, _defaults, key, entry) do
+    if not Map.has_key?(entry, :sensitive?) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :missing_sensitive}}
+    end
+  end
+
+  defp check_sensitive_valid(module, _fragment, _defaults, key, entry) do
+    if not is_boolean(Map.get(entry, :sensitive?)) do
+      {:error, {:invalid_settings_fragment_schema_entry, module, key, :invalid_sensitive}}
+    end
+  end
+
+  defp check_fragment_default_match(module, fragment, _defaults, key, entry) do
+    if fetch_dotted(fragment.defaults, key) != {:ok, Map.fetch!(entry, :default)} do
+      {:error, {:settings_fragment_default_mismatch, module, key}}
+    end
+  end
+
+  defp check_composition_default_match(module, _fragment, defaults, key, entry) do
+    if fetch_dotted(defaults, key) != {:ok, Map.fetch!(entry, :default)} do
+      {:error, {:settings_fragment_composition_default_mismatch, module, key}}
+    end
   end
 
   defp dynamic_default_keys(module) do
@@ -350,17 +407,21 @@ defmodule AllbertAssist.Settings.FragmentOwner do
 
   defp safe_write_rows(module, fragment) do
     if function_exported?(module, :safe_write_rows, 0) do
-      with {:ok, supplemental} <- supplemental_safe_write_keys(module) do
-        case module.safe_write_rows() do
-          rows when is_list(rows) ->
-            validate_owner_safe_write_rows(module, fragment, rows, supplemental)
-
-          value ->
-            {:error, {:invalid_settings_safe_write_rows, module, value}}
-        end
-      end
+      resolve_safe_write_rows(module, fragment)
     else
       {:error, {:missing_settings_safe_write_rows, module, fragment.id}}
+    end
+  end
+
+  defp resolve_safe_write_rows(module, fragment) do
+    with {:ok, supplemental} <- supplemental_safe_write_keys(module) do
+      case module.safe_write_rows() do
+        rows when is_list(rows) ->
+          validate_owner_safe_write_rows(module, fragment, rows, supplemental)
+
+        value ->
+          {:error, {:invalid_settings_safe_write_rows, module, value}}
+      end
     end
   end
 

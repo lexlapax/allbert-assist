@@ -126,37 +126,40 @@ defmodule StockSage.Progress do
       |> List.wrap()
       |> Enum.take(12)
       |> Enum.with_index(1)
-      |> Enum.map(fn {step, index} ->
-        normalize_payload(%{
-          id: "step-#{value(step, :id) || index}",
-          analysis_id: value(analysis, :id),
-          objective_id: value(analysis, :objective_id),
-          stage: "analyst",
-          status: value(step, :status) || "observed",
-          summary:
-            value(step, :result_summary) ||
-              value(step, :delegate_agent_id) ||
-              value(step, :kind) ||
-              "Objective step observed.",
-          at: value(step, :updated_at) || value(step, :inserted_at)
-        })
-      end)
+      |> Enum.map(fn {step, index} -> step_item(step, index, analysis) end)
 
-    final_item =
-      normalize_payload(%{
-        id: "analysis-#{value(analysis, :id)}-#{value(analysis, :status) || "current"}",
-        analysis_id: value(analysis, :id),
-        objective_id: value(analysis, :objective_id),
-        stage: final_stage(value(analysis, :status)),
-        status: value(analysis, :status) || "current",
-        summary: value(analysis, :summary) || "Analysis state loaded.",
-        at: value(analysis, :updated_at) || value(analysis, :inserted_at)
-      })
-
-    step_items ++ [final_item]
+    step_items ++ [final_item(analysis)]
   end
 
   def persisted_items(_analysis, _steps), do: []
+
+  defp step_item(step, index, analysis) do
+    normalize_payload(%{
+      id: "step-#{value(step, :id) || index}",
+      analysis_id: value(analysis, :id),
+      objective_id: value(analysis, :objective_id),
+      stage: "analyst",
+      status: value(step, :status) || "observed",
+      summary:
+        value(step, :result_summary) ||
+          value(step, :delegate_agent_id) ||
+          value(step, :kind) ||
+          "Objective step observed.",
+      at: value(step, :updated_at) || value(step, :inserted_at)
+    })
+  end
+
+  defp final_item(analysis) do
+    normalize_payload(%{
+      id: "analysis-#{value(analysis, :id)}-#{value(analysis, :status) || "current"}",
+      analysis_id: value(analysis, :id),
+      objective_id: value(analysis, :objective_id),
+      stage: final_stage(value(analysis, :status)),
+      status: value(analysis, :status) || "current",
+      summary: value(analysis, :summary) || "Analysis state loaded.",
+      at: value(analysis, :updated_at) || value(analysis, :inserted_at)
+    })
+  end
 
   @spec enabled?() :: boolean()
   def enabled? do

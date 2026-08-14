@@ -60,14 +60,18 @@ defmodule AllbertAssist.Plugin.Bootstrap do
 
       Registry.registered_plugins(server: registry)
       |> Enum.reduce_while(:ok, fn entry, :ok ->
-        result = start_plugin_child(entry.plugin_id, registry, child_supervisor)
-        :ok = Registry.mark_child_activation(entry.plugin_id, result, server: registry)
-
-        case result do
-          :ok -> {:cont, :ok}
-          {:error, reason} -> {:halt, {:error, {entry.plugin_id, reason}}}
-        end
+        activate_plugin_child(entry, registry, child_supervisor)
       end)
+    end
+  end
+
+  defp activate_plugin_child(entry, registry, child_supervisor) do
+    result = start_plugin_child(entry.plugin_id, registry, child_supervisor)
+    :ok = Registry.mark_child_activation(entry.plugin_id, result, server: registry)
+
+    case result do
+      :ok -> {:cont, :ok}
+      {:error, reason} -> {:halt, {:error, {entry.plugin_id, reason}}}
     end
   end
 

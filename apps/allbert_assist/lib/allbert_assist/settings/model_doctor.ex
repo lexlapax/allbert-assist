@@ -492,18 +492,22 @@ defmodule AllbertAssist.Settings.ModelDoctor do
         |> maybe_put(:plug, req_test_plug(context))
         |> Keyword.merge(TLS.connect_options())
 
-      with :ok <- EffectGuard.validate(epoch),
-           result <- Req.request(request) do
-        case result do
-          {:ok, response} ->
-            {:ok, response}
+      validated_request(epoch, request, url)
+    end
+  end
 
-          {:error, %Req.TransportError{} = error} ->
-            {:error, {:transport_error, error.reason, url}}
+  defp validated_request(epoch, request, url) do
+    with :ok <- EffectGuard.validate(epoch),
+         result <- Req.request(request) do
+      case result do
+        {:ok, response} ->
+          {:ok, response}
 
-          {:error, reason} ->
-            {:error, {:transport_error, reason, url}}
-        end
+        {:error, %Req.TransportError{} = error} ->
+          {:error, {:transport_error, error.reason, url}}
+
+        {:error, reason} ->
+          {:error, {:transport_error, reason, url}}
       end
     end
   end

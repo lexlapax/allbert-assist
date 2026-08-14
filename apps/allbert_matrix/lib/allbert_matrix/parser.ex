@@ -78,28 +78,32 @@ defmodule AllbertMatrix.Parser do
   defp parse_event(_room_id, _event), do: {:malformed, :missing_event_fields}
 
   defp maybe_put_relates_to(content, attrs) do
-    root = Map.get(attrs, :thread_root_event_id)
-    reply_to = Map.get(attrs, :reply_to_event_id)
-
-    cond do
-      is_binary(root) and root != "" and is_binary(reply_to) and reply_to != "" ->
-        Map.put(content, "m.relates_to", %{
-          "rel_type" => "m.thread",
-          "event_id" => root,
-          "m.in_reply_to" => %{"event_id" => reply_to},
-          "is_falling_back" => true
-        })
-
-      is_binary(root) and root != "" ->
-        Map.put(content, "m.relates_to", %{"rel_type" => "m.thread", "event_id" => root})
-
-      is_binary(reply_to) and reply_to != "" ->
-        Map.put(content, "m.relates_to", %{"m.in_reply_to" => %{"event_id" => reply_to}})
-
-      true ->
-        content
-    end
+    put_relates_to(
+      content,
+      Map.get(attrs, :thread_root_event_id),
+      Map.get(attrs, :reply_to_event_id)
+    )
   end
+
+  defp put_relates_to(content, root, reply_to)
+       when is_binary(root) and root != "" and is_binary(reply_to) and reply_to != "" do
+    Map.put(content, "m.relates_to", %{
+      "rel_type" => "m.thread",
+      "event_id" => root,
+      "m.in_reply_to" => %{"event_id" => reply_to},
+      "is_falling_back" => true
+    })
+  end
+
+  defp put_relates_to(content, root, _reply_to) when is_binary(root) and root != "" do
+    Map.put(content, "m.relates_to", %{"rel_type" => "m.thread", "event_id" => root})
+  end
+
+  defp put_relates_to(content, _root, reply_to) when is_binary(reply_to) and reply_to != "" do
+    Map.put(content, "m.relates_to", %{"m.in_reply_to" => %{"event_id" => reply_to}})
+  end
+
+  defp put_relates_to(content, _root, _reply_to), do: content
 
   defp thread_root_event_id(content) do
     case Map.get(content, "m.relates_to") do

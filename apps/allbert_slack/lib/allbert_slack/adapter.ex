@@ -315,14 +315,7 @@ defmodule AllbertSlack.Adapter do
       :ignore ->
         with {:ok, response} <- submit_runtime(fields, user_id, session_id, inbound_trust),
              {:ok, rendered} <- Renderer.render_response(response, renderer_opts(state)),
-             {:ok, delivered} <-
-               Runtime.track_delivery(
-                 response,
-                 %{channel: "slack", allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)},
-                 fn ->
-                   deliver_rendered(fields, rendered, state)
-                 end
-               ),
+             {:ok, delivered} <- track_and_deliver(response, fields, rendered, state),
              :ok <- record_outbound_refs(response, fields, delivered),
              :ok <-
                Runtime.acknowledge_deliveries(response, %{
@@ -333,6 +326,14 @@ defmodule AllbertSlack.Adapter do
           {:ok, event, rendered}
         end
     end
+  end
+
+  defp track_and_deliver(response, fields, rendered, state) do
+    Runtime.track_delivery(
+      response,
+      %{channel: "slack", allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)},
+      fn -> deliver_rendered(fields, rendered, state) end
+    )
   end
 
   defp process_callback(event, fields, state) do
@@ -756,23 +757,24 @@ defmodule AllbertSlack.Adapter do
       |> then(&if(is_binary(thread_ts), do: Map.put(&1, :thread_ts, thread_ts), else: &1))
 
     case AllbertAssist.Channels.channel_settings("slack") do
-      {:ok, settings} ->
-        token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
+      {:ok, settings} -> post_message(settings, target, payload, opts)
+      _other -> {:error, :slack_not_configured}
+    end
+  end
 
-        req_options =
-          opts
-          |> Keyword.get(:req_options, [])
-          |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+  defp post_message(settings, target, payload, opts) do
+    token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
 
-        with :ok <- validate_outbound_epoch(opts) do
-          case Client.chat_post_message(token_ref, payload, req_options) do
-            {:ok, result} -> {:ok, %{channel: "slack", target: target, result: result}}
-            {:error, reason} -> {:error, reason}
-          end
-        end
+    req_options =
+      opts
+      |> Keyword.get(:req_options, [])
+      |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
 
-      _other ->
-        {:error, :slack_not_configured}
+    with :ok <- validate_outbound_epoch(opts) do
+      case Client.chat_post_message(token_ref, payload, req_options) do
+        {:ok, result} -> {:ok, %{channel: "slack", target: target, result: result}}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -780,28 +782,32 @@ defmodule AllbertSlack.Adapter do
   def edit_outbound(target, provider_message_id, body, opts)
       when is_binary(target) and is_binary(provider_message_id) and is_binary(body) do
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("slack") do
-      token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
-      payload = %{channel: target, ts: provider_message_id, text: body}
+      update_message(settings, target, provider_message_id, body, opts)
+    end
+  end
 
-      req_options =
-        opts
-        |> Keyword.get(:req_options, [])
-        |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+  defp update_message(settings, target, provider_message_id, body, opts) do
+    token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
+    payload = %{channel: target, ts: provider_message_id, text: body}
 
-      with :ok <- validate_outbound_epoch(opts) do
-        case Client.chat_update(token_ref, payload, req_options) do
-          {:ok, result} ->
-            {:ok,
-             %{
-               channel: "slack",
-               target: target,
-               provider_message_id: provider_message_id,
-               result: result
-             }}
+    req_options =
+      opts
+      |> Keyword.get(:req_options, [])
+      |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
 
-          {:error, reason} ->
-            {:error, reason}
-        end
+    with :ok <- validate_outbound_epoch(opts) do
+      case Client.chat_update(token_ref, payload, req_options) do
+        {:ok, result} ->
+          {:ok,
+           %{
+             channel: "slack",
+             target: target,
+             provider_message_id: provider_message_id,
+             result: result
+           }}
+
+        {:error, reason} ->
+          {:error, reason}
       end
     end
   end

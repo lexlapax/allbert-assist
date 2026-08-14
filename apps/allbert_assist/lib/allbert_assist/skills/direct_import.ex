@@ -47,19 +47,18 @@ defmodule AllbertAssist.Skills.DirectImport do
 
       with :ok <- EffectGuard.validate(epoch),
            response <- Req.request(request) do
-        case response do
-          {:ok, response} ->
-            {:ok, response}
-
-          {:error, %Req.TransportError{} = error} ->
-            {:error, {:remote_skill_transport_error, error.reason}}
-
-          {:error, reason} ->
-            {:error, {:remote_skill_request_failed, reason}}
-        end
+        handle_remote_response(response)
       end
     end
   end
+
+  defp handle_remote_response({:ok, response}), do: {:ok, response}
+
+  defp handle_remote_response({:error, %Req.TransportError{} = error}),
+    do: {:error, {:remote_skill_transport_error, error.reason}}
+
+  defp handle_remote_response({:error, reason}),
+    do: {:error, {:remote_skill_request_failed, reason}}
 
   defp req_options(spec, context) do
     [

@@ -80,14 +80,7 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
 
     state =
       safely(
-        fn ->
-          with_ready_epoch(state, fn epoch ->
-            case Objectives.get_objective(parent_id) do
-              {:ok, parent} -> reconcile_parent(parent, state, epoch)
-              {:error, _reason} -> state
-            end
-          end)
-        end,
+        fn -> with_ready_epoch(state, &reconcile_retry(parent_id, state, &1)) end,
         state
       )
 
@@ -221,18 +214,7 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
       case Objectives.list_steps(child.id) |> List.last() do
         %{confirmation_id: confirmation_id}
         when is_binary(confirmation_id) and confirmation_id != "" ->
-          body =
-            "Approval needed for #{child.title}. " <>
-              "Reply ALLBERT:SHOW:#{confirmation_id}, ALLBERT:APPROVE:#{confirmation_id}, or ALLBERT:DENY:#{confirmation_id}."
-
-          if :ok == validate_epoch(epoch, state) do
-            _ =
-              Notify.deliver(parent, :confirmation_request, body,
-                child_objective_id: child.id,
-                event_key: "confirmation:#{confirmation_id}",
-                allbert_pack_epoch: epoch
-              )
-          end
+          deliver_confirmation_request(parent, child, confirmation_id, state, epoch)
 
         _other ->
           status(parent, child, "blocked", id, state, epoch)
@@ -269,6 +251,28 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
 
   defp handle_signal(_signal, state, _epoch), do: state
 
+  defp deliver_confirmation_request(parent, child, confirmation_id, state, epoch) do
+    body =
+      "Approval needed for #{child.title}. " <>
+        "Reply ALLBERT:SHOW:#{confirmation_id}, ALLBERT:APPROVE:#{confirmation_id}, or ALLBERT:DENY:#{confirmation_id}."
+
+    if :ok == validate_epoch(epoch, state) do
+      _ =
+        Notify.deliver(parent, :confirmation_request, body,
+          child_objective_id: child.id,
+          event_key: "confirmation:#{confirmation_id}",
+          allbert_pack_epoch: epoch
+        )
+    end
+  end
+
+  defp reconcile_retry(parent_id, state, epoch) do
+    case Objectives.get_objective(parent_id) do
+      {:ok, parent} -> reconcile_parent(parent, state, epoch)
+      {:error, _reason} -> state
+    end
+  end
+
   defp reconcile_parent(parent, state, epoch) do
     case validate_epoch(epoch, state) do
       :ok -> reconcile_parent_when_ready(parent, state, epoch)
@@ -277,57 +281,84 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   end
 
   defp reconcile_parent_when_ready(parent, state, epoch) do
-    case Notify.recover_completion(
-           parent,
-           Keyword.put(state.notify_opts, :allbert_pack_epoch, epoch)
-         ) do
-      {:ok, %NotifyDelivery{state: "delivered"}} ->
-        if :ok == validate_epoch(epoch, state) do
-          _ = acknowledge_report(parent, epoch)
-          clear_retry(parent.id, state)
-        else
-          state
-        end
+    parent
+    |> Notify.recover_completion(Keyword.put(state.notify_opts, :allbert_pack_epoch, epoch))
+    |> handle_recovery_result(parent, state, epoch)
+  end
 
-      {:ok, %NotifyDelivery{state: "failed", attempt_count: attempts}} when attempts < 2 ->
-        schedule_retry(parent.id, state)
+  defp handle_recovery_result({:ok, %NotifyDelivery{state: "delivered"}}, parent, state, epoch) do
+    finalize_delivered(parent, state, epoch)
+  end
 
-      {:ok, _terminal_or_skipped} ->
-        clear_retry(parent.id, state)
+  defp handle_recovery_result(
+         {:ok, %NotifyDelivery{state: "failed", attempt_count: attempts}},
+         parent,
+         state,
+         _epoch
+       )
+       when attempts < 2 do
+    schedule_retry(parent.id, state)
+  end
 
-      {:error, {:audit_failed, reason, %NotifyDelivery{state: "delivered"}}} ->
-        Logger.warning(
-          "channel completion audit failed after durable delivery parent=#{parent.id} reason=#{inspect(reason)}"
-        )
+  defp handle_recovery_result({:ok, _terminal_or_skipped}, parent, state, _epoch) do
+    clear_retry(parent.id, state)
+  end
 
-        if :ok == validate_epoch(epoch, state) do
-          _ = acknowledge_report(parent, epoch)
-          clear_retry(parent.id, state)
-        else
-          state
-        end
+  defp handle_recovery_result(
+         {:error, {:audit_failed, reason, %NotifyDelivery{state: "delivered"}}},
+         parent,
+         state,
+         epoch
+       ) do
+    Logger.warning(
+      "channel completion audit failed after durable delivery parent=#{parent.id} reason=#{inspect(reason)}"
+    )
 
-      {:error, {:audit_failed, reason, %NotifyDelivery{state: "failed", attempt_count: attempts}}}
-      when attempts < 2 ->
-        Logger.warning(
-          "channel completion audit failed after definitive failure parent=#{parent.id} reason=#{inspect(reason)}"
-        )
+    finalize_delivered(parent, state, epoch)
+  end
 
-        schedule_retry(parent.id, state)
+  defp handle_recovery_result(
+         {:error,
+          {:audit_failed, reason, %NotifyDelivery{state: "failed", attempt_count: attempts}}},
+         parent,
+         state,
+         _epoch
+       )
+       when attempts < 2 do
+    Logger.warning(
+      "channel completion audit failed after definitive failure parent=#{parent.id} reason=#{inspect(reason)}"
+    )
 
-      {:error, {:audit_failed, reason, %NotifyDelivery{}}} ->
-        Logger.warning(
-          "channel completion audit failed parent=#{parent.id} reason=#{inspect(reason)}"
-        )
+    schedule_retry(parent.id, state)
+  end
 
-        clear_retry(parent.id, state)
+  defp handle_recovery_result(
+         {:error, {:audit_failed, reason, %NotifyDelivery{}}},
+         parent,
+         state,
+         _epoch
+       ) do
+    Logger.warning(
+      "channel completion audit failed parent=#{parent.id} reason=#{inspect(reason)}"
+    )
 
-      {:error, reason} ->
-        Logger.warning(
-          "channel completion recovery failed parent=#{parent.id} reason=#{inspect(reason)}"
-        )
+    clear_retry(parent.id, state)
+  end
 
-        state
+  defp handle_recovery_result({:error, reason}, parent, state, _epoch) do
+    Logger.warning(
+      "channel completion recovery failed parent=#{parent.id} reason=#{inspect(reason)}"
+    )
+
+    state
+  end
+
+  defp finalize_delivered(parent, state, epoch) do
+    if :ok == validate_epoch(epoch, state) do
+      _ = acknowledge_report(parent, epoch)
+      clear_retry(parent.id, state)
+    else
+      state
     end
   end
 

@@ -191,11 +191,7 @@ defmodule AllbertAssist.Search.Projection do
     do: {:reply, {:error, :search_not_ready}, state}
 
   def handle_call({:upsert, envelope}, _from, %{ready?: true} = state) do
-    case with_effect_epoch(state, fn ->
-           mutate_current(state, fn conn, revision ->
-             upsert_envelope(conn, envelope, revision)
-           end)
-         end) do
+    case with_effect_epoch(state, fn -> upsert_current(state, envelope) end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
@@ -205,9 +201,7 @@ defmodule AllbertAssist.Search.Projection do
     do: {:reply, {:error, :search_not_ready}, state}
 
   def handle_call({:delete, source_id}, _from, %{ready?: true} = state) do
-    case with_effect_epoch(state, fn ->
-           mutate_current(state, fn conn, revision -> delete_source(conn, source_id, revision) end)
-         end) do
+    case with_effect_epoch(state, fn -> delete_current(state, source_id) end) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
@@ -1347,6 +1341,14 @@ defmodule AllbertAssist.Search.Projection do
           {:halt, {:error, reason}}
       end
     end)
+  end
+
+  defp upsert_current(state, envelope) do
+    mutate_current(state, fn conn, revision -> upsert_envelope(conn, envelope, revision) end)
+  end
+
+  defp delete_current(state, source_id) do
+    mutate_current(state, fn conn, revision -> delete_source(conn, source_id, revision) end)
   end
 
   defp mutate_current(state, mutation) do

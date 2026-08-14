@@ -132,14 +132,16 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
          {:ok, %{barrier_pid: barrier_pid}} <- readiness.status(),
          {:ok, monitored} <-
            monitored_roster(
-             pack_supervisor,
-             barrier_pid,
-             app_metadata_supervisor,
-             app_registry,
-             app_bootstrap,
-             plugin_metadata_supervisor,
-             plugin_registry,
-             plugin_bootstrap,
+             %{
+               pack_supervisor: pack_supervisor,
+               barrier_pid: barrier_pid,
+               app_metadata_supervisor: app_metadata_supervisor,
+               app_registry: app_registry,
+               app_bootstrap: app_bootstrap,
+               plugin_metadata_supervisor: plugin_metadata_supervisor,
+               plugin_registry: plugin_registry,
+               plugin_bootstrap: plugin_bootstrap
+             },
              bootstrap_completions
            ),
          {:ok, closed} <- projection_provider.closed(),
@@ -322,14 +324,16 @@ defmodule AllbertAssist.Pack.CompositionCoordinator do
   defp validate_source_roster(_sources), do: {:error, :metadata_source_roster_mismatch}
 
   defp monitored_roster(
-         pack_supervisor,
-         barrier_pid,
-         app_metadata_supervisor,
-         app_registry,
-         app_bootstrap,
-         plugin_metadata_supervisor,
-         plugin_registry,
-         plugin_bootstrap,
+         %{
+           pack_supervisor: pack_supervisor,
+           barrier_pid: barrier_pid,
+           app_metadata_supervisor: app_metadata_supervisor,
+           app_registry: app_registry,
+           app_bootstrap: app_bootstrap,
+           plugin_metadata_supervisor: plugin_metadata_supervisor,
+           plugin_registry: plugin_registry,
+           plugin_bootstrap: plugin_bootstrap
+         },
          %{app: app_completion, plugin: plugin_completion}
        ) do
     with {:ok, pack_supervisor_pid} <- resolve_pid(pack_supervisor),

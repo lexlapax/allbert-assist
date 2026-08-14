@@ -39,57 +39,61 @@ defmodule StockSage.Actions.QueueAnalysis do
     permission_decision = Actions.authorize(:stocksage_write, context)
 
     with {:ok, user_id} <- Actions.user_id(params, context) do
-      if Actions.allowed?(permission_decision) do
-        attrs = %{
-          user_id: user_id,
-          symbol: Actions.field(params, :symbol),
-          thread_id:
-            Actions.context_field(context, :thread_id) ||
-              Actions.blank_to_nil(Actions.field(params, :thread_id)),
-          session_id:
-            Actions.context_field(context, :session_id) ||
-              Actions.blank_to_nil(Actions.field(params, :session_id)),
-          objective_id:
-            Actions.context_field(context, :objective_id) ||
-              Actions.blank_to_nil(Actions.field(params, :objective_id)),
-          step_id:
-            Actions.context_field(context, :step_id) ||
-              Actions.blank_to_nil(Actions.field(params, :step_id)),
-          requested_for: parse_date(Actions.field(params, :requested_for)),
-          priority: Actions.field(params, :priority, "normal"),
-          request: %{
-            "source" => "queue_analysis_action",
-            "app_id" => "stocksage"
-          },
-          input_signal_id: Actions.field(context, :input_signal_id),
-          trace_id: Actions.field(context, :trace_id)
-        }
-
-        case Queue.create_entry(attrs) do
-          {:ok, entry} ->
-            {:ok, completed(entry, permission_decision)}
-
-          {:error, changeset} ->
-            {:ok, invalid(changeset, permission_decision)}
-        end
-      else
-        status = Actions.status_from_decision(permission_decision)
-
-        {:ok,
-         %{
-           message: "StockSage queue writes are not available to this request.",
-           status: status,
-           error: :permission_denied,
-           actions: [
-             Actions.action("queue_analysis", status, :stocksage_write, permission_decision, %{
-               error: :permission_denied
-             })
-           ]
-         }}
-      end
+      queue_or_deny(params, context, user_id, permission_decision)
     else
       {:error, :missing_user_id} ->
         Actions.missing_user("queue_analysis", :stocksage_write, permission_decision)
+    end
+  end
+
+  defp queue_or_deny(params, context, user_id, permission_decision) do
+    if Actions.allowed?(permission_decision) do
+      attrs = %{
+        user_id: user_id,
+        symbol: Actions.field(params, :symbol),
+        thread_id:
+          Actions.context_field(context, :thread_id) ||
+            Actions.blank_to_nil(Actions.field(params, :thread_id)),
+        session_id:
+          Actions.context_field(context, :session_id) ||
+            Actions.blank_to_nil(Actions.field(params, :session_id)),
+        objective_id:
+          Actions.context_field(context, :objective_id) ||
+            Actions.blank_to_nil(Actions.field(params, :objective_id)),
+        step_id:
+          Actions.context_field(context, :step_id) ||
+            Actions.blank_to_nil(Actions.field(params, :step_id)),
+        requested_for: parse_date(Actions.field(params, :requested_for)),
+        priority: Actions.field(params, :priority, "normal"),
+        request: %{
+          "source" => "queue_analysis_action",
+          "app_id" => "stocksage"
+        },
+        input_signal_id: Actions.field(context, :input_signal_id),
+        trace_id: Actions.field(context, :trace_id)
+      }
+
+      case Queue.create_entry(attrs) do
+        {:ok, entry} ->
+          {:ok, completed(entry, permission_decision)}
+
+        {:error, changeset} ->
+          {:ok, invalid(changeset, permission_decision)}
+      end
+    else
+      status = Actions.status_from_decision(permission_decision)
+
+      {:ok,
+       %{
+         message: "StockSage queue writes are not available to this request.",
+         status: status,
+         error: :permission_denied,
+         actions: [
+           Actions.action("queue_analysis", status, :stocksage_write, permission_decision, %{
+             error: :permission_denied
+           })
+         ]
+       }}
     end
   end
 

@@ -133,47 +133,77 @@ defmodule AllbertAssist.DevGates.V14M4SemanticsInventory do
   defp scan_module(module, source_path, body) do
     body
     |> block_forms()
-    |> Enum.reduce({%{}, []}, fn
-      {:defmodule, _meta, _args} = nested, {definitions, nested_modules} ->
-        {definitions, [nested | nested_modules]}
-
-      {kind, _meta, [head, body_options]} = definition, {definitions, nested_modules}
-      when kind in [:def, :defp] and is_list(body_options) ->
-        case callable(head) do
-          {caller_name, caller_arity} ->
-            caller = "#{caller_name}/#{caller_arity}"
-            uses = discover_uses(Keyword.get(body_options, :do), caller)
-
-            definitions =
-              Enum.reduce(uses, definitions, fn {{name, arity}, use}, definitions ->
-                update_definition(definitions, module, source_path, name, arity, nil, use)
-              end)
-
-            definitions =
-              if {caller_name, caller_arity} in @targets do
-                update_definition(
-                  definitions,
-                  module,
-                  source_path,
-                  caller_name,
-                  caller_arity,
-                  definition,
-                  nil
-                )
-              else
-                definitions
-              end
-
-            {definitions, nested_modules}
-
-          nil ->
-            {definitions, nested_modules}
-        end
-
-      _other, state ->
-        state
-    end)
+    |> Enum.reduce({%{}, []}, &scan_form(&1, module, source_path, &2))
     |> then(fn {definitions, nested} -> {Map.values(definitions), Enum.reverse(nested)} end)
+  end
+
+  defp scan_form(
+         {:defmodule, _meta, _args} = nested,
+         _module,
+         _source_path,
+         {definitions, nested_modules}
+       ) do
+    {definitions, [nested | nested_modules]}
+  end
+
+  defp scan_form(
+         {kind, _meta, [head, body_options]} = definition,
+         module,
+         source_path,
+         {definitions, nested_modules}
+       )
+       when kind in [:def, :defp] and is_list(body_options) do
+    case callable(head) do
+      {caller_name, caller_arity} ->
+        definitions =
+          record_definition_use(
+            definitions,
+            module,
+            source_path,
+            definition,
+            {caller_name, caller_arity},
+            body_options
+          )
+
+        {definitions, nested_modules}
+
+      nil ->
+        {definitions, nested_modules}
+    end
+  end
+
+  defp scan_form(_other, _module, _source_path, state), do: state
+
+  defp record_definition_use(
+         definitions,
+         module,
+         source_path,
+         definition,
+         target,
+         body_options
+       ) do
+    {caller_name, caller_arity} = target
+    caller = "#{caller_name}/#{caller_arity}"
+    uses = discover_uses(Keyword.get(body_options, :do), caller)
+
+    definitions =
+      Enum.reduce(uses, definitions, fn {{name, arity}, use}, definitions ->
+        update_definition(definitions, module, source_path, name, arity, nil, use)
+      end)
+
+    if target in @targets do
+      update_definition(
+        definitions,
+        module,
+        source_path,
+        caller_name,
+        caller_arity,
+        definition,
+        nil
+      )
+    else
+      definitions
+    end
   end
 
   defp discover_uses(nil, _caller), do: %{}
@@ -223,21 +253,23 @@ defmodule AllbertAssist.DevGates.V14M4SemanticsInventory do
 
     row =
       if use do
-        Map.update!(row, :uses, fn existing ->
-          Map.merge(existing, use, fn _caller, left, right ->
-            %{
-              caller: left.caller,
-              call: left.call + right.call,
-              capture: left.capture + right.capture,
-              nodes: left.nodes ++ right.nodes
-            }
-          end)
-        end)
+        Map.update!(row, :uses, &merge_uses(&1, use))
       else
         row
       end
 
     Map.put(definitions, key, row)
+  end
+
+  defp merge_uses(existing, use) do
+    Map.merge(existing, use, fn _caller, left, right ->
+      %{
+        caller: left.caller,
+        call: left.call + right.call,
+        capture: left.capture + right.capture,
+        nodes: left.nodes ++ right.nodes
+      }
+    end)
   end
 
   defp finalize_definition(%{clauses: []} = definition) do

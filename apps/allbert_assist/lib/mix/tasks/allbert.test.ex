@@ -9590,24 +9590,25 @@ defmodule Mix.Tasks.Allbert.Test do
         resolved_cwd = release_targets_cwd(targets)
         resolved = Map.new(targets, &{&1.argument, &1.path})
 
-        resolved_args =
-          Enum.map(args, fn argument ->
-            case Map.fetch(resolved, argument) do
-              {:ok, repository_path} ->
-                repository_path
-                |> then(&Path.join(root(), &1))
-                |> Path.relative_to(resolved_cwd)
-
-              :error ->
-                argument
-            end
-          end)
+        resolved_args = Enum.map(args, &resolve_release_argument(&1, resolved, resolved_cwd))
 
         {resolved_cwd, resolved_args}
     end
   end
 
   defp resolve_mix_test_command(cwd, _executable, args), do: {cwd, args}
+
+  defp resolve_release_argument(argument, resolved, resolved_cwd) do
+    case Map.fetch(resolved, argument) do
+      {:ok, repository_path} ->
+        repository_path
+        |> then(&Path.join(root(), &1))
+        |> Path.relative_to(resolved_cwd)
+
+      :error ->
+        argument
+    end
+  end
 
   defp resolve_test_targets(arguments, historical_cwd) do
     arguments

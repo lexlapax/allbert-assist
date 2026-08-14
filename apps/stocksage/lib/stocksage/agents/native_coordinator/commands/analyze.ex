@@ -128,12 +128,7 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
       confidence: field(synthesis || %{}, :confidence)
     })
 
-    quality_input =
-      if field(request, :force_quality_reject) do
-        prior_reports
-      else
-        Map.merge(prior_reports, synth_reports)
-      end
+    quality_input = quality_gate_input(request, prior_reports, synth_reports)
 
     {quality_reports, quality_warnings} =
       run_sequence(["stocksage.quality_gate"], request, quality_input, :quality_gate, 1)
@@ -159,32 +154,43 @@ defmodule StockSage.Agents.NativeCoordinator.Commands.Analyze do
         warnings: warnings
       })
 
-    case field(quality || %{}, :status) do
-      :ok ->
-        emit_native("allbert.stocksage.native.quality_gate.passed", request, %{
-          warnings: warnings
-        })
+    finalize_quality_gate(request, quality, warnings, report)
+  end
 
-        {:ok, report}
-
-      "ok" ->
-        emit_native("allbert.stocksage.native.quality_gate.passed", request, %{
-          warnings: warnings
-        })
-
-        {:ok, report}
-
-      _other ->
-        failed_clauses = field(quality || %{}, :failed_clauses, [])
-        failure_reason = quality_gate_failure_reason(failed_clauses, warnings, quality)
-
-        emit_native("allbert.stocksage.native.quality_gate.rejected", request, %{
-          rejection_reason: failure_reason_text(failure_reason),
-          failed_clauses: failed_clauses
-        })
-
-        {:error, failure_reason, %{report | status: :failed}}
+  defp quality_gate_input(request, prior_reports, synth_reports) do
+    if field(request, :force_quality_reject) do
+      prior_reports
+    else
+      Map.merge(prior_reports, synth_reports)
     end
+  end
+
+  defp finalize_quality_gate(request, quality, warnings, report) do
+    case field(quality || %{}, :status) do
+      :ok -> pass_quality_gate(request, warnings, report)
+      "ok" -> pass_quality_gate(request, warnings, report)
+      _other -> reject_quality_gate(request, quality, warnings, report)
+    end
+  end
+
+  defp pass_quality_gate(request, warnings, report) do
+    emit_native("allbert.stocksage.native.quality_gate.passed", request, %{
+      warnings: warnings
+    })
+
+    {:ok, report}
+  end
+
+  defp reject_quality_gate(request, quality, warnings, report) do
+    failed_clauses = field(quality || %{}, :failed_clauses, [])
+    failure_reason = quality_gate_failure_reason(failed_clauses, warnings, quality)
+
+    emit_native("allbert.stocksage.native.quality_gate.rejected", request, %{
+      rejection_reason: failure_reason_text(failure_reason),
+      failed_clauses: failed_clauses
+    })
+
+    {:error, failure_reason, %{report | status: :failed}}
   end
 
   defp run_group(agent_ids, request, prior_reports, stage, round_index) do

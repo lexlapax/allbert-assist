@@ -37,42 +37,46 @@ defmodule StockSage.Actions.ImportSqlite do
     permission_decision = Actions.authorize(:stocksage_write, context)
 
     with {:ok, user_id} <- Actions.user_id(params, context) do
-      if Actions.allowed?(permission_decision) do
-        params
-        |> Actions.field(:path)
-        |> SqliteImporter.import(
-          user_id: user_id,
-          dry_run: truthy?(Actions.field(params, :dry_run, false)),
-          limit: Actions.field(params, :limit)
-        )
-        |> case do
-          {:ok, result} -> {:ok, completed(result, permission_decision)}
-          {:error, reason} -> {:ok, failed(reason, permission_decision)}
-        end
-      else
-        status = Actions.status_from_decision(permission_decision)
-
-        {:ok,
-         %{
-           message: "StockSage imports are not available to this request.",
-           status: status,
-           error: :permission_denied,
-           actions: [
-             Actions.action(
-               "import_stocksage_sqlite",
-               status,
-               :stocksage_write,
-               permission_decision,
-               %{
-                 error: :permission_denied
-               }
-             )
-           ]
-         }}
-      end
+      import_or_deny(params, user_id, permission_decision)
     else
       {:error, :missing_user_id} ->
         Actions.missing_user("import_stocksage_sqlite", :stocksage_write, permission_decision)
+    end
+  end
+
+  defp import_or_deny(params, user_id, permission_decision) do
+    if Actions.allowed?(permission_decision) do
+      params
+      |> Actions.field(:path)
+      |> SqliteImporter.import(
+        user_id: user_id,
+        dry_run: truthy?(Actions.field(params, :dry_run, false)),
+        limit: Actions.field(params, :limit)
+      )
+      |> case do
+        {:ok, result} -> {:ok, completed(result, permission_decision)}
+        {:error, reason} -> {:ok, failed(reason, permission_decision)}
+      end
+    else
+      status = Actions.status_from_decision(permission_decision)
+
+      {:ok,
+       %{
+         message: "StockSage imports are not available to this request.",
+         status: status,
+         error: :permission_denied,
+         actions: [
+           Actions.action(
+             "import_stocksage_sqlite",
+             status,
+             :stocksage_write,
+             permission_decision,
+             %{
+               error: :permission_denied
+             }
+           )
+         ]
+       }}
     end
   end
 

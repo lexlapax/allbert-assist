@@ -437,12 +437,10 @@ defmodule StockSage.TraderBridge do
         _other -> "python3"
       end
 
-    cond do
-      Path.type(candidate) == :absolute and File.exists?(candidate) ->
-        candidate
-
-      true ->
-        System.find_executable(candidate) || candidate
+    if Path.type(candidate) == :absolute and File.exists?(candidate) do
+      candidate
+    else
+      System.find_executable(candidate) || candidate
     end
   rescue
     _exception -> System.find_executable("python3") || "python3"

@@ -22,31 +22,21 @@ defmodule StockSage.Actions do
   end
 
   def user_id(params, context) do
-    user_id =
-      context
-      |> field(:user_id)
-      |> blank_to_nil()
-      |> case do
-        nil -> context |> get_in([:request, :user_id]) |> blank_to_nil()
-        value -> value
-      end
-      |> case do
-        nil -> context |> field(:operator_id) |> blank_to_nil()
-        value -> value
-      end
-      |> case do
-        nil -> context |> get_in([:request, :operator_id]) |> blank_to_nil()
-        value -> value
-      end
-      |> case do
-        nil -> params |> field(:user_id) |> blank_to_nil()
-        value -> value
-      end
-
-    case user_id do
+    case candidate_user_id(params, context) do
       nil -> {:error, :missing_user_id}
       value -> {:ok, Domain.normalize_user_id(value)}
     end
+  end
+
+  defp candidate_user_id(params, context) do
+    [
+      fn -> field(context, :user_id) end,
+      fn -> get_in(context, [:request, :user_id]) end,
+      fn -> field(context, :operator_id) end,
+      fn -> get_in(context, [:request, :operator_id]) end,
+      fn -> field(params, :user_id) end
+    ]
+    |> Enum.find_value(fn candidate -> candidate.() |> blank_to_nil() end)
   end
 
   def field(map, key, default \\ nil)

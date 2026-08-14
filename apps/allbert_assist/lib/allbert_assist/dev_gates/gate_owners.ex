@@ -239,30 +239,30 @@ defmodule AllbertAssist.DevGates.GateOwners do
       owner = owner_for_path!(records, repository_path, field, "gate #{label} target")
       %{owner_id: owner.owner_id, owner: owner, path: repository_path}
     else
-      resolutions =
-        Enum.flat_map(records, fn owner ->
-          {module, function} = owner.target_resolver
-
-          case apply(module, function, [owner, target, from_cwd, repository_root]) do
-            {:ok, resolution} -> [Map.put(resolution, :owner, owner)]
-            {:error, _reason} -> []
-            other -> raise ArgumentError, "invalid target resolver result: #{inspect(other)}"
-          end
-        end)
-        |> Enum.uniq_by(&{&1.owner_id, &1.path})
-
-      case resolutions do
-        [resolution] ->
-          resolution
-
-        [] ->
-          raise ArgumentError, "unresolved gate #{label} target #{target} from #{from_cwd}"
-
-        many ->
-          raise ArgumentError, "duplicate gate #{label} target #{target}: #{owner_ids(many)}"
-      end
+      records
+      |> Enum.flat_map(&resolver_matches(&1, target, from_cwd, repository_root))
+      |> Enum.uniq_by(&{&1.owner_id, &1.path})
+      |> resolve_target_resolution!(target, from_cwd, label)
     end
   end
+
+  defp resolver_matches(owner, target, from_cwd, repository_root) do
+    {module, function} = owner.target_resolver
+
+    case apply(module, function, [owner, target, from_cwd, repository_root]) do
+      {:ok, resolution} -> [Map.put(resolution, :owner, owner)]
+      {:error, _reason} -> []
+      other -> raise ArgumentError, "invalid target resolver result: #{inspect(other)}"
+    end
+  end
+
+  defp resolve_target_resolution!([resolution], _target, _from_cwd, _label), do: resolution
+
+  defp resolve_target_resolution!([], target, from_cwd, label),
+    do: raise(ArgumentError, "unresolved gate #{label} target #{target} from #{from_cwd}")
+
+  defp resolve_target_resolution!(many, target, _from_cwd, label),
+    do: raise(ArgumentError, "duplicate gate #{label} target #{target}: #{owner_ids(many)}")
 
   defp repository_relative_path!(target, from_cwd, repository_root) do
     relative = target |> Path.expand(from_cwd) |> Path.relative_to(repository_root)
@@ -277,14 +277,7 @@ defmodule AllbertAssist.DevGates.GateOwners do
   defp contributor_modules!(applications, repository_root) do
     Enum.flat_map(applications, fn application ->
       {app_path, env} = compiled_application_env!(application, repository_root)
-
-      modules =
-        [
-          Keyword.get(env, :allbert_pack)
-          | List.wrap(Keyword.get(env, :allbert_gate_owner_manifests))
-        ]
-        |> Enum.reject(&is_nil/1)
-        |> Enum.uniq()
+      modules = contributor_module_list(env)
 
       if modules == [] do
         raise ArgumentError, "OTP application #{application} contributes no gate-owner manifest"
@@ -293,17 +286,34 @@ defmodule AllbertAssist.DevGates.GateOwners do
       pack_module = Keyword.get(env, :allbert_pack)
       pack_owner_id = pack_owner_id!(pack_module, app_path)
 
-      Enum.map(modules, fn module ->
-        load_contributor!(module, app_path)
-
-        unless function_exported?(module, :test_lanes, 0) do
-          raise ArgumentError,
-                "gate-owner contributor #{inspect(module)} for #{application} does not export test_lanes/0"
-        end
-
-        {application, module, if(module == pack_module, do: pack_owner_id, else: nil)}
-      end)
+      Enum.map(
+        modules,
+        &contributor_entry(&1, application, app_path, pack_module, pack_owner_id)
+      )
     end)
+  end
+
+  defp contributor_module_list(env) do
+    [
+      Keyword.get(env, :allbert_pack)
+      | List.wrap(Keyword.get(env, :allbert_gate_owner_manifests))
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp contributor_entry(module, application, app_path, pack_module, pack_owner_id) do
+    load_contributor!(module, app_path)
+    ensure_test_lanes_exported!(module, application)
+
+    {application, module, if(module == pack_module, do: pack_owner_id, else: nil)}
+  end
+
+  defp ensure_test_lanes_exported!(module, application) do
+    unless function_exported?(module, :test_lanes, 0) do
+      raise ArgumentError,
+            "gate-owner contributor #{inspect(module)} for #{application} does not export test_lanes/0"
+    end
   end
 
   defp cached_records!(repository_root) do
@@ -563,17 +573,19 @@ defmodule AllbertAssist.DevGates.GateOwners do
     |> Enum.flat_map(fn {left, index} ->
       roots
       |> Enum.drop(index + 1)
-      |> Enum.flat_map(fn right ->
-        if left.owner != right.owner and roots_overlap?(left.root, right.root) do
-          [
-            "overlapping #{root_label(left.field)} roots #{left.root} (#{left.owner}) and " <>
-              "#{right.root} (#{right.owner})"
-          ]
-        else
-          []
-        end
-      end)
+      |> Enum.flat_map(&overlap_issue(left, &1))
     end)
+  end
+
+  defp overlap_issue(left, right) do
+    if left.owner != right.owner and roots_overlap?(left.root, right.root) do
+      [
+        "overlapping #{root_label(left.field)} roots #{left.root} (#{left.owner}) and " <>
+          "#{right.root} (#{right.owner})"
+      ]
+    else
+      []
+    end
   end
 
   defp roots_overlap?(left, right), do: within?(left, right) or within?(right, left)
@@ -583,16 +595,23 @@ defmodule AllbertAssist.DevGates.GateOwners do
 
   defp path_issues(records, repository_root) do
     Enum.flat_map(records, fn owner ->
-      ([cwd: owner.cwd] ++
-         Enum.map(owner.production_source_roots, &{:production_source_root, &1}) ++
-         Enum.map(owner.test_roots, &{:test_root, &1}) ++
-         Enum.map(owner.test_support_roots, &{:test_support_root, &1}))
-      |> Enum.flat_map(fn {kind, path} ->
-        if File.dir?(Path.join(repository_root, path)),
-          do: [],
-          else: ["owner #{owner.owner_id} #{kind} is missing: #{path}"]
-      end)
+      owner
+      |> owner_paths()
+      |> Enum.flat_map(fn {kind, path} -> path_issue(owner, kind, path, repository_root) end)
     end)
+  end
+
+  defp owner_paths(owner) do
+    [cwd: owner.cwd] ++
+      Enum.map(owner.production_source_roots, &{:production_source_root, &1}) ++
+      Enum.map(owner.test_roots, &{:test_root, &1}) ++
+      Enum.map(owner.test_support_roots, &{:test_support_root, &1})
+  end
+
+  defp path_issue(owner, kind, path, repository_root) do
+    if File.dir?(Path.join(repository_root, path)),
+      do: [],
+      else: ["owner #{owner.owner_id} #{kind} is missing: #{path}"]
   end
 
   defp application_issues(records, applications) do

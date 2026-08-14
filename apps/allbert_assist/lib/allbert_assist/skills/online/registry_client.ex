@@ -75,11 +75,7 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
          :ok <- EffectGuard.validate(epoch) do
       case Req.request(req_opts) do
         {:ok, %{status: status, body: body}} when status in 200..299 ->
-          if response_size(body) <= source.max_download_bytes do
-            {:ok, body}
-          else
-            {:error, {:online_skill_response_too_large, response_size(body)}}
-          end
+          bounded_response(body, source.max_download_bytes)
 
         {:ok, %{status: status}} ->
           {:error, {:online_skill_source_http_error, status}}
@@ -87,6 +83,14 @@ defmodule AllbertAssist.Skills.Online.RegistryClient do
         {:error, reason} ->
           {:error, {:online_skill_source_request_failed, reason}}
       end
+    end
+  end
+
+  defp bounded_response(body, max_bytes) do
+    if response_size(body) <= max_bytes do
+      {:ok, body}
+    else
+      {:error, {:online_skill_response_too_large, response_size(body)}}
     end
   end
 

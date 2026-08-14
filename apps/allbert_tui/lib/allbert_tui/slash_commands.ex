@@ -122,84 +122,76 @@ defmodule AllbertTUI.SlashCommands do
   defp normalize(text), do: String.trim(text)
 
   defp route(text) do
-    case String.split(text, ~r/\s+/, parts: 3, trim: true) do
-      ["/help"] ->
-        {:local, local_response(help_text(), "TUI operator slash help.")}
+    text
+    |> String.split(~r/\s+/, parts: 3, trim: true)
+    |> route_parts()
+  end
 
-      ["/status"] ->
-        {:action, "operator_status", %{}}
+  defp route_parts(["/help"]),
+    do: {:local, local_response(help_text(), "TUI operator slash help.")}
 
-      ["/confirmations"] ->
-        {:action, "operator_confirmations", %{status: "all"}}
+  defp route_parts(["/status"]), do: {:action, "operator_status", %{}}
 
-      ["/events"] ->
-        {:action, "operator_events", %{limit: 10}}
+  defp route_parts(["/confirmations"]),
+    do: {:action, "operator_confirmations", %{status: "all"}}
 
-      ["/channels"] ->
-        {:action, "operator_channels", %{}}
+  defp route_parts(["/events"]), do: {:action, "operator_events", %{limit: 10}}
 
-      ["/intents"] ->
-        {:action, "intent_coverage", operator_report_params()}
+  defp route_parts(["/channels"]), do: {:action, "operator_channels", %{}}
 
-      ["/models"] ->
-        {:action, "model_doctor", operator_report_params()}
+  defp route_parts(["/intents"]), do: {:action, "intent_coverage", operator_report_params()}
 
-      ["/catalog"] ->
-        {:action, "list_model_catalog", %{}}
+  defp route_parts(["/models"]), do: {:action, "model_doctor", operator_report_params()}
 
-      # v0.62 M6 (ADR 0070 convergence): the enumerated remaining read set —
-      # already-registered internal reads that lacked a slash surface.
-      ["/jobs"] ->
-        {:action, "list_jobs", %{}}
+  defp route_parts(["/catalog"]), do: {:action, "list_model_catalog", %{}}
 
-      ["/objective", id] ->
-        {:action, "show_objective", %{objective_id: String.trim(id)}}
+  # v0.62 M6 (ADR 0070 convergence): the enumerated remaining read set —
+  # already-registered internal reads that lacked a slash surface.
+  defp route_parts(["/jobs"]), do: {:action, "list_jobs", %{}}
 
-      ["/objective"] ->
-        {:local,
-         local_response("Usage: /objective <id>", "Malformed TUI objective slash command.")}
+  defp route_parts(["/objective", id]),
+    do: {:action, "show_objective", %{objective_id: String.trim(id)}}
 
-      ["/trace"] ->
-        {:action, "trace_summary", operator_report_params()}
+  defp route_parts(["/objective"]) do
+    {:local,
+     local_response("Usage: /objective <id>", "Malformed TUI objective slash command.")}
+  end
 
-      ["/registry"] ->
-        {:action, "registry_health", operator_report_params()}
+  defp route_parts(["/trace"]), do: {:action, "trace_summary", operator_report_params()}
 
-      ["/memory"] ->
-        {:action, "list_memory_category_summary", %{}}
+  defp route_parts(["/registry"]), do: {:action, "registry_health", operator_report_params()}
 
-      ["/health"] ->
-        {:action, "serve_health", %{}}
+  defp route_parts(["/memory"]), do: {:action, "list_memory_category_summary", %{}}
 
-      ["/model-detect"] ->
-        {:action, "first_model_detect", %{}}
+  defp route_parts(["/health"]), do: {:action, "serve_health", %{}}
 
-      ["/settings", "get", key] ->
-        key = String.trim(key)
+  defp route_parts(["/model-detect"]), do: {:action, "first_model_detect", %{}}
 
-        cond do
-          key == "" ->
-            {:local,
-             local_response("Usage: /settings get <key>", "Malformed TUI settings slash command.")}
+  defp route_parts(["/settings", "get", key]), do: route_settings_get(String.trim(key))
 
-          not valid_setting_key?(key) ->
-            {:local,
-             local_response("Invalid setting key.", "Malformed TUI settings slash command.")}
+  defp route_parts(["/settings", "get"]) do
+    {:local,
+     local_response("Usage: /settings get <key>", "Malformed TUI settings slash command.")}
+  end
 
-          true ->
-            {:action, "operator_setting_get", %{key: key}}
-        end
+  defp route_parts(_unknown) do
+    {:local,
+     local_response(
+       "Unknown slash command. Type /help for available commands.",
+       "Unknown TUI operator slash command."
+     )}
+  end
 
-      ["/settings", "get"] ->
-        {:local,
-         local_response("Usage: /settings get <key>", "Malformed TUI settings slash command.")}
+  defp route_settings_get("") do
+    {:local,
+     local_response("Usage: /settings get <key>", "Malformed TUI settings slash command.")}
+  end
 
-      _unknown ->
-        {:local,
-         local_response(
-           "Unknown slash command. Type /help for available commands.",
-           "Unknown TUI operator slash command."
-         )}
+  defp route_settings_get(key) do
+    if valid_setting_key?(key) do
+      {:action, "operator_setting_get", %{key: key}}
+    else
+      {:local, local_response("Invalid setting key.", "Malformed TUI settings slash command.")}
     end
   end
 

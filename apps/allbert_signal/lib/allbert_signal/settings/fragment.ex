@@ -57,12 +57,7 @@ defmodule AllbertSignal.Settings.Fragment do
   def required_when_enabled(settings) when is_map(settings) do
     if Map.get(settings, "enabled", false) do
       @required_when_enabled
-      |> Enum.flat_map(fn key ->
-        case Map.get(settings, key) do
-          value when value in [nil, "", []] -> [String.to_atom("missing_" <> key)]
-          _value -> []
-        end
-      end)
+      |> Enum.flat_map(&missing_diagnostic(&1, settings))
       |> Kernel.++(control_diagnostics(settings))
     else
       []
@@ -70,6 +65,13 @@ defmodule AllbertSignal.Settings.Fragment do
   end
 
   def required_when_enabled(_settings), do: [:invalid_settings]
+
+  defp missing_diagnostic(key, settings) do
+    case Map.get(settings, key) do
+      value when value in [nil, "", []] -> [String.to_atom("missing_" <> key)]
+      _value -> []
+    end
+  end
 
   defp control_diagnostics(%{"control_mode" => "loopback_http"} = settings) do
     []

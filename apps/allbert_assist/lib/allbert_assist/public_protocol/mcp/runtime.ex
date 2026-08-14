@@ -111,10 +111,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
              normalized_params <- normalize_tool_params(params, capability.module),
              {:ok, response} <-
                Runner.run(name, normalized_params, runner_context(context, capability, surface)) do
-          if EffectGuard.validate(epoch) == :ok,
-            do: EventRecorder.mark_result(event, {:ok, response}, context)
-
-          response_to_payload(response, name, context, surface)
+          finish_tool_call(response, event, name, context, surface, epoch)
         end
 
       case result do
@@ -122,12 +119,23 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
           ok
 
         {:error, reason} = error ->
-          if EffectGuard.validate(epoch) == :ok, do: mark_tool_error(event, reason, context)
+          maybe_mark_tool_error(event, reason, context, epoch)
           error
       end
     else
       {:error, _reason} -> {:error, :product_not_ready}
     end
+  end
+
+  defp finish_tool_call(response, event, name, context, surface, epoch) do
+    if EffectGuard.validate(epoch) == :ok,
+      do: EventRecorder.mark_result(event, {:ok, response}, context)
+
+    response_to_payload(response, name, context, surface)
+  end
+
+  defp maybe_mark_tool_error(event, reason, context, epoch) do
+    if EffectGuard.validate(epoch) == :ok, do: mark_tool_error(event, reason, context)
   end
 
   @spec read_resource(String.t(), map(), String.t() | nil) :: {:ok, map()} | {:error, term()}
@@ -159,18 +167,21 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
           ok
 
         {:error, reason} = error ->
-          if EffectGuard.validate(epoch) == :ok do
-            EventRecorder.record_rejection(
-              surface,
-              resource_event_attrs(uri, context, surface, reason),
-              context
-            )
-          end
-
+          maybe_record_resource_rejection(surface, uri, context, reason, epoch)
           error
       end
     else
       {:error, _reason} -> {:error, :product_not_ready}
+    end
+  end
+
+  defp maybe_record_resource_rejection(surface, uri, context, reason, epoch) do
+    if EffectGuard.validate(epoch) == :ok do
+      EventRecorder.record_rejection(
+        surface,
+        resource_event_attrs(uri, context, surface, reason),
+        context
+      )
     end
   end
 

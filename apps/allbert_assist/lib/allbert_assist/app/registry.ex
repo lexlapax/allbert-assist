@@ -701,24 +701,7 @@ defmodule AllbertAssist.App.Registry do
 
   defp activate_staged_children_state(state) do
     state.order
-    |> Enum.reduce_while({:ok, []}, fn app_id, {:ok, started} ->
-      case Map.get(state.staged_children, app_id) do
-        child_spec when is_map(child_spec) ->
-          case DynamicSupervisor.start_child(state.dynamic_supervisor, child_spec) do
-            {:ok, pid} ->
-              {:cont, {:ok, [{app_id, pid} | started]}}
-
-            {:ok, pid, _info} ->
-              {:cont, {:ok, [{app_id, pid} | started]}}
-
-            {:error, reason} ->
-              {:halt, {:error, app_id, {:child_spec_failed, reason}}}
-          end
-
-        _not_staged ->
-          {:cont, {:ok, started}}
-      end
-    end)
+    |> Enum.reduce_while({:ok, []}, &activate_staged_child(&1, &2, state))
     |> case do
       {:ok, started} ->
         next_state =
@@ -730,6 +713,29 @@ defmodule AllbertAssist.App.Registry do
 
       {:error, app_id, reason} ->
         {:reply, {:error, reason}, mark_mutation_failed(state, app_id, reason)}
+    end
+  end
+
+  defp activate_staged_child(app_id, {:ok, started}, state) do
+    case Map.get(state.staged_children, app_id) do
+      child_spec when is_map(child_spec) ->
+        start_staged_child(state, app_id, child_spec, started)
+
+      _not_staged ->
+        {:cont, {:ok, started}}
+    end
+  end
+
+  defp start_staged_child(state, app_id, child_spec, started) do
+    case DynamicSupervisor.start_child(state.dynamic_supervisor, child_spec) do
+      {:ok, pid} ->
+        {:cont, {:ok, [{app_id, pid} | started]}}
+
+      {:ok, pid, _info} ->
+        {:cont, {:ok, [{app_id, pid} | started]}}
+
+      {:error, reason} ->
+        {:halt, {:error, app_id, {:child_spec_failed, reason}}}
     end
   end
 
@@ -845,34 +851,57 @@ defmodule AllbertAssist.App.Registry do
       :error ->
         {:error, :stale_subscription}
 
-      {:ok, %{generation: captured_generation}}
-      when captured_generation != generation or generation != state.generation ->
-        {:error, :stale_generation}
-
-      {:ok, _subscription} ->
-        case Readiness.bind_metadata(barrier_pid, self(), generation, subscription_ref) do
-          :ok ->
-            monitor_ref = Process.monitor(barrier_pid)
-
-            {:ok,
-             %{
-               state
-               | epoch_binding: %{
-                   barrier_pid: barrier_pid,
-                   generation: generation,
-                   subscription_ref: subscription_ref,
-                   monitor_ref: monitor_ref
-                 }
-             }}
-
-          {:error, _reason} ->
-            {:error, :unavailable}
-        end
+      {:ok, subscription} ->
+        bind_epoch_for_subscription(
+          subscription_ref,
+          generation,
+          barrier_pid,
+          subscription,
+          state
+        )
     end
   end
 
   defp bind_epoch_state(_subscription_ref, _generation, _barrier_pid, _state),
     do: {:error, :unavailable}
+
+  defp bind_epoch_for_subscription(
+         _subscription_ref,
+         generation,
+         _barrier_pid,
+         %{generation: captured_generation},
+         state
+       )
+       when captured_generation != generation or generation != state.generation do
+    {:error, :stale_generation}
+  end
+
+  defp bind_epoch_for_subscription(
+         subscription_ref,
+         generation,
+         barrier_pid,
+         _subscription,
+         state
+       ) do
+    case Readiness.bind_metadata(barrier_pid, self(), generation, subscription_ref) do
+      :ok ->
+        monitor_ref = Process.monitor(barrier_pid)
+
+        {:ok,
+         %{
+           state
+           | epoch_binding: %{
+               barrier_pid: barrier_pid,
+               generation: generation,
+               subscription_ref: subscription_ref,
+               monitor_ref: monitor_ref
+             }
+         }}
+
+      {:error, _reason} ->
+        {:error, :unavailable}
+    end
+  end
 
   defp drop_metadata_monitor(state, monitor_ref) do
     subscriptions =
@@ -936,20 +965,24 @@ defmodule AllbertAssist.App.Registry do
     if System.monotonic_time(:millisecond) >= deadline do
       {:error, :product_not_ready}
     else
-      case Readiness.status(timeout: 1_000) do
-        {:ok, %{phase: :ready, barrier_pid: barrier_pid}} ->
-          case safe_registry_call(selected_server, {:mutation_status, receipt, barrier_pid}) do
-            :ready -> :ok
-            {:failed, reason} -> {:error, reason}
-            _other -> await_mutation_after_pause(selected_server, receipt, deadline)
-          end
+      await_mutation_by_status(selected_server, receipt, deadline)
+    end
+  end
 
-        _other ->
-          case safe_registry_call(selected_server, {:mutation_status, receipt, nil}) do
-            {:failed, reason} -> {:error, reason}
-            _other -> await_mutation_after_pause(selected_server, receipt, deadline)
-          end
-      end
+  defp await_mutation_by_status(selected_server, receipt, deadline) do
+    case Readiness.status(timeout: 1_000) do
+      {:ok, %{phase: :ready, barrier_pid: barrier_pid}} ->
+        case safe_registry_call(selected_server, {:mutation_status, receipt, barrier_pid}) do
+          :ready -> :ok
+          {:failed, reason} -> {:error, reason}
+          _other -> await_mutation_after_pause(selected_server, receipt, deadline)
+        end
+
+      _other ->
+        case safe_registry_call(selected_server, {:mutation_status, receipt, nil}) do
+          {:failed, reason} -> {:error, reason}
+          _other -> await_mutation_after_pause(selected_server, receipt, deadline)
+        end
     end
   end
 
@@ -1046,19 +1079,23 @@ defmodule AllbertAssist.App.Registry do
     if System.monotonic_time(:millisecond) >= deadline do
       {:error, :product_not_ready}
     else
-      case Readiness.status(timeout: 1_000) do
-        {:ok, %{phase: :ready, barrier_pid: barrier_pid}} ->
-          case safe_registry_call(
-                 selected_server,
-                 {:compensation_status, compensation, barrier_pid}
-               ) do
-            :ready -> :ok
-            _other -> await_compensation_after_pause(selected_server, compensation, deadline)
-          end
+      await_compensation_by_status(selected_server, compensation, deadline)
+    end
+  end
 
-        _other ->
-          await_compensation_after_pause(selected_server, compensation, deadline)
-      end
+  defp await_compensation_by_status(selected_server, compensation, deadline) do
+    case Readiness.status(timeout: 1_000) do
+      {:ok, %{phase: :ready, barrier_pid: barrier_pid}} ->
+        case safe_registry_call(
+               selected_server,
+               {:compensation_status, compensation, barrier_pid}
+             ) do
+          :ready -> :ok
+          _other -> await_compensation_after_pause(selected_server, compensation, deadline)
+        end
+
+      _other ->
+        await_compensation_after_pause(selected_server, compensation, deadline)
     end
   end
 

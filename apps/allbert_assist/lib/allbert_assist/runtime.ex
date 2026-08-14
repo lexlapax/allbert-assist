@@ -229,11 +229,15 @@ defmodule AllbertAssist.Runtime do
           |> Map.merge(get_in(response, [:fanout, :delivery_context]) || %{})
 
         with :ok <- validate_delivery_epoch(context) do
-          DeliveryAcknowledgement.run(fn ->
-            Fanout.mark_start_delivery_failed(receipt, context)
-          end)
+          acknowledge_delivery_failed(receipt, context)
         end
     end
+  end
+
+  defp acknowledge_delivery_failed(receipt, context) do
+    DeliveryAcknowledgement.run(fn ->
+      Fanout.mark_start_delivery_failed(receipt, context)
+    end)
   end
 
   @doc "Run one caller delivery and durably block a fan-out kickoff if it fails."

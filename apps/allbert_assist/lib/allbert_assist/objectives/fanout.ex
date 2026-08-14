@@ -1230,20 +1230,22 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp acknowledge_receipt(digest_field, receipt_digest, state_field, from, to, context) do
     with :ok <- validate_context(context) do
-      case Repo.transaction(fn ->
-             result =
-               do_acknowledge_receipt(
-                 digest_field,
-                 receipt_digest,
-                 state_field,
-                 from,
-                 to,
-                 context
-               )
+      transaction = fn ->
+        result =
+          do_acknowledge_receipt(
+            digest_field,
+            receipt_digest,
+            state_field,
+            from,
+            to,
+            context
+          )
 
-             validate_or_rollback!(context)
-             result
-           end) do
+        validate_or_rollback!(context)
+        result
+      end
+
+      case Repo.transaction(transaction) do
         {:ok, result} -> result
         {:error, reason} -> {:error, reason}
       end

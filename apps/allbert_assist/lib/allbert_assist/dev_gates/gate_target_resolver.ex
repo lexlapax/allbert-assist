@@ -17,12 +17,10 @@ defmodule AllbertAssist.DevGates.GateTargetResolver do
     with {:ok, repository_path} <- repository_path(target, from_cwd, repository_root) do
       roots = roots_for(repository_path, owner)
 
-      cond do
-        under_any_root?(repository_path, roots) and exists?(repository_root, repository_path) ->
-          {:ok, %{owner_id: owner.owner_id, path: repository_path}}
-
-        true ->
-          resolve_logical(owner, repository_path, repository_root)
+      if under_any_root?(repository_path, roots) and exists?(repository_root, repository_path) do
+        {:ok, %{owner_id: owner.owner_id, path: repository_path}}
+      else
+        resolve_logical(owner, repository_path, repository_root)
       end
     end
   end

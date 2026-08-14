@@ -492,19 +492,22 @@ defmodule AllbertMatrix.Adapter do
 
   defp known_thread_id_from_relation(receiver_account_ref, fields) do
     [fields.thread_root_event_id, fields.reply_to_event_id]
-    |> Enum.find_value(fn event_id ->
-      if is_binary(event_id) and event_id != "" do
-        case ChannelThread.lookup_message_thread(%{
-               channel: "matrix",
-               receiver_account_ref: receiver_account_ref,
-               provider_message_id: event_id
-             }) do
-          {:ok, thread_id} -> thread_id
-          {:error, _reason} -> nil
-        end
-      end
-    end)
+    |> Enum.find_value(fn event_id -> lookup_thread_id(receiver_account_ref, event_id) end)
   end
+
+  defp lookup_thread_id(receiver_account_ref, event_id)
+       when is_binary(event_id) and event_id != "" do
+    case ChannelThread.lookup_message_thread(%{
+           channel: "matrix",
+           receiver_account_ref: receiver_account_ref,
+           provider_message_id: event_id
+         }) do
+      {:ok, thread_id} -> thread_id
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp lookup_thread_id(_receiver_account_ref, _event_id), do: nil
 
   defp submit_runtime(text, user_id, session_id, fields, new_thread?) do
     %{
@@ -649,48 +652,52 @@ defmodule AllbertMatrix.Adapter do
          :ok <- validate_outbound_room(target, settings),
          {:ok, homeserver_url} <- homeserver_url(settings),
          {:ok, access_token} <- resolve_access_token(settings) do
-      thread = Keyword.get(opts, :thread, %{})
+      send_message(homeserver_url, access_token, target, body, opts)
+    end
+  end
 
-      content =
-        Renderer.message_content(body, %{
-          thread_root_event_id:
-            Map.get(thread, "thread_root_event_id") || Map.get(thread, :thread_root_event_id),
-          reply_to_event_id:
-            Map.get(thread, "external_message_id") || Map.get(thread, :external_message_id)
-        })
+  defp send_message(homeserver_url, access_token, target, body, opts) do
+    thread = Keyword.get(opts, :thread, %{})
 
-      txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
+    content =
+      Renderer.message_content(body, %{
+        thread_root_event_id:
+          Map.get(thread, "thread_root_event_id") || Map.get(thread, :thread_root_event_id),
+        reply_to_event_id:
+          Map.get(thread, "external_message_id") || Map.get(thread, :external_message_id)
+      })
 
-      req_options =
-        opts
-        |> Keyword.get(:req_options, [])
-        |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+    txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
 
-      with :ok <- validate_outbound_epoch(opts) do
-        case Client.send_message(
-               homeserver_url,
-               access_token,
-               target,
-               txn_id,
-               content,
-               req_options
-             ) do
-          {:ok, %{"event_id" => event_id} = result} ->
-            {:ok,
-             %{
-               channel: "matrix",
-               target: target,
-               event_id: event_id,
-               txn_id: txn_id,
-               result: result
-             }}
+    req_options =
+      opts
+      |> Keyword.get(:req_options, [])
+      |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
 
-          {:ok, result} ->
-            {:error, {:missing_event_id, result}}
+    with :ok <- validate_outbound_epoch(opts) do
+      case Client.send_message(
+             homeserver_url,
+             access_token,
+             target,
+             txn_id,
+             content,
+             req_options
+           ) do
+        {:ok, %{"event_id" => event_id} = result} ->
+          {:ok,
+           %{
+             channel: "matrix",
+             target: target,
+             event_id: event_id,
+             txn_id: txn_id,
+             result: result
+           }}
 
-          {:error, reason} ->
-            {:error, reason}
-        end
+        {:ok, result} ->
+          {:error, {:missing_event_id, result}}
+
+        {:error, reason} ->
+          {:error, reason}
       end
     end
   end
@@ -702,40 +709,44 @@ defmodule AllbertMatrix.Adapter do
          :ok <- validate_outbound_room(target, settings),
          {:ok, homeserver_url} <- homeserver_url(settings),
          {:ok, access_token} <- resolve_access_token(settings) do
-      txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
+      replace_message(homeserver_url, access_token, target, provider_message_id, body, opts)
+    end
+  end
 
-      req_options =
-        opts
-        |> Keyword.get(:req_options, [])
-        |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+  defp replace_message(homeserver_url, access_token, target, provider_message_id, body, opts) do
+    txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
 
-      with :ok <- validate_outbound_epoch(opts) do
-        case Client.replace_message(
-               homeserver_url,
-               access_token,
-               target,
-               txn_id,
-               provider_message_id,
-               body,
-               req_options
-             ) do
-          {:ok, %{"event_id" => edit_event_id} = result} ->
-            {:ok,
-             %{
-               channel: "matrix",
-               target: target,
-               provider_message_id: provider_message_id,
-               edit_event_id: edit_event_id,
-               txn_id: txn_id,
-               result: result
-             }}
+    req_options =
+      opts
+      |> Keyword.get(:req_options, [])
+      |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
 
-          {:ok, result} ->
-            {:error, {:missing_event_id, result}}
+    with :ok <- validate_outbound_epoch(opts) do
+      case Client.replace_message(
+             homeserver_url,
+             access_token,
+             target,
+             txn_id,
+             provider_message_id,
+             body,
+             req_options
+           ) do
+        {:ok, %{"event_id" => edit_event_id} = result} ->
+          {:ok,
+           %{
+             channel: "matrix",
+             target: target,
+             provider_message_id: provider_message_id,
+             edit_event_id: edit_event_id,
+             txn_id: txn_id,
+             result: result
+           }}
 
-          {:error, reason} ->
-            {:error, reason}
-        end
+        {:ok, result} ->
+          {:error, {:missing_event_id, result}}
+
+        {:error, reason} ->
+          {:error, reason}
       end
     end
   end

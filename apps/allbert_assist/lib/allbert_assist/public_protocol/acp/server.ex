@@ -222,26 +222,33 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
   defp persist_and_acknowledge(event, response, epoch) do
     with :ok <- EffectGuard.validate(epoch) do
-      case EventRecorder.mark_result_durable(event, response, %{allbert_pack_epoch: epoch}) do
-        :ok ->
-          with :ok <- EffectGuard.validate(epoch) do
-            Runtime.acknowledge_kickoff_delivery(response, %{
-              channel: "acp_stdio",
-              allbert_pack_epoch: epoch
-            })
-          end
-
-        {:error, _reason} = error ->
-          if EffectGuard.validate(epoch) == :ok,
-            do:
-              Runtime.delivery_failed(response, %{
-                channel: "acp_stdio",
-                allbert_pack_epoch: epoch
-              })
-
-          error
-      end
+      event
+      |> EventRecorder.mark_result_durable(response, %{allbert_pack_epoch: epoch})
+      |> acknowledge_durable_result(response, epoch)
     end
+  end
+
+  defp acknowledge_durable_result(:ok, response, epoch) do
+    with :ok <- EffectGuard.validate(epoch) do
+      Runtime.acknowledge_kickoff_delivery(response, %{
+        channel: "acp_stdio",
+        allbert_pack_epoch: epoch
+      })
+    end
+  end
+
+  defp acknowledge_durable_result({:error, _reason} = error, response, epoch) do
+    report_kickoff_failure(response, epoch)
+    error
+  end
+
+  defp report_kickoff_failure(response, epoch) do
+    if EffectGuard.validate(epoch) == :ok,
+      do:
+        Runtime.delivery_failed(response, %{
+          channel: "acp_stdio",
+          allbert_pack_epoch: epoch
+        })
   end
 
   defp maybe_mark_failed(event, reason, epoch) do

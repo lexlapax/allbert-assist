@@ -11,6 +11,20 @@ defmodule StockSage.Agents.CommitteeContext do
   @cautious_ratings ["Underweight", "Sell"]
   @constructive_ratings ["Buy", "Overweight"]
 
+  @roles_by_agent_name %{
+    "stocksage.market_context" => :market_context,
+    "stocksage.news_sentiment" => :news_sentiment,
+    "stocksage.fundamentals" => :fundamentals,
+    "stocksage.bull_thesis" => :bull_thesis,
+    "stocksage.bear_thesis" => :bear_thesis,
+    "stocksage.risk_aggressive" => :risk_aggressive,
+    "stocksage.risk_conservative" => :risk_conservative,
+    "stocksage.risk_neutral" => :risk_neutral,
+    "stocksage.research_manager" => :research_manager,
+    "stocksage.trader_plan" => :trader_plan,
+    "stocksage.decision_synthesizer" => :decision_synthesizer
+  }
+
   @spec ordered_reports(map()) :: [{String.t(), map()}]
   def ordered_reports(prior_reports) when is_map(prior_reports) do
     prior_reports
@@ -133,20 +147,7 @@ defmodule StockSage.Agents.CommitteeContext do
   defp role(agent_id) do
     agent_id
     |> String.replace(~r/\.round_\d+$/, "")
-    |> case do
-      "stocksage.market_context" -> :market_context
-      "stocksage.news_sentiment" -> :news_sentiment
-      "stocksage.fundamentals" -> :fundamentals
-      "stocksage.bull_thesis" -> :bull_thesis
-      "stocksage.bear_thesis" -> :bear_thesis
-      "stocksage.risk_aggressive" -> :risk_aggressive
-      "stocksage.risk_conservative" -> :risk_conservative
-      "stocksage.risk_neutral" -> :risk_neutral
-      "stocksage.research_manager" -> :research_manager
-      "stocksage.trader_plan" -> :trader_plan
-      "stocksage.decision_synthesizer" -> :decision_synthesizer
-      _other -> :unknown
-    end
+    |> then(&Map.get(@roles_by_agent_name, &1, :unknown))
   end
 
   defp round_index(agent_id) do

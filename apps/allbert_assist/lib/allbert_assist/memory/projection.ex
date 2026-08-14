@@ -144,20 +144,9 @@ defmodule AllbertAssist.Memory.Projection do
 
   def handle_call({:replace_after_forgets, claim_ids}, _from, state) do
     with_effect_reply(state, fn ->
-      case rebuild_generation(state) do
-        {:ok, _result, rebuilt} ->
-          with :ok <- retire_noncurrent_generations(rebuilt.root),
-               control = Map.put(rebuilt.control, "previous_generation_id", nil),
-               :ok <- write_control(rebuilt.root, control),
-               {:ok, tombstones} <- Forget.load_tombstones() do
-            {:reply, :ok, %{rebuilt | control: control, tombstones: tombstones}}
-          else
-            {:error, reason} -> {:reply, {:error, reason}, mark_dirty(rebuilt, reason)}
-          end
-
-        {:error, reason, failed} ->
-          {:reply, {:error, {:forget_projection_rebuild_failed, claim_ids, reason}}, failed}
-      end
+      state
+      |> rebuild_generation()
+      |> handle_forget_replacement_rebuild(claim_ids)
     end)
   end
 
@@ -175,6 +164,21 @@ defmodule AllbertAssist.Memory.Projection do
 
   def handle_call({:candidates, _terms, _opts}, _from, state) do
     {:reply, {:error, :memory_projection_not_ready}, state}
+  end
+
+  defp handle_forget_replacement_rebuild({:ok, _result, rebuilt}, _claim_ids) do
+    with :ok <- retire_noncurrent_generations(rebuilt.root),
+         control = Map.put(rebuilt.control, "previous_generation_id", nil),
+         :ok <- write_control(rebuilt.root, control),
+         {:ok, tombstones} <- Forget.load_tombstones() do
+      {:reply, :ok, %{rebuilt | control: control, tombstones: tombstones}}
+    else
+      {:error, reason} -> {:reply, {:error, reason}, mark_dirty(rebuilt, reason)}
+    end
+  end
+
+  defp handle_forget_replacement_rebuild({:error, reason, failed}, claim_ids) do
+    {:reply, {:error, {:forget_projection_rebuild_failed, claim_ids, reason}}, failed}
   end
 
   @impl true

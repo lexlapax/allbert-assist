@@ -33,23 +33,26 @@ defmodule AllbertMatrix.Renderer do
     root = Map.get(fields, :thread_root_event_id)
     reply_to = Map.get(fields, :reply_to_event_id) || Map.get(fields, :external_message_id)
 
-    cond do
-      is_binary(root) and root != "" and is_binary(reply_to) and reply_to != "" ->
-        Map.put(content, "m.relates_to", %{
-          "rel_type" => "m.thread",
-          "event_id" => root,
-          "m.in_reply_to" => %{"event_id" => reply_to},
-          "is_falling_back" => true
-        })
-
-      is_binary(root) and root != "" ->
-        Map.put(content, "m.relates_to", %{"rel_type" => "m.thread", "event_id" => root})
-
-      is_binary(reply_to) and reply_to != "" ->
-        Map.put(content, "m.relates_to", %{"m.in_reply_to" => %{"event_id" => reply_to}})
-
-      true ->
-        content
-    end
+    put_relation(content, root, reply_to)
   end
+
+  defp put_relation(content, root, reply_to)
+       when is_binary(root) and root != "" and is_binary(reply_to) and reply_to != "" do
+    Map.put(content, "m.relates_to", %{
+      "rel_type" => "m.thread",
+      "event_id" => root,
+      "m.in_reply_to" => %{"event_id" => reply_to},
+      "is_falling_back" => true
+    })
+  end
+
+  defp put_relation(content, root, _reply_to) when is_binary(root) and root != "" do
+    Map.put(content, "m.relates_to", %{"rel_type" => "m.thread", "event_id" => root})
+  end
+
+  defp put_relation(content, _root, reply_to) when is_binary(reply_to) and reply_to != "" do
+    Map.put(content, "m.relates_to", %{"m.in_reply_to" => %{"event_id" => reply_to}})
+  end
+
+  defp put_relation(content, _root, _reply_to), do: content
 end

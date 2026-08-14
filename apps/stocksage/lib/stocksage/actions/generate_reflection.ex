@@ -37,57 +37,7 @@ defmodule StockSage.Actions.GenerateReflection do
     with true <- reflections_enabled?(),
          {:ok, user_id} <- Actions.user_id(params, context),
          {:ok, outcome_id} <- outcome_id(params) do
-      if Actions.allowed?(permission_decision) do
-        case Reflections.generate(user_id, outcome_id,
-               max_chars: Actions.field(params, :max_chars, default_max_chars())
-             ) do
-          {:ok, reflection} ->
-            {:ok,
-             %{
-               message: "Generated StockSage reflection for #{reflection.symbol}.",
-               status: :completed,
-               reflection: reflection,
-               actions: [
-                 Actions.action(
-                   "generate_reflection",
-                   :completed,
-                   :stocksage_write,
-                   permission_decision,
-                   %{
-                     reflection_id: reflection.entry_id,
-                     outcome_id: reflection.outcome_id,
-                     analysis_id: reflection.analysis_id,
-                     symbol: reflection.symbol,
-                     promoted_to_allbert_memory: false
-                   }
-                 )
-               ]
-             }}
-
-          {:error, reason} ->
-            {:ok, error_response(reason, permission_decision)}
-        end
-      else
-        status = Actions.status_from_decision(permission_decision)
-
-        {:ok,
-         %{
-           message: "StockSage reflections are not available to this request.",
-           status: status,
-           error: :permission_denied,
-           actions: [
-             Actions.action(
-               "generate_reflection",
-               status,
-               :stocksage_write,
-               permission_decision,
-               %{
-                 error: :permission_denied
-               }
-             )
-           ]
-         }}
-      end
+      generate_or_deny(params, user_id, outcome_id, permission_decision)
     else
       false ->
         {:ok,
@@ -113,6 +63,60 @@ defmodule StockSage.Actions.GenerateReflection do
 
       {:error, reason} ->
         {:ok, error_response(reason, permission_decision)}
+    end
+  end
+
+  defp generate_or_deny(params, user_id, outcome_id, permission_decision) do
+    if Actions.allowed?(permission_decision) do
+      case Reflections.generate(user_id, outcome_id,
+             max_chars: Actions.field(params, :max_chars, default_max_chars())
+           ) do
+        {:ok, reflection} ->
+          {:ok,
+           %{
+             message: "Generated StockSage reflection for #{reflection.symbol}.",
+             status: :completed,
+             reflection: reflection,
+             actions: [
+               Actions.action(
+                 "generate_reflection",
+                 :completed,
+                 :stocksage_write,
+                 permission_decision,
+                 %{
+                   reflection_id: reflection.entry_id,
+                   outcome_id: reflection.outcome_id,
+                   analysis_id: reflection.analysis_id,
+                   symbol: reflection.symbol,
+                   promoted_to_allbert_memory: false
+                 }
+               )
+             ]
+           }}
+
+        {:error, reason} ->
+          {:ok, error_response(reason, permission_decision)}
+      end
+    else
+      status = Actions.status_from_decision(permission_decision)
+
+      {:ok,
+       %{
+         message: "StockSage reflections are not available to this request.",
+         status: status,
+         error: :permission_denied,
+         actions: [
+           Actions.action(
+             "generate_reflection",
+             status,
+             :stocksage_write,
+             permission_decision,
+             %{
+               error: :permission_denied
+             }
+           )
+         ]
+       }}
     end
   end
 

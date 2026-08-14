@@ -91,51 +91,67 @@ defmodule AllbertAssist.Health do
     readiness = Keyword.get(opts, :readiness, AllbertAssist.Pack.Readiness)
     coordinator = Keyword.get(opts, :coordinator, :allbert_pack_composition_owner)
 
-    case readiness_status(readiness) do
-      {:ok,
-       %{
-         phase: :ready,
-         snapshot_digest: digest,
-         expected_ids: expected_ids,
-         acked_ids: acked_ids
-       }}
-      when is_binary(digest) and is_list(expected_ids) and is_list(acked_ids) ->
-        %{
-          status:
-            if(expected_ids == acked_ids and coordinator_ready?(coordinator, digest),
-              do: :ready,
-              else: :unavailable
-            ),
-          phase: :ready,
-          snapshot_digest: digest,
-          expected_ids: expected_ids,
-          acked_ids: acked_ids,
-          coordinator: coordinator_status(coordinator, digest)
-        }
+    readiness
+    |> readiness_status()
+    |> pack_status_from_readiness(coordinator)
+  end
 
-      {:ok,
-       %{phase: phase, snapshot_digest: digest, expected_ids: expected_ids, acked_ids: acked_ids}}
-      when phase in [:collecting, :authorizing, :ready] and is_list(expected_ids) and
-             is_list(acked_ids) ->
-        %{
-          status: :unavailable,
-          phase: phase,
-          snapshot_digest: if(is_binary(digest), do: digest, else: nil),
-          expected_ids: expected_ids,
-          acked_ids: acked_ids,
-          coordinator: coordinator_status(coordinator, digest)
-        }
+  defp pack_status_from_readiness(
+         {:ok,
+          %{
+            phase: :ready,
+            snapshot_digest: digest,
+            expected_ids: expected_ids,
+            acked_ids: acked_ids
+          }},
+         coordinator
+       )
+       when is_binary(digest) and is_list(expected_ids) and is_list(acked_ids) do
+    %{
+      status:
+        if(expected_ids == acked_ids and coordinator_ready?(coordinator, digest),
+          do: :ready,
+          else: :unavailable
+        ),
+      phase: :ready,
+      snapshot_digest: digest,
+      expected_ids: expected_ids,
+      acked_ids: acked_ids,
+      coordinator: coordinator_status(coordinator, digest)
+    }
+  end
 
-      _other ->
-        %{
-          status: :unavailable,
-          phase: :unavailable,
-          snapshot_digest: nil,
-          expected_ids: [],
-          acked_ids: [],
-          coordinator: coordinator_status(coordinator, nil)
-        }
-    end
+  defp pack_status_from_readiness(
+         {:ok,
+          %{
+            phase: phase,
+            snapshot_digest: digest,
+            expected_ids: expected_ids,
+            acked_ids: acked_ids
+          }},
+         coordinator
+       )
+       when phase in [:collecting, :authorizing, :ready] and is_list(expected_ids) and
+              is_list(acked_ids) do
+    %{
+      status: :unavailable,
+      phase: phase,
+      snapshot_digest: if(is_binary(digest), do: digest, else: nil),
+      expected_ids: expected_ids,
+      acked_ids: acked_ids,
+      coordinator: coordinator_status(coordinator, digest)
+    }
+  end
+
+  defp pack_status_from_readiness(_other, coordinator) do
+    %{
+      status: :unavailable,
+      phase: :unavailable,
+      snapshot_digest: nil,
+      expected_ids: [],
+      acked_ids: [],
+      coordinator: coordinator_status(coordinator, nil)
+    }
   end
 
   defp readiness_status(readiness) do

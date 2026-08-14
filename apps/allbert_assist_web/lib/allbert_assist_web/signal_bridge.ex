@@ -77,28 +77,36 @@ defmodule AllbertAssistWeb.SignalBridge do
     if epoch == state.epoch do
       {:reply, :ok, state}
     else
-      state = close_subscriptions(state)
-
-      subscription_ids =
-        %{
-          objective: @objective_pattern,
-          fanout: @fanout_pattern,
-          workspace: @workspace_pattern
-        }
-        |> Enum.map(fn {kind, pattern} ->
-          {kind, subscribe(kind, pattern, epoch, state)}
-        end)
-        |> Map.new()
-
-      next_state = %{state | subscription_ids: subscription_ids, epoch: epoch}
-
-      if Enum.all?(subscription_ids, fn {_kind, id} -> is_binary(id) end) do
-        AllbertAssistWeb.PackReadiness.disconnect()
-        {:reply, :ok, next_state}
-      else
-        {:reply, {:error, :unavailable}, close_subscriptions(next_state)}
-      end
+      subscribe_all(epoch, state)
     end
+  end
+
+  defp subscribe_all(epoch, state) do
+    state = close_subscriptions(state)
+
+    subscription_ids =
+      %{
+        objective: @objective_pattern,
+        fanout: @fanout_pattern,
+        workspace: @workspace_pattern
+      }
+      |> Enum.map(fn {kind, pattern} ->
+        {kind, subscribe(kind, pattern, epoch, state)}
+      end)
+      |> Map.new()
+
+    next_state = %{state | subscription_ids: subscription_ids, epoch: epoch}
+
+    if all_subscribed?(subscription_ids) do
+      AllbertAssistWeb.PackReadiness.disconnect()
+      {:reply, :ok, next_state}
+    else
+      {:reply, {:error, :unavailable}, close_subscriptions(next_state)}
+    end
+  end
+
+  defp all_subscribed?(subscription_ids) do
+    Enum.all?(subscription_ids, fn {_kind, id} -> is_binary(id) end)
   end
 
   @impl true

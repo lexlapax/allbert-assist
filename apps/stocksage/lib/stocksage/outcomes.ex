@@ -272,24 +272,24 @@ defmodule StockSage.Outcomes do
       if is_nil(value) do
         acc
       else
-        key =
-          case raw_key do
-            {symbol, %Date{} = date} ->
-              {Domain.normalize_symbol(symbol), date}
-
-            {symbol, date} when is_binary(date) ->
-              {Domain.normalize_symbol(symbol), normalize_date(date)}
-
-            symbol ->
-              {Domain.normalize_symbol(symbol), nil}
-          end
-
-        Map.put(acc, key, value)
+        Map.put(acc, normalized_price_key(raw_key), value)
       end
     end)
   end
 
   defp normalize_prices(_prices), do: %{}
+
+  defp normalized_price_key({symbol, %Date{} = date}) do
+    {Domain.normalize_symbol(symbol), date}
+  end
+
+  defp normalized_price_key({symbol, date}) when is_binary(date) do
+    {Domain.normalize_symbol(symbol), normalize_date(date)}
+  end
+
+  defp normalized_price_key(symbol) do
+    {Domain.normalize_symbol(symbol), nil}
+  end
 
   defp normalize_date(value, default \\ nil)
 

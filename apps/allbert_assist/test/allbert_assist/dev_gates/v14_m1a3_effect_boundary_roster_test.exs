@@ -475,21 +475,8 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
       Macro.prewalk(ast, [], fn
         {{:., _dot_meta, [module_ast, function]}, call_meta, args} = node, calls
         when is_atom(function) and is_list(args) ->
-          case canonical_module(module_ast, aliases, boundaries) do
-            module when is_map_key(boundaries, module) ->
-              if MapSet.member?(Map.fetch!(boundaries, module), function) do
-                # A piped call carries its first argument in the surrounding
-                # AST, so the local argument list alone is not the public
-                # arity. The file/line pair identifies the callsite exactly.
-                boundary = "#{module}.#{function}"
-                {node, [%{line: Keyword.fetch!(call_meta, :line), boundary: boundary} | calls]}
-              else
-                {node, calls}
-              end
-
-            _other ->
-              {node, calls}
-          end
+          module = canonical_module(module_ast, aliases, boundaries)
+          {node, record_effect_call(module, function, call_meta, boundaries, calls)}
 
         node, calls ->
           {node, calls}
@@ -497,6 +484,21 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
 
     calls
   end
+
+  defp record_effect_call(module, function, call_meta, boundaries, calls)
+       when is_map_key(boundaries, module) do
+    if MapSet.member?(Map.fetch!(boundaries, module), function) do
+      # A piped call carries its first argument in the surrounding AST, so the
+      # local argument list alone is not the public arity. The file/line pair
+      # identifies the callsite exactly.
+      boundary = "#{module}.#{function}"
+      [%{line: Keyword.fetch!(call_meta, :line), boundary: boundary} | calls]
+    else
+      calls
+    end
+  end
+
+  defp record_effect_call(_module, _function, _call_meta, _boundaries, calls), do: calls
 
   defp aliases(ast) do
     {_ast, aliases} =
@@ -565,9 +567,10 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   defp canonical_module({:__aliases__, _meta, parts}, aliases, boundaries) do
     name = Enum.join(parts, ".")
 
-    cond do
-      Map.has_key?(boundaries, name) -> name
-      true -> expand_alias(name, aliases)
+    if Map.has_key?(boundaries, name) do
+      name
+    else
+      expand_alias(name, aliases)
     end
   end
 
@@ -576,32 +579,34 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
   defp expand_alias(name, aliases) do
     name
     |> String.split(".")
-    |> Enum.reduce_while([], fn part, resolved ->
-      candidate = Enum.join(resolved ++ [part], ".")
+    |> Enum.reduce_while([], &resolve_alias_step(&1, &2, aliases, name))
+    |> normalize_resolved_alias()
+  end
 
-      cond do
-        Map.get(aliases, candidate) == :ambiguous ->
-          {:halt, nil}
+  defp resolve_alias_step(part, resolved, aliases, name) do
+    candidate = Enum.join(resolved ++ [part], ".")
 
-        Map.has_key?(aliases, candidate) ->
-          {:halt, aliases[candidate] <> suffix(name, candidate)}
+    cond do
+      Map.get(aliases, candidate) == :ambiguous ->
+        {:halt, nil}
 
-        resolved == [] and Map.get(aliases, part) == :ambiguous ->
-          {:halt, nil}
+      Map.has_key?(aliases, candidate) ->
+        {:halt, aliases[candidate] <> suffix(name, candidate)}
 
-        resolved == [] and Map.has_key?(aliases, part) ->
-          {:halt, aliases[part] <> suffix(name, part)}
+      resolved == [] and Map.get(aliases, part) == :ambiguous ->
+        {:halt, nil}
 
-        true ->
-          {:cont, resolved ++ [part]}
-      end
-    end)
-    |> case do
-      [] -> nil
-      nil -> nil
-      module -> module
+      resolved == [] and Map.has_key?(aliases, part) ->
+        {:halt, aliases[part] <> suffix(name, part)}
+
+      true ->
+        {:cont, resolved ++ [part]}
     end
   end
+
+  defp normalize_resolved_alias([]), do: nil
+  defp normalize_resolved_alias(nil), do: nil
+  defp normalize_resolved_alias(module), do: module
 
   defp suffix(name, prefix) do
     case String.replace_prefix(name, prefix, "") do

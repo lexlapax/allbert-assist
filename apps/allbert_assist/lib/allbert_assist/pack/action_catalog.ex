@@ -44,17 +44,7 @@ defmodule AllbertAssist.Pack.ActionCatalog do
   defp plugin_action_declarations(plugin_modules) do
     plugin_modules
     |> Map.values()
-    |> Enum.reduce_while({:ok, []}, fn plugin, {:ok, modules} ->
-      case plugin.actions() do
-        actions when is_list(actions) ->
-          if Enum.all?(actions, &is_atom/1),
-            do: {:cont, {:ok, modules ++ actions}},
-            else: {:halt, {:error, :invalid_plugin_action_declarations}}
-
-        _other ->
-          {:halt, {:error, :invalid_plugin_action_declarations}}
-      end
-    end)
+    |> Enum.reduce_while({:ok, []}, &collect_plugin_actions/2)
     |> case do
       {:ok, declarations} -> {:ok, MapSet.new(declarations)}
       error -> error
@@ -63,6 +53,20 @@ defmodule AllbertAssist.Pack.ActionCatalog do
     _exception -> {:error, :invalid_plugin_action_declarations}
   catch
     _kind, _reason -> {:error, :invalid_plugin_action_declarations}
+  end
+
+  defp collect_plugin_actions(plugin, {:ok, modules}) do
+    case plugin.actions() do
+      actions when is_list(actions) ->
+        if Enum.all?(actions, &is_atom/1) do
+          {:cont, {:ok, modules ++ actions}}
+        else
+          {:halt, {:error, :invalid_plugin_action_declarations}}
+        end
+
+      _other ->
+        {:halt, {:error, :invalid_plugin_action_declarations}}
+    end
   end
 
   defp residual_boundary(actions, declarations) do

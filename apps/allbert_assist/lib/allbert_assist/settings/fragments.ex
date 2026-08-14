@@ -298,78 +298,88 @@ defmodule AllbertAssist.Settings.Fragments do
 
   defp app_fragments_from_entries(entries) do
     entries
-    |> Enum.reduce_while({:ok, []}, fn app, {:ok, fragments} ->
-      app_id = Map.get(app, :app_id)
-      schema_entries = Map.get(app, :settings_schema, [])
-
-      if is_atom(app_id) and is_list(schema_entries) do
-        case Schema.normalize_app_schema_entries_checked(schema_entries) do
-          {:ok, schema} ->
-            fragment =
-              Fragment.new!(%{
-                id: "app:#{app_id}",
-                owner: app_id,
-                source: :app,
-                group: :apps,
-                schema: schema,
-                defaults: defaults_from_schema(schema),
-                safe_write_keys: safe_write_keys_from_schema(schema),
-                metadata: %{display_name: Map.get(app, :display_name)}
-              })
-
-            {:cont,
-             {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
-
-          {:error, reason} ->
-            {:halt, {:error, [candidate_diagnostic(reason)]}}
-        end
-      else
-        {:halt, {:error, [candidate_diagnostic(:invalid_app_entry)]}}
-      end
-    end)
+    |> Enum.reduce_while({:ok, []}, &reduce_app_fragment/2)
     |> reverse_candidate_fragments()
   rescue
     _exception -> {:error, [candidate_diagnostic(:invalid_app_settings_schema)]}
   end
 
+  defp reduce_app_fragment(app, {:ok, fragments}) do
+    app_id = Map.get(app, :app_id)
+    schema_entries = Map.get(app, :settings_schema, [])
+
+    if is_atom(app_id) and is_list(schema_entries) do
+      build_app_fragment(app_id, schema_entries, app, fragments)
+    else
+      {:halt, {:error, [candidate_diagnostic(:invalid_app_entry)]}}
+    end
+  end
+
+  defp build_app_fragment(app_id, schema_entries, app, fragments) do
+    case Schema.normalize_app_schema_entries_checked(schema_entries) do
+      {:ok, schema} ->
+        fragment =
+          Fragment.new!(%{
+            id: "app:#{app_id}",
+            owner: app_id,
+            source: :app,
+            group: :apps,
+            schema: schema,
+            defaults: defaults_from_schema(schema),
+            safe_write_keys: safe_write_keys_from_schema(schema),
+            metadata: %{display_name: Map.get(app, :display_name)}
+          })
+
+        {:cont, {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
+
+      {:error, reason} ->
+        {:halt, {:error, [candidate_diagnostic(reason)]}}
+    end
+  end
+
   defp plugin_fragments_from_entries(entries) do
     entries
-    |> Enum.reduce_while({:ok, []}, fn plugin, {:ok, fragments} ->
-      plugin_id = Map.get(plugin, :plugin_id)
-      schema_entries = Map.get(plugin, :settings_schema, [])
-
-      if is_binary(plugin_id) and plugin_id != "" and is_list(schema_entries) do
-        case Schema.normalize_plugin_schema_entries_checked(schema_entries, plugin: plugin) do
-          {:ok, schema} ->
-            fragment =
-              Fragment.new!(%{
-                id: "plugin:#{plugin_id}",
-                owner: plugin_id,
-                source: :plugin,
-                group: :plugins,
-                schema: schema,
-                defaults: defaults_from_schema(schema),
-                safe_write_keys: safe_write_keys_from_schema(schema),
-                metadata: %{
-                  display_name: Map.get(plugin, :display_name),
-                  trust_status: Map.get(plugin, :trust_status),
-                  source: Map.get(plugin, :source)
-                }
-              })
-
-            {:cont,
-             {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
-
-          {:error, reason} ->
-            {:halt, {:error, [candidate_diagnostic(reason)]}}
-        end
-      else
-        {:halt, {:error, [candidate_diagnostic(:invalid_plugin_entry)]}}
-      end
-    end)
+    |> Enum.reduce_while({:ok, []}, &reduce_plugin_fragment/2)
     |> reverse_candidate_fragments()
   rescue
     _exception -> {:error, [candidate_diagnostic(:invalid_plugin_settings_schema)]}
+  end
+
+  defp reduce_plugin_fragment(plugin, {:ok, fragments}) do
+    plugin_id = Map.get(plugin, :plugin_id)
+    schema_entries = Map.get(plugin, :settings_schema, [])
+
+    if is_binary(plugin_id) and plugin_id != "" and is_list(schema_entries) do
+      build_plugin_fragment(plugin_id, schema_entries, plugin, fragments)
+    else
+      {:halt, {:error, [candidate_diagnostic(:invalid_plugin_entry)]}}
+    end
+  end
+
+  defp build_plugin_fragment(plugin_id, schema_entries, plugin, fragments) do
+    case Schema.normalize_plugin_schema_entries_checked(schema_entries, plugin: plugin) do
+      {:ok, schema} ->
+        fragment =
+          Fragment.new!(%{
+            id: "plugin:#{plugin_id}",
+            owner: plugin_id,
+            source: :plugin,
+            group: :plugins,
+            schema: schema,
+            defaults: defaults_from_schema(schema),
+            safe_write_keys: safe_write_keys_from_schema(schema),
+            metadata: %{
+              display_name: Map.get(plugin, :display_name),
+              trust_status: Map.get(plugin, :trust_status),
+              source: Map.get(plugin, :source)
+            }
+          })
+
+        {:cont, {:ok, if(empty_fragment?(fragment), do: fragments, else: [fragment | fragments])}}
+
+      {:error, reason} ->
+        {:halt, {:error, [candidate_diagnostic(reason)]}}
+    end
   end
 
   defp reverse_candidate_fragments({:ok, fragments}), do: {:ok, Enum.reverse(fragments)}
@@ -532,21 +542,7 @@ defmodule AllbertAssist.Settings.Fragments do
           end)
 
         Enum.reduce(contribution.safe_write_rows, provenance, fn {_index, key}, acc ->
-          case Map.fetch(acc, key) do
-            {:ok, existing} ->
-              Map.put(acc, key, Map.put(existing, :safe_write_declaration, key))
-
-            :error ->
-              kind = if String.contains?(key, "*"), do: :safe_write_pattern, else: :safe_write_key
-
-              Map.put(
-                acc,
-                key,
-                owner
-                |> Map.put(:kind, kind)
-                |> Map.put(:declaration, key)
-              )
-          end
+          apply_safe_write_provenance(acc, key, owner)
         end)
       end)
 
@@ -567,6 +563,24 @@ defmodule AllbertAssist.Settings.Fragments do
       end)
 
     Map.merge(pack, Map.new(legacy))
+  end
+
+  defp apply_safe_write_provenance(acc, key, owner) do
+    case Map.fetch(acc, key) do
+      {:ok, existing} ->
+        Map.put(acc, key, Map.put(existing, :safe_write_declaration, key))
+
+      :error ->
+        Map.put(acc, key, safe_write_provenance_entry(owner, key))
+    end
+  end
+
+  defp safe_write_provenance_entry(owner, key) do
+    kind = if String.contains?(key, "*"), do: :safe_write_pattern, else: :safe_write_key
+
+    owner
+    |> Map.put(:kind, kind)
+    |> Map.put(:declaration, key)
   end
 
   defp pack_owner_metadata(contribution) do

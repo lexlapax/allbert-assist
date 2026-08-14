@@ -315,18 +315,31 @@ defmodule AllbertAssist.Runtime.Response do
         approval_handoff: approval_handoff,
         diagnostics: diagnostics
       }) do
+    canonical_core_action_fields?(message, model_payload, surface_payload, status, actions) and
+      canonical_optional_action_fields?(decision, resource_access, approval_handoff, diagnostics)
+  end
+
+  def canonical_action_response?(_response), do: false
+
+  defp canonical_core_action_fields?(message, model_payload, surface_payload, status, actions) do
     is_binary(message) and
       is_binary(model_payload) and
       is_binary(surface_payload) and
       status in @action_statuses and
-      is_list(actions) and
-      (is_nil(decision) or is_map(decision)) and
+      is_list(actions)
+  end
+
+  defp canonical_optional_action_fields?(
+         decision,
+         resource_access,
+         approval_handoff,
+         diagnostics
+       ) do
+    (is_nil(decision) or is_map(decision)) and
       is_list(resource_access) and
       (is_nil(approval_handoff) or is_map(approval_handoff)) and
       is_list(diagnostics)
   end
-
-  def canonical_action_response?(_response), do: false
 
   @doc "Validate a canonical internal action response without changing its contents."
   @spec validate_action_response(term()) :: {:ok, action_response()} | {:error, term()}
@@ -499,17 +512,18 @@ defmodule AllbertAssist.Runtime.Response do
 
     Enum.reduce_while(validators, :ok, fn {key, validator}, :ok ->
       case present_values(response, key) do
-        [] ->
-          {:cont, :ok}
-
-        values ->
-          if Enum.all?(values, validator) do
-            {:cont, :ok}
-          else
-            {:halt, {:error, {:invalid_action_response_field, key}}}
-          end
+        [] -> {:cont, :ok}
+        values -> validate_present_action_field(values, validator, key)
       end
     end)
+  end
+
+  defp validate_present_action_field(values, validator, key) do
+    if Enum.all?(values, validator) do
+      {:cont, :ok}
+    else
+      {:halt, {:error, {:invalid_action_response_field, key}}}
+    end
   end
 
   defp present_values(response, key) do

@@ -80,19 +80,18 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
 
       with :ok <- EffectGuard.validate(epoch),
            result <- Req.request(request) do
-        case result do
-          {:ok, response} ->
-            {:ok, response}
-
-          {:error, %Req.TransportError{} = error} ->
-            {:error, {:local_ollama_transport_error, error.reason}}
-
-          {:error, reason} ->
-            {:error, {:local_ollama_transport_error, reason}}
-        end
+        handle_request_result(result)
       end
     end
   end
+
+  defp handle_request_result({:ok, response}), do: {:ok, response}
+
+  defp handle_request_result({:error, %Req.TransportError{} = error}),
+    do: {:error, {:local_ollama_transport_error, error.reason}}
+
+  defp handle_request_result({:error, reason}),
+    do: {:error, {:local_ollama_transport_error, reason}}
 
   defp carried_epoch(opts) when is_list(opts) do
     case Keyword.fetch(opts, :allbert_pack_epoch) do

@@ -101,14 +101,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ActionAssembly do
     |> Enum.reduce_while({:ok, initial_rows, []}, fn declaration, {:ok, rows, aliases} ->
       case declaration_binding(declaration, static_by_module, static_by_name, plugin_by_module) do
         {:ok, binding, alias?} ->
-          row = action_row(declaration.plugin_id, binding, alias?)
-          rows = Map.update(rows, declaration.plugin_id, [row], &(&1 ++ [row]))
-
-          aliases =
-            if alias?,
-              do: aliases ++ [action_alias(declaration.plugin_id, binding)],
-              else: aliases
-
+          {rows, aliases} = accumulate_action(declaration, binding, alias?, rows, aliases)
           {:cont, {:ok, rows, aliases}}
 
         :error ->
@@ -123,6 +116,18 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ActionAssembly do
       error ->
         error
     end)
+  end
+
+  defp accumulate_action(declaration, binding, alias?, rows, aliases) do
+    row = action_row(declaration.plugin_id, binding, alias?)
+    rows = Map.update(rows, declaration.plugin_id, [row], &(&1 ++ [row]))
+
+    aliases =
+      if alias?,
+        do: aliases ++ [action_alias(declaration.plugin_id, binding)],
+        else: aliases
+
+    {rows, aliases}
   end
 
   defp declaration_binding(

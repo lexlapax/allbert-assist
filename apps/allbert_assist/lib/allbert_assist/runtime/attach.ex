@@ -574,17 +574,21 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
         case TUIProtocol.validate_open(request, expected) do
           {:ok, open} ->
-            with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
-                 :ok <- EffectGuard.validate(epoch) do
-              start_tui_session(open, worker, state, epoch)
-            else
-              {:error, _reason} ->
-                reject_open(:runtime_unavailable, "Allbert product is not ready.", state)
-            end
+            admit_tui_session(open, worker, state)
 
           {:error, reason} ->
             reject_open(reason, "TUI session open rejected.", state)
         end
+    end
+  end
+
+  defp admit_tui_session(open, worker, state) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
+         :ok <- EffectGuard.validate(epoch) do
+      start_tui_session(open, worker, state, epoch)
+    else
+      {:error, _reason} ->
+        reject_open(:runtime_unavailable, "Allbert product is not ready.", state)
     end
   end
 

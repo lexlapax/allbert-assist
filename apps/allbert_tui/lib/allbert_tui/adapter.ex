@@ -446,12 +446,10 @@ defmodule AllbertTUI.Adapter do
         end
       end)
 
-    cond do
-      delivered? and delivery.report ->
-        start_report_acknowledgement(delivery, state)
-
-      true ->
-        maybe_clear_active_fanout(state, delivery.parent_id)
+    if delivered? and delivery.report do
+      start_report_acknowledgement(delivery, state)
+    else
+      maybe_clear_active_fanout(state, delivery.parent_id)
     end
   end
 
@@ -465,14 +463,18 @@ defmodule AllbertTUI.Adapter do
   end
 
   defp start_report_acknowledgement(delivery, state) do
-    ack_id = make_ref()
-    owner = self()
     parent_id = delivery.parent_id
-    acknowledge_fun = state.report_acknowledge_fun
-    delivery_output_fun = state.delivery_output_fun
-    lines = delivery.lines
-    receipt = delivery.report.receipt
-    delivery_context = delivery.report.delivery_context
+
+    ack = %{
+      ack_id: make_ref(),
+      owner: self(),
+      parent_id: parent_id,
+      acknowledge_fun: state.report_acknowledge_fun,
+      delivery_output_fun: state.delivery_output_fun,
+      lines: delivery.lines,
+      receipt: delivery.report.receipt,
+      delivery_context: delivery.report.delivery_context
+    }
 
     state = remember_displayed_unacknowledged_report(state, parent_id)
 
@@ -481,55 +483,37 @@ defmodule AllbertTUI.Adapter do
       |> report_acknowledgement_warning(parent_id, :acknowledgement_capacity_reached)
       |> maybe_clear_active_fanout(parent_id)
     else
-      do_start_report_acknowledgement(
-        state,
-        ack_id,
-        owner,
-        parent_id,
-        acknowledge_fun,
-        delivery_output_fun,
-        lines,
-        receipt,
-        delivery_context
-      )
+      do_start_report_acknowledgement(state, ack)
     end
   end
 
-  defp do_start_report_acknowledgement(
-         state,
-         ack_id,
-         owner,
-         parent_id,
-         acknowledge_fun,
-         delivery_output_fun,
-         lines,
-         receipt,
-         delivery_context
-       ) do
-    case start_turn_task(fn epoch ->
-           delivery_context = Map.put(delivery_context, :allbert_pack_epoch, epoch)
-
-           result =
-             with :ok <- deliver_report_lines(lines, delivery_output_fun) do
-               acknowledge_fun.(receipt, delivery_context)
-             end
-
-           send(owner, {:tui_report_acknowledged, ack_id, parent_id, result})
-         end) do
+  defp do_start_report_acknowledgement(state, ack) do
+    case start_turn_task(fn epoch -> acknowledge_report_epoch(ack, epoch) end) do
       {:ok, pid} ->
         acknowledgement = %{
-          ack_id: ack_id,
+          ack_id: ack.ack_id,
           pid: pid,
           monitor_ref: Process.monitor(pid)
         }
 
-        put_in(state.report_acknowledgements[parent_id], acknowledgement)
+        put_in(state.report_acknowledgements[ack.parent_id], acknowledgement)
 
       {:error, reason} ->
         state
-        |> report_acknowledgement_warning(parent_id, {:task_start_failed, reason})
-        |> maybe_clear_active_fanout(parent_id)
+        |> report_acknowledgement_warning(ack.parent_id, {:task_start_failed, reason})
+        |> maybe_clear_active_fanout(ack.parent_id)
     end
+  end
+
+  defp acknowledge_report_epoch(ack, epoch) do
+    delivery_context = Map.put(ack.delivery_context, :allbert_pack_epoch, epoch)
+
+    result =
+      with :ok <- deliver_report_lines(ack.lines, ack.delivery_output_fun) do
+        ack.acknowledge_fun.(ack.receipt, delivery_context)
+      end
+
+    send(ack.owner, {:tui_report_acknowledged, ack.ack_id, ack.parent_id, result})
   end
 
   defp deliver_report_lines(_lines, nil), do: :ok
@@ -1041,11 +1025,7 @@ defmodule AllbertTUI.Adapter do
     task_state = quiet_async_task_state(state)
 
     case start_turn_task(fn epoch ->
-           if deferred_start? do
-             receive do
-               {:start_coding_tui_turn, ^turn_id} -> :ok
-             end
-           end
+           await_deferred_coding_start(deferred_start?, turn_id)
 
            {reply, pi_session} =
              try do
@@ -1097,6 +1077,14 @@ defmodule AllbertTUI.Adapter do
         {{:error, reason}, state}
     end
   end
+
+  defp await_deferred_coding_start(true, turn_id) do
+    receive do
+      {:start_coding_tui_turn, ^turn_id} -> :ok
+    end
+  end
+
+  defp await_deferred_coding_start(false, _turn_id), do: :ok
 
   defp async_turn_owner(%{attended_turn_owner: {owner, _turn_id}}) when is_pid(owner),
     do: {owner, true}
@@ -1674,7 +1662,7 @@ defmodule AllbertTUI.Adapter do
   defp start_turn_task(fun) do
     with {:ok, epoch} <- EffectGuard.admit_ready(),
          :ok <- EffectGuard.validate(epoch) do
-      guarded_fun = fn -> if EffectGuard.validate(epoch) == :ok, do: fun.(epoch) end
+      guarded_fun = fn -> run_guarded_turn(fun, epoch) end
 
       if Process.whereis(AllbertAssist.TaskSupervisor) do
         Task.Supervisor.start_child(AllbertAssist.TaskSupervisor, guarded_fun)
@@ -1684,6 +1672,10 @@ defmodule AllbertTUI.Adapter do
     else
       {:error, _reason} -> {:error, :product_not_ready}
     end
+  end
+
+  defp run_guarded_turn(fun, epoch) do
+    if EffectGuard.validate(epoch) == :ok, do: fun.(epoch)
   end
 
   defp quiet_async_task_state(state) do
@@ -1801,56 +1793,52 @@ defmodule AllbertTUI.Adapter do
 
   defp dispatch_coding_slash(text, context, state) do
     case String.split(text, ~r/\s+/, parts: 2, trim: true) do
-      ["/pi"] ->
-        enter_pi_mode(nil, context, state)
-
-      ["/pi", mode] when mode in ["off", "exit", "quit"] ->
-        exit_pi_mode(state)
-
-      ["/pi", path] ->
-        enter_pi_mode(path, context, state)
-
-      ["/mode"] ->
-        current_pi_mode(state)
-
-      ["/mode", mode] ->
-        switch_pi_mode(mode, state)
-
-      ["/model"] ->
-        current_pi_model(state)
-
-      ["/model", profile] ->
-        switch_pi_model(profile, state)
-
-      ["/clear"] ->
-        clear_pi_context(state)
-
-      ["/compact"] ->
-        compact_pi_context(state)
-
-      ["/init"] ->
-        init_pi_mode(".allbert/pi-mode.md", context, state)
-
-      ["/init", path] ->
-        init_pi_mode(path, context, state)
-
-      ["/diff"] ->
-        local_coding_response(
-          "No Pi-mode diff path provided.",
-          "Pi-mode diff had no path.",
-          state
-        )
-
-      ["/diff", path] ->
-        read_pi_path(path, context, state, "diff")
-
-      _other ->
-        local_coding_response(
-          "Unknown slash command. Type /help for available commands.",
-          "Unknown TUI coding slash command.",
-          state
-        )
+      ["/pi" | rest] -> dispatch_pi_slash(rest, context, state)
+      ["/mode" | rest] -> dispatch_mode_slash(rest, state)
+      ["/model" | rest] -> dispatch_model_slash(rest, state)
+      ["/clear"] -> clear_pi_context(state)
+      ["/compact"] -> compact_pi_context(state)
+      ["/init" | rest] -> dispatch_init_slash(rest, context, state)
+      ["/diff" | rest] -> dispatch_diff_slash(rest, context, state)
+      _other -> unknown_coding_slash_command(state)
     end
+  end
+
+  defp dispatch_pi_slash([], context, state), do: enter_pi_mode(nil, context, state)
+
+  defp dispatch_pi_slash([mode], _context, state) when mode in ["off", "exit", "quit"],
+    do: exit_pi_mode(state)
+
+  defp dispatch_pi_slash([path], context, state), do: enter_pi_mode(path, context, state)
+
+  defp dispatch_mode_slash([], state), do: current_pi_mode(state)
+  defp dispatch_mode_slash([mode], state), do: switch_pi_mode(mode, state)
+
+  defp dispatch_model_slash([], state), do: current_pi_model(state)
+  defp dispatch_model_slash([profile], state), do: switch_pi_model(profile, state)
+
+  defp dispatch_init_slash([], context, state),
+    do: init_pi_mode(".allbert/pi-mode.md", context, state)
+
+  defp dispatch_init_slash([path], context, state), do: init_pi_mode(path, context, state)
+
+  defp dispatch_diff_slash([], _context, state) do
+    local_coding_response(
+      "No Pi-mode diff path provided.",
+      "Pi-mode diff had no path.",
+      state
+    )
+  end
+
+  defp dispatch_diff_slash([path], context, state),
+    do: read_pi_path(path, context, state, "diff")
+
+  defp unknown_coding_slash_command(state) do
+    local_coding_response(
+      "Unknown slash command. Type /help for available commands.",
+      "Unknown TUI coding slash command.",
+      state
+    )
   end
 
   defp enter_pi_mode(path, context, state) do

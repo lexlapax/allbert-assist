@@ -754,19 +754,22 @@ defmodule AllbertWhatsApp.Adapter do
 
   defp known_thread_id_from_relation(receiver_account_ref, fields) do
     [fields.context_message_id]
-    |> Enum.find_value(fn message_id ->
-      if is_binary(message_id) and message_id != "" do
-        case ChannelThread.lookup_message_thread(%{
-               channel: "whatsapp",
-               receiver_account_ref: receiver_account_ref,
-               provider_message_id: message_id
-             }) do
-          {:ok, thread_id} -> thread_id
-          {:error, _reason} -> nil
-        end
-      end
-    end)
+    |> Enum.find_value(fn message_id -> lookup_thread_id(receiver_account_ref, message_id) end)
   end
+
+  defp lookup_thread_id(receiver_account_ref, message_id)
+       when is_binary(message_id) and message_id != "" do
+    case ChannelThread.lookup_message_thread(%{
+           channel: "whatsapp",
+           receiver_account_ref: receiver_account_ref,
+           provider_message_id: message_id
+         }) do
+      {:ok, thread_id} -> thread_id
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp lookup_thread_id(_receiver_account_ref, _message_id), do: nil
 
   defp mark_processed(event, response, user_id, session_id, context) do
     Channels.update_event(

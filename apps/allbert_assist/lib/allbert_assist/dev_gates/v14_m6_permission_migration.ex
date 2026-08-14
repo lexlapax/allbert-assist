@@ -77,27 +77,35 @@ defmodule AllbertAssist.DevGates.V14M6PermissionMigration do
   @doc "Load and self-validate the immutable predecessor caller fixture."
   @spec load_fixture!() :: map()
   def load_fixture! do
-    fixture =
-      case fixture_path()
-           |> File.read!()
-           |> String.trim()
-           |> Base.decode64!()
-           |> :zlib.uncompress()
-           |> Jason.decode!() do
-        %{} = decoded -> decoded
-        _other -> raise "invalid v1.4 M6 permission caller fixture"
-      end
+    fixture = decode_fixture!()
 
-    valid? =
-      fixture["schema_version"] == @schema_version and
-        fixture["normalization"] == @normalization and
-        get_in(fixture, ["provenance", "source_sha"]) == @predecessor_sha and
-        is_list(fixture["files"]) and
-        fixture["counts"] == counts_from_files(fixture["files"]) and
-        fixture["non_action_families"] == non_action_families_from_files(fixture["files"]) and
-        get_in(fixture, ["digests", "files_sha256"]) == digest(fixture["files"])
+    if valid_fixture?(fixture) do
+      fixture
+    else
+      raise("invalid v1.4 M6 permission caller fixture")
+    end
+  end
 
-    if valid?, do: fixture, else: raise("invalid v1.4 M6 permission caller fixture")
+  defp decode_fixture! do
+    case fixture_path()
+         |> File.read!()
+         |> String.trim()
+         |> Base.decode64!()
+         |> :zlib.uncompress()
+         |> Jason.decode!() do
+      %{} = decoded -> decoded
+      _other -> raise "invalid v1.4 M6 permission caller fixture"
+    end
+  end
+
+  defp valid_fixture?(fixture) do
+    fixture["schema_version"] == @schema_version and
+      fixture["normalization"] == @normalization and
+      get_in(fixture, ["provenance", "source_sha"]) == @predecessor_sha and
+      is_list(fixture["files"]) and
+      fixture["counts"] == counts_from_files(fixture["files"]) and
+      fixture["non_action_families"] == non_action_families_from_files(fixture["files"]) and
+      get_in(fixture, ["digests", "files_sha256"]) == digest(fixture["files"])
   end
 
   @doc "Fail unless every predecessor call has exactly the approved live target."
@@ -240,17 +248,7 @@ defmodule AllbertAssist.DevGates.V14M6PermissionMigration do
                 |> Keyword.get(:do)
                 |> calls_in_body(aliases, targets)
                 |> Enum.with_index(1)
-                |> Enum.map(fn {call, order} ->
-                  call_row(
-                    call,
-                    source_path,
-                    module,
-                    caller,
-                    clause,
-                    order,
-                    mode
-                  )
-                end)
+                |> Enum.map(&call_row(&1, source_path, module, caller, clause, mode))
 
               {rows ++ discovered, nested, Map.put(clauses, key, clause)}
 
@@ -319,7 +317,7 @@ defmodule AllbertAssist.DevGates.V14M6PermissionMigration do
     Enum.reverse(calls)
   end
 
-  defp call_row(call, source_path, module, caller, clause, order, mode) do
+  defp call_row({call, order}, source_path, module, caller, clause, mode) do
     row = %{
       "source_path" => source_path,
       "module" => module,

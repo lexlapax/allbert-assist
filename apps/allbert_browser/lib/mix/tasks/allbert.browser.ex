@@ -34,18 +34,7 @@ defmodule Mix.Tasks.Allbert.Browser do
     with_ready_context(fn context ->
       case Runner.run("browser_list_sessions", %{}, context) do
         {:ok, %{status: :completed, sessions: sessions}} ->
-          Enum.each(sessions, fn session ->
-            Mix.shell().info(
-              Enum.join(
-                [
-                  session.session_id,
-                  "age_ms=#{session.age_ms}",
-                  "last_visited_host=#{session.last_visited_host || "-"}"
-                ],
-                " "
-              )
-            )
-          end)
+          Enum.each(sessions, &print_session_line/1)
 
         {:ok, response} ->
           Mix.shell().error(
@@ -139,6 +128,19 @@ defmodule Mix.Tasks.Allbert.Browser do
     after
       maybe_close_session(session_id, context)
     end
+  end
+
+  defp print_session_line(session) do
+    Mix.shell().info(
+      Enum.join(
+        [
+          session.session_id,
+          "age_ms=#{session.age_ms}",
+          "last_visited_host=#{session.last_visited_host || "-"}"
+        ],
+        " "
+      )
+    )
   end
 
   defp maybe_close_session(nil, _context), do: :ok

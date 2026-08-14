@@ -617,22 +617,23 @@ defmodule AllbertSignal.Adapter do
     with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "signal"}),
          :ok <- validate_outbound_epoch(opts) do
       case AllbertAssist.Channels.channel_settings("signal") do
-        {:ok, settings} ->
-          account = Map.get(settings, "account_identifier")
-
-          req_options =
-            opts
-            |> Keyword.get(:req_options, [])
-            |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
-
-          case Client.send_message(account, target, body, req_options) do
-            {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
-            {:error, reason} -> {:error, reason}
-          end
-
-        _other ->
-          {:error, :signal_not_configured}
+        {:ok, settings} -> send_message(settings, target, body, opts)
+        _other -> {:error, :signal_not_configured}
       end
+    end
+  end
+
+  defp send_message(settings, target, body, opts) do
+    account = Map.get(settings, "account_identifier")
+
+    req_options =
+      opts
+      |> Keyword.get(:req_options, [])
+      |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
+
+    case Client.send_message(account, target, body, req_options) do
+      {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
+      {:error, reason} -> {:error, reason}
     end
   end
 

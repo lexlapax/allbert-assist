@@ -31,9 +31,7 @@ defmodule AllbertAssist.FirstRun.Enablement.BootWorker do
 
       result =
         if is_nil(latch) or not Latch.completed?(latch) do
-          result = run_authorizing_boot(runner, context)
-          if latch, do: Latch.complete(latch)
-          result
+          reconcile_and_latch(runner, context, latch)
         else
           :already_reconciled
         end
@@ -48,6 +46,12 @@ defmodule AllbertAssist.FirstRun.Enablement.BootWorker do
 
   @impl true
   def handle_continue(:stop, state), do: {:stop, :normal, state}
+
+  defp reconcile_and_latch(runner, context, latch) do
+    result = run_authorizing_boot(runner, context)
+    if latch, do: Latch.complete(latch)
+    result
+  end
 
   defp run_authorizing_boot(runner, context) do
     case :erlang.fun_info(runner, :arity) do

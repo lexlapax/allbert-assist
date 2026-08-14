@@ -16,22 +16,21 @@ defmodule AllbertAssist.External.HttpClient do
 
       with :ok <- EffectGuard.validate(epoch),
            result <- Req.request(request) do
-        result
-        |> case do
-          {:ok, response} ->
-            {:ok, response_result(spec, response, duration_ms(started))}
-
-          {:error, %Req.TransportError{} = error} ->
-            {:ok, transport_error_result(spec, error.reason, duration_ms(started))}
-
-          {:error, reason} ->
-            {:ok, transport_error_result(spec, reason, duration_ms(started))}
-        end
+        handle_request_result(result, spec, started)
       end
     end
   end
 
   def request(_spec, _opts), do: {:error, :product_not_ready}
+
+  defp handle_request_result({:ok, response}, spec, started),
+    do: {:ok, response_result(spec, response, duration_ms(started))}
+
+  defp handle_request_result({:error, %Req.TransportError{} = error}, spec, started),
+    do: {:ok, transport_error_result(spec, error.reason, duration_ms(started))}
+
+  defp handle_request_result({:error, reason}, spec, started),
+    do: {:ok, transport_error_result(spec, reason, duration_ms(started))}
 
   defp req_options(spec, opts) do
     opts = Keyword.delete(opts, :allbert_pack_epoch)

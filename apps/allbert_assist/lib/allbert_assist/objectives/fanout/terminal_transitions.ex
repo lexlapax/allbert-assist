@@ -133,7 +133,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
 
     with {:ok, _context} <- effect_context(opts) do
       transaction = fn ->
-        payload = if recovered?, do: %{recovered: true}, else: %{}
+        payload = join_payload(recovered?)
         result = reduce_parent(parent_id, DateTime.utc_now(), payload, opts)
         validate_or_rollback!(opts)
         result
@@ -155,7 +155,9 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
           {:ok, composition_claim()} | :none | {:error, term()}
   def claim_next_composition(opts) when is_list(opts) do
     with {:ok, _context} <- effect_context(opts) do
-      case Repo.transaction(fn -> claim_next_composition_transaction(opts) end, mode: :immediate) do
+      transaction = fn -> claim_next_composition_transaction(opts) end
+
+      case Repo.transaction(transaction, mode: :immediate) do
         {:ok, :none} -> :none
         {:ok, claim} -> {:ok, claim}
         {:error, reason} -> {:error, reason}
@@ -313,6 +315,9 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
       {:halt, {:error, reason, integrity_failures}}
     end
   end
+
+  defp join_payload(true), do: %{recovered: true}
+  defp join_payload(false), do: %{}
 
   defp validated_terminal_changes(child, attrs) do
     attrs = Map.take(attrs, @terminal_fields)

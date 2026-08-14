@@ -33,42 +33,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
 
     case Mapping.parse_chat_request(params, auth) do
       {:ok, chat} ->
-        if current?(epoch) do
-          event =
-            EventRecorder.record_inbound(
-              "openai_api",
-              %{
-                external_event_id: "openai_api:chat:#{Ecto.UUID.generate()}",
-                external_user_id: Map.fetch!(auth, :client_id),
-                user_id: chat.user_id,
-                session_id: Map.get(chat, :session_id),
-                thread_id: Map.get(chat, :thread_id),
-                payload_summary: "chat.completions #{chat.model}"
-              },
-              %{allbert_pack_epoch: epoch}
-            )
-
-          with :ok <- current(epoch),
-               {:ok, runtime_response} <-
-                 Runtime.submit_user_input(Mapping.runtime_request(chat, auth),
-                   allbert_pack_epoch: epoch
-                 ) do
-            deliver_chat_response(conn, chat, auth, event, runtime_response, epoch)
-          else
-            {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
-              HTTPGate.unavailable(conn)
-
-            {:error, %{status: _status} = error} ->
-              EventRecorder.mark_failed(event, error, %{allbert_pack_epoch: epoch})
-              send_error(conn, error)
-
-            {:error, reason} ->
-              EventRecorder.mark_failed(event, reason, %{allbert_pack_epoch: epoch})
-              send_error(conn, Mapping.runtime_error(reason))
-          end
-        else
-          HTTPGate.unavailable(conn)
-        end
+        handle_parsed_chat_request(conn, chat, auth, epoch)
 
       {:error, %{status: _status} = error} ->
         EventRecorder.record_rejection(
@@ -83,6 +48,45 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
         )
 
         send_error(conn, error)
+    end
+  end
+
+  defp handle_parsed_chat_request(conn, chat, auth, epoch) do
+    if current?(epoch) do
+      event =
+        EventRecorder.record_inbound(
+          "openai_api",
+          %{
+            external_event_id: "openai_api:chat:#{Ecto.UUID.generate()}",
+            external_user_id: Map.fetch!(auth, :client_id),
+            user_id: chat.user_id,
+            session_id: Map.get(chat, :session_id),
+            thread_id: Map.get(chat, :thread_id),
+            payload_summary: "chat.completions #{chat.model}"
+          },
+          %{allbert_pack_epoch: epoch}
+        )
+
+      with :ok <- current(epoch),
+           {:ok, runtime_response} <-
+             Runtime.submit_user_input(Mapping.runtime_request(chat, auth),
+               allbert_pack_epoch: epoch
+             ) do
+        deliver_chat_response(conn, chat, auth, event, runtime_response, epoch)
+      else
+        {:error, reason} when reason in [:product_not_ready, :stale_epoch] ->
+          HTTPGate.unavailable(conn)
+
+        {:error, %{status: _status} = error} ->
+          EventRecorder.mark_failed(event, error, %{allbert_pack_epoch: epoch})
+          send_error(conn, error)
+
+        {:error, reason} ->
+          EventRecorder.mark_failed(event, reason, %{allbert_pack_epoch: epoch})
+          send_error(conn, Mapping.runtime_error(reason))
+      end
+    else
+      HTTPGate.unavailable(conn)
     end
   end
 

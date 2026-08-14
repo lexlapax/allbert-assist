@@ -162,17 +162,21 @@ defmodule AllbertAssist.Conversations do
         with :ok <- EffectGuard.validate(epoch), do: get_thread(user_id, thread_id)
 
       true ->
-        case recent_general_thread(user_id) do
-          {:ok, %Thread{} = thread} ->
-            with :ok <- EffectGuard.validate(epoch), do: {:ok, thread}
-
-          {:ok, nil} ->
-            guarded_create_general_thread(user_id, text, epoch)
-        end
+        resolve_recent_or_create(user_id, text, epoch)
     end
   end
 
   def resolve_thread(_attrs, _effect_context), do: {:error, :product_not_ready}
+
+  defp resolve_recent_or_create(user_id, text, epoch) do
+    case recent_general_thread(user_id) do
+      {:ok, %Thread{} = thread} ->
+        with :ok <- EffectGuard.validate(epoch), do: {:ok, thread}
+
+      {:ok, nil} ->
+        guarded_create_general_thread(user_id, text, epoch)
+    end
+  end
 
   @doc "List threads owned by a local string user id."
   @spec list_threads(String.t(), keyword()) :: [Thread.t()]
@@ -455,17 +459,19 @@ defmodule AllbertAssist.Conversations do
   end
 
   defp guarded_create_general_thread(user_id, text, epoch) do
-    case Repo.transaction(fn ->
-           with :ok <- EffectGuard.validate(epoch),
-                {:ok, thread} <- create_general_thread(user_id, text),
-                :ok <- EffectGuard.validate(epoch) do
-             thread
-           else
-             {:error, reason} -> Repo.rollback(reason)
-           end
-         end) do
+    case Repo.transaction(fn -> create_general_thread_in_transaction(user_id, text, epoch) end) do
       {:ok, %Thread{} = thread} -> {:ok, thread}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp create_general_thread_in_transaction(user_id, text, epoch) do
+    with :ok <- EffectGuard.validate(epoch),
+         {:ok, thread} <- create_general_thread(user_id, text),
+         :ok <- EffectGuard.validate(epoch) do
+      thread
+    else
+      {:error, reason} -> Repo.rollback(reason)
     end
   end
 

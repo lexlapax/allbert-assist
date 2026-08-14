@@ -122,28 +122,7 @@ defmodule AllbertAssist.Pack.Registry do
         %{phase: :collecting} = state
       ) do
     if coordinator?(state.coordinator, caller) do
-      case canonicalize_candidate(candidate, state.publication) do
-        {:ok, snapshot, bytes} ->
-          with {:ok, effectful_ids} <-
-                 validate_effectful_ids(requested_effectful_ids, snapshot) do
-            {:reply, {:ok, snapshot},
-             %{
-               state
-               | phase: :finalized,
-                 candidate: candidate,
-                 snapshot: snapshot,
-                 effectful_ids: effectful_ids,
-                 canonical_bytes: bytes,
-                 diagnostics: snapshot.compatibility_diagnostics
-             }}
-          else
-            {:error, diagnostics} ->
-              {:reply, {:error, {:invalid_candidate, diagnostics}}, state}
-          end
-
-        {:error, reason} ->
-          {:reply, {:error, {:invalid_candidate, reason}}, state}
-      end
+      finalize_collecting_candidate(candidate, requested_effectful_ids, state)
     else
       {:reply, not_coordinator_error(), state}
     end
@@ -180,6 +159,34 @@ defmodule AllbertAssist.Pack.Registry do
           {:error, reason} ->
             {:reply, {:error, {:invalid_candidate, reason}}, state}
         end
+    end
+  end
+
+  defp finalize_collecting_candidate(candidate, requested_effectful_ids, state) do
+    case canonicalize_candidate(candidate, state.publication) do
+      {:ok, snapshot, bytes} ->
+        finalize_with_effectful_ids(candidate, requested_effectful_ids, snapshot, bytes, state)
+
+      {:error, reason} ->
+        {:reply, {:error, {:invalid_candidate, reason}}, state}
+    end
+  end
+
+  defp finalize_with_effectful_ids(candidate, requested_effectful_ids, snapshot, bytes, state) do
+    with {:ok, effectful_ids} <- validate_effectful_ids(requested_effectful_ids, snapshot) do
+      {:reply, {:ok, snapshot},
+       %{
+         state
+         | phase: :finalized,
+           candidate: candidate,
+           snapshot: snapshot,
+           effectful_ids: effectful_ids,
+           canonical_bytes: bytes,
+           diagnostics: snapshot.compatibility_diagnostics
+       }}
+    else
+      {:error, diagnostics} ->
+        {:reply, {:error, {:invalid_candidate, diagnostics}}, state}
     end
   end
 

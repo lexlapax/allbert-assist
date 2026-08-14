@@ -193,14 +193,7 @@ defmodule AllbertAssist.Objectives do
              is_map(context) do
     with :ok <- validate_effect_context(context) do
       now = DateTime.utc_now()
-
-      query =
-        from objective in Objective,
-          where:
-            objective.id == ^objective_id and objective.user_id == ^user_id and
-              objective.status in ^@active_statuses and
-              not (objective.status == "blocked" and
-                     objective.review_reason == "cancellation_requested")
+      query = active_cancellable_objective_query(user_id, objective_id)
 
       transaction = fn ->
         request_cancellation_transaction(query, user_id, objective_id, reason, now, context)
@@ -217,6 +210,15 @@ defmodule AllbertAssist.Objectives do
   def request_cancellation(user_id, objective_id, reason)
       when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) do
     {:error, :product_not_ready}
+  end
+
+  defp active_cancellable_objective_query(user_id, objective_id) do
+    from objective in Objective,
+      where:
+        objective.id == ^objective_id and objective.user_id == ^user_id and
+          objective.status in ^@active_statuses and
+          not (objective.status == "blocked" and
+                 objective.review_reason == "cancellation_requested")
   end
 
   defp request_cancellation_transaction(query, user_id, objective_id, reason, now, context) do
@@ -518,40 +520,44 @@ defmodule AllbertAssist.Objectives do
 
       ordinary_query = where(stale, [objective], is_nil(objective.fanout_role))
 
-      with {:ok, ordinary_count} <-
-             Repo.transaction(fn ->
-               {count, _} =
-                 Repo.update_all(ordinary_query, set: [status: "abandoned", updated_at: now])
+      abandon_ordinary = fn ->
+        {count, _} = Repo.update_all(ordinary_query, set: [status: "abandoned", updated_at: now])
 
-               validate_effect_context_or_rollback!(context)
-               count
-             end) do
-        stale_children =
-          stale
-          |> where([objective], objective.fanout_role == "child")
-          |> join(:inner, [child], parent in Objective,
-            on:
-              parent.id == child.parent_objective_id and parent.fanout_role == "parent" and
-                parent.kickoff_delivery_state == "acknowledged" and
-                parent.report_delivery_state == "not_ready"
-          )
-          |> order_by([objective],
-            asc: objective.parent_objective_id,
-            asc: objective.queue_position
-          )
-          |> select([child, _parent], child)
-          |> Repo.all()
+        validate_effect_context_or_rollback!(context)
+        count
+      end
 
-        case abandon_stale_fanout_children(stale_children, cutoff, now, context) do
-          {:ok, child_count} -> {:ok, ordinary_count + child_count}
-          {:error, reason} -> {:error, reason}
-        end
+      with {:ok, ordinary_count} <- Repo.transaction(abandon_ordinary) do
+        abandon_stale_fanout(stale, ordinary_count, cutoff, now, context)
       end
     end
   end
 
   def abandon_stale_objectives(_opts), do: {:error, :product_not_ready}
   def abandon_stale_objectives, do: {:error, :product_not_ready}
+
+  defp abandon_stale_fanout(stale, ordinary_count, cutoff, now, context) do
+    stale_children =
+      stale
+      |> where([objective], objective.fanout_role == "child")
+      |> join(:inner, [child], parent in Objective,
+        on:
+          parent.id == child.parent_objective_id and parent.fanout_role == "parent" and
+            parent.kickoff_delivery_state == "acknowledged" and
+            parent.report_delivery_state == "not_ready"
+      )
+      |> order_by([objective],
+        asc: objective.parent_objective_id,
+        asc: objective.queue_position
+      )
+      |> select([child, _parent], child)
+      |> Repo.all()
+
+    case abandon_stale_fanout_children(stale_children, cutoff, now, context) do
+      {:ok, child_count} -> {:ok, ordinary_count + child_count}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
   defp abandon_stale_fanout_children(children, cutoff, now, context) do
     Enum.reduce_while(children, {:ok, 0}, fn child, {:ok, count} ->

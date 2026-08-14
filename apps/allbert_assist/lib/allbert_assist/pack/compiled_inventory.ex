@@ -76,16 +76,7 @@ defmodule AllbertAssist.Pack.CompiledInventory do
       modules
       |> Enum.filter(&implements?(&1, AllbertAssist.Plugin))
       |> Enum.filter(&product_plugin?/1)
-      |> Enum.reduce_while({:ok, %{}}, fn module, {:ok, plugins} ->
-        with true <- function_exported?(module, :plugin_id, 0),
-             plugin_id when is_binary(plugin_id) and plugin_id != "" <- module.plugin_id(),
-             false <- Map.has_key?(plugins, plugin_id) do
-          {:cont, {:ok, Map.put(plugins, plugin_id, module)}}
-        else
-          true -> {:halt, {:error, :duplicate_plugin_id}}
-          _other -> {:halt, {:error, :invalid_plugin_module}}
-        end
-      end)
+      |> Enum.reduce_while({:ok, %{}}, &register_plugin_module/2)
       |> case do
         {:ok, plugins} when map_size(plugins) > 0 -> {:ok, plugins}
         {:ok, _plugins} -> {:error, :empty_plugin_inventory}
@@ -96,6 +87,17 @@ defmodule AllbertAssist.Pack.CompiledInventory do
     _exception -> {:error, :invalid_plugin_module}
   catch
     _kind, _reason -> {:error, :invalid_plugin_module}
+  end
+
+  defp register_plugin_module(module, {:ok, plugins}) do
+    with true <- function_exported?(module, :plugin_id, 0),
+         plugin_id when is_binary(plugin_id) and plugin_id != "" <- module.plugin_id(),
+         false <- Map.has_key?(plugins, plugin_id) do
+      {:cont, {:ok, Map.put(plugins, plugin_id, module)}}
+    else
+      true -> {:halt, {:error, :duplicate_plugin_id}}
+      _other -> {:halt, {:error, :invalid_plugin_module}}
+    end
   end
 
   @spec default_app_modules([atom()]) :: {:ok, [module()]} | {:error, atom()}
@@ -114,15 +116,7 @@ defmodule AllbertAssist.Pack.CompiledInventory do
     with {:ok, modules} <- app_modules(applications) do
       modules
       |> Enum.filter(& &1.reserved_app_id?())
-      |> Enum.reduce_while({:ok, %{}}, fn module, {:ok, owners} ->
-        case module.app_id() do
-          app_id when is_atom(app_id) and app_id not in [nil, true, false] ->
-            {:cont, {:ok, Map.update(owners, app_id, [module], &(&1 ++ [module]))}}
-
-          _other ->
-            {:halt, {:error, :invalid_reserved_app_owner}}
-        end
-      end)
+      |> Enum.reduce_while({:ok, %{}}, &accumulate_reserved_owner/2)
       |> case do
         {:ok, owners} when map_size(owners) > 0 -> {:ok, owners}
         {:ok, _owners} -> {:error, :empty_reserved_app_inventory}
@@ -133,6 +127,16 @@ defmodule AllbertAssist.Pack.CompiledInventory do
     _exception -> {:error, :invalid_app_module}
   catch
     _kind, _reason -> {:error, :invalid_app_module}
+  end
+
+  defp accumulate_reserved_owner(module, {:ok, owners}) do
+    case module.app_id() do
+      app_id when is_atom(app_id) and app_id not in [nil, true, false] ->
+        {:cont, {:ok, Map.update(owners, app_id, [module], &(&1 ++ [module]))}}
+
+      _other ->
+        {:halt, {:error, :invalid_reserved_app_owner}}
+    end
   end
 
   @doc false

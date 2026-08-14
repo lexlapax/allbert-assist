@@ -1033,28 +1033,36 @@ defmodule StockSageWeb.AnalysisLive do
         entry
 
       sync_key = entry.metadata["allbert_memory_idempotency_key"] ->
-        case AllbertMemory.list_entries(
-               user_id: user_id,
-               app_id: :stocksage,
-               namespace: :stocksage,
-               idempotency_key: sync_key,
-               limit: 1
-             ) do
-          {:ok, [memory_entry | _rest]} ->
-            case update_synced_reflection(entry, %{
-                   path: memory_entry.path,
-                   idempotency_key: memory_entry.idempotency_key
-                 }) do
-              {:ok, updated} -> updated
-              {:error, _reason} -> entry
-            end
-
-          _other ->
-            entry
-        end
+        apply_synced_reflection(user_id, entry, sync_key)
 
       true ->
         entry
+    end
+  end
+
+  defp apply_synced_reflection(user_id, entry, sync_key) do
+    case AllbertMemory.list_entries(
+           user_id: user_id,
+           app_id: :stocksage,
+           namespace: :stocksage,
+           idempotency_key: sync_key,
+           limit: 1
+         ) do
+      {:ok, [memory_entry | _rest]} ->
+        reflection_from_synced_memory(entry, memory_entry)
+
+      _other ->
+        entry
+    end
+  end
+
+  defp reflection_from_synced_memory(entry, memory_entry) do
+    case update_synced_reflection(entry, %{
+           path: memory_entry.path,
+           idempotency_key: memory_entry.idempotency_key
+         }) do
+      {:ok, updated} -> updated
+      {:error, _reason} -> entry
     end
   end
 

@@ -118,22 +118,35 @@ defmodule AllbertTUI.Subscriptions do
     channel = field(attachment, :channel)
     receiver_account_ref = field(attachment, :receiver_account_ref)
     parent_id = objective_parent_id(objective)
+    scope = attachment_scope(attachment, parent_id)
 
-    scope =
-      case field(attachment, :fanouts) do
-        fanouts when is_map(fanouts) -> Map.get(fanouts, parent_id)
-        _other -> attachment
-      end
+    matches_attachment_scope?(objective, scope, parent_id, channel, receiver_account_ref)
+  end
 
+  defp attachment_scope(attachment, parent_id) do
+    case field(attachment, :fanouts) do
+      fanouts when is_map(fanouts) -> Map.get(fanouts, parent_id)
+      _other -> attachment
+    end
+  end
+
+  defp matches_attachment_scope?(objective, scope, parent_id, channel, receiver_account_ref) do
     thread_id = field(scope || %{}, :thread_id)
     session_id = field(scope || %{}, :session_id)
 
     is_map(scope) and field(scope, :parent_id) == parent_id and
       objective.source_channel == channel and objective.source_thread_id == thread_id and
-      (is_nil(objective.session_id) or objective.session_id == session_id) and
-      (is_nil(objective.origin_receiver_account_ref) or
-         objective.origin_receiver_account_ref == receiver_account_ref)
+      matches_session?(objective, session_id) and
+      matches_origin_receiver?(objective, receiver_account_ref)
   end
+
+  defp matches_session?(objective, session_id),
+    do: is_nil(objective.session_id) or objective.session_id == session_id
+
+  defp matches_origin_receiver?(objective, receiver_account_ref),
+    do:
+      is_nil(objective.origin_receiver_account_ref) or
+        objective.origin_receiver_account_ref == receiver_account_ref
 
   defp objective_parent_id(%{fanout_role: "parent", id: id}), do: id
   defp objective_parent_id(%{fanout_role: "child", parent_objective_id: id}), do: id

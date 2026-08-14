@@ -175,20 +175,19 @@ defmodule StockSage.Actions.RunAnalysis do
 
   defp dispatch(validated, context, permission_decision) do
     cond do
-      native_engine?(validated.engine) and not native_engine_enabled?() ->
+      native_engine_blocked?(validated) ->
         native_disabled(validated, permission_decision)
 
-      python_engine?(validated.engine) and not python_comparison_enabled?() ->
+      python_comparison_blocked?(validated) ->
         python_comparison_disabled(validated, permission_decision)
 
-      python_engine?(validated.engine) and not bridge_enabled?() ->
+      bridge_blocked?(validated) ->
         bridge_disabled(validated, permission_decision)
 
       approval_resume?(context) ->
         run_after_approval(validated, context, permission_decision)
 
-      not Security.allowed?(permission_decision) and
-          permission_decision.requires_confirmation ->
+      needs_confirmation?(permission_decision) ->
         request_confirmation(validated, context, permission_decision)
 
       Security.allowed?(permission_decision) ->
@@ -200,6 +199,22 @@ defmodule StockSage.Actions.RunAnalysis do
       true ->
         denied(validated, permission_decision)
     end
+  end
+
+  defp native_engine_blocked?(validated) do
+    native_engine?(validated.engine) and not native_engine_enabled?()
+  end
+
+  defp python_comparison_blocked?(validated) do
+    python_engine?(validated.engine) and not python_comparison_enabled?()
+  end
+
+  defp bridge_blocked?(validated) do
+    python_engine?(validated.engine) and not bridge_enabled?()
+  end
+
+  defp needs_confirmation?(permission_decision) do
+    not Security.allowed?(permission_decision) and permission_decision.requires_confirmation
   end
 
   defp request_confirmation(validated, context, permission_decision) do
@@ -560,106 +575,137 @@ defmodule StockSage.Actions.RunAnalysis do
     # TradingAgents propagate call or from the deterministic stub.
     stub? = result_field(result, :stub, false)
 
+    exec = %{validated: validated, result: result, context: context}
+
+    meta = %{
+      summary: summary,
+      duration_ms: duration_ms,
+      stub?: stub?,
+      truncated?: truncated?,
+      started_at: started_at
+    }
+
     case Analyses.create_analysis(analysis_attrs) do
       {:ok, analysis} ->
-        case SurfaceNodes.completed(
-               analysis,
-               validated,
-               result,
-               context,
-               summary,
-               duration_ms,
-               stub?,
-               truncated?
-             ) do
-          {:ok, surface_nodes} ->
-            write_detail(analysis, validated, result, truncated?)
-            update_queue(validated, analysis, :completed, started_at)
-
-            emit_analysis_signal(@signal_analysis_completed, %{
-              analysis_id: analysis.id,
-              ticker: validated.ticker,
-              analysis_date: Date.to_iso8601(validated.analysis_date),
-              engine: validated.engine,
-              user_id: validated.user_id,
-              thread_id: validated.thread_id || Actions.field(context, :thread_id),
-              session_id: validated.session_id || Actions.field(context, :session_id),
-              queue_entry_id: validated.queue_entry_id,
-              source_analysis_id: validated.source_analysis_id,
-              objective_id: validated.objective_id,
-              step_id: validated.step_id,
-              duration_ms: duration_ms,
-              bridge_duration_ms:
-                if(python_engine?(validated.engine), do: duration_ms, else: nil),
-              truncated: truncated?,
-              stub: stub?,
-              summary: summary,
-              native_trace: native_trace_metadata(validated, result)
-            })
-
-            Progress.broadcast(validated.user_id, analysis.id, %{
-              objective_id: validated.objective_id,
-              stage: "completed",
-              status: "completed",
-              summary: summary,
-              at: DateTime.utc_now()
-            })
-
-            {:ok,
-             %{
-               message:
-                 "StockSage analysis for #{validated.ticker} on #{Date.to_iso8601(validated.analysis_date)} completed.",
-               status: :completed,
-               permission_decision: permission_decision,
-               analysis_id: analysis.id,
-               ticker: analysis.symbol,
-               analysis_date: Date.to_iso8601(validated.analysis_date),
-               engine: validated.engine,
-               summary: summary,
-               surface_nodes: surface_nodes,
-               truncated: truncated?,
-               stub: stub?,
-               parity_diff: result_field(result, :parity_diff),
-               duration_ms: duration_ms,
-               bridge_duration_ms:
-                 if(python_engine?(validated.engine), do: duration_ms, else: nil),
-               objective_id: validated.objective_id,
-               step_id: validated.step_id,
-               actions: [
-                 Actions.action(
-                   "run_analysis",
-                   :completed,
-                   :stocksage_analyze,
-                   permission_decision,
-                   %{
-                     analysis_id: analysis.id,
-                     ticker: analysis.symbol,
-                     analysis_date: Date.to_iso8601(validated.analysis_date),
-                     engine: validated.engine,
-                     duration_ms: duration_ms,
-                     bridge_duration_ms:
-                       if(python_engine?(validated.engine), do: duration_ms, else: nil),
-                     truncated: truncated?,
-                     stub: stub?,
-                     parity_diff: result_field(result, :parity_diff),
-                     native_trace: native_trace_metadata(validated, result),
-                     queue_entry_id: validated.queue_entry_id,
-                     source_analysis_id: validated.source_analysis_id,
-                     objective_id: validated.objective_id,
-                     step_id: validated.step_id,
-                     summary: summary
-                   }
-                 )
-               ]
-             }}
-
-          {:error, diagnostics} ->
-            error(permission_decision, :surface_node_validation_failed, diagnostics)
-        end
+        persist_success_surface(analysis, exec, permission_decision, meta)
 
       {:error, changeset} ->
         error(permission_decision, :persist_failed, errors_on(changeset))
     end
+  end
+
+  defp persist_success_surface(analysis, exec, permission_decision, meta) do
+    %{validated: validated, result: result, context: context} = exec
+
+    case SurfaceNodes.completed(
+           analysis,
+           validated,
+           result,
+           context,
+           meta.summary,
+           meta.duration_ms,
+           meta.stub?,
+           meta.truncated?
+         ) do
+      {:ok, surface_nodes} ->
+        finalize_success(analysis, exec, permission_decision, meta, surface_nodes)
+
+      {:error, diagnostics} ->
+        error(permission_decision, :surface_node_validation_failed, diagnostics)
+    end
+  end
+
+  defp finalize_success(analysis, exec, permission_decision, meta, surface_nodes) do
+    %{validated: validated, result: result, context: context} = exec
+
+    %{
+      summary: summary,
+      duration_ms: duration_ms,
+      stub?: stub?,
+      truncated?: truncated?,
+      started_at: started_at
+    } = meta
+
+    write_detail(analysis, validated, result, truncated?)
+    update_queue(validated, analysis, :completed, started_at)
+
+    emit_analysis_signal(@signal_analysis_completed, %{
+      analysis_id: analysis.id,
+      ticker: validated.ticker,
+      analysis_date: Date.to_iso8601(validated.analysis_date),
+      engine: validated.engine,
+      user_id: validated.user_id,
+      thread_id: validated.thread_id || Actions.field(context, :thread_id),
+      session_id: validated.session_id || Actions.field(context, :session_id),
+      queue_entry_id: validated.queue_entry_id,
+      source_analysis_id: validated.source_analysis_id,
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
+      duration_ms: duration_ms,
+      bridge_duration_ms: bridge_duration_ms(validated.engine, duration_ms),
+      truncated: truncated?,
+      stub: stub?,
+      summary: summary,
+      native_trace: native_trace_metadata(validated, result)
+    })
+
+    Progress.broadcast(validated.user_id, analysis.id, %{
+      objective_id: validated.objective_id,
+      stage: "completed",
+      status: "completed",
+      summary: summary,
+      at: DateTime.utc_now()
+    })
+
+    {:ok,
+     %{
+       message:
+         "StockSage analysis for #{validated.ticker} on #{Date.to_iso8601(validated.analysis_date)} completed.",
+       status: :completed,
+       permission_decision: permission_decision,
+       analysis_id: analysis.id,
+       ticker: analysis.symbol,
+       analysis_date: Date.to_iso8601(validated.analysis_date),
+       engine: validated.engine,
+       summary: summary,
+       surface_nodes: surface_nodes,
+       truncated: truncated?,
+       stub: stub?,
+       parity_diff: result_field(result, :parity_diff),
+       duration_ms: duration_ms,
+       bridge_duration_ms: bridge_duration_ms(validated.engine, duration_ms),
+       objective_id: validated.objective_id,
+       step_id: validated.step_id,
+       actions: [
+         Actions.action(
+           "run_analysis",
+           :completed,
+           :stocksage_analyze,
+           permission_decision,
+           %{
+             analysis_id: analysis.id,
+             ticker: analysis.symbol,
+             analysis_date: Date.to_iso8601(validated.analysis_date),
+             engine: validated.engine,
+             duration_ms: duration_ms,
+             bridge_duration_ms: bridge_duration_ms(validated.engine, duration_ms),
+             truncated: truncated?,
+             stub: stub?,
+             parity_diff: result_field(result, :parity_diff),
+             native_trace: native_trace_metadata(validated, result),
+             queue_entry_id: validated.queue_entry_id,
+             source_analysis_id: validated.source_analysis_id,
+             objective_id: validated.objective_id,
+             step_id: validated.step_id,
+             summary: summary
+           }
+         )
+       ]
+     }}
+  end
+
+  defp bridge_duration_ms(engine, duration_ms) do
+    if python_engine?(engine), do: duration_ms, else: nil
   end
 
   defp persist_failure(validated, reason, context, permission_decision, started_at) do
@@ -692,11 +738,16 @@ defmodule StockSage.Actions.RunAnalysis do
       }
     }
 
-    {analysis_id, persistence_error} =
-      case Analyses.create_analysis(analysis_attrs) do
-        {:ok, analysis} -> {analysis.id, nil}
-        {:error, changeset} -> {nil, errors_on(changeset)}
-      end
+    {analysis_id, persistence_error} = create_failed_analysis(analysis_attrs)
+
+    exec = %{validated: validated, reason: reason, context: context}
+
+    meta = %{
+      summary: summary,
+      duration_ms: duration_ms,
+      persistence_error: persistence_error,
+      started_at: started_at
+    }
 
     case SurfaceNodes.failed(
            analysis_id,
@@ -706,77 +757,96 @@ defmodule StockSage.Actions.RunAnalysis do
            duration_ms
          ) do
       {:ok, surface_nodes} ->
-        update_queue(validated, %{id: analysis_id}, :failed, started_at, reason)
-
-        emit_analysis_signal(@signal_analysis_failed, %{
-          analysis_id: analysis_id,
-          ticker: validated.ticker,
-          analysis_date: Date.to_iso8601(validated.analysis_date),
-          engine: validated.engine,
-          user_id: validated.user_id,
-          thread_id: validated.thread_id || Actions.field(context, :thread_id),
-          session_id: validated.session_id || Actions.field(context, :session_id),
-          queue_entry_id: validated.queue_entry_id,
-          source_analysis_id: validated.source_analysis_id,
-          objective_id: validated.objective_id,
-          step_id: validated.step_id,
-          duration_ms: duration_ms,
-          bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
-          error: Protocol.bounded_reason(reason)
-        })
-
-        Progress.broadcast(validated.user_id, analysis_id, %{
-          objective_id: validated.objective_id,
-          stage: "failed",
-          status: "failed",
-          summary: summary,
-          at: DateTime.utc_now()
-        })
-
-        {:ok,
-         %{
-           message:
-             "StockSage analysis for #{validated.ticker} failed: #{Protocol.bounded_reason(reason)}.",
-           status: :failed,
-           permission_decision: permission_decision,
-           analysis_id: analysis_id,
-           ticker: validated.ticker,
-           analysis_date: Date.to_iso8601(validated.analysis_date),
-           engine: validated.engine,
-           error: Protocol.bounded_reason(reason),
-           surface_nodes: surface_nodes,
-           persistence_error: persistence_error,
-           duration_ms: duration_ms,
-           bridge_duration_ms: if(python_engine?(validated.engine), do: duration_ms, else: nil),
-           objective_id: validated.objective_id,
-           step_id: validated.step_id,
-           actions: [
-             Actions.action(
-               "run_analysis",
-               :failed,
-               :stocksage_analyze,
-               permission_decision,
-               %{
-                 analysis_id: analysis_id,
-                 ticker: validated.ticker,
-                 analysis_date: Date.to_iso8601(validated.analysis_date),
-                 engine: validated.engine,
-                 duration_ms: duration_ms,
-                 bridge_duration_ms:
-                   if(python_engine?(validated.engine), do: duration_ms, else: nil),
-                 error: Protocol.bounded_reason(reason),
-                 queue_entry_id: validated.queue_entry_id,
-                 source_analysis_id: validated.source_analysis_id,
-                 objective_id: validated.objective_id,
-                 step_id: validated.step_id
-               }
-             )
-           ]
-         }}
+        finalize_failure(analysis_id, exec, permission_decision, meta, surface_nodes)
 
       {:error, diagnostics} ->
         error(permission_decision, :surface_node_validation_failed, diagnostics)
     end
+  end
+
+  defp create_failed_analysis(analysis_attrs) do
+    case Analyses.create_analysis(analysis_attrs) do
+      {:ok, analysis} -> {analysis.id, nil}
+      {:error, changeset} -> {nil, errors_on(changeset)}
+    end
+  end
+
+  defp finalize_failure(analysis_id, exec, permission_decision, meta, surface_nodes) do
+    %{validated: validated, reason: reason, context: context} = exec
+
+    %{
+      summary: summary,
+      duration_ms: duration_ms,
+      persistence_error: persistence_error,
+      started_at: started_at
+    } = meta
+
+    update_queue(validated, %{id: analysis_id}, :failed, started_at, reason)
+
+    emit_analysis_signal(@signal_analysis_failed, %{
+      analysis_id: analysis_id,
+      ticker: validated.ticker,
+      analysis_date: Date.to_iso8601(validated.analysis_date),
+      engine: validated.engine,
+      user_id: validated.user_id,
+      thread_id: validated.thread_id || Actions.field(context, :thread_id),
+      session_id: validated.session_id || Actions.field(context, :session_id),
+      queue_entry_id: validated.queue_entry_id,
+      source_analysis_id: validated.source_analysis_id,
+      objective_id: validated.objective_id,
+      step_id: validated.step_id,
+      duration_ms: duration_ms,
+      bridge_duration_ms: bridge_duration_ms(validated.engine, duration_ms),
+      error: Protocol.bounded_reason(reason)
+    })
+
+    Progress.broadcast(validated.user_id, analysis_id, %{
+      objective_id: validated.objective_id,
+      stage: "failed",
+      status: "failed",
+      summary: summary,
+      at: DateTime.utc_now()
+    })
+
+    {:ok,
+     %{
+       message:
+         "StockSage analysis for #{validated.ticker} failed: #{Protocol.bounded_reason(reason)}.",
+       status: :failed,
+       permission_decision: permission_decision,
+       analysis_id: analysis_id,
+       ticker: validated.ticker,
+       analysis_date: Date.to_iso8601(validated.analysis_date),
+       engine: validated.engine,
+       error: Protocol.bounded_reason(reason),
+       surface_nodes: surface_nodes,
+       persistence_error: persistence_error,
+       duration_ms: duration_ms,
+       bridge_duration_ms: bridge_duration_ms(validated.engine, duration_ms),
+       objective_id: validated.objective_id,
+       step_id: validated.step_id,
+       actions: [
+         Actions.action(
+           "run_analysis",
+           :failed,
+           :stocksage_analyze,
+           permission_decision,
+           %{
+             analysis_id: analysis_id,
+             ticker: validated.ticker,
+             analysis_date: Date.to_iso8601(validated.analysis_date),
+             engine: validated.engine,
+             duration_ms: duration_ms,
+             bridge_duration_ms: bridge_duration_ms(validated.engine, duration_ms),
+             error: Protocol.bounded_reason(reason),
+             queue_entry_id: validated.queue_entry_id,
+             source_analysis_id: validated.source_analysis_id,
+             objective_id: validated.objective_id,
+             step_id: validated.step_id
+           }
+         )
+       ]
+     }}
   end
 
   defp write_detail(analysis, validated, result, truncated?) do
@@ -1060,14 +1130,12 @@ defmodule StockSage.Actions.RunAnalysis do
   end
 
   defp normalize_engine(params) when is_map(params) do
-    cond do
-      normalize_bool(Actions.field(params, :compare_python)) ->
-        "both"
-
-      true ->
-        params
-        |> Actions.field(:engine)
-        |> normalize_engine_value()
+    if normalize_bool(Actions.field(params, :compare_python)) do
+      "both"
+    else
+      params
+      |> Actions.field(:engine)
+      |> normalize_engine_value()
     end
   end
 

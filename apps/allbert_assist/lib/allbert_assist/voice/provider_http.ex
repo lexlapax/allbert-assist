@@ -62,22 +62,23 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
 
       with :ok <- EffectGuard.validate(epoch),
            result <- Req.request(request) do
-        case result do
-          {:ok, %{status: status} = response} when status >= 200 and status < 300 ->
-            {:ok, response}
-
-          {:ok, %{status: status}} ->
-            {:error, {:voice_http_error, status}}
-
-          {:error, %Req.TransportError{} = error} ->
-            {:error, {:voice_transport_error, error.reason}}
-
-          {:error, reason} ->
-            {:error, {:voice_transport_error, reason}}
-        end
+        handle_request_result(result)
       end
     end
   end
+
+  defp handle_request_result({:ok, %{status: status} = response})
+       when status >= 200 and status < 300,
+       do: {:ok, response}
+
+  defp handle_request_result({:ok, %{status: status}}),
+    do: {:error, {:voice_http_error, status}}
+
+  defp handle_request_result({:error, %Req.TransportError{} = error}),
+    do: {:error, {:voice_transport_error, error.reason}}
+
+  defp handle_request_result({:error, reason}),
+    do: {:error, {:voice_transport_error, reason}}
 
   @spec json_body(Req.Response.t()) :: {:ok, map()} | {:error, term()}
   def json_body(%{body: body}) when is_map(body), do: {:ok, body}
