@@ -11,14 +11,18 @@ it**.
 ## Who drove this
 
 **Agent-driven at operator direction, 2026-08-14.** The operator directed the
-agent to execute the source FV using the repository `.env` and the browser. The
-agent drove every step recorded below. **No human personally exercised the TUI
-or the Web UI in this run.**
+agent to execute the source FV using the repository `.env`, and — after
+connecting the Chrome extension — to drive the Web surface in a real browser.
+The agent performed every step recorded below, including the browser
+interactions. **No human personally exercised the TUI or the Web UI in this
+run.**
 
 That distinction is the reason this file exists. The v1.3 disclosure separated
 "operator-exercised" from "agent-run", and this run is entirely the latter.
 Anyone reading v1.4's release evidence should know that, and should not read
-the PASS rows below as attended validation.
+the PASS rows below as attended validation. The operator explicitly authorised
+and directed the run; what the rows cannot say is that a human watched the
+screen.
 
 Secrets were sourced from the operator's `.env` into the process environment and
 never printed, logged, or written into the repository. No credential was entered
@@ -61,7 +65,9 @@ the web surface through `mix phx.server` and every pack/CLI step through
 | SV-6 | The M15.1 `session_owner` seam resolves live | **PASS** — descriptor carries `AllbertAssist.Runtime.Attach.TUISession`; loaded, exports `start/1`, and `owner_application = {:ok, :allbert_tui}` |
 | SV-7 | An extracted pack's action runs with a real filesystem effect | **PASS** — see the gated loop below |
 | SV-8 | The confirmation boundary fails closed | **PASS** — see below |
-| SV-5 | Web UI, interactive | **PARTIAL** — HTTP only |
+| SV-5 | Web UI, interactive | **PASS** — see below |
+| SV-5b | Pack web surfaces render real data | **PASS** — `notes_files` and `stocksage` |
+| SV-5c | Cross-surface continuity and durability | **PASS** — CLI turns appear in the Web thread and survive reload |
 | SV-9 | Licence/component viewer | **N/A from source** — see below |
 
 ### The gated loop, in full
@@ -83,16 +89,38 @@ one path:
 
 Nothing was written before approval, and that was checked rather than assumed.
 
-### SV-5 — Web UI, and why it is PARTIAL
+### SV-5 — Web UI, driven in a real browser
 
-The Chrome extension was **not connected**, so no interactive browser
-verification was possible. What was verified over HTTP: the workspace root
-returns `200` with ~40 KB of HTML carrying 144 LiveView markers and the
-workspace shell.
+The first pass of this FV recorded SV-5 as PARTIAL because the Chrome extension
+was not connected. The operator connected it and directed a second pass; the
+Web surface was then driven interactively in Chrome against the same disposable
+Home.
 
-That is a render check, not a use check. **No LiveView interaction, no click, no
-form, no visual confirmation.** Any claim that the v1.4 Web surface was
-functionally validated would be false on this evidence.
+**SV-5 — a real chat turn through the UI.** Typed into the workspace composer
+and submitted with Enter. The LiveView showed *"Allbert is responding — Runtime
+turn in progress"*, then rendered the answer **`WEBFV`** with
+`Status: completed` and `Signal 01a00245-9270-7ce5-aa17-261cbfae8619`. That is
+LiveView → runtime → intent → local model → response, in the browser.
+
+**SV-5b — pack surfaces render real data.** The workspace APPS rail lists five
+extracted packs: Artifacts, Browser, Notes/files, Research, StockSage.
+
+- **`notes_files`** opened to its own panel, status `ready`, and its search
+  returned `fvcheck — fvcheck.md - ALLBERTFV-NOTE-OK`. That closes a full round
+  trip: an action denied for scope, then confirmation-gated, then approved and
+  written to disk, then read back by the pack's own LiveView surface.
+- **`stocksage`** opened its dashboard — ANALYSIS panel with TICKER/ENGINE/
+  RATING/CONFIDENCE tiles, plus Recent analyses and Analysis queue, all `ready`.
+
+**SV-5c — continuity and durability.** Turns issued through the CLI earlier in
+this run appear in the Web thread, and the Web turn survived a full page reload.
+
+**No console errors** were captured on a fresh workspace load.
+
+One observation, recorded but not called a defect because it was seen once and
+not reproduced: the first click on StockSage highlighted the sidebar item
+without opening its panel or setting the `destination` query param; a second
+click opened it. Notes/files opened on the first click.
 
 ### SV-9 — licence viewer is packaged-only
 
@@ -113,7 +141,8 @@ gap.
 - **Interactive TUI.** `allbert tui` needs a TTY; the daemon's attach server
   reports `not_started` under `mix phx.server`, so no attach session was opened.
   The seam behind it was verified structurally (SV-6), which is not the same as
-  opening a session.
+  opening a session. **This is the one surface in v1.4 that no part of this run
+  exercised end to end**, and it is the surface M15.1 changed most.
 
 ## One defect class this run surfaced
 
