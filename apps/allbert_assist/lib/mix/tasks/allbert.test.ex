@@ -7613,6 +7613,7 @@ defmodule Mix.Tasks.Allbert.Test do
     "v14_email_owner",
     "v14_release_asset_owners",
     "v14_topology_owner",
+    "v14_license_drift",
     "v14_lane_inventory",
     "v14_manifest_inventory"
   ]
@@ -7762,6 +7763,24 @@ defmodule Mix.Tasks.Allbert.Test do
       ],
       coverage: [
         "frozen predecessor digests, aggregate-coverage repair, fail-closed scope selection, and the closed release.v14 roster"
+      ]
+    },
+    # v1.4 M16. The reviewed licence catalog binds `mix.lock` by digest, and
+    # until now the only gate that checked it was `v121_license_drift`, which
+    # lives in `@v121_focused_steps` and so is reachable only through
+    # `release.v121` and `release.v13`. Neither `release.v1` nor `release.v14`
+    # ran one. Since M17 retires `release.v1` from default qualification and
+    # promotes this gate as the authority, a dependency change would have gone
+    # fully green here against a stale catalog and surfaced only at packaging.
+    # M16 moved six packages, which is exactly when that would have bitten.
+    %{
+      id: "v14_license_drift",
+      title: "reviewed offline license inputs and union remain synchronized",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.licenses", "--check"],
+      coverage: [
+        "catalog, lock inputs, text digests, and canonical union are drift-free under the successor gate"
       ]
     },
     %{
@@ -8222,7 +8241,7 @@ defmodule Mix.Tasks.Allbert.Test do
       "release_v131_digest" => v131_digest == @release_v131_frozen_sha256,
       "release_v132_step_count" => length(v132_definitions) == 8,
       "release_v132_digest" => v132_digest == @release_v132_frozen_sha256,
-      "release_v14_step_count" => length(v14_definitions) == 12,
+      "release_v14_step_count" => length(v14_definitions) == 13,
       "release_v14_step_ids" => ids == @release_v14_step_ids,
       "closed_test_target_allowlist" => targets == @release_v14_target_allowlist,
       "root_mix_only" =>
@@ -8488,6 +8507,10 @@ defmodule Mix.Tasks.Allbert.Test do
        })
        when option in ["--check-tags", "--check-manifest"],
        do: true
+
+  # v1.4 M16. Check-only: the generate mode of this task rewrites the union,
+  # and a gate must never be able to repair the drift it exists to report.
+  defp allowed_v14_step?(%{"args" => ["allbert.licenses", "--check"]}), do: true
 
   defp allowed_v14_step?(_step), do: false
 

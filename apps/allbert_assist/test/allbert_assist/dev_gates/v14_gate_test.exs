@@ -5,7 +5,7 @@ defmodule AllbertAssist.DevGates.V14GateTest do
   alias AllbertAssist.DevGates.ScopeSelector
   alias Mix.Tasks.Allbert.Test, as: AllbertTestTask
 
-  test "release.v14 freezes release.v1, v1.3, v1.3.1, and v1.3.2 and its closed twelve-step delta" do
+  test "release.v14 freezes release.v1, v1.3, v1.3.1, and v1.3.2 and its closed thirteen-step delta" do
     proof = AllbertTestTask.release_v14_topology_proof()
     definitions = proof["definitions"]["release.v14"]
 
@@ -21,7 +21,12 @@ defmodule AllbertAssist.DevGates.V14GateTest do
     assert length(proof["definitions"]["release.v13"]) == 32
     assert length(proof["definitions"]["release.v131"]) == 8
     assert length(proof["definitions"]["release.v132"]) == 8
-    assert length(definitions) == 12
+    assert length(definitions) == 13
+
+    # v1.4 M16 added v14_license_drift. The reviewed catalog binds mix.lock by
+    # digest, and no gate surviving this release checked it: v121_license_drift
+    # is reachable only through release.v121 and release.v13.
+    assert "v14_license_drift" in Enum.map(definitions, & &1["id"])
 
     assert Enum.map(definitions, & &1["id"]) == proof["release_v14_step_ids"]
 
@@ -36,6 +41,7 @@ defmodule AllbertAssist.DevGates.V14GateTest do
              "v14_email_owner",
              "v14_release_asset_owners",
              "v14_topology_owner",
+             "v14_license_drift",
              "v14_lane_inventory",
              "v14_manifest_inventory"
            ]
