@@ -290,8 +290,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     refute task_source =~ "@owner_contract"
     refute task_source =~ "@owner_order"
-    assert length(Regex.scan(~r/cwd = release_step_cwd\(step\)/, task_source)) == 42
-    assert length(Regex.scan(~r/resolve_release_step_args\(step, cwd\)/, task_source)) == 43
+    assert length(Regex.scan(~r/cwd = release_step_cwd\(step\)/, task_source)) == 43
+    assert length(Regex.scan(~r/resolve_release_step_args\(step, cwd\)/, task_source)) == 44
   end
 
   test "pre-M7 release definitions, target multiplicity, owners, and path dispositions are exact" do
@@ -824,6 +824,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
              "core_external_runtime_serial",
              "core_security_eval_serial",
              "web_tests",
+             "kernel_tests",
+             "composition_tests",
              "stocksage_tests",
              "channel_plugin_tests",
              "dialyzer"
@@ -834,6 +836,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert "../../apps/allbert_notes_files/test" in plugin_test_args
     assert "../../apps/allbert_artifacts/test" in plugin_test_args
+    assert "../../apps/allbert_browser/test" in plugin_test_args
+    assert "../../apps/allbert_research/test" in plugin_test_args
 
     refute Enum.any?(phases, fn {_id, _cwd, args} -> args == ["precommit"] end)
     assert output =~ "release static_compile started"
@@ -847,7 +851,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     refute File.read!(evidence_path) =~ "secret-token"
 
     phase_logs = Enum.map(evidence["phases"], &Map.fetch!(&1, "redacted_output_log_path"))
-    assert length(phase_logs) == 12
+    assert length(phase_logs) == 14
     assert Enum.all?(phase_logs, &File.exists?/1)
     refute Enum.any?(phase_logs, &(File.read!(&1) =~ "secret-token"))
 
@@ -858,7 +862,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       |> String.split("\n", trim: true)
       |> Enum.map(&Jason.decode!/1)
 
-    assert length(records) == 12
+    assert length(records) == 14
     assert Enum.all?(records, &(&1["gate"] == "release"))
     assert Enum.all?(records, &(&1["status"] == "passed"))
     assert Enum.map(records, & &1["phase_or_step"]) |> List.last() == "dialyzer"
@@ -1318,7 +1322,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
             "release.v104",
             "release.v105",
             "release.v121",
-            "release.v13"
+            "release.v13",
+            "release.v14"
           ] do
         assert task_source =~ ~s{release_step_status("#{gate}", step.id, exit_status, output)}
       end

@@ -8,7 +8,7 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
   """
 
   @schema_version 1
-  @active_gate "release.v132"
+  @active_gate "release.v14"
   @rules [
     %{
       id: "documentation",
@@ -158,6 +158,33 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       prefixes: ["apps/allbert_assist/"],
       owners: ["core"],
       lanes: ["pure_async", "app_env_serial", "home_fs_serial", "global_process_serial"],
+      aggregate_required: false
+    },
+    %{
+      id: "browser",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_browser/"],
+      owners: ["browser"],
+      lanes: ["pure_async", "db_serial", "security_eval_serial", "external_runtime_serial"],
+      aggregate_required: false
+    },
+    %{
+      id: "research",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_research/"],
+      owners: ["research"],
+      lanes: ["pure_async", "db_serial", "security_eval_serial", "external_runtime_serial"],
+      aggregate_required: false
+    },
+    %{
+      id: "tui",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_tui/"],
+      owners: ["tui"],
+      lanes: ["pure_async"],
       aggregate_required: false
     }
   ]

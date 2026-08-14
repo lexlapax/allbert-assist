@@ -62,6 +62,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v13
       mix allbert.test release.v131
       mix allbert.test release.v132
+      mix allbert.test release.v14
       mix allbert.test release.structure v121 [--output PATH]
       mix allbert.test release.structure v13 [--output PATH]
       mix allbert.test release.structure v131 [--output PATH]
@@ -206,6 +207,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v13"]), do: release_v13()
   defp do_run(["release.v131"]), do: release_v131()
   defp do_run(["release.v132"]), do: release_v132()
+  defp do_run(["release.v14"]), do: release_v14()
   defp do_run(["release.structure", "v121" | rest]), do: release_structure_v121(rest)
   defp do_run(["release.structure", "v13" | rest]), do: release_structure_v13(rest)
   defp do_run(["release.structure", "v131" | rest]), do: release_structure_v131(rest)
@@ -1562,6 +1564,10 @@ defmodule Mix.Tasks.Allbert.Test do
       # coverage. These owners are not churn sources; the web LiveView timeout
       # flakes are addressed by the enlarged test pool_size.
       phase("web_tests", app_cwd(:web), "mix", ["test"], env),
+      # kernel and composition each have their own test_helper.exs and cannot
+      # run under core's, so each gets its own single-VM phase.
+      phase("kernel_tests", app_cwd(:kernel), "mix", ["test"], env),
+      phase("composition_tests", app_cwd(:composition), "mix", ["test"], env),
       phase(
         "stocksage_tests",
         app_cwd(:core),
@@ -1583,7 +1589,9 @@ defmodule Mix.Tasks.Allbert.Test do
           "../../apps/allbert_whatsapp/test",
           "../../apps/allbert_signal/test",
           "../../apps/allbert_notes_files/test",
-          "../../apps/allbert_artifacts/test"
+          "../../apps/allbert_artifacts/test",
+          "../../apps/allbert_browser/test",
+          "../../apps/allbert_research/test"
         ],
         env
       ),
@@ -7535,6 +7543,235 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  # v1.4 M15: release.v14 proves the contract-authority handover the v1.4
+  # milestones built (kernel/composition split, action roster, permission
+  # migration, closure ledger) plus the aggregate-coverage repair that gives
+  # kernel, composition, notes_files, telegram, and email owners a reachable
+  # release phase. It is a bounded roster, not a new capability: no docs step,
+  # no stacking on a predecessor gate.
+  @release_v1_frozen_sha256 "1f0866dbb4b295b661baefbe20eef173abb69b2e52d8a34d4e32a24f338db458"
+  @release_v132_frozen_sha256 "4c9c4c7fb0753661e217483ccc8c74e247c825f77c80e4d69c237ee6b5bb21e4"
+  @release_v14_target_allowlist [
+    "apps/allbert_kernel/test/allbert_assist/kernel/contract_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/kernel/contract_owner_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/security/permission_gate_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/security/security_central_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/runtime/response_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/pack/registry_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/pack/canonical_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/pack/projection_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/pack/descriptor_test.exs",
+    "apps/allbert_kernel/test/allbert_assist/pack/otp_metadata_test.exs",
+    "apps/allbert_composition/test/allbert_assist/pack/application_boundary_test.exs",
+    "apps/allbert_composition/test/allbert_assist/pack/candidate_builder_test.exs",
+    "apps/allbert_composition/test/allbert_assist/pack/candidate_builder/metadata_rows_test.exs",
+    "apps/allbert_composition/test/allbert_assist/pack/composition_coordinator_test.exs",
+    "apps/allbert_composition/test/allbert_assist/pack/product_cli_licenses_test.exs",
+    "apps/allbert_assist/test/allbert_assist/actions/param_contract_test.exs",
+    "apps/allbert_assist/test/allbert_assist/actions/registry_test.exs",
+    "apps/allbert_assist/test/allbert_assist/actions/runner_test.exs",
+    "apps/allbert_assist/test/allbert_assist/actions/security_actions_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m0_registry_ledger_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m1_registry_shadow_parity_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m4_semantics_inventory_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m6_permission_migration_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m71_closure_ledger_test.exs",
+    "apps/allbert_assist/test/allbert_assist/settings_test.exs",
+    "apps/allbert_assist/test/allbert_assist/pack/residual_test.exs",
+    "apps/allbert_notes_files/test/allbert_notes_files/cli_test.exs",
+    "apps/allbert_notes_files/test/allbert_notes_files/plugin_test.exs",
+    "apps/allbert_notes_files/test/allbert_notes_files/actions_test.exs",
+    "apps/allbert_notes_files/test/allbert_notes_files/intent_descriptors_test.exs",
+    "apps/allbert_telegram/test/edit_test.exs",
+    "apps/allbert_telegram/test/renderer_test.exs",
+    "apps/allbert_email/test/renderer_test.exs",
+    "apps/allbert_assist/test/allbert_assist/release/licenses_final_artifact_test.exs",
+    "apps/allbert_assist/test/allbert_assist/licenses_test.exs",
+    "apps/allbert_assist/test/mix/tasks/allbert_licenses_test.exs",
+    "apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/scope_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_gate_test.exs"
+  ]
+  @release_v14_step_ids [
+    "v14_kernel_owners",
+    "v14_composition_owners",
+    "v14_action_roster_owners",
+    "v14_ledger_owners",
+    "v14_settings_composition_owner",
+    "v14_notes_files_owner",
+    "v14_telegram_owner",
+    "v14_email_owner",
+    "v14_release_asset_owners",
+    "v14_topology_owner",
+    "v14_lane_inventory",
+    "v14_manifest_inventory"
+  ]
+  @v14_focused_steps [
+    %{
+      id: "v14_kernel_owners",
+      title: "v1.4 kernel contract, security, runtime, and pack owners",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_kernel/test/allbert_assist/kernel/contract_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/kernel/contract_owner_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/security/permission_gate_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/security/security_central_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/runtime/response_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/pack/registry_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/pack/canonical_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/pack/projection_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/pack/descriptor_test.exs",
+        "apps/allbert_kernel/test/allbert_assist/pack/otp_metadata_test.exs"
+      ],
+      coverage: [
+        "kernel contract and contract-owner identity, permission gate and security central authority, runtime response shape, and pack registry/canonical/projection/descriptor/otp_metadata contracts"
+      ]
+    },
+    %{
+      id: "v14_composition_owners",
+      title: "v1.4 composition boundary, candidate builder, coordinator, and licenses owners",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_composition/test/allbert_assist/pack/application_boundary_test.exs",
+        "apps/allbert_composition/test/allbert_assist/pack/candidate_builder_test.exs",
+        "apps/allbert_composition/test/allbert_assist/pack/candidate_builder/metadata_rows_test.exs",
+        "apps/allbert_composition/test/allbert_assist/pack/composition_coordinator_test.exs",
+        "apps/allbert_composition/test/allbert_assist/pack/product_cli_licenses_test.exs"
+      ],
+      coverage: [
+        "composition application boundary, candidate builder and metadata rows, composition coordinator, and product CLI licenses contracts"
+      ]
+    },
+    %{
+      id: "v14_action_roster_owners",
+      title: "v1.4 action roster param-contract, registry, runner, and security-actions owners",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/actions/param_contract_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/registry_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/runner_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/security_actions_test.exs"
+      ],
+      coverage: [
+        "action parameter contracts, registry composition, runner dispatch, and security-owned actions"
+      ]
+    },
+    %{
+      id: "v14_ledger_owners",
+      title:
+        "v1.4 registry ledger, shadow parity, semantics, permission-migration, and closure-ledger owners",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m0_registry_ledger_test.exs",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m1_registry_shadow_parity_test.exs",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m4_semantics_inventory_test.exs",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m6_permission_migration_test.exs",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m71_closure_ledger_test.exs"
+      ],
+      coverage: [
+        "the v1.4 registry ledger, registry/shadow parity, semantics inventory, permission migration, and M7.1 closure ledger"
+      ]
+    },
+    %{
+      id: "v14_settings_composition_owner",
+      title: "v1.4 Settings and pack residual owner",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/settings_test.exs",
+        "apps/allbert_assist/test/allbert_assist/pack/residual_test.exs"
+      ],
+      coverage: ["Settings composition and the residual (non-Pack) owner census"]
+    },
+    %{
+      id: "v14_notes_files_owner",
+      title: "v1.4 notes/files plugin owner",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_notes_files/test/allbert_notes_files/cli_test.exs",
+        "apps/allbert_notes_files/test/allbert_notes_files/plugin_test.exs",
+        "apps/allbert_notes_files/test/allbert_notes_files/actions_test.exs",
+        "apps/allbert_notes_files/test/allbert_notes_files/intent_descriptors_test.exs"
+      ],
+      coverage: ["notes/files CLI, plugin, actions, and intent-descriptor contracts"]
+    },
+    %{
+      id: "v14_telegram_owner",
+      title: "v1.4 Telegram channel owner",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_telegram/test/edit_test.exs",
+        "apps/allbert_telegram/test/renderer_test.exs"
+      ],
+      coverage: ["Telegram edit and renderer contracts"]
+    },
+    %{
+      id: "v14_email_owner",
+      title: "v1.4 email channel owner",
+      cwd: :root,
+      executable: "mix",
+      args: ["test", "apps/allbert_email/test/renderer_test.exs"],
+      coverage: ["email renderer contract"]
+    },
+    %{
+      id: "v14_release_asset_owners",
+      title: "v1.4 packaged-license release asset owners",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/release/licenses_final_artifact_test.exs",
+        "apps/allbert_assist/test/allbert_assist/licenses_test.exs",
+        "apps/allbert_assist/test/mix/tasks/allbert_licenses_test.exs"
+      ],
+      coverage: ["final license artifact, license aggregation, and the licenses mix task"]
+    },
+    %{
+      id: "v14_topology_owner",
+      title: "v1.4 gate topology, scope selector, and release.v14 self-contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/scope_test.exs",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/v14_gate_test.exs"
+      ],
+      coverage: [
+        "frozen predecessor digests, aggregate-coverage repair, fail-closed scope selection, and the closed release.v14 roster"
+      ]
+    },
+    %{
+      id: "v14_lane_inventory",
+      title: "v1.4 test files retain one reconciled primary lane",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-tags"],
+      coverage: ["zero unclassified or double-counted test files"]
+    },
+    %{
+      id: "v14_manifest_inventory",
+      title: "v1.4 committed test manifest matches the live tree",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-manifest"],
+      coverage: ["test identities, primary lanes, tags, and multiplicities are lossless"]
+    }
+  ]
+
   defp release_v131 do
     proof = release_v131_structure_proof()
 
@@ -7693,6 +7930,85 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  defp release_v14 do
+    proof = release_v14_structure_proof()
+
+    unless proof["status"] == "passed" do
+      Mix.raise("release.v14 structure proof is not green")
+    end
+
+    env = owned_env("release-v14", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v14")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@v14_focused_steps, &run_release_v14_step(&1, env))
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v14",
+      version: "v1.4",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; this closeout gate has no packaged acceptance rows",
+      notes:
+        "closed v1.4 M15 contract-authority handover roster; does not nest release.v1, release.v13, release.v131, release.v132, release, precommit, or compatibility",
+      structure: proof,
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v14-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v14 evidence: #{evidence_path}")
+
+    if status != "passed", do: Mix.raise("release.v14 failed; evidence: #{evidence_path}")
+  end
+
+  defp run_release_v14_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step)
+
+    {output, exit_status} =
+      System.cmd(step.executable, resolve_release_step_args(step, cwd),
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v14 #{step.id}", output)
+    status = release_step_status("release.v14", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v14",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   @doc false
   def release_step_definitions("release.v1"), do: normalize_step_definitions(@release_v1_steps)
 
@@ -7710,6 +8026,9 @@ defmodule Mix.Tasks.Allbert.Test do
 
   def release_step_definitions("release.v132"),
     do: normalize_step_definitions(@release_v132_steps)
+
+  def release_step_definitions("release.v14"),
+    do: normalize_step_definitions(@v14_focused_steps)
 
   @doc false
   def release_v131_topology_proof do
@@ -7853,6 +8172,96 @@ defmodule Mix.Tasks.Allbert.Test do
           "owner" => record && Atom.to_string(record.owner),
           "primary_lane" => record && Atom.to_string(record.primary_lane),
           "aggregate_covered" => v132_aggregate_covered?(record)
+        }
+      end)
+
+    targets_green? =
+      Enum.all?(target_checks, fn check ->
+        check["exists"] and check["manifest"] and check["aggregate_covered"]
+      end)
+
+    topology
+    |> Map.put("target_checks", target_checks)
+    |> Map.put("targets_status", if(targets_green?, do: "passed", else: "failed"))
+    |> Map.put(
+      "status",
+      if(topology["status"] == "passed" and targets_green?, do: "passed", else: "failed")
+    )
+  end
+
+  @doc false
+  def release_v14_topology_proof do
+    v1_definitions = release_step_definitions("release.v1")
+    v13_definitions = release_step_definitions("release.v13")
+    v131_definitions = release_step_definitions("release.v131")
+    v132_definitions = release_step_definitions("release.v132")
+    v14_definitions = release_step_definitions("release.v14")
+    v1_digest = sha256(CanonicalJSON.encode(v1_definitions))
+    v13_digest = sha256(CanonicalJSON.encode(v13_definitions))
+    v131_digest = sha256(CanonicalJSON.encode(v131_definitions))
+    v132_digest = sha256(CanonicalJSON.encode(v132_definitions))
+    ids = Enum.map(v14_definitions, & &1["id"])
+    targets = release_test_targets(v14_definitions)
+
+    checks = %{
+      "release_v1_step_count" => length(v1_definitions) == 10,
+      "release_v1_digest" => v1_digest == @release_v1_frozen_sha256,
+      "release_v13_step_count" => length(v13_definitions) == 32,
+      "release_v13_digest" => v13_digest == @release_v13_frozen_sha256,
+      "release_v131_step_count" => length(v131_definitions) == 8,
+      "release_v131_digest" => v131_digest == @release_v131_frozen_sha256,
+      "release_v132_step_count" => length(v132_definitions) == 8,
+      "release_v132_digest" => v132_digest == @release_v132_frozen_sha256,
+      "release_v14_step_count" => length(v14_definitions) == 12,
+      "release_v14_step_ids" => ids == @release_v14_step_ids,
+      "closed_test_target_allowlist" => targets == @release_v14_target_allowlist,
+      "root_mix_only" =>
+        Enum.all?(v14_definitions, &(&1["cwd"] == "root" and &1["executable"] == "mix")),
+      "forbidden_invocations_absent" => Enum.all?(v14_definitions, &allowed_v14_step?/1)
+    }
+
+    %{
+      "schema_version" => 1,
+      "release_v1_frozen_sha256" => @release_v1_frozen_sha256,
+      "release_v1_observed_sha256" => v1_digest,
+      "release_v13_frozen_sha256" => @release_v13_frozen_sha256,
+      "release_v13_observed_sha256" => v13_digest,
+      "release_v131_frozen_sha256" => @release_v131_frozen_sha256,
+      "release_v131_observed_sha256" => v131_digest,
+      "release_v132_frozen_sha256" => @release_v132_frozen_sha256,
+      "release_v132_observed_sha256" => v132_digest,
+      "release_v14_step_ids" => @release_v14_step_ids,
+      "release_v14_target_allowlist" => @release_v14_target_allowlist,
+      "definitions" => %{
+        "release.v1" => v1_definitions,
+        "release.v13" => v13_definitions,
+        "release.v131" => v131_definitions,
+        "release.v132" => v132_definitions,
+        "release.v14" => v14_definitions
+      },
+      "checks" => checks,
+      "status" =>
+        if(Enum.all?(checks, fn {_key, value} -> value end), do: "passed", else: "failed")
+    }
+  end
+
+  @doc false
+  def release_v14_structure_proof do
+    topology = release_v14_topology_proof()
+    records = inventory_records() |> Map.new(&{&1.path, &1})
+    manifest = File.read!(Path.join(root(), TestManifest.manifest_relative_path()))
+
+    target_checks =
+      Enum.map(@release_v14_target_allowlist, fn path ->
+        record = Map.get(records, path)
+
+        %{
+          "path" => path,
+          "exists" => File.regular?(Path.join(root(), path)),
+          "manifest" => String.contains?(manifest, ~s("#{path}")),
+          "owner" => record && Atom.to_string(record.owner),
+          "primary_lane" => record && Atom.to_string(record.primary_lane),
+          "aggregate_covered" => v14_aggregate_covered?(record)
         }
       end)
 
@@ -8054,6 +8463,32 @@ defmodule Mix.Tasks.Allbert.Test do
   defp v132_aggregate_covered?(%{owner: :core, primary_lane: lane}), do: lane in @lanes
 
   defp v132_aggregate_covered?(_record), do: false
+
+  defp allowed_v14_step?(%{"args" => ["test" | targets]}) do
+    targets != [] and
+      Enum.all?(targets, fn target ->
+        target in @release_v14_target_allowlist and
+          Path.extname(target) == ".exs" and
+          not String.contains?(target, ["*", "?", ":"])
+      end)
+  end
+
+  defp allowed_v14_step?(%{
+         "args" => ["allbert.test", "inventory", option]
+       })
+       when option in ["--check-tags", "--check-manifest"],
+       do: true
+
+  defp allowed_v14_step?(_step), do: false
+
+  defp v14_aggregate_covered?(%{
+         owner: owner,
+         primary_lane: lane
+       })
+       when owner in [:web, :core, :kernel, :composition, :notes_files, :telegram, :email],
+       do: lane in @lanes
+
+  defp v14_aggregate_covered?(_record), do: false
 
   defp prefix_check(older, newer, definitions) do
     older_steps = Map.fetch!(definitions, older)
@@ -11673,6 +12108,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v13
       mix allbert.test release.v131
       mix allbert.test release.v132
+      mix allbert.test release.v14
       mix allbert.test release.structure v121 [--output PATH]
       mix allbert.test release.structure v13 [--output PATH]
       mix allbert.test release.structure v131 [--output PATH]

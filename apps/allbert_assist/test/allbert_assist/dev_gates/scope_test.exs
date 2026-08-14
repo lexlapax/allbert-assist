@@ -18,7 +18,7 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
     assert settings["aggregate_required"]
     assert settings["matched_rules"] == ["core", "settings_spine"]
     assert "app_env_serial" in settings["lanes"]
-    assert settings["required_gates"] == ["preflight", "release.v132"]
+    assert settings["required_gates"] == ["preflight", "release.v14"]
 
     manifest = ScopeSelector.classify_paths(["docs/validation/test-manifest.csv"])
     assert manifest["aggregate_required"]
@@ -34,7 +34,7 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
     unknown = ScopeSelector.classify_paths(["unexpected/new-root.txt"])
     assert unknown["aggregate_required"]
     assert unknown["matched_rules"] == []
-    assert unknown["required_gates"] == ["preflight", "release.v132"]
+    assert unknown["required_gates"] == ["preflight", "release.v14"]
     assert unknown["diagnostics"] == ["unknown paths fail closed: unexpected/new-root.txt"]
 
     artifacts =
@@ -79,6 +79,33 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
              "global_process_serial",
              "pure_async"
            ]
+
+    browser =
+      ScopeSelector.classify_paths([
+        "apps/allbert_browser/lib/allbert_browser/pack.ex"
+      ])
+
+    refute browser["aggregate_required"]
+    assert browser["matched_rules"] == ["browser"]
+    assert browser["owners"] == ["browser"]
+
+    research =
+      ScopeSelector.classify_paths([
+        "apps/allbert_research/lib/allbert_research/pack.ex"
+      ])
+
+    refute research["aggregate_required"]
+    assert research["matched_rules"] == ["research"]
+    assert research["owners"] == ["research"]
+
+    tui =
+      ScopeSelector.classify_paths([
+        "apps/allbert_tui/lib/allbert_tui/pack.ex"
+      ])
+
+    refute tui["aggregate_required"]
+    assert tui["matched_rules"] == ["tui"]
+    assert tui["owners"] == ["tui"]
   end
 
   test "selector includes committed, staged, unstaged, rename, deletion, and untracked paths" do
