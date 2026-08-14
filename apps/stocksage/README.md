@@ -1,14 +1,91 @@
-# StockSage
+# stocksage
 
-StockSage is Allbert's first shipped source-tree plugin workspace app and the
-first proving app for native financial specialist agents.
+StockSage is Allbert's proving workspace app for native financial specialist
+agents — the first capability shipped as a source-tree plugin, and since v1.4
+M13 a native umbrella pack.
 
-Current v0.32 capabilities:
+## Contract
+
+- Pack id: `allbert_stocksage`, `capability_tier: :native`,
+  `registry_order: 1400`
+- Catalog `startup_role`: `native_passive`
+- Legacy plugin id: `stocksage` (`kind: "app"`)
+- Apps: `StockSage.App`
+- Settings: owned by `StockSage.SettingsFragment`
+- Surfaces: `surface_id: "stocksage"`, rendered by `StockSageWeb.AnalysisLive`
+
+The pack id is deliberately **not** `stocksage`. ADR 0098 §9 keeps each legacy
+manifest as an identity-equivalent deprecated alias of its pack, and every other
+pack's two names differ by construction — pack `allbert_notes_files` against
+plugin `allbert.notes_files`. StockSage is the one plugin whose id carries no
+dotted prefix, so an application-named pack id would be byte-identical to its
+plugin id and composition would reject the pair as `duplicate_identity`.
+
+## Why it exists
+
+StockSage is where Allbert proves that a substantial domain capability — durable
+stores, a supervised Python bridge, a graph of LLM-capable specialist agents,
+and its own workspace surfaces — can live entirely outside the core without
+being granted anything the core would not grant any other pack. Every effect
+still crosses `AllbertAssist.Actions.Runner.run/3`, Security Central,
+confirmations, and Allbert Home. It is the largest single test of whether the
+pack boundary is real.
+
+Before v1.4 this code lived under `plugins/stocksage/` and was path-injected into
+`allbert_assist` through `elixirc_paths/1` — a contribution boundary, not a
+compilation one. M13 extracted it into this OTP application.
+
+## Dependency direction
+
+This pack depends on the kernel (`allbert_kernel`), the residual
+(`allbert_assist`), and `allbert_assist_web`. It also declares `ecto_sql`,
+`exqlite`, `decimal`, `jason`, `jido`, `jido_action`, `jido_signal` and
+`jido_ai` directly — mirroring what the residual declares for the same imports,
+because a pack that does not declare what it directly calls works only while
+something else happens to pull it in.
+
+The `allbert_assist_web` edge is the shape worth understanding. This pack
+contributes a routed LiveView, so it must depend on the application that owns
+the router — and `allbert_assist_web` in turn depends on `allbert_composition`.
+If `allbert_composition` also depended on this pack, the loop
+`web -> composition -> pack -> web` would close. So `stocksage` is deliberately
+**absent** from `allbert_composition`'s dependency list, and sits *above* Web
+instead: it is started by the root `mix.exs` release `applications:` list, and
+its metadata reaches the Pack projection through the application roster read
+from `.app` files, which needs no dependency edge. `allbert_artifacts` is the
+only other application with this shape.
+
+The rule the whole tier model rests on: **the kernel must not depend on any
+pack**, and a violating edge is a build failure rather than a review finding.
+Pack-to-pack edges are permitted when explicit and acyclic; composition hosts
+may depend downward on both.
+
+## How it starts, and how it is discovered
+
+The pack is `native_passive`: `mix.exs` declares no `mod:` application callback,
+so the application itself starts nothing. `StockSage.Plugin.child_spec/1`
+returns `StockSage.Supervisor.child_spec/1`, and the residual's
+`AllbertAssist.Plugin.Bootstrap` starts that child — the Python bridge and the
+native agent graph — under `AllbertAssist.Plugin.ChildSupervisor`, which is
+itself hosted by `AllbertAssist.Pack.ResidualEffectSupervisor` and therefore
+only after the readiness barrier opens. No bridge subprocess exists before then.
+
+Discovery does not involve a `plugins/` directory; that tree no longer exists.
+The descriptor is found through the generated `.app` specification's
+`env: [allbert_pack: StockSage.Pack]` entry, reconciled against the sealed
+component row in `apps/allbert_assist/priv/licenses/catalog.json`. The retained
+`priv/allbert_plugin.json` is a deprecated ADR 0098 §9 alias to that same
+descriptor, read from `Application.app_dir/2` by
+`AllbertAssist.Plugin.Discovery`, not a second registration.
+
+## What is in it
+
+Capabilities as of v0.32:
 
 - `./apps/stocksage` contributes `StockSage.Plugin`, `StockSage.App`,
   skills, settings schema entries, local domain actions, evidence actions,
   the supervised Python bridge, and the supervised native agent graph.
-- Plugin-owned Ecto schemas and contexts use `AllbertAssist.Repo` and shared
+- Pack-owned Ecto schemas and contexts use `AllbertAssist.Repo` and shared
   SQLite `stocksage_*` tables.
 - `mix stocksage.import_sqlite` imports a representative legacy SQLite file
   read-only and idempotently.
@@ -107,3 +184,13 @@ emits durable canvas tiles through the audited
 `AllbertAssist.Workspace.Fragment` path; v0.32 renders those tiles and the
 StockSage dashboard/recent/queue/trends panels inside `/workspace`. StockSage
 does not write workspace canvas tables directly.
+
+## Related
+
+- `docs/adr/0098-kernel-application-pack-contract-and-tier-model.md` — the tier
+  model and the invariant this application embodies.
+- `apps/allbert_artifacts/README.md` — the only other pack that sits above Web.
+- `apps/allbert_kernel/README.md` — the contracts and mechanisms every pack
+  depends on.
+- `apps/allbert_composition/README.md` — the host that assembles the kernel
+  and packs into one running product.

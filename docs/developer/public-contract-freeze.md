@@ -35,6 +35,16 @@ defaults to Tier 2).
 
 ## Tier 1 — Frozen Public Contracts
 
+> **The Consumers column is as-of-1.0 and is not itself frozen (noted v1.4
+> M17.a).** The counts in it have moved: "23 plugins" and "20 apps" were
+> first-party consumer counts before the v1.4 extraction, and the tree now
+> carries 14 modules using the plugin behaviour and 8 using the app behaviour,
+> with `Plugin.Registry` deriving its set through
+> `Pack.CompiledInventory.plugin_modules/1` rather than a static list. The rows
+> are left as written because the *contract* each names is what is frozen, not
+> its consumer census. Current ownership is in the v1.4 Component Contract
+> Baseline below.
+
 | Contract | Consumers | Freeze policy |
 |---|---|---|
 | `AllbertAssist.Runtime.submit_user_input/1` + turn signals (`allbert.input.received`, `allbert.agent.responded`, `allbert.runtime.turn.started`, `allbert.runtime.turn.completed`) | every surface (web/CLI/TUI/channels) | frozen against rename/remove/shape-change |
@@ -61,6 +71,129 @@ defaults to Tier 2).
 | v0.51 public-protocol surface policy: `mcp_server.*`, `openai_api.*`, `acp_server.*` Settings + default-off exposure + per-client token auth + self-approval denial + Runner routing | MCP/OpenAI/ACP surfaces | frozen against removal/weakening; wire details track upstream |
 | v0.62 packaged-entry: `AllbertAssist.CLI.Commands.operator_table/0` taxonomy, three-tier `AllbertAssist.Settings.Vault` + `token_ref`, `/health` JSON shape + `AllbertAssist.Runtime.Attach` handshake | packaged binary, daemon, external clients | rename/remove/weaken forbidden; additive fields/commands/backends allowed |
 | v0.65 local-knowledge: `notes_files` actions (`search_notes`/`read_note`/`write_note`), `set_notes_root` + `apps.notes_files.notes_root` key, memory review-status vocabulary (`:unreviewed`/`:kept`/`:flagged`/`:prune_nominated`) + `:kept`-only recall | notes/memory launch path | rename/remove forbidden; recall-eligible set may not expand beyond `:kept` without an ADR |
+
+## v1.4 Component Contract Baseline
+
+v1.4 did not change what most of the contracts above *are* — it changed **who
+owns them**. Before v1.4 the 13 `plugins/` directories were compiled into
+`allbert_assist` by path injection (no Mix project, no dependency isolation, no
+independent test suite — ADR 0098's Context section), so the Tier 1/Tier 2 tables above
+could name a contract without naming an owning application, because there was
+effectively one. v1.4 (ADR 0098) replaces that with 17 OTP applications under a
+compile-enforced kernel/pack boundary: a dependency-minimal `allbert_kernel`,
+the transitional residual `allbert_assist`, two descriptorless composition/
+interface hosts, and 13 extracted native packs. This section records, for each
+contract already frozen above, which application answers for it today, and for
+each application, its Pack identity and what it contributes. It contains no
+artifact digest or signature — those are release-validation evidence in
+`docs/validation/v1.4/`, generated *from* the exact source SHA this file is
+part of, and recording them here would be self-referential.
+
+**The invariant is compile-enforced, not linted.** `allbert_kernel`'s `mix.exs`
+declares no `in_umbrella` dependency on `allbert_assist` or any named pack
+(verified: its only deps are `exqlite`, `jason`, `jido_action`, `jido_signal`);
+a kernel-to-pack edge would be a build failure, not a review finding
+(ADR 0098 §2). Pack-to-pack edges are permitted and must be acyclic — e.g.
+`allbert_browser` declares `{:allbert_research, in_umbrella: true}`. Module
+names are independent of application names on the BEAM, so relocating
+`AllbertAssist.Security` into `allbert_kernel` at M8 moved its source and owning
+application without renaming the module or changing its public behaviour —
+which is what makes relocation a `git mv`, not a rewrite.
+
+### Contract → owning application
+
+Owner-gate ids are the `owner_id` each application's `Pack.test_lanes/0` (or
+`GateOwnerManifest.test_lanes/0`) declares. "Dependency edges" below are direct
+declared `mix.exs` edges of the owning application, not a transitive closure.
+
+| Contract (Tier) | Owning application | Owner gate | Dependency edges |
+| --- | --- | --- | --- |
+| `Runtime.submit_user_input/1` + turn signals (T1) | `allbert_assist` | `:core` | depends on `allbert_kernel`'s `Runtime.WriterLock`/`SafeTerm`/`Response` (moved at M8); consumed by every surface application |
+| `Actions.Registry` + `Runner.run/3` + `:invalid_params` (T1) | `allbert_kernel` | `:kernel` | no outbound pack edge; consumed (inbound) by every effectful action in every one of the other 16 applications |
+| Permission classes/safety floors, `Security.Policy` (T1) | `allbert_kernel` | `:kernel` | no outbound pack edge; consumed wherever `Actions.Runner` is consumed |
+| Plugin contract (behaviour + Registry) (T1) | `allbert_assist` | `:core` | reads `priv/allbert_plugin.json` out of the 13 native packs' own app directories (a data read via `Application.app_dir/2`, not a compile edge) plus the `<ALLBERT_HOME>/plugins` compatibility scan root |
+| App contract (`AllbertAssist.App` behaviour) (T1) | `allbert_assist` | `:core` | behaviour + `App.Registry` owned here; implemented directly via `use AllbertAssist.App` by `allbert_notes_files`, `allbert_browser`, `allbert_artifacts`, and `stocksage` in addition to residual-native `App` modules |
+| Settings Central schema shape + `schema_version` (T1) | `allbert_assist` | `:core` | composes `settings_fragments/0` contributed by all 13 native packs plus 43 residual `Settings.FragmentOwners.*` modules declared in `Pack.Residual` |
+| Allbert Home layout (`Paths`, `<ALLBERT_HOME>` roots) (T1) | `allbert_kernel` | `:kernel` | `home_roots/0` is a declared contribution seam on every pack; every pack (including the residual) currently contributes it empty — unexercised outside the kernel's own `Pack.Contracts.HomeRoots` |
+| Channel adapter boundary + identity-mapping shape (T1) | `allbert_assist` (schema/runtime: `conversation_threads`, `thread_channel_refs`, `Channels.*`) | `:core` | the 7 channel adapters named in the Tier 1 row are each their own native pack (`allbert_telegram`/`allbert_email`/`allbert_discord`/`allbert_matrix`/`allbert_signal`/`allbert_slack`/`allbert_whatsapp`); **every one of those packs contributes `channels/0` empty** — channel registration still runs through the legacy `Plugin.channels/0` compatibility adapter (ADR 0098 §9) owned by `allbert_assist`'s `Plugin.Registry`, not through the native `Pack` contribution seam |
+| Resource Access `ResourceURI` shape (T1) | `allbert_assist` | `:core` | `AllbertAssist.Resources` and children |
+| Model provider/doctor return shape (T1) | `allbert_assist` | `:core` | `Settings.ModelDoctor` |
+| Installer cosign fail-closed verification (T1) | *not an OTP application* | — | `scripts/install/install.sh` (release/packaging tooling outside the umbrella); no Pack or gate owner applies — recorded here as a contract this baseline cannot assign an application owner to, by design |
+| `App.SurfaceProvider` (T2) | `allbert_assist` | `:core` | behaviour owned here; also implemented (`use AllbertAssist.App.SurfaceProvider`) by `allbert_notes_files` and `allbert_browser` |
+| Surface DSL catalog + signed Fragment envelope (T2) | `allbert_assist` | `:core` | `Surface`, `Surface.Catalog`, `Surface.Encoder` |
+| Workspace canvas + ephemeral persistence + SignalBridge (T2) | `allbert_assist` | `:core` | unmoved; part of the residual extraction queue's "not worth extracting at all" list |
+| v0.38 templated creation (`Templates`, `Templates.Pattern`, actions) (T2) | `allbert_assist` | `:core` | unmoved |
+| Template Settings keys (T2) | `allbert_assist` | `:core` | `Settings.FragmentOwners.Templates` |
+| v0.51 public-protocol surface policy (`mcp_server`/`openai_api`/`acp_server`) (T2) | `allbert_assist` | `:core` | `Settings.FragmentOwners.{Mcp,McpServer,OpenaiApi,AcpServer,PublicProtocol}` |
+| v0.62 packaged-entry (`CLI.Commands.operator_table/0`, three-tier `Vault`, `/health`, `Runtime.Attach`) (T2) | `allbert_assist` | `:core` | `allbert_composition`'s `ProductCLI`/`ProductBootstrap` orchestrate attach-first entry and delegate command classification/rendering down into this same residual `CLI` plan contract |
+| v0.65 local-knowledge (T2) | **split** | — | `search_notes`/`read_note`/`write_note` actions and the notes `App` are owned by `allbert_notes_files` (`:notes_files`, native, `registry_order` 200); the `set_notes_root` action itself is **still residual** at `apps/allbert_assist/lib/allbert_assist/actions/settings/set_notes_root.ex` (`:core`); the memory review-status vocabulary (`:unreviewed`/`:kept`/`:flagged`/`:prune_nominated`) and `:kept`-only recall are wholly owned by `allbert_assist`'s `Memory` subsystem (`:core`) — this is the plan's explicit "do not extract Memory before v1.5" case |
+
+### Per-application table
+
+| Application | Pack id | Capability tier | `registry_order` | Contributes |
+| --- | --- | --- | --- | --- |
+| `allbert_kernel` | `allbert_kernel` | `:kernel` | 0 | descriptor only (every contribution callback empty); hosts `Pack.Descriptor`/`Row`/`Projection`/`RowSchemas`, `Actions.Registry`/`Runner`, `Security.Policy`, `Paths`, `Runtime.{WriterLock,SafeTerm,Response}` |
+| `allbert_assist` (residual) | `allbert_assist` | `:native` | 100 | `settings_fragments/0` (43 modules), `kernel_contracts/0` (11 sealed adapters: `actions_overlay`, `confirmations`, `grants`, `home_roots`, `membership`, `release_availability`, `resource_refs`, `response_values`, `settings`, `signals`, `skills`), `test_lanes/0` (`:core`); everything not yet extracted — Runtime, Channels, Plugin/App registries, Resources, Memory, Settings store, CLI, Vault, Attach, Templates, Workspace/Surface, public-protocol surfaces |
+| `allbert_assist_web` | *descriptorless* | n/a | n/a | Phoenix interface; hosts the generic `PackSurfaceLive` that routes any `AllbertAssist.Pack.WebSurface` implementer; `GateOwnerManifest` test lane `:web` |
+| `allbert_composition` | *descriptorless* | n/a | n/a | `CompositionCoordinator`, `ProductBootstrap`, `ProductCLI`; declares the DAG edge that starts every required native pack (deliberately excludes `allbert_artifacts`/`stocksage`, which depend on `allbert_assist_web`, to avoid a `web → composition → pack → web` cycle); `GateOwnerManifest` test lane `:composition` |
+| `allbert_notes_files` | `allbert_notes_files` | `:native` | 200 | `settings_fragments/0`, `cli_groups/0` (`admin notes`), `test_lanes/0`; manifest (`priv/allbert_plugin.json`) actions `search_notes`/`read_note`/`write_note` + `App` |
+| `allbert_telegram` | `allbert_telegram` | `:native` | 300 | `settings_fragments/0`, `cli_groups/0` (`admin channels telegram`), `test_lanes/0`; manifest channel adapter |
+| `allbert_email` | `allbert_email` | `:native` | 400 | `settings_fragments/0`, `cli_groups/0` (`admin channels email`), `test_lanes/0`; manifest channel adapter |
+| `allbert_research` | `allbert_research` | `:native` | 500 | `settings_fragments/0`, `test_lanes/0` (no `cli_groups`); manifest research-delegate actions/app |
+| `allbert_browser` | `allbert_browser` | `:native` | 600 | `settings_fragments/0`, `test_lanes/0`; manifest browser actions; depends on `allbert_research` (pack-to-pack edge) |
+| `allbert_discord` | `allbert_discord` | `:native` | 700 | `settings_fragments/0`, `cli_groups/0`, `test_lanes/0` |
+| `allbert_matrix` | `allbert_matrix` | `:native` | 800 | `settings_fragments/0`, `cli_groups/0`, `test_lanes/0` |
+| `allbert_signal` | `allbert_signal` | `:native` | 900 | `settings_fragments/0`, `cli_groups/0`, `test_lanes/0` |
+| `allbert_slack` | `allbert_slack` | `:native` | 1000 | `settings_fragments/0`, `cli_groups/0`, `test_lanes/0` |
+| `allbert_tui` | `allbert_tui` | `:native` | 1100 | `settings_fragments/0`, `cli_groups/0` (`admin channels tui`), `test_lanes/0`; channel registration runs through legacy `AllbertTUI.Plugin.channels/0`, not `Pack.channels/0` |
+| `allbert_whatsapp` | `allbert_whatsapp` | `:native` | 1200 | `settings_fragments/0`, `cli_groups/0`, `test_lanes/0` |
+| `allbert_artifacts` | `allbert_artifacts` | `:native` | 1300 | `surfaces/0` (`AllbertArtifactsWeb.ArtifactLive` via `Pack.WebSurface`), `test_lanes/0`; depends on `allbert_assist_web` |
+| `stocksage` | `allbert_stocksage` | `:native` | 1400 | `settings_fragments/0`, `surfaces/0` (`StockSageWeb.AnalysisLive` via `Pack.WebSurface`), `test_lanes/0`; depends on `allbert_assist_web`. Its pack id is `allbert_stocksage`, not `stocksage`: it is the one plugin whose legacy id carries no dotted prefix, so an app-named pack id would collide byte-for-byte with its own plugin id |
+
+Every native pack's `apps/0` and `actions/0` callbacks are empty by construction:
+contributions come from the pack's own `priv/allbert_plugin.json` manifest, and
+declaring them a second time in `Pack` would contribute them twice.
+
+### The `allbert_plugin.json` data-only declared-tier subset
+
+`AllbertAssist.Plugin.Validator.normalize_manifest/2` (`apps/allbert_assist/lib/allbert_assist/plugin/validator.ex`)
+is the single validator for both the compiled-pack manifest shape (e.g.
+`apps/allbert_notes_files/priv/allbert_plugin.json`, source `:shipped`/`:project`,
+code-bearing keys permitted) and the `:declared`-tier `<ALLBERT_HOME>/packs`
+scan (source `:home`, code-bearing keys rejected — ADR 0098 §4 "Declared Home
+packs"). The compatible data-only subset it normalizes to is exactly:
+
+- `plugin_id`, `name`, `version`, `kind` — retained identity strings.
+- `skill_paths` — retained, validated to stay inside the manifest's own root.
+- `module` and any non-empty `contributions.apps|actions|channels|children` —
+  for a `:home`-sourced manifest, presence of any of these fails validation
+  with `:code_bearing_home_plugin` (`validate_code_bearing_manifest/3`); the
+  manifest is rejected as a unit, not partially admitted.
+- Everything else normalizes to inert: `module: nil`, `apps: []`,
+  `channels: []`, `actions: []`, `children: :ignore`.
+
+Parsing a `:declared` manifest never loads BEAM code, adds a supervision child,
+or grants a permission by itself — it produces the same inert `Entry` struct a
+rejected code-bearing manifest would have produced minus the contribution
+lists. Existing trust, enablement, confirmation, and Security Central rules
+still gate anything the (empty) contribution set could otherwise reach.
+
+### Residual extraction queue
+
+The residual's extraction queue is recorded in
+[`docs/plans/v1.4-plan.md`](../plans/v1.4-plan.md) ("Residual extraction
+queue — the v1.5/v1.6 intake artifact") and is not duplicated here. In brief:
+the residual is 1,003 `.ex` files versus 396 across all 16 other applications
+combined, its de-facto public surface is six residual-owned names
+(`Settings`, `Channels`, `Runtime`, `Objectives`, `Conversations`,
+`Confirmations`) none of which is kernel-owned, and every pack depends on
+`allbert_assist` wholesale rather than on a narrower surface. The queue ranks
+the Artifacts store first (destination already exists as `allbert_artifacts`),
+finishing `allbert_tui` second, and explicitly holds `memory/` back from
+extraction before v1.5 for the reason given in the local-knowledge contract
+row above. ADR 0098 §1 binds the constraint this queue exists inside: the
+residual "may receive compatibility fixes … but no new capability may choose
+it as its architectural home."
 
 ## Explicitly Not Frozen At 1.0
 

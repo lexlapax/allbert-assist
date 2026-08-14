@@ -74,11 +74,26 @@ The manifest lives at `priv/allbert_plugin.json`.
 
 `allbert_composition` depends on this application, so the OTP supervisor chain
 starts it through the normal application boot. The channel adapter is a real
-process (the IMAP poll loop), unlike notes_files' `native_passive` pack.
+process (the IMAP poll loop), unlike notes_files' `native_passive` pack: this
+pack's catalog `startup_role` is `native_effectful`, so `mix.exs` names
+`mod: {AllbertEmail.Application, []}` and that application starts *only* an
+`AllbertAssist.Pack.ActivationGate`. The gate subscribes to the kernel Readiness
+barrier and starts `AllbertEmail.EffectSupervisor` — and with it the poll loop —
+once the coordinator opens readiness. Before that the application is up and the
+transport is dormant, which matters more here than elsewhere: the mailbox is one
+the operator also uses by hand.
+
+Discovery does not involve a `plugins/` directory; that tree no longer exists.
+The descriptor is found through the generated `.app` specification's
+`env: [allbert_pack: AllbertEmail.Pack]` entry, reconciled against the sealed
+component row in `apps/allbert_assist/priv/licenses/catalog.json`. The retained
+`priv/allbert_plugin.json` is a deprecated ADR 0098 §9 alias to that same
+descriptor, read from `Application.app_dir/2` by
+`AllbertAssist.Plugin.Discovery`, not a second registration.
 
 ## Related
 
-- `docs/adr/0098-kernel-application-pack-contract-tier-model.md` — the tier
+- `docs/adr/0098-kernel-application-pack-contract-and-tier-model.md` — the tier
   model and the invariant this application embodies.
 - `apps/allbert_telegram/README.md` — the sibling channel extraction this pack
   mirrors most closely.

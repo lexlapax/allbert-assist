@@ -72,7 +72,7 @@ is how it is discovered as a pack-declaring application.
 
 ## Related
 
-- `docs/adr/0098-kernel-application-pack-contract-tier-model.md` — the tier
+- `docs/adr/0098-kernel-application-pack-contract-and-tier-model.md` — the tier
   model, the invariant, and the sequencing this application realizes.
 - `apps/allbert_composition/README.md` — the host that assembles kernel and
   packs into a running product.

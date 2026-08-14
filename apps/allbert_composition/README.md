@@ -11,9 +11,27 @@ tier, and this application exists to make that distinction structural rather
 than stated: it is **descriptorless**. It declares no Pack descriptor, so it can
 never be mistaken for a capability, and nothing can contribute through it.
 
-Its dependency direction is the opposite of the kernel's. It depends on
-`allbert_kernel` *and* `allbert_assist`, which is exactly what a host is allowed
-to do and exactly what the kernel is forbidden to do.
+## Dependency direction, and the rule it is the mirror of
+
+**The kernel must not depend on any pack**, and that is compile-enforced rather
+than reviewed: umbrella siblings are declared with `in_umbrella: true`, so an
+edge from `allbert_kernel` into a pack is a build failure, not a review finding.
+
+This host's direction is the exact opposite, which is what a host is allowed to
+do and the kernel is not. `mix.exs` declares `allbert_kernel`, the residual
+`allbert_assist`, and eleven named packs — `allbert_notes_files`,
+`allbert_telegram`, `allbert_email`, `allbert_research`, `allbert_browser`,
+`allbert_discord`, `allbert_matrix`, `allbert_signal`, `allbert_slack`,
+`allbert_tui`, `allbert_whatsapp`. That edge is what starts an extracted pack
+without editing a kernel file.
+
+`allbert_artifacts` and `stocksage` are deliberately **absent** from that list.
+Both contribute a routed web surface and therefore depend on
+`allbert_assist_web`, which depends on this host; naming them here would close
+the loop `web -> composition -> pack -> web`. They sit above Web in the DAG
+instead, started by the root `mix.exs` release `applications:` list, and their
+metadata reaches the Pack projection through the application roster read from
+`.app` files, which needs no dependency edge.
 
 ## What is in it
 
@@ -24,8 +42,11 @@ to do and exactly what the kernel is forbidden to do.
 - **`AllbertAssist.Pack.CandidateBuilder`** (plus `candidate_builder/`) — turns
   registry metadata into the candidate: action assembly, channel rows, metadata
   rows, row families, test-lane rows, compatibility evidence.
-- **`AllbertAssist.Pack.ProductBootstrap`** and **`ProductCli`** — product entry
-  points.
+- **`AllbertAssist.Pack.ProductBootstrap`** and **`AllbertAssist.Pack.ProductCLI`**
+  — product entry points. `ProductCLI` owns only source/packaged entry
+  orchestration — attach-first selection and fail-closed composition bootstrap —
+  and delegates command classification and rendering downward through the
+  residual `AllbertAssist.CLI` plan contract.
 - **`AllbertComposition.GateOwnerManifest`** — declared via
   `env: [allbert_gate_owner_manifests: ...]`, so the gate discovers this
   application's owned test lanes without a kernel-side list.
@@ -62,6 +83,6 @@ invocation.
 
 ## Related
 
-- `docs/adr/0098-kernel-application-pack-contract-tier-model.md` §1 — composition
+- `docs/adr/0098-kernel-application-pack-contract-and-tier-model.md` §1 — composition
   hosts are not a capability tier.
 - `apps/allbert_kernel/README.md` — the contracts this host binds.
