@@ -306,7 +306,7 @@
     },
     {
       "arity": 1,
-      "definition_sha256": "2a1071580faa0f938d2669b6ec8fdda26e8840ec8efd83cdaa5d8c828edcb197",
+      "definition_sha256": "e3c8a3a27939128917937d39536255a2959f106bad489754a1e180f62f742081",
       "disposition": "retain_local",
       "function": "json_safe",
       "id": "AllbertAssist.Conversations.json_safe/1",
@@ -696,7 +696,7 @@
           "capture_count": 0,
           "purpose": "Interpret runtime coding and fan-out flags",
           "trust_or_wire": "runtime_context_input",
-          "use_sha256": "58053769bd52c717cd788c85137c9b9d240f163dc8ae3013dfb9a6072444f8fd"
+          "use_sha256": "2766d80c2330e0a21f7aa172eeb681ba8069f6824562fc261f91a7000722ab98"
         }
       ]
     },
@@ -952,17 +952,17 @@
       "use_sites": [
         {
           "call_count": 1,
-          "caller": "run/2",
+          "caller": "import_or_deny/3",
           "capture_count": 0,
           "purpose": "Interpret StockSage import option flags",
           "trust_or_wire": "action_param_input",
-          "use_sha256": "70382fce0c97f67024e332bd90dfe3d6a461834af49839b594d14dd26d3e2fb5"
+          "use_sha256": "8fa153bbf90aef51bf7c0c8b913373fc10908ff54cd6d9589cf61807e4c78ecf"
         }
       ]
     },
     {
       "arity": 1,
-      "definition_sha256": "0dd185ef46b17a8a033b2a050b23f086cb2f5dda45a049bf2e43f43f90eb68d1",
+      "definition_sha256": "7d9171c1a7cedc86a74e89c651a314e3ddf9cfc46865475c90b3624323fef39c",
       "disposition": "retain_local",
       "function": "json_safe",
       "id": "StockSage.Actions.RunAnalysis.json_safe/1",

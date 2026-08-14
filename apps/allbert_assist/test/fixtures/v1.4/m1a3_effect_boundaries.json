@@ -756,7 +756,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 707,
+      "line": 730,
       "roster_id": "app-registry-register-2",
       "source_path": "apps/allbert_assist/lib/allbert_assist/app/registry.ex"
     },
@@ -812,7 +812,7 @@
       "boundary": "AllbertAssist.Channels.Notify.deliver",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 230,
+      "line": 261,
       "roster_id": "notify-consumer",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex"
     },
@@ -820,7 +820,7 @@
       "boundary": "AllbertAssist.Channels.Notify.deliver",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 369,
+      "line": 400,
       "roster_id": "notify-consumer",
       "source_path": "apps/allbert_assist/lib/allbert_assist/channels/notify_consumer.ex"
     },
@@ -1764,7 +1764,7 @@
       "boundary": "AllbertAssist.Objectives.create_event",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 559,
+      "line": 564,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/objectives/fanout/terminal_transitions.ex"
     },
@@ -2068,7 +2068,7 @@
       "boundary": "DynamicSupervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 159,
+      "line": 163,
       "roster_id": "plugin-bootstrap-staged-boot",
       "source_path": "apps/allbert_assist/lib/allbert_assist/plugin/bootstrap.ex"
     },
@@ -2092,7 +2092,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result_durable",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 225,
+      "line": 226,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2100,7 +2100,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 249,
+      "line": 256,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2108,7 +2108,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 313,
+      "line": 320,
       "roster_id": "acp-server-prompt",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/server.ex"
     },
@@ -2132,7 +2132,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 115,
+      "line": 132,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2140,7 +2140,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_rejected",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 268,
+      "line": 279,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2148,7 +2148,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 271,
+      "line": 282,
       "roster_id": "mcp-runtime",
       "source_path": "apps/allbert_assist/lib/allbert_assist/public_protocol/mcp/runtime.ex"
     },
@@ -2196,7 +2196,7 @@
       "boundary": "AllbertAssist.Channels.Notify.mark_consent_offer_delivered",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 303,
+      "line": 307,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2204,7 +2204,7 @@
       "boundary": "AllbertAssist.Channels.Notify.prepare_consent_offer",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1344,
+      "line": 1348,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2212,7 +2212,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1405,
+      "line": 1409,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2220,7 +2220,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1552,
+      "line": 1556,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2228,7 +2228,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 1720,
+      "line": 1724,
       "roster_id": "runtime-submit-1",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime.ex"
     },
@@ -2236,7 +2236,7 @@
       "boundary": "Task.Supervisor.start_child",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 648,
+      "line": 652,
       "roster_id": "runtime-attach-dispatch",
       "source_path": "apps/allbert_assist/lib/allbert_assist/runtime/attach.ex"
     },
@@ -2284,7 +2284,7 @@
       "boundary": "Req.request",
       "disposition": "external_e1",
       "evidence": "final Req transport consumes an explicit E1 carrier",
-      "line": 496,
+      "line": 501,
       "roster_id": "raw-req-apps-allbert-assist-lib-allbert-assist-settings-model-doctor-ex",
       "source_path": "apps/allbert_assist/lib/allbert_assist/settings/model_doctor.ex"
     },
@@ -2444,7 +2444,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.record_inbound",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 38,
+      "line": 57,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2452,7 +2452,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 53,
+      "line": 72,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2460,7 +2460,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 62,
+      "line": 81,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2468,7 +2468,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 66,
+      "line": 85,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2476,7 +2476,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 110,
+      "line": 114,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2484,7 +2484,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_failed",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 138,
+      "line": 142,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2492,7 +2492,7 @@
       "boundary": "AllbertAssist.Surface.EventRecorder.mark_result_durable",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 167,
+      "line": 171,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2500,7 +2500,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 169,
+      "line": 173,
       "roster_id": "openai-controller-fanout",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
     },
@@ -2580,7 +2580,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "SharedShellHooks validates the connected socket E1 before ContextBuilder carries that exact epoch into the theme-setting Runner action.",
-      "line": 55,
+      "line": 53,
       "roster_id": "web-shared-shell-hooks",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/shared_shell_hooks.ex"
     },
@@ -2588,7 +2588,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "SharedShellHooks validates the connected socket E1 before ContextBuilder carries that exact epoch into the resolved-settings Runner action.",
-      "line": 132,
+      "line": 136,
       "roster_id": "web-shared-shell-hooks",
       "source_path": "apps/allbert_assist_web/lib/allbert_assist_web/live/shared_shell_hooks.ex"
     },
@@ -3052,7 +3052,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 62,
+      "line": 51,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3060,7 +3060,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 109,
+      "line": 98,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3068,7 +3068,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 111,
+      "line": 100,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3076,7 +3076,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 124,
+      "line": 113,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3084,7 +3084,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 126,
+      "line": 115,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3092,7 +3092,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 147,
+      "line": 149,
       "roster_id": "browser-mix-task",
       "source_path": "apps/allbert_browser/lib/mix/tasks/allbert.browser.ex"
     },
@@ -3116,7 +3116,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 306,
+      "line": 296,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3124,7 +3124,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 431,
+      "line": 429,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3132,7 +3132,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 628,
+      "line": 626,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3140,7 +3140,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 643,
+      "line": 641,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3148,7 +3148,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 677,
+      "line": 675,
       "roster_id": "discord-adapter",
       "source_path": "apps/allbert_discord/lib/allbert_discord/adapter.ex"
     },
@@ -3196,7 +3196,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 535,
+      "line": 538,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3204,7 +3204,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 620,
+      "line": 623,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3212,7 +3212,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 635,
+      "line": 638,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3220,7 +3220,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 639,
+      "line": 642,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3228,7 +3228,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 643,
+      "line": 646,
       "roster_id": "matrix-adapter",
       "source_path": "apps/allbert_matrix/lib/allbert_matrix/adapter.ex"
     },
@@ -3392,7 +3392,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 328,
+      "line": 321,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3400,7 +3400,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 481,
+      "line": 482,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3408,7 +3408,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 670,
+      "line": 671,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3416,7 +3416,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 685,
+      "line": 686,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3424,7 +3424,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 719,
+      "line": 720,
       "roster_id": "slack-adapter",
       "source_path": "apps/allbert_slack/lib/allbert_slack/adapter.ex"
     },
@@ -3440,7 +3440,7 @@
       "boundary": "Task.Supervisor.start_child",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 1680,
+      "line": 1668,
       "roster_id": "runner-run-3",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3448,7 +3448,7 @@
       "boundary": "AllbertAssist.Channels.create_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2205,
+      "line": 2193,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3456,7 +3456,7 @@
       "boundary": "AllbertAssist.Runtime.acknowledge_deliveries",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2254,
+      "line": 2242,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3464,7 +3464,7 @@
       "boundary": "AllbertAssist.Runtime.submit_user_input",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2438,
+      "line": 2426,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3472,7 +3472,7 @@
       "boundary": "AllbertAssist.Actions.Runner.run",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2450,
+      "line": 2438,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3480,7 +3480,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2676,
+      "line": 2664,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3488,7 +3488,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2704,
+      "line": 2692,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3496,7 +3496,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 2712,
+      "line": 2700,
       "roster_id": "tui-adapter",
       "source_path": "apps/allbert_tui/lib/allbert_tui/adapter.ex"
     },
@@ -3592,7 +3592,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 772,
+      "line": 775,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3600,7 +3600,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 787,
+      "line": 790,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3608,7 +3608,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 801,
+      "line": 804,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3616,7 +3616,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 809,
+      "line": 812,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3624,7 +3624,7 @@
       "boundary": "AllbertAssist.Channels.update_event",
       "disposition": "external_e1",
       "evidence": "Reviewed roster source owns or receives the E1 required at this discovered boundary.",
-      "line": 825,
+      "line": 828,
       "roster_id": "whatsapp-adapter",
       "source_path": "apps/allbert_whatsapp/lib/allbert_whatsapp/adapter.ex"
     },
@@ -3728,7 +3728,7 @@
       "boundary": "AllbertAssist.Confirmations.create",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 206,
+      "line": 221,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex"
     },
@@ -3736,7 +3736,7 @@
       "boundary": "AllbertAssist.Objectives.create_objective",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 381,
+      "line": 396,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/actions/run_analysis.ex"
     },
@@ -3752,7 +3752,7 @@
       "boundary": "AllbertAssist.Objectives.create_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 369,
+      "line": 375,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
@@ -3760,7 +3760,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 381,
+      "line": 387,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
@@ -3768,7 +3768,7 @@
       "boundary": "AllbertAssist.Objectives.transition_step",
       "disposition": "inherited_context",
       "evidence": "Runner-owned explicit E1 context is carried to this boundary",
-      "line": 398,
+      "line": 404,
       "roster_id": "runner-run-3",
       "source_path": "apps/stocksage/lib/stocksage/agents/native_coordinator/commands/analyze.ex"
     },
