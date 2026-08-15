@@ -431,7 +431,7 @@ start arbitrary pack child specs returned as metadata. Adding a future optional
 callback is an additive change to this behaviour. Removing one or changing its
 meaning follows the public stability rules in §7.
 
-v1.4 wires and proves every callback consumed by the three extracted packs and
+v1.4 wires and proves every callback consumed by the thirteen extracted packs and
 the gate/settings/action inversions. `settings_migrations/0` returns empty and
 admits no action, runner, or boot behavior. A callback reserved for a later
 release may return empty, but future code must use the named contribution seam
@@ -646,18 +646,33 @@ The M0 implementation audit froze `allbert_composition` as the descriptorless
 coordinator host and completed M7.0 at clean SHA `1739a4028`: 652 test files and
 4,627 manifest rows reconcile with zero unclassified or double-counted files.
 That pass found and repaired six previously omitted Notes Files/Artifacts test
-files before any module relocation. The durable M0 ledger owner then advances
+files before any module relocation. The durable M0 ledger owner then advanced
 the live inventory to 653 files/4,633 rows; that is an append-only evidence
-delta, not a correction to the clean M7.0 checkpoint. These are implementation
-bindings of the accepted decision, not a new capability category or a change to
-ADR status.
+delta, not a correction to the clean M7.0 checkpoint. M8/M8.1 subsequently
+closed the dependency inversion and R2 hash-pure relocation with zero closure
+findings and zero relocation diffs across the 711-file census. These are
+implementation bindings of the accepted decision, not a new capability
+category or a change to ADR status.
 
 New capability code has somewhere correct to go, which is the point. The two
 releases immediately after v1.4 build new subsystems; without this boundary they
 would land in the monolith and need moving later, which is the coupling regrowth
-this ADR exists to stop. v1.4 therefore ships **three proven pack extractions**
-(`notes_files`, then telegram and email) rather than inversions alone — a
-pattern with no worked example is not a pattern.
+this ADR exists to stop. The completed v1.4 topology contains **17 OTP
+applications**: 15 descriptor-bearing applications (kernel, residual, and 13
+extracted packs) plus the descriptorless composition coordinator and Web
+surface. The thirteen extractions are `notes_files`, Telegram, email, research,
+browser, Discord, Matrix, Signal, Slack, TUI, WhatsApp, Artifacts, and StockSage.
+The exact closed projection, application/start DAG, component identifiers, and
+descriptor identities are release-assembly verified rather than inferred from
+the source directory layout.
+
+M15 then regenerated the final action, contribution, owner, edge, and affected-
+component inventories and froze their ownership in the v1.4 component-contract
+baseline. Transitional `release.v1` and non-stacking `release.v14` passed
+together on the exact-clean source candidate; `release.v14` finishes at 13/13,
+including licence-drift coverage. Packaged acceptance in M17 is the final
+promotion condition for making that baseline the post-v1.4 internal test
+authority; it does not change the external Tier-1 compatibility obligation.
 
 Compile times do not improve for a pack that depends on `allbert_assist` while
 the monolith is still large. The benefit is boundary enforcement and blast

@@ -138,6 +138,16 @@ an otherwise broad equality exception.
 - Permission facade retirement has its own caller ledger, red-first tests, and
   Security evals. A green param-contract catalog is neither deletion evidence nor
   an authorization-parity result.
+- **v1.4 closeout evidence (2026-08-14).** The regenerated closeout roster still
+  contains exactly 281 registered actions, with no M0-to-closeout additions or
+  removals. Every catalog row has an explicit runtime schema disposition, the
+  unsupported-schema count is zero, and the release eval proves valid requests
+  do not regress to `:invalid_params`. Independently, the generated
+  `PermissionGate` caller ledger closes at zero production references: red-first
+  parity covers allowed, denied, confirmation, and effectful paths, and the only
+  accepted envelope delta is `decision.source = AllbertAssist.Security`. This is
+  implementation evidence for the two separate seams; neither result is used as
+  evidence for the other.
 - **Freeze readiness.** The seam reshapes two Tier-1-frozen surfaces — the
   Registry's exposed action schema and the Runner `:invalid_params` response
   shape — so it must be delivered freeze-ready in v0.59. The v1.0 plan names both
