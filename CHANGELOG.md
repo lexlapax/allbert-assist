@@ -10,13 +10,16 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v1.4 - Kernel And Pack Contract
+## v1.4.0 - Kernel And Pack Contract
 
-Status: **source complete, not yet packaged (2026-08-14).** No tag, native
-archive, GitHub Release, signature, Homebrew update, or packaged FV exists for
-this line yet; `v1.3.0` remains the packaged Latest and v1.4 is still the next
-binary carrier, so it also still owes the v1.3.1 and v1.3.2 source-only deltas
-their first artifact. Source evidence at the R4 candidate: preflight 10/10,
+Status: **source remediation implemented; R4 requalification pending
+(2026-08-15).** The first complete provisional generation exposed a packaged
+TUI attach-only bootstrap defect and was discarded in full before publication.
+No current tag, draft GitHub Release, signature, Homebrew update, or accepted
+packaged FV exists for this line; `v1.3.0` remains the packaged Latest and
+v1.4.0 is still the next binary carrier, so it also still owes the v1.3.1 and
+v1.3.2 source-only deltas their first artifact. Prior R4 candidate evidence,
+which must now be proportionally requalified: preflight 10/10,
 `release.v1` 10/10, the thirteen-step `release.v14` 13/13 on the same
 exact-clean SHA, `release.v132` 8/8, `mix precommit` 4/4, the Linux
 Elixir 1.20.2 / OTP 29 compatibility probe green, and a 50-pair /
@@ -24,6 +27,12 @@ Elixir 1.20.2 / OTP 29 compatibility probe green, and a 50-pair /
 operator direction** rather than operator-driven — see
 `docs/validation/v1.4/README.md`, which states plainly what that does and does
 not evidence. Plan: `docs/plans/v1.4-plan.md`.
+
+Formula state: PRE-PUBLICATION ONLY. The repository formula and packaged Latest
+1.3.0 remain unchanged while the replacement candidate is qualified. At
+publication the tap is filled 1.3.0 → 1.4.0 from the accepted signed checksums,
+and that filled formula is synced back into the repository during accepted
+closeout.
 
 - **Pack topology.** Capability now contributes through one kernel-owned
   contract instead of a hand-maintained list. `allbert_kernel` holds the Pack
