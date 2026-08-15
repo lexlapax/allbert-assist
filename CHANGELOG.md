@@ -12,8 +12,20 @@ changelog entries or release notes.
 
 ## v1.4.0 - Kernel And Pack Contract
 
-Status: **R4 reopened for extracted-Pack alias-contract remediation
-(2026-08-15).** A later provisional candidate exposed that the thirteen
+Status: **the extracted-Pack alias-contract remediation and proportional R4
+source rejoin are green; R4 artifact-source activation is conditional on this
+evidence checkpoint's push and exact-clean preflight (2026-08-15).** The final
+clean implementation SHA is
+`d1c52094a38a2f8913c94a7dd01b70a5c987ad67`: preflight 10/10,
+affected Kernel/Composition owner lanes, source Pack ownership FV,
+`release.v1` 10/10, `release.v14` 13/13 with 495 test-bearing checks,
+the pinned compatibility build, Dialyzer with zero errors, strict Credo with
+zero findings, and precommit 4/4 are green. The census is 50 pairs / 5,171
+tests / 0 failures. R4 becomes the artifact-source handoff only after this
+evidence is committed, pushed, and exact-clean preflighted; no release identity
+or authoritative aggregate exists yet.
+
+A later provisional candidate exposed that the thirteen
 extracted legacy manifests had not become inert Pack-snapshot contributions; its draft,
 13 unsigned assets, provisional tag, and temporary formula install/tap were
 deleted. No current release identity exists and the authoritative aggregate has
@@ -28,8 +40,8 @@ R4 rejoin found and repaired a TUI selector that pointed at an empty lane. The
 selector now names each product application's real owner and complete current
 inventory lanes, and its full source rejoin is green at `380a3c78d`. That prior
 evidence is superseded for artifact-source acceptance by the alias-contract
-repair and must be proportionally requalified before any new candidate. The
-prior source evidence includes
+repair; that requalification is now the green `d1c52094a` evidence above. The
+superseded prior source evidence included
 preflight 10/10,
 `release.v1` 10/10, the thirteen-step `release.v14` 13/13 on the same
 exact-clean SHA, `release.v132` 8/8, `mix precommit` 4/4, the Linux

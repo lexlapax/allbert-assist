@@ -7,8 +7,8 @@ browser,db_serial,PASS,24,0,0,0,35
 browser,external_runtime_serial,PASS,6,0,2,0,29
 browser,home_fs_serial,PASS,15,0,0,0,32
 browser,security_eval_serial,PASS,7,0,0,0,30
-composition,global_process_serial,PASS,40,0,0,0,179
-composition,pure_async,PASS,7,0,0,0,28
+composition,global_process_serial,PASS,42,0,0,0,197
+composition,pure_async,PASS,7,0,0,0,26
 core,app_env_serial,PASS,782,0,0,0,259
 core,db_partition_safe,PASS,9,0,0,0,28
 core,db_serial,PASS,1213,0,0,0,417
@@ -21,7 +21,7 @@ discord,pure_async,PASS,5,0,0,0,29
 email,db_serial,PASS,1,0,0,0,30
 kernel,app_env_serial,PASS,8,0,0,0,5
 kernel,external_runtime_serial,PASS,38,0,0,0,5
-kernel,global_process_serial,PASS,200,0,0,0,12
+kernel,global_process_serial,PASS,204,0,0,0,8
 kernel,home_fs_serial,PASS,18,0,0,0,11
 kernel,pure_async,PASS,13,0,0,0,5
 matrix,external_runtime_serial,PASS,1,0,0,0,28
