@@ -52,6 +52,26 @@ recording rather than a defect, but it is invisible to every suite.
 the web surface through `mix phx.server` and every pack/CLI step through
 `ProductCLI.main/1`, which is the real product entry.
 
+### Final release-identity retake
+
+The observable rows invalidated by the 1.4.0 version checkpoint were retaken
+agent-driven on 2026-08-14 at source-gate SHA `dd493b110`, again with a fresh
+disposable Home under `/private/tmp` and without writing to the operator's real
+Allbert Home:
+
+- the warm product CLI reported exactly `allbert 1.4.0`;
+- the live endpoint served `workspace-sw.js` with cache identity
+  `allbert-workspace-shell-v1.4.0` and no 1.3.2 cache identity;
+- Chrome loaded the real workspace at `http://localhost:4112/workspace`, then a
+  full reload preserved the workspace, its conversation, the composer, and all
+  five Pack surfaces (Artifacts, Browser, Notes/files, Research, and StockSage);
+- the Chrome console contained zero errors after the reload.
+
+This is a proportional retake of reported-version and Web cache/reload behavior,
+not a claim that a human exercised the source UI. The original source FV rows
+below remain bound to their disclosed SHA; packaged acceptance remains owed to
+R4b.
+
 ## Results
 
 | Step | What it proves | Result |
