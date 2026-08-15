@@ -31,16 +31,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ExtractedAliases do
         {:ok, contributions, []}
 
       :full ->
-        Enum.reduce_while(@mappings, {:ok, contributions, []}, fn mapping,
-                                                                  {:ok, current, aliases} ->
-          case migrate_mapping(mapping, current) do
-            {:ok, migrated, alias_record} ->
-              {:cont, {:ok, migrated, aliases ++ [alias_record]}}
-
-            {:error, diagnostics} ->
-              {:halt, {:error, diagnostics}}
-          end
-        end)
+        migrate_all(contributions)
 
       {:error, _diagnostics} = error ->
         error
@@ -54,6 +45,18 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ExtractedAliases do
   @doc false
   @spec mappings() :: [{String.t(), String.t(), String.t(), String.t()}]
   def mappings, do: @mappings
+
+  defp migrate_all(contributions) do
+    Enum.reduce_while(@mappings, {:ok, contributions, []}, fn mapping, {:ok, current, aliases} ->
+      case migrate_mapping(mapping, current) do
+        {:ok, migrated, alias_record} ->
+          {:cont, {:ok, migrated, aliases ++ [alias_record]}}
+
+        {:error, diagnostics} ->
+          {:halt, {:error, diagnostics}}
+      end
+    end)
+  end
 
   defp validate_mapping_inventory(contributions, plugins) do
     expected_sources = @mappings |> Enum.map(&elem(&1, 0)) |> Enum.sort()
@@ -85,33 +88,52 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ExtractedAliases do
   end
 
   defp validate_mapping_pairs(contributions) do
-    Enum.reduce_while(@mappings, :ok, fn
-      {source_id, source_module, target_id, target_module}, :ok ->
-        source = contribution(contributions, source_id)
-        target = contribution(contributions, target_id)
-
-        case {source, target} do
-          {%Contribution{} = source, %Contribution{} = target} ->
-            if exact_mapping?(source, source_module, target, target_module) do
-              {:cont, :ok}
-            else
-              {:halt, invalid(:extracted_alias_mapping_mismatch, source_id)}
-            end
-
-          _missing_or_partial ->
-            {:halt, invalid(:incomplete_extracted_alias_mapping, source_id)}
-        end
-    end)
+    Enum.reduce_while(@mappings, :ok, &validate_mapping_pair(&1, &2, contributions))
   end
 
+  defp validate_mapping_pair(
+         {source_id, source_module, target_id, target_module},
+         :ok,
+         contributions
+       ) do
+    source = contribution(contributions, source_id)
+    target = contribution(contributions, target_id)
+
+    mapping_result(source, source_module, target, target_module, source_id)
+  end
+
+  defp mapping_result(
+         %Contribution{} = source,
+         source_module,
+         %Contribution{} = target,
+         target_module,
+         source_id
+       ) do
+    if exact_mapping?(source, source_module, target, target_module) do
+      {:cont, :ok}
+    else
+      {:halt, invalid(:extracted_alias_mapping_mismatch, source_id)}
+    end
+  end
+
+  defp mapping_result(_source, _source_module, _target, _target_module, source_id),
+    do: {:halt, invalid(:incomplete_extracted_alias_mapping, source_id)}
+
   defp exact_mapping?(source, source_module, target, target_module) do
+    exact_source?(source, source_module) and exact_target?(target, target_module)
+  end
+
+  defp exact_source?(source, source_module) do
     source.owner.kind == :legacy_plugin and
       module_name(source.implementation_module) == source_module and
       source.source_lane == :legacy_plugin and
       source.compatibility.kind == :legacy_plugin and
       source.compatibility.trust == :trusted and
-      source.compatibility.enabled == true and
-      target.owner.kind == :compiled_pack and
+      source.compatibility.enabled == true
+  end
+
+  defp exact_target?(target, target_module) do
+    target.owner.kind == :compiled_pack and
       module_name(target.implementation_module) == target_module and
       target.source_lane == :native and
       target.compatibility.kind == :native and
@@ -174,31 +196,27 @@ defmodule AllbertAssist.Pack.CandidateBuilder.ExtractedAliases do
   defp migrate_callbacks(source, target) do
     callbacks =
       Map.new(source.callbacks, fn {family, rows} ->
-        migrated_rows =
-          rows
-          |> Enum.reject(&compatibility_only_action?/1)
-          |> Enum.map(&RowSchemas.reattribute!(&1, source, target))
-
-        target_rows = Map.fetch!(target.callbacks, family)
-
-        merged_rows =
-          Enum.reduce(migrated_rows, target_rows, fn row, rows ->
-            projection = RowSchemas.alias_authority_projection!(row, target)
-
-            if Enum.any?(
-                 rows,
-                 &(RowSchemas.alias_authority_projection!(&1, target) == projection)
-               ) do
-              rows
-            else
-              rows ++ [row]
-            end
-          end)
-
-        {family, merged_rows}
+        {family, migrate_family(rows, family, source, target)}
       end)
 
     %{target | callbacks: callbacks}
+  end
+
+  defp migrate_family(rows, family, source, target) do
+    rows
+    |> Enum.reject(&compatibility_only_action?/1)
+    |> Enum.map(&RowSchemas.reattribute!(&1, source, target))
+    |> Enum.reduce(Map.fetch!(target.callbacks, family), &merge_row(&1, &2, target))
+  end
+
+  defp merge_row(row, rows, target) do
+    projection = RowSchemas.alias_authority_projection!(row, target)
+
+    if Enum.any?(rows, &(RowSchemas.alias_authority_projection!(&1, target) == projection)) do
+      rows
+    else
+      rows ++ [row]
+    end
   end
 
   defp compatibility_only_action?(%Row{kind: :actions, order: %{namespace: :alias_target}}),

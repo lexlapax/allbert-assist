@@ -5,9 +5,9 @@ defmodule AllbertAssist.Pack.RegistryTest do
 
   alias AllbertAssist.Pack.{ActionBinding, Canonical, Compatibility, CompatibilityAlias}
   alias AllbertAssist.Pack.{Contribution, Descriptor, Order, Owner, PathSegment, Target}
-  alias AllbertAssist.Pack.{ValidationDiagnostic}
   alias AllbertAssist.Pack.Registry
   alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
+  alias AllbertAssist.Pack.ValidationDiagnostic
 
   defmodule SlowServer do
     use GenServer
