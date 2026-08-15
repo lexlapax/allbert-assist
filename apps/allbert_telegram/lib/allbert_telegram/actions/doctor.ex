@@ -28,11 +28,18 @@ defmodule AllbertTelegram.Actions.Doctor do
     permission_decision = Security.authorize(:read_only, context)
 
     with true <- Security.allowed?(permission_decision),
-         {:ok, result} <- Doctor.diagnose() do
+         {:ok, result} <- Doctor.diagnose(doctor_opts(context)) do
       {:ok, completed(result, permission_decision)}
     else
       false -> {:ok, denied(permission_decision)}
       {:error, reason} -> {:ok, failed(permission_decision, reason)}
+    end
+  end
+
+  defp doctor_opts(context) do
+    case Map.fetch(context, :allbert_pack_epoch) do
+      {:ok, epoch} -> [allbert_pack_epoch: epoch]
+      :error -> []
     end
   end
 

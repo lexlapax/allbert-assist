@@ -11,6 +11,8 @@ defmodule AllbertTelegram.Actions.DoctorTest do
   alias AllbertTelegram.Actions.Doctor, as: TelegramDoctor
   alias AllbertTelegram.Doctor
 
+  setup {Req.Test, :verify_on_exit!}
+
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -79,6 +81,26 @@ defmodule AllbertTelegram.Actions.DoctorTest do
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "ok"
     assert state["bot_username"] == "allbert_fixture_bot"
+  end
+
+  test "carries Pack readiness into the real Telegram endpoint check" do
+    Application.put_env(:allbert_telegram, :telegram_doctor_client_opts,
+      mode: :real,
+      plug: {Req.Test, __MODULE__}
+    )
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/bot123:secret/getMe"
+      Req.Test.json(conn, %{"ok" => true, "result" => %{"id" => 42, "username" => "ready_bot"}})
+    end)
+
+    assert {:ok, response} =
+             TelegramDoctor.run(%{}, ReadyEffectContext.attach(context()))
+
+    assert response.status == :completed
+    assert response.doctor.auth_ok
+    assert response.doctor.endpoint_ok
+    assert response.doctor.bot_username == "ready_bot"
   end
 
   test "flags missing group allowlist as a warning" do

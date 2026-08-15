@@ -12,18 +12,22 @@ changelog entries or release notes.
 
 ## v1.4.0 - Kernel And Pack Contract
 
-Status: **the extracted-Pack alias-contract remediation and proportional R4
-source rejoin are green; R4 artifact-source activation is conditional on this
-evidence checkpoint's push and exact-clean preflight (2026-08-15).** The final
-clean implementation SHA is
+Status: **R4 is reopened for one final bounded repair (2026-08-15).** A complete
+three-target candidate from `7e9e0433c1b3` built, smoked, and qualified, but
+real packaged validation found that the Telegram doctor dropped the Pack
+readiness epoch before its guarded endpoint check. Its unsigned draft, all 13
+assets, and provisional tag were deleted. The repair forwards the existing
+Runner-carried epoch without weakening the guard and adds a real-mode
+regression. No current release identity exists; a new source rejoin and wholly
+new candidate are required, and the authoritative aggregate has not run. The
+prior final clean implementation SHA is
 `d1c52094a38a2f8913c94a7dd01b70a5c987ad67`: preflight 10/10,
 affected Kernel/Composition owner lanes, source Pack ownership FV,
 `release.v1` 10/10, `release.v14` 13/13 with 495 test-bearing checks,
 the pinned compatibility build, Dialyzer with zero errors, strict Credo with
 zero findings, and precommit 4/4 are green. The census is 50 pairs / 5,171
-tests / 0 failures. R4 becomes the artifact-source handoff only after this
-evidence is committed, pushed, and exact-clean preflighted; no release identity
-or authoritative aggregate exists yet.
+tests / 0 failures. Those unaffected results may carry only as allowed by the
+active re-run rules; R4 acceptance itself is open.
 
 A later provisional candidate exposed that the thirteen
 extracted legacy manifests had not become inert Pack-snapshot contributions; its draft,
