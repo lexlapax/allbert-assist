@@ -12,65 +12,34 @@ changelog entries or release notes.
 
 ## v1.4.0 - Kernel And Pack Contract
 
-Status: **the final release-test definition repair and proportional R4 source
-rejoin are green at `53cba5c67e10766ca68b1943f3b5f7ad07d3de83`
-(2026-08-15).** Preflight 10/10; the complete previously failed fast-local phase; the
-affected external-runtime lane; `release.v1` 10/10; `release.v14` 13/13 with
-496 test-bearing checks; Dialyzer and strict Credo with zero findings; and
-precommit 4/4 passed. The manifest has 5,146 rows and the census is 50 pairs /
-5,173 tests / 0 failures. R4 artifact-source activation is conditional on this
-separate evidence checkpoint's commit, push, and exact-clean preflight. Every
-stale unsigned draft, asset generation, and provisional tag was deleted. No
-current release identity exists and a wholly new candidate is required. The
-first authoritative aggregate invocation at `1f6ca6007` stopped in its opening
-fast-local phase because two release-test definitions were stale; it found no
-product failure, did not reach later phases, counts as attempt 1, and supplies
-no aggregate acceptance. The operator approved one replacement authoritative
-aggregate after the replacement candidate passes R4b.
+Status: **shipped 2026-08-15.** The immutable public
+[`v1.4.0`](https://github.com/lexlapax/allbert-assist/releases/tag/v1.4.0)
+release is GitHub Latest and contains exactly 18 verified assets built from
+`9c82179e79d624d9e682e683ecd2151734d3d392`; its six archive names and digests
+are bound by the verified Cosign-signed checksum file. All three targets qualified;
+packaged install, service, vault, TTY/TUI, ABI, relocation, licences, Pack
+topology, Memory/model/jobs, and real configured Telegram/email checks passed.
+The published signed installer passed from a disposable prefix and Home. The
+official Homebrew tap is filled, pushed, freshly installed, and tested at
+`775cbf8f1896838afad0919b20aac56cfd30c7db`.
 
-A private replacement from `0f04f4611` subsequently built and qualified all
-three targets and passed Homebrew install plus repeated package identity,
-integrity, licence, assembly, ABI and smoke checks. Its behavior rows validly
-carried because the preceding repair changed only release-test definitions.
-Before R5, the repeat found two command-only corrections needed in the active
-request-flow: canonical macOS `/private/tmp` identity and explicit forwarding
-of the already-guarded Playwright/Chrome host paths to independent artifact
-smoke. The corrected commands passed; draft Release `371116974`, all 13 unsigned
-assets, its generation, temporary Homebrew state, and the provisional tag were
-deleted so those corrections can be part of the final tagged source. Nothing
-was signed or published and the approved replacement aggregate remains unrun.
+The last v1.0 migration comparison passed 10/10 and the successor
+component-owned `release.v14` contract passed 13/13 with 496 test-bearing
+checks; it is now the internal contract/test authority. The final census is 50
+pairs / 5,173 tests / 0 failures. The operator-approved replacement final
+release test passed in 2,146,000 ms. Its first invocation at `1f6ca6007` had
+stopped in the opening phase on two stale test definitions and provides no
+acceptance; the one-time v1.4 exception and both attempts remain recorded.
 
-A later provisional candidate exposed that the thirteen
-extracted legacy manifests had not become inert Pack-snapshot contributions; its draft,
-13 unsigned assets, provisional tag, and temporary formula install/tap were
-deleted. No current release identity exists and the authoritative aggregate has
-not run. The earlier complete provisional generation exposed a
-packaged TUI attach-only bootstrap defect and was discarded in full before
-publication.
-No current tag, draft GitHub Release, signature, Homebrew update, or accepted
-packaged FV exists for this line; `v1.3.0` remains the packaged Latest and
-v1.4.0 is still the next binary carrier, so it also still owes the v1.3.1 and
-v1.3.2 source-only deltas their first artifact. The remediation's proportional
-R4 rejoin found and repaired a TUI selector that pointed at an empty lane. The
-selector now names each product application's real owner and complete current
-inventory lanes, and its full source rejoin is green at `380a3c78d`. That prior
-evidence is superseded for artifact-source acceptance by the alias-contract
-repair; that requalification is now the green `d1c52094a` evidence above. The
-superseded prior source evidence included
-preflight 10/10,
-`release.v1` 10/10, the thirteen-step `release.v14` 13/13 on the same
-exact-clean SHA, `release.v132` 8/8, `mix precommit` 4/4, the Linux
-Elixir 1.20.2 / OTP 29 compatibility probe green, and a 50-pair /
-5,165-test / 0-failure census. Attended source FV was **agent-executed under
-operator direction** rather than operator-driven — see
-`docs/validation/v1.4/README.md`, which states plainly what that does and does
-not evidence. Plan: `docs/plans/v1.4-plan.md`.
-
-Formula state: PRE-PUBLICATION ONLY. The repository formula and packaged Latest
-1.3.0 remain unchanged while the replacement candidate is qualified. At
-publication the tap is filled 1.3.0 → 1.4.0 from the accepted signed checksums,
-and that filled formula is synced back into the repository during accepted
-closeout.
+Protected promotion completed validation, signing, upload, signature
+verification, and the exact 18-asset check. GitHub then denied only the final
+draft-to-public request to the integration token. The operator recovery
+independently rechecked every asset, checksum, alias, and Cosign identity before
+changing only the Release state; the published asset IDs and digests remained
+unchanged. See `docs/validation/v1.4/README.md` for exact bindings and the clear
+distinction between agent-driven source FV and human-observed packaged FV.
+Archived plan: `docs/plans/archives/v1.4-plan.md`; request flow:
+`docs/plans/archives/v1.4-request-flow.md`.
 
 - **Pack topology.** Capability now contributes through one kernel-owned
   contract instead of a hand-maintained list. `allbert_kernel` holds the Pack
@@ -100,10 +69,10 @@ closeout.
   classes, safety floors, and every action-local `Security.authorize/2` check
   are unchanged, and the confirmation and effect boundaries behave exactly as
   before.
-- **Upgrading.** No action is required and no migration is needed. This line is
-  source-only so far, so nothing is installed from it; when v1.4 does ship a
-  binary it supersedes `v1.3.0` and carries the v1.3.1 and v1.3.2 deltas with
-  it. Existing Allbert Homes are read unchanged — roots, settings keys, secret
+- **Upgrading.** No action is required and no migration is needed. v1.4.0
+  supersedes `v1.3.0` as the installed release and carries the v1.3.1 and
+  v1.3.2 source-only deltas. Existing Allbert Homes are read unchanged — roots,
+  settings keys, secret
   refs, and the database are untouched by the extraction. Anyone matching on
   `decision.source` in traces, audits, or tooling should expect
   `AllbertAssist.Security`.

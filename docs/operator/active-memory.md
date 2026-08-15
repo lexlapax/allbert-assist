@@ -101,7 +101,7 @@ The v1.3.1 source line makes disposable-projection repair metadata truthful
 across bounded incremental refreshes and rebuilds older derived generations.
 It changes no operator command, canonical Markdown, retrieval consent, or
 Memory result. The v1.3.0 packaged binary does not contain that correction;
-installed operators receive it with v1.8.
+installed operators receive it with v1.4.0.
 
 - **Algorithm**: deterministic recency-weighted lexical scoring. No
   embeddings; no learned ranking; no LLM-driven scoring. Same query +

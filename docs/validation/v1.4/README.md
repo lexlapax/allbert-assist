@@ -1,4 +1,61 @@
-# v1.4 Source FV — What Was Driven, By Whom, And What Was Not
+# v1.4 Release Evidence
+
+## Binary closeout
+
+v1.4.0 shipped on 2026-08-15. The immutable public release is
+[`v1.4.0`](https://github.com/lexlapax/allbert-assist/releases/tag/v1.4.0).
+Its exact source and tag are
+`9c82179e79d624d9e682e683ecd2151734d3d392`; the accepted generation is
+`v14-20260815T182644Z-9c82179e79d6`.
+
+| Binding | Accepted evidence |
+| --- | --- |
+| GitHub Release | ID `371125351`; published `2026-08-15T19:48:23Z`; Latest, non-prerelease, immutable; exactly 18 assets |
+| Candidate manifest | asset `515968742`; SHA-256 `ea238201cd6ce314471ec7c331a11ec19c42597d46a72936130a5e3c5a7d4f9a` |
+| Qualification | run `31902242882`; artifact `9251424641`; SHA-256 `3b6fe103eeb1739a023021e746c8f8cd67da8a52057f209cb6d125f792755125`; macOS arm64, Linux x64, and Linux arm64 passed |
+| macOS arm64 archive | `32931a29f2200e13a29eaa1eaf564c3414432957760a34fb9841149b1b8ea039` |
+| Linux x64 archive | `49a2b40a39406da68b90da02d8d62b7ca39cd2dd8266b2c50c87188ab3cf47be` |
+| Linux arm64 archive | `729d2150b8de2ee88efba80df0c4cab9bf324447596299bcb338a3a7448600dc` |
+| Signed checksums | `SHA256SUMS` asset `516013528`, SHA-256 `1dca238dbd802ec7531c1082c61245abc593b553947eecec59f70c280ae1370d`; Cosign bundle asset `516013557`, SHA-256 `a741f9a90c8e678b7ba5932bb70cd662514e4a20159acc4232faf4f6fe0ada05` |
+| Homebrew | public tap commit `775cbf8f1896838afad0919b20aac56cfd30c7db`; strict online audit, public-tap install, `brew test`, version, and licence checks passed |
+
+R4b accepted the exact candidate after three-target qualification, unsigned
+draft identity checks, Homebrew-shadow install, release-assembly and Pack
+topology verification, ABI/native-byte comparison, licence equality, and
+independent package smoke. The previously completed human-observed packaged
+service, vault, real TTY/TUI, Memory/model/jobs, Telegram, and email behavior
+checks remained valid because the final repair changed only release-test and
+documentation code; every package identity and integrity check affected by the
+new bytes was repeated on this generation.
+
+The normal final release test was invoked twice only because the operator
+approved a one-time v1.4 exception. Attempt 1 at `1f6ca6007` stopped in its
+opening fast-local phase on two stale test definitions and supplies no release
+acceptance. The approved replacement at the accepted source passed in
+2,146,000 ms: high-coverage fast-local, external-runtime, security, Web,
+Kernel, Composition, StockSage, extracted components, static checks, and
+Dialyzer all passed with zero failures or findings.
+
+Protected promotion run `31904696318` revalidated the candidate, created the
+three byte-identical latest aliases, generated and signed the six-row checksum
+file, uploaded the final five assets, verified the Cosign identity, and proved
+the exact 18-asset set. Its final publish request received GitHub integration
+token HTTP 403. An operator-token recovery independently rechecked all 18 asset
+IDs, names, API and downloaded digests, alias byte equality, six checksum rows,
+and the exact workflow/tag Cosign identity, then changed only Release
+`371125351` from draft to public. A fresh read proved it immutable and Latest
+with every asset ID and digest unchanged.
+
+The published signed installer was then exercised from disposable prefixes and
+Homes through both the pinned `v1.4.0` archive and the default `latest` alias:
+Cosign verification, checksum verification, `allbert 1.4.0`, licence viewer,
+and operator status passed. The public `lexlapax/allbert` tap was filled
+from the published checksums, audited, pushed, freshly tapped from GitHub,
+installed, and tested. Temporary v1.3/v1.4 candidate taps were then removed;
+the retained installation receipt names only official tap commit `775cbf8f`.
+No validation wrote to the operator's real Allbert Home.
+
+## Source FV — What Was Driven, By Whom, And What Was Not
 
 v1.4 is the kernel/pack boundary release. Its source FV therefore has one job:
 prove that thirteen extracted packs actually work in a running system built
@@ -69,8 +126,8 @@ Allbert Home:
 
 This is a proportional retake of reported-version and Web cache/reload behavior,
 not a claim that a human exercised the source UI. The original source FV rows
-below remain bound to their disclosed SHA; packaged acceptance remains owed to
-R4b.
+below remain bound to their disclosed SHA. At that stage packaged acceptance
+was still owed to R4b; the binary-closeout section above records its completion.
 
 ## Results
 
@@ -151,18 +208,18 @@ the viewer is correctly a **packaged**-FV item and moves to M17.b. Failing
 closed is the right behaviour and is recorded as a pass of the boundary, not a
 gap.
 
-## Not exercised, and owed to M17.b packaged FV
+## Not exercised in source FV; completed in M17.b packaged FV
 
-- **Real configured Telegram and email endpoints.** All eight channels are
-  registered but `enabled=false` with `credentials=missing` on a fresh Home. The
-  plan places real configured endpoints in M17 step (6), attended packaged FV.
+- **Real configured Telegram and email endpoints.** All eight channels were
+  registered but `enabled=false` with `credentials=missing` on the source-FV
+  Home. The later packaged FV completed both configured endpoint rows.
 - **Install, service lifecycle, vault tiers, TTY, ABI, relocation, package
-  smoke.** All packaged concerns.
+  smoke.** All were completed during packaged acceptance.
 - **Interactive TUI.** `allbert tui` needs a TTY; the daemon's attach server
   reports `not_started` under `mix phx.server`, so no attach session was opened.
   The seam behind it was verified structurally (SV-6), which is not the same as
   opening a session. **This is the one surface in v1.4 that no part of this run
-  exercised end to end**, and it is the surface M15.1 changed most.
+  exercised end to end**. The later packaged FV completed the real TTY/TUI row.
 
 ## One defect class this run surfaced
 

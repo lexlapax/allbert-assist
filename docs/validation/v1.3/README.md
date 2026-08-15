@@ -152,7 +152,7 @@ when this acceptance record was written. The operator has now assigned both to
 v1.3.1: the Memory repair uses the more truthful full-build-only rename rather
 than an O(n), cross-claim incremental recomputation; the Jobs repair keeps
 paused effective due nil while retaining dirty intent. v1.3.1 is source-only,
-so v1.3.0 remains the packaged Latest and v1.8 first packages the corrections.
+v1.4.0 is now the first packaged release carrying those corrections.
 
 - **One PASS line in the transcript was retracted.** The agent-run adaptation of
   SV-8A.2 rewrote the runbook's `set -e` assertion chain as

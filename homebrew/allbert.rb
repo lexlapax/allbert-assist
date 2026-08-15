@@ -16,19 +16,19 @@ class Allbert < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.3.0/allbert-v1.3.0-macos-arm64.tar.gz"
-      sha256 "dacefc550c990517d4925b123b85859709f3d53206d18cc8c1389db662e78561"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.4.0/allbert-v1.4.0-macos-arm64.tar.gz"
+      sha256 "32931a29f2200e13a29eaa1eaf564c3414432957760a34fb9841149b1b8ea039"
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.3.0/allbert-v1.3.0-linux-x64.tar.gz"
-      sha256 "18c15355c81c7375588e5df6ccbd5116b176fb9f9a0cf33ffa8b021585a143d0"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.4.0/allbert-v1.4.0-linux-x64.tar.gz"
+      sha256 "49a2b40a39406da68b90da02d8d62b7ca39cd2dd8266b2c50c87188ab3cf47be"
     end
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.3.0/allbert-v1.3.0-linux-arm64.tar.gz"
-      sha256 "c9744660d6d788d98a7821e571f6943cbc065259876eb20a1b2a081f659be74a"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.4.0/allbert-v1.4.0-linux-arm64.tar.gz"
+      sha256 "729d2150b8de2ee88efba80df0c4cab9bf324447596299bcb338a3a7448600dc"
     end
   end
 

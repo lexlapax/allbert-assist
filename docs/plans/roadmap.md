@@ -330,8 +330,8 @@ truth for sequencing; future-features no longer mirrors a release ladder.
    in no aggregate or CI path and records content-free evidence. By explicit
    operator decision, v1.3.1 is an annotated `[skip-artifacts]` source point tag:
    no GitHub Release, package build, Homebrew movement, or packaged FV; v1.3.0
-   remains packaged Latest and v1.4 carries these source corrections into the
-   next binary. Focused tests and attended source validation precede one short
+   remained packaged Latest at that source closeout. v1.4.0 now carries these
+   corrections in the installed binary. Focused tests and attended source validation precede one short
    delta gate and, because projection machinery is shared code, exactly one
    final authoritative aggregate—never an aggregate per fix.
 > **Resequenced 2026-08-06 (operator decision).** The 1.x ladder was reordered
@@ -365,8 +365,8 @@ rather than assigning the same foundation to a later release.
    [request flow](archives/v1.3.2-request-flow.md); no new ADR — preflight is
    release tooling and `model_roles` ships the resolution half of ADR 0090 §4.
    Independent review, attended validation, `release.v1`, `release.v132`, and
-   the one aggregate passed. No GitHub Release or tap movement; packaged Latest
-   stays at v1.3.0.) Two things
+   the one aggregate passed. No GitHub Release or tap movement occurred for
+   v1.3.2; v1.4.0 now packages it.) Two things
    extracted from the profiling release because every later release depends on
    them and nothing depends on profiling:
    `mix allbert.test preflight` (cheapest-first gate under two minutes, its
@@ -378,16 +378,18 @@ rather than assigning the same foundation to a later release.
    **Sequencing rationale:** preflight is what makes 1.4's generated action-roster
    sweep cheap to fail, and `model_roles` is a hard dependency of Knowledge Central
    (1.6) and a consumer for hosted-provider OAuth (1.7). Bundling them behind a
-   flagship feature was the single largest constraint on this ladder. Source-only
-   means both reach packaged operators at 1.4.
+   flagship feature was the single largest constraint on this ladder. Both
+   reached packaged operators in v1.4.0.
 
-10. **1.4 — Spine enablers and kernel foundation.** (**Planned — foundational
-   flagship: the kernel application and Pack contribution boundary; triad
-   `docs/plans/v1.4-plan.md` + request-flow; constrained by ADR 0046's admission
-   rule and ADR 0065, plus ADR 0098 for the kernel inversions. M0 / R0 passed
-   2026-08-06 at exact-clean pushed SHA `df68a4b65`; M1.a1 passed 2026-08-07 on
-   adjacent pushed implementation/handoff SHAs `9b295052f` / `a4340b78d`, and
-   M1.a2 is next. No planned
+10. **1.4 — Spine enablers and kernel foundation.** (**SHIPPED 2026-08-15 —
+   immutable binary `v1.4.0` from source
+   `9c82179e79d624d9e682e683ecd2151734d3d392`; public GitHub Latest with 18
+   verified assets and a Cosign-signed six-archive checksum file; official
+   Homebrew tap `775cbf8f`; signed installer and public
+   tap install/test passed. Archived
+   [plan](archives/v1.4-plan.md) + [request flow](archives/v1.4-request-flow.md);
+   constrained by ADR 0046's admission rule and ADR 0065, with ADR 0098 for the
+   kernel inversions. No planned
    candidate is an eligible real ADR 0046 migration, so
    approved option A keeps the runner deferred and removes its maintenance/FV/
    DoD scope from v1.4.**) The settings and action spine, sequenced first because
@@ -402,7 +404,8 @@ rather than assigning the same foundation to a later release.
    gate inversion, deletion of the hand-maintained kernel lists, dependency
    closure/inversion before pure relocation of Home/Paths, Security Central
    with `HttpPolicy`, and the Capability plane, and
-   **three proven pack extractions** (`notes_files`, then telegram and email).
+   **thirteen proven Pack extractions** (`notes_files`, the channel Packs, TUI,
+   artifacts, browser, research, and StockSage).
    M1.a creates the minimal kernel/composition application boundaries and Pack
    substrate; M8 later populates the existing kernel with only R2-frozen
    hash-pure relocation targets. This sequencing makes the accepted ownership
@@ -414,9 +417,9 @@ rather than assigning the same foundation to a later release.
    Relocation is deliberately **not** deferred: the next two releases build new
    subsystems, and without the kernel boundary they would land in the monolith
    and need moving later. **This release also establishes the successor
-   component contract and test baseline.** `release.v1` remains the migration
-   guard while v1.4 is built; M15 freezes `release.v14` around component/Pack
-   owners and affected-component selection, and M17 makes it authoritative
+   component contract and test baseline.** `release.v1` was the migration
+   guard while v1.4 was built; M15 froze `release.v14` around component/Pack
+   owners and affected-component selection, and M17 made it authoritative
    after source/package acceptance. Moving implementation between OTP
    applications does not waive an external 1.x name or shape. ADR 0098 covers
    the pack contract, kernel application boundary, capability-tier model, and

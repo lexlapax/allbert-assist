@@ -1,11 +1,11 @@
 # Allbert 1.0 Public Contract Freeze Notes
 
-> **v1.4 authority transition (operator amendment 2026-08-07).** This v1.0
-> inventory is the migration comparison while v1.4 builds the kernel/Pack
-> boundary. `mix allbert.test release.v1` remains green through M15 and runs one
-> final time beside `release.v14` at M17. Packaged M17 acceptance promotes the
-> generated v1.4 component-owner/edge/selector baseline as the current test
-> authority and retires `release.v1` from future default qualification. The
+> **v1.4 authority transition (completed 2026-08-15).** This v1.0 inventory was
+> the migration comparison while v1.4 built the kernel/Pack boundary.
+> `mix allbert.test release.v1` passed one final time beside `release.v14` at
+> M17. Packaged M17 acceptance promoted the generated v1.4 component-owner/
+> edge/selector baseline as the current internal test authority and retired
+> `release.v1` from future default qualification. The
 > transition does not authorize a breaking external Tier-1 change in 1.x:
 > serializers and adapters preserve observable names/shapes unless a major
 > version and ADR replace them.
@@ -181,7 +181,7 @@ still gate anything the (empty) contribution set could otherwise reach.
 ### Residual extraction queue
 
 The residual's extraction queue is recorded in
-[`docs/plans/v1.4-plan.md`](../plans/v1.4-plan.md) ("Residual extraction
+[`docs/plans/archives/v1.4-plan.md`](../plans/archives/v1.4-plan.md) ("Residual extraction
 queue — the v1.5/v1.6 intake artifact") and is not duplicated here. In brief:
 the residual is 1,003 `.ex` files versus 396 across all 16 other applications
 combined, its de-facto public surface is six residual-owned names
@@ -248,6 +248,6 @@ it as its architectural home."
 - Reserved-vocabulary-not-frozen decision: ADR 0021 A20.
 - Migration enforcement through v1.4 M17: `mix allbert.test release.v1` (`:v1`
   sweep).
-- Successor component/test authority: ADR 0098 and active v1.4 M15/M17;
+- Successor component/test authority: ADR 0098 and archived v1.4 M15/M17;
   `release.v14` plus affected-component owner selection.
 - DIT freeze prerequisites: [`docs/validation/v1.0/`](../validation/v1.0/README.md).

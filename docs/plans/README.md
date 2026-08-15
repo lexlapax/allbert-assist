@@ -9,11 +9,6 @@ plan and request-flow documents.
 - [Roadmap](roadmap.md)
 Listed in ship order after the 2026-08-06 resequencing.
 
-- [v1.4 spine enablers plan](v1.4-plan.md) and
-  [request flow](v1.4-request-flow.md) (M0 evidence and operator disposition
-  completed 2026-08-06; migration option A keeps the no-consumer runner
-  deferred, PermissionGate option A is direct retirement, and M0 / R0 passed at
-  exact-clean pushed SHA `df68a4b65`; M1.a is next)
 - [v1.5 Knowledge Stage 1 plan](v1.5-plan.md) and
   [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6 Knowledge Central plan](v1.6-plan.md) and
@@ -29,7 +24,7 @@ Listed in ship order after the 2026-08-06 resequencing.
 
 ## Archives
 
-Every released version's plan/request-flow pair (v0.01 through v1.3.2, plus the
+Every released version's plan/request-flow pair (v0.01 through v1.4.0, plus the
 v1.0 handoff) lives in [archives/](archives/). They are shipped-history working records:
 search them for provenance and past decisions; the roadmap and CHANGELOG are the
 authoritative summaries.
@@ -52,6 +47,8 @@ authoritative summaries.
   and [request flow](archives/v1.3.1-request-flow.md)
 - [v1.3.2 foundational-enablers shipped source plan](archives/v1.3.2-plan.md)
   and [request flow](archives/v1.3.2-request-flow.md)
+- [v1.4 kernel and Pack contract shipped plan](archives/v1.4-plan.md)
+  and [request flow](archives/v1.4-request-flow.md)
 
 ## Conventions
 

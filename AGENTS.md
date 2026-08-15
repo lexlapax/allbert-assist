@@ -189,13 +189,11 @@ business-logic debugging, code review, or repository-specific architecture revie
 
 ## Post-1.0 Release Model (always applies)
 
-- v1.0 is the compatibility baseline through the v1.4 migration:
-  `mix allbert.test release.v1` stays green while the component/Pack boundary is
-  built. v1.4 M14
-  freezes the component-owned contract and affected-component test model as
-  `release.v14`; after M16 accepts and publishes that baseline, future changes use
-  the current component contract rather than replaying `release.v1` on every
-  change. This test-authority transition does not authorize a breaking external
+- v1.4 is the current internal component/test baseline. Use `release.v14` plus
+  affected-component owner selection for future changes; do not replay
+  `release.v1` by default. `release.v1` is retained only as the historical v1.0
+  migration comparison and ran for the final time during v1.4 acceptance. This
+  test-authority transition does not authorize a breaking external
   Tier-1 API change in a 1.x release; boundary serializers/adapters preserve those
   observable shapes unless a major version and ADR explicitly replace them.
 - Every release is a binary release: tag → CI build → cosign → GitHub Release →

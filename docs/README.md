@@ -43,9 +43,8 @@ For the shipped release line, feature summary, and history, see the
 sources. The plan/request-flow set for every released version lives in
 [plans/archives](plans/archives/README.md); the current line is:
 
-- Current shipped line: **v1.3.0** — [long-term memory and Search Central plan](plans/archives/v1.3-plan.md) · [request flow](plans/archives/v1.3-request-flow.md)
-- Shipped source correction: **v1.3.1** — [qualification and corrective-hardening plan](plans/archives/v1.3.1-plan.md) · [request flow](plans/archives/v1.3.1-request-flow.md)
-- Current source closeout: **v1.3.2** — [foundational-enablers plan](plans/archives/v1.3.2-plan.md) · [request flow](plans/archives/v1.3.2-request-flow.md) (source-only tag shipped; v1.3.0 remains the packaged Latest and v1.4 is the next binary carrier)
+- Current shipped line: **v1.4.0** — [kernel and Pack contract plan](plans/archives/v1.4-plan.md) · [request flow](plans/archives/v1.4-request-flow.md)
+- First binary carriers included: **v1.3.1** [qualification and corrective-hardening](plans/archives/v1.3.1-plan.md) and **v1.3.2** [foundational enablers](plans/archives/v1.3.2-plan.md), which were source-only before v1.4.0.
 
 For release-specific validation, use the matching request-flow document rather
 than this index.

@@ -1651,6 +1651,33 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert AllbertTestTask.docs_local_markdown_link_errors(root) == []
   end
 
+  test "active plan roster requires the live file and an exact non-archive index link" do
+    root = temp_path("active-plan-roster")
+    File.rm_rf!(root)
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    index_rel = "docs/plans/README.md"
+    active_rel = "docs/plans/v9.9-plan.md"
+    archive_rel = "docs/plans/archives/v9.9-plan.md"
+    File.mkdir_p!(Path.join(root, "docs/plans/archives"))
+    File.write!(Path.join(root, archive_rel), "# Archived\n")
+    File.write!(Path.join(root, index_rel), "[archived](archives/v9.9-plan.md)\n")
+
+    assert AllbertTestTask.docs_active_plan_errors(root, [index_rel, active_rel], index_rel) == [
+             "docs/plans/v9.9-plan.md: active plan file missing",
+             "docs/plans/README.md: missing active plan link v9.9-plan.md"
+           ]
+
+    File.write!(Path.join(root, active_rel), "# Active\n")
+
+    assert AllbertTestTask.docs_active_plan_errors(root, [index_rel, active_rel], index_rel) == [
+             "docs/plans/README.md: missing active plan link v9.9-plan.md"
+           ]
+
+    File.write!(Path.join(root, index_rel), "[active](v9.9-plan.md)\n")
+    assert AllbertTestTask.docs_active_plan_errors(root, [index_rel, active_rel], index_rel) == []
+  end
+
   test "ADR index status labels match the linked ADR Status sections" do
     root = Path.expand("../../../../..", __DIR__)
     index = File.read!(Path.join(root, "docs/adr/README.md"))

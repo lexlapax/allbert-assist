@@ -25,7 +25,7 @@ defmodule AllbertAssist.Kernel.Contract do
   of all — and freezing those values at composition time would silently defer
   every operator security-settings write until the next rebind. That is a
   product behaviour change the freeze forbids, so reads stay live (operator
-  decision 2026-08-08, recorded in `docs/plans/v1.4-plan.md` M7.1). The sealed
+  decision 2026-08-08, recorded in `docs/plans/archives/v1.4-plan.md` M7.1). The sealed
   immutable facts in this release are the Pack action catalog, which
   `AllbertAssist.Pack.Registry.snapshot/1` already owns.
 

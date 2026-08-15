@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted for implementation by operator decision 2026-08-06. Binding on
-`docs/plans/v1.4-plan.md` M1, M5, M7, **M7.1**, M8, M9, M12, M13, and M17, and on
+Accepted by operator decision 2026-08-06 and implemented in v1.4.0. Binding on
+`docs/plans/archives/v1.4-plan.md` M1, M5, M7, **M7.1**, M8, M9, M12, M13, and M17, and on
 every release that adds capability code after v1.4. M7.1 was added to this list
 on 2026-08-06: it is the milestone that makes §2's kernel-must-not-depend-on-a-
 pack invariant enforceable, proving dependency closure by compile and xref
@@ -692,9 +692,17 @@ M15 then regenerated the final action, contribution, owner, edge, and affected-
 component inventories and froze their ownership in the v1.4 component-contract
 baseline. Transitional `release.v1` and non-stacking `release.v14` passed
 together on the exact-clean source candidate; `release.v14` finishes at 13/13,
-including licence-drift coverage. Packaged acceptance in M17 is the final
-promotion condition for making that baseline the post-v1.4 internal test
-authority; it does not change the external Tier-1 compatibility obligation.
+including licence-drift coverage. M17 packaged acceptance completed at
+source/tag `9c82179e79d624d9e682e683ecd2151734d3d392`: release assembly, raw
+`.app`/descriptor identity, the 15/13/3 Pack-and-alias topology, three native
+archives, and the installed package all agreed before the protected workflow
+signed the checksum evidence, uploaded it, and verified the exact 18 assets.
+After that workflow's final publish request was denied, the operator recovery
+reverified the same assets and changed only the Release state to publish the
+immutable v1.4.0 release. That acceptance makes this baseline the post-v1.4
+internal test authority; it does not change
+the external Tier-1 compatibility obligation. Exact external bindings are in
+`docs/validation/v1.4/README.md`.
 
 Compile times do not improve for a pack that depends on `allbert_assist` while
 the monolith is still large. The benefit is boundary enforcement and blast

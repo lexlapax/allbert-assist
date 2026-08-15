@@ -411,10 +411,6 @@ defmodule Mix.Tasks.Allbert.Test do
     "docs/plans/roadmap.md",
     "docs/plans/allbert-jido-vision.md",
     "docs/plans/future-features.md",
-    "docs/plans/v1.3.2-plan.md",
-    "docs/plans/v1.3.2-request-flow.md",
-    "docs/plans/v1.4-plan.md",
-    "docs/plans/v1.4-request-flow.md",
     "docs/plans/v1.5-plan.md",
     "docs/plans/v1.5-request-flow.md",
     "docs/plans/v1.6-plan.md",
@@ -637,22 +633,42 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp docs_check_plan_index(errors, root) do
-    index_path = Path.join(root, @docs_active_plan_index)
+    errors ++ docs_active_plan_errors(root)
+  end
+
+  @doc false
+  def docs_active_plan_errors(
+        root,
+        plan_files \\ @docs_active_plan_files,
+        index_rel \\ @docs_active_plan_index
+      ) do
+    index_path = Path.join(root, index_rel)
 
     if File.exists?(index_path) do
       index = File.read!(index_path)
 
-      missing =
-        @docs_active_plan_files
-        |> Enum.reject(&(&1 == @docs_active_plan_index))
-        |> Enum.map(&Path.basename/1)
-        |> Enum.reject(&String.contains?(index, &1))
-        |> Enum.map(&"#{@docs_active_plan_index}: missing active plan link #{&1}")
-
-      errors ++ missing
+      plan_files
+      |> Enum.reject(&(&1 == index_rel))
+      |> Enum.flat_map(&docs_active_plan_file_errors(&1, root, index, index_rel))
     else
-      errors ++ ["#{@docs_active_plan_index}: active-plan index missing"]
+      ["#{index_rel}: active-plan index missing"]
     end
+  end
+
+  defp docs_active_plan_file_errors(rel, root, index, index_rel) do
+    target = Path.relative_to(rel, Path.dirname(index_rel))
+
+    existence_errors =
+      if File.regular?(Path.join(root, rel)),
+        do: [],
+        else: ["#{rel}: active plan file missing"]
+
+    link_errors =
+      if String.contains?(index, "](#{target})"),
+        do: [],
+        else: ["#{index_rel}: missing active plan link #{target}"]
+
+    existence_errors ++ link_errors
   end
 
   defp docs_active_md(root, dir) do

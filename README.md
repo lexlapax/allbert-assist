@@ -65,9 +65,8 @@ becoming opaque or unbounded.
 ## Current Shape
 
 This README is the stable project orientation. The current packaged release is
-**v1.3.0**. Source-only corrective tag v1.3.1 and foundational-enabler tag
-v1.3.2 are shipped; v1.3.0 remains the installed/package-manager line until
-v1.4 carries both source-only deltas.
+**v1.4.0**. It includes the v1.3.1 and v1.3.2 source-only corrections and is
+available through the signed installer, GitHub Release, and Homebrew tap.
 For features and the full release-by-release history, see the
 [CHANGELOG](CHANGELOG.md); forward planning lives in the [roadmap](docs/plans/roadmap.md).
 

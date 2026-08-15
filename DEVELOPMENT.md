@@ -73,7 +73,7 @@ stale guidance.
 
 - Packaged releases include ERTS and selected runtime/native/data payloads, so
   binary redistribution must carry the notices and source offers required by
-  the bytes in each target artifact. Stable v1.3.0 includes the deterministic
+  the bytes in each target artifact. Stable v1.4.0 includes the deterministic
   final-artifact generator introduced on the v1.2.5/v1.2.6 line, one reviewed
   catalog/exceptions file, target manifests, required texts, and a pure offline
   viewer. Its honest claim is a best-effort inventory of known shipped

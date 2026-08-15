@@ -134,7 +134,7 @@ descriptor, read from `Application.app_dir/2` by
 
 - `docs/adr/0098-kernel-application-pack-contract-and-tier-model.md` — the tier
   model and the invariant this application embodies.
-- `docs/plans/v1.4-plan.md` §M15.1 — what moved, what did not, and why.
+- `docs/plans/archives/v1.4-plan.md` §M15.1 — what moved, what did not, and why.
 - `apps/allbert_kernel/README.md` — the contracts and mechanisms every pack
   depends on.
 - `apps/allbert_composition/README.md` — the host that assembles the kernel
