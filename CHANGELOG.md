@@ -28,6 +28,18 @@ product failure, did not reach later phases, counts as attempt 1, and supplies
 no aggregate acceptance. The operator approved one replacement authoritative
 aggregate after the replacement candidate passes R4b.
 
+A private replacement from `0f04f4611` subsequently built and qualified all
+three targets and passed Homebrew install plus repeated package identity,
+integrity, licence, assembly, ABI and smoke checks. Its behavior rows validly
+carried because the preceding repair changed only release-test definitions.
+Before R5, the repeat found two command-only corrections needed in the active
+request-flow: canonical macOS `/private/tmp` identity and explicit forwarding
+of the already-guarded Playwright/Chrome host paths to independent artifact
+smoke. The corrected commands passed; draft Release `371116974`, all 13 unsigned
+assets, its generation, temporary Homebrew state, and the provisional tag were
+deleted so those corrections can be part of the final tagged source. Nothing
+was signed or published and the approved replacement aggregate remains unrun.
+
 A later provisional candidate exposed that the thirteen
 extracted legacy manifests had not become inert Pack-snapshot contributions; its draft,
 13 unsigned assets, provisional tag, and temporary formula install/tap were
