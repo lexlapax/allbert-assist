@@ -106,10 +106,23 @@ defmodule AllbertAssist.DevGates.V14M0RegistryLedger do
     %{
       "payload_sha256" => "5b90c666c9cfbf390d924f89b9abccc3eadbab984e29c9f1d7fccad2a6fee039",
       "milestone" => "M13.1",
+      "refrozen_at_sha" => "ace1709fdaf5549f1626d95e50af6b063a9ffbb6",
       "reason" =>
         "the ledger subject left production for test/support and declares " <>
           "product?: false, so the compiled plugin inventory no longer mistakes a " <>
           "gate fixture for a shipped plugin"
+    },
+    # v1.4 M17.a changes release identity only. Application versions are part of
+    # app registry rows and isolated mutation diagnostics, so the ledger must
+    # bind the final 1.4.0 identity instead of carrying the pre-release 1.3.2
+    # bytes into the release candidate.
+    %{
+      "payload_sha256" => "d15639eb13c58d81cb2397a0c8cf2122a4b167574dc0bbc4101280878b8dc554",
+      "milestone" => "M17.a",
+      "reason" =>
+        "root and all seventeen OTP application versions moved from 1.3.2 to " <>
+          "the final 1.4.0 release identity; registry membership and authority " <>
+          "remain unchanged"
     }
   ]
 

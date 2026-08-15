@@ -1,11 +1,11 @@
 {
   "digests": {
     "actions_sha256": "50aa7795a5b4b0150601f8eed4eb34e016ce48374709feb8083c9146847a56f8",
-    "apps_sha256": "79ddd7de63ea698dcf3577740a751aaa101b7bd1ab5dbfd0b5e91e615c2aff14",
+    "apps_sha256": "1d4114207c22415c7a6c560a18c66f0fbd527d5918eb0b7317e86df3eb15ac0a",
     "explicit_server_parity_sha256": "69eba632ad70ef8dd9d140a736b7e9e435257cfe6b31e7f287c4c0f5493d76d2",
     "extensions_sha256": "ef2712b3759c92727c5596e2f68a52c9032d9dc40b88361610fa950bcbf7a4c5",
-    "isolated_mutation_diagnostics_sha256": "0793e2f8008e50b9022ea1f2e7e044952013f42cea1ab6e97b912e59e1afc276",
-    "payload_sha256": "d15639eb13c58d81cb2397a0c8cf2122a4b167574dc0bbc4101280878b8dc554",
+    "isolated_mutation_diagnostics_sha256": "e5955d29afaf1e6b815b2c1994814f226b0ec17469c3434f4f496bd7d4328c17",
+    "payload_sha256": "6343b2cc0a9ffe4d76e51c9bc415b8a219cf73c61ec354242648acd7cab1db7e",
     "plugins_sha256": "1abee161b1e92723b928775625985219ba2b64988fefe64f8e38e59f620adffc",
     "settings_sha256": "2f1ac6a742e86c1f64df40447f3dff80ed4a8e02f64ddf95b86158964946510d"
   },
@@ -32487,7 +32487,7 @@
           ],
           "surface_provider": "AllbertAssist.App.CoreApp",
           "surfaces": [],
-          "version": "1.3.2"
+          "version": "1.4.0"
         },
         {
           "actions": [],
@@ -37675,7 +37675,7 @@
         },
         "app_lookup": {
           "app_id": "allbert",
-          "entry_sha256": "77af356d64c867a51eeb4e12eed292a6cfe588865e989b14e052a5bc9279dc74",
+          "entry_sha256": "0961196bb3cd323b42e8f0051f4c672d6696c9dd05495227d6d51ed46a2956bc",
           "status": "ok"
         },
         "app_registration": {
@@ -49430,6 +49430,12 @@
         "payload_sha256": "5b90c666c9cfbf390d924f89b9abccc3eadbab984e29c9f1d7fccad2a6fee039",
         "reason": "the ledger subject left production for test/support and declares product?: false, so the compiled plugin inventory no longer mistakes a gate fixture for a shipped plugin",
         "refrozen_at_sha": "ace1709fdaf5549f1626d95e50af6b063a9ffbb6"
+      },
+      {
+        "milestone": "M17.a",
+        "payload_sha256": "d15639eb13c58d81cb2397a0c8cf2122a4b167574dc0bbc4101280878b8dc554",
+        "reason": "root and all seventeen OTP application versions moved from 1.3.2 to the final 1.4.0 release identity; registry membership and authority remain unchanged",
+        "refrozen_at_sha": "bc5e5aab90e13b2a25b0356e2cb710b40d518a0f"
       }
     ]
   },

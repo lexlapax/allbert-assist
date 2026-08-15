@@ -54,8 +54,12 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
   # through the shipped-registry fixture. `AllbertAssist.Plugin.product?/0` now
   # declares product membership and the subject declares false, so the candidate
   # binds the thirteen real packs. Nothing the product ships changed.
-  @expected_behavior_digest "c4b79f1aa819cd3847c075a83475f9e739b36eb7b5489acfaece01cb6505ba97"
-  @expected_bytes_sha256 "3cc6b3871c164e97ffa30bc5ea564acfc12f6c2dbd1d4b51e2bfe9130c717879"
+  # v1.4 M17.a re-froze this digest for the release identity. The descriptor
+  # application versions are authority bytes, so moving all seventeen OTP apps
+  # from 1.3.2 to 1.4.0 changes the canonical candidate without changing its
+  # contribution roster or permissions.
+  @expected_behavior_digest "07478e268b3354b54cb2e4f0aaee4fb283a1a1aeb8a23f635b2d60f6bc247032"
+  @expected_bytes_sha256 "55d13fe07b3724929d52a6ad997ccbaef69405d3effda8dc983946cbf129560c"
 
   setup context do
     if context[:parity] do
