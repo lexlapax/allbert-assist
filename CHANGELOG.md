@@ -12,14 +12,18 @@ changelog entries or release notes.
 
 ## v1.4.0 - Kernel And Pack Contract
 
-Status: **source remediation implemented; R4 requalification pending
-(2026-08-15).** The first complete provisional generation exposed a packaged
-TUI attach-only bootstrap defect and was discarded in full before publication.
+Status: **source remediation rejoin in progress; affected-component selector
+repair pending checkpoint (2026-08-15).** The first complete provisional generation exposed a
+packaged TUI attach-only bootstrap defect and was discarded in full before
+publication.
 No current tag, draft GitHub Release, signature, Homebrew update, or accepted
 packaged FV exists for this line; `v1.3.0` remains the packaged Latest and
 v1.4.0 is still the next binary carrier, so it also still owes the v1.3.1 and
-v1.3.2 source-only deltas their first artifact. Prior R4 candidate evidence,
-which must now be proportionally requalified: preflight 10/10,
+v1.3.2 source-only deltas their first artifact. The remediation's proportional
+R4 rejoin is green at `f2ed2ddd1`, but its review found the TUI selector pointed
+at an empty lane and therefore could not yet become the replacement artifact
+source. The selector now names each product application's real owner and current
+inventory lanes and awaits its checkpoint/rejoin. The complete source evidence includes preflight 10/10,
 `release.v1` 10/10, the thirteen-step `release.v14` 13/13 on the same
 exact-clean SHA, `release.v132` 8/8, `mix precommit` 4/4, the Linux
 Elixir 1.20.2 / OTP 29 compatibility probe green, and a 50-pair /

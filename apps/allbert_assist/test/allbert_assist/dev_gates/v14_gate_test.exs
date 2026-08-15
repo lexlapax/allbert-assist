@@ -231,11 +231,14 @@ defmodule AllbertAssist.DevGates.V14GateTest do
     assert result["diagnostics"] == ["unknown paths fail closed: unexpected/new-root.txt"]
   end
 
-  test "browser, research, and tui no longer fall to the fail-closed unknown branch" do
+  test "browser, research, tui, and channel packs resolve to their actual gate owners" do
     for {path, owner} <- [
           {"apps/allbert_browser/lib/allbert_browser/pack.ex", "browser"},
           {"apps/allbert_research/lib/allbert_research/pack.ex", "research"},
-          {"apps/allbert_tui/lib/allbert_tui/pack.ex", "tui"}
+          {"apps/allbert_tui/lib/allbert_tui/pack.ex", "tui"},
+          {"apps/allbert_telegram/lib/allbert_telegram/pack.ex", "telegram"},
+          {"apps/allbert_email/lib/allbert_email/pack.ex", "email"},
+          {"apps/allbert_notes_files/lib/allbert_notes_files/pack.ex", "notes_files"}
         ] do
       result = ScopeSelector.classify_paths([path])
 

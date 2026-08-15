@@ -112,7 +112,13 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       exact: [],
       prefixes: ["apps/allbert_assist_web/"],
       owners: ["web"],
-      lanes: ["liveview_serial"],
+      lanes: [
+        "pure_async",
+        "app_env_serial",
+        "global_process_serial",
+        "liveview_serial",
+        "external_runtime_serial"
+      ],
       aggregate_required: false
     },
     %{
@@ -121,7 +127,14 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       exact: [],
       prefixes: ["apps/stocksage/"],
       owners: ["stocksage"],
-      lanes: ["db_serial", "app_env_serial"],
+      lanes: [
+        "pure_async",
+        "db_serial",
+        "app_env_serial",
+        "global_process_serial",
+        "security_eval_serial",
+        "external_runtime_serial"
+      ],
       aggregate_required: false
     },
     %{
@@ -130,25 +143,79 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       exact: [],
       prefixes: ["apps/allbert_artifacts/"],
       owners: ["artifacts"],
-      lanes: ["db_serial", "global_process_serial"],
+      lanes: ["pure_async", "db_serial", "global_process_serial"],
       aggregate_required: false
     },
     %{
-      id: "channel_plugins",
+      id: "telegram",
       class: "product_subsystem",
       exact: [],
-      prefixes: [
-        "apps/allbert_telegram/",
-        "apps/allbert_email/",
-        "apps/allbert_discord/",
-        "apps/allbert_slack/",
-        "apps/allbert_matrix/",
-        "apps/allbert_whatsapp/",
-        "apps/allbert_signal/",
-        "apps/allbert_notes_files/"
-      ],
-      owners: ["channel_plugins"],
-      lanes: ["external_runtime_serial"],
+      prefixes: ["apps/allbert_telegram/"],
+      owners: ["telegram"],
+      lanes: ["db_serial", "external_runtime_serial"],
+      aggregate_required: false
+    },
+    %{
+      id: "email",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_email/"],
+      owners: ["email"],
+      lanes: ["db_serial"],
+      aggregate_required: false
+    },
+    %{
+      id: "discord",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_discord/"],
+      owners: ["discord"],
+      lanes: ["pure_async"],
+      aggregate_required: false
+    },
+    %{
+      id: "slack",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_slack/"],
+      owners: ["slack"],
+      lanes: ["pure_async"],
+      aggregate_required: false
+    },
+    %{
+      id: "matrix",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_matrix/"],
+      owners: ["matrix"],
+      lanes: ["pure_async", "external_runtime_serial"],
+      aggregate_required: false
+    },
+    %{
+      id: "whatsapp",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_whatsapp/"],
+      owners: ["whatsapp"],
+      lanes: ["pure_async"],
+      aggregate_required: false
+    },
+    %{
+      id: "signal",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_signal/"],
+      owners: ["signal"],
+      lanes: ["pure_async"],
+      aggregate_required: false
+    },
+    %{
+      id: "notes_files",
+      class: "product_subsystem",
+      exact: [],
+      prefixes: ["apps/allbert_notes_files/"],
+      owners: ["notes_files"],
+      lanes: ["pure_async", "app_env_serial", "global_process_serial"],
       aggregate_required: false
     },
     %{
@@ -157,7 +224,16 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       exact: [],
       prefixes: ["apps/allbert_assist/"],
       owners: ["core"],
-      lanes: ["pure_async", "app_env_serial", "home_fs_serial", "global_process_serial"],
+      lanes: [
+        "pure_async",
+        "db_partition_safe",
+        "db_serial",
+        "app_env_serial",
+        "home_fs_serial",
+        "global_process_serial",
+        "security_eval_serial",
+        "external_runtime_serial"
+      ],
       aggregate_required: false
     },
     %{
@@ -166,7 +242,13 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       exact: [],
       prefixes: ["apps/allbert_browser/"],
       owners: ["browser"],
-      lanes: ["pure_async", "db_serial", "security_eval_serial", "external_runtime_serial"],
+      lanes: [
+        "db_serial",
+        "app_env_serial",
+        "home_fs_serial",
+        "security_eval_serial",
+        "external_runtime_serial"
+      ],
       aggregate_required: false
     },
     %{
@@ -175,7 +257,7 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       exact: [],
       prefixes: ["apps/allbert_research/"],
       owners: ["research"],
-      lanes: ["pure_async", "db_serial", "security_eval_serial", "external_runtime_serial"],
+      lanes: ["db_serial", "security_eval_serial"],
       aggregate_required: false
     },
     %{
@@ -184,7 +266,7 @@ defmodule AllbertAssist.DevGates.ScopeSelector do
       exact: [],
       prefixes: ["apps/allbert_tui/"],
       owners: ["tui"],
-      lanes: ["pure_async"],
+      lanes: ["app_env_serial", "global_process_serial"],
       aggregate_required: false
     }
   ]

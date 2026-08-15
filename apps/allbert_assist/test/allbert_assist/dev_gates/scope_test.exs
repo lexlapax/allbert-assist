@@ -3,6 +3,7 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.DevGates.ScopeSelector
+  alias Mix.Tasks.Allbert.Test, as: AllbertTestTask
 
   test "classification unions overlapping exact-prefix rules and only widens" do
     docs = ScopeSelector.classify_paths(["docs/operator/models.md"])
@@ -45,7 +46,7 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
     refute artifacts["aggregate_required"]
     assert artifacts["matched_rules"] == ["artifacts_plugin"]
     assert artifacts["owners"] == ["artifacts"]
-    assert artifacts["lanes"] == ["db_serial", "global_process_serial"]
+    assert artifacts["lanes"] == ["db_serial", "global_process_serial", "pure_async"]
     assert artifacts["diagnostics"] == []
 
     kernel =
@@ -106,6 +107,26 @@ defmodule AllbertAssist.DevGates.ScopeSelectorTest do
     refute tui["aggregate_required"]
     assert tui["matched_rules"] == ["tui"]
     assert tui["owners"] == ["tui"]
+    assert tui["lanes"] == ["app_env_serial", "global_process_serial"]
+  end
+
+  test "every product selector rule exactly matches its owner's current inventory lanes" do
+    inventory_lanes =
+      AllbertTestTask.inventory_records()
+      |> Enum.group_by(&Atom.to_string(&1.owner), &Atom.to_string(&1.primary_lane))
+      |> Map.new(fn {owner, lanes} -> {owner, MapSet.new(lanes)} end)
+
+    product_rules =
+      ScopeSelector.contract_rows()
+      |> Enum.filter(&(&1["class"] == "product_subsystem"))
+
+    for rule <- product_rules do
+      assert [owner] = rule["owners"],
+             "product selector #{rule["id"]} must identify one real gate owner"
+
+      assert Map.fetch!(inventory_lanes, owner) == MapSet.new(rule["lanes"]),
+             "product selector #{rule["id"]} lanes drifted from owner #{owner} inventory"
+    end
   end
 
   test "selector includes committed, staged, unstaged, rename, deletion, and untracked paths" do
