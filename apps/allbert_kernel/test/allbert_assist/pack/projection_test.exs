@@ -6,7 +6,7 @@ defmodule AllbertAssist.Pack.ProjectionTest.NativePack do
       schema_version: 1,
       id: "native_pack",
       application: :native_pack,
-      application_version: "1.3.2",
+      application_version: "1.4.0",
       capability_tier: :native,
       provenance: %{source: :signed_release, component: "beam-native-pack"},
       registry_order: 100
@@ -38,7 +38,7 @@ defmodule AllbertAssist.Pack.ProjectionTest do
     release =
       %ReleaseSpec{
         name: "allbert",
-        version: "1.3.2",
+        version: "1.4.0",
         erts_version: "16.1",
         applications:
           Enum.map(applications, fn application ->
@@ -117,7 +117,7 @@ defmodule AllbertAssist.Pack.ProjectionTest do
     release =
       %ReleaseSpec{
         name: "allbert",
-        version: "1.3.2",
+        version: "1.4.0",
         erts_version: "16.1",
         applications:
           Enum.map(applications, fn application ->
@@ -352,12 +352,12 @@ defmodule AllbertAssist.Pack.ProjectionTest do
 
     release = %ReleaseSpec{
       name: "allbert",
-      version: "1.3.2",
+      version: "1.4.0",
       erts_version: "16.1",
       applications: [
         %ReleaseApplication{
           application: :allbert_kernel,
-          version: "1.3.2",
+          version: "1.4.0",
           start_mode: :permanent,
           included_applications: []
         }
@@ -621,7 +621,7 @@ defmodule AllbertAssist.Pack.ProjectionTest do
   defp app(application, pack_module, sha256 \\ nil) do
     %ApplicationSpec{
       application: application,
-      version: "1.3.2",
+      version: "1.4.0",
       modules: if(pack_module, do: [pack_module], else: []),
       applications: [],
       pack_module: pack_module,
@@ -694,7 +694,7 @@ defmodule AllbertAssist.Pack.ProjectionTest do
   defp release_for(applications) do
     %ReleaseSpec{
       name: "allbert",
-      version: "1.3.2",
+      version: "1.4.0",
       erts_version: "16.1",
       applications:
         Enum.map(applications, fn application ->
