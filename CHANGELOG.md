@@ -12,17 +12,21 @@ changelog entries or release notes.
 
 ## v1.4.0 - Kernel And Pack Contract
 
-Status: **the final Telegram-doctor repair and proportional R4 source rejoin
-are green at `b89de0c1c0a07d1ed3e32cf8a1bf1b1465259cc0` (2026-08-15).**
-Preflight 10/10; the complete affected external-runtime and database lanes;
-configured source Telegram doctor; `release.v1` 10/10; `release.v14` 13/13
-with 495 test-bearing checks; Dialyzer and strict Credo with zero findings; and
-precommit 4/4 passed. The census is 50 pairs / 5,172 tests / 0 failures. R4
-artifact-source activation is conditional on this separate evidence
-checkpoint's commit, push, and exact-clean preflight. The stale unsigned draft,
-all 13 assets, and provisional tag were deleted. No current release identity
-exists, a wholly new candidate is required, and the authoritative aggregate has
-not run.
+Status: **the final release-test definition repair and proportional R4 source
+rejoin are green at `53cba5c67e10766ca68b1943f3b5f7ad07d3de83`
+(2026-08-15).** Preflight 10/10; the complete previously failed fast-local phase; the
+affected external-runtime lane; `release.v1` 10/10; `release.v14` 13/13 with
+496 test-bearing checks; Dialyzer and strict Credo with zero findings; and
+precommit 4/4 passed. The manifest has 5,146 rows and the census is 50 pairs /
+5,173 tests / 0 failures. R4 artifact-source activation is conditional on this
+separate evidence checkpoint's commit, push, and exact-clean preflight. Every
+stale unsigned draft, asset generation, and provisional tag was deleted. No
+current release identity exists and a wholly new candidate is required. The
+first authoritative aggregate invocation at `1f6ca6007` stopped in its opening
+fast-local phase because two release-test definitions were stale; it found no
+product failure, did not reach later phases, counts as attempt 1, and supplies
+no aggregate acceptance. The operator approved one replacement authoritative
+aggregate after the replacement candidate passes R4b.
 
 A later provisional candidate exposed that the thirteen
 extracted legacy manifests had not become inert Pack-snapshot contributions; its draft,
