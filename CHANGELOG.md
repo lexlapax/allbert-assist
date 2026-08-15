@@ -12,22 +12,17 @@ changelog entries or release notes.
 
 ## v1.4.0 - Kernel And Pack Contract
 
-Status: **R4 is reopened for one final bounded repair (2026-08-15).** A complete
-three-target candidate from `7e9e0433c1b3` built, smoked, and qualified, but
-real packaged validation found that the Telegram doctor dropped the Pack
-readiness epoch before its guarded endpoint check. Its unsigned draft, all 13
-assets, and provisional tag were deleted. The repair forwards the existing
-Runner-carried epoch without weakening the guard and adds a real-mode
-regression. No current release identity exists; a new source rejoin and wholly
-new candidate are required, and the authoritative aggregate has not run. The
-prior final clean implementation SHA is
-`d1c52094a38a2f8913c94a7dd01b70a5c987ad67`: preflight 10/10,
-affected Kernel/Composition owner lanes, source Pack ownership FV,
-`release.v1` 10/10, `release.v14` 13/13 with 495 test-bearing checks,
-the pinned compatibility build, Dialyzer with zero errors, strict Credo with
-zero findings, and precommit 4/4 are green. The census is 50 pairs / 5,171
-tests / 0 failures. Those unaffected results may carry only as allowed by the
-active re-run rules; R4 acceptance itself is open.
+Status: **the final Telegram-doctor repair and proportional R4 source rejoin
+are green at `b89de0c1c0a07d1ed3e32cf8a1bf1b1465259cc0` (2026-08-15).**
+Preflight 10/10; the complete affected external-runtime and database lanes;
+configured source Telegram doctor; `release.v1` 10/10; `release.v14` 13/13
+with 495 test-bearing checks; Dialyzer and strict Credo with zero findings; and
+precommit 4/4 passed. The census is 50 pairs / 5,172 tests / 0 failures. R4
+artifact-source activation is conditional on this separate evidence
+checkpoint's commit, push, and exact-clean preflight. The stale unsigned draft,
+all 13 assets, and provisional tag were deleted. No current release identity
+exists, a wholly new candidate is required, and the authoritative aggregate has
+not run.
 
 A later provisional candidate exposed that the thirteen
 extracted legacy manifests had not become inert Pack-snapshot contributions; its draft,
