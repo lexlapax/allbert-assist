@@ -12,8 +12,8 @@ composition,pure_async,PASS,7,0,0,0,28
 core,app_env_serial,PASS,782,0,0,0,259
 core,db_partition_safe,PASS,9,0,0,0,28
 core,db_serial,PASS,1213,0,0,0,417
-core,external_runtime_serial,PASS,810,0,11,15,278
-core,global_process_serial,PASS,268,0,0,0,137
+core,external_runtime_serial,PASS,811,0,11,15,274
+core,global_process_serial,PASS,268,0,0,0,128
 core,home_fs_serial,PASS,175,0,0,0,43
 core,pure_async,PASS,434,0,0,0,101
 core,security_eval_serial,PASS,364,0,0,0,149
