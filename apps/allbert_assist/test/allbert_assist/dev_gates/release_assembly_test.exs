@@ -623,7 +623,7 @@ defmodule AllbertAssist.DevGates.ReleaseAssemblyTest do
         {"usage\n", 0}
 
       %{id: "verify_version", args: ["--version"]} ->
-        {"1.3.2\n", 0}
+        {"1.4.0\n", 0}
     end
 
     on_exit(fn -> File.rm_rf!(temp_root) end)

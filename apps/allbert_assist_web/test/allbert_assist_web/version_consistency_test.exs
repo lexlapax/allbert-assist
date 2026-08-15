@@ -12,30 +12,58 @@ defmodule AllbertAssistWeb.VersionConsistencyTest do
 
   @moduledoc """
   M8.7 drift guard, extended for the v1.4 application boundary. The umbrella and
-  all four Allbert OTP applications move in lockstep. `:allbert_assist` drives the
+  every declared Allbert OTP application move in lockstep. `:allbert_assist` drives the
   `allbert --version` CLI banner and (via `CoreApp.version/0`) the MCP/ACP
   `serverInfo.version`; `:allbert_assist_web` drives the served asset `v=` cache-bust.
   `CoreApp.version/0` must track `:vsn` rather than a hand-maintained literal, so a
   partial bump cannot ship a mismatched protocol, topology, or asset version.
   """
 
+  @release_version "1.4.0"
+  @expected_umbrella_applications ~w(
+    allbert_artifacts
+    allbert_assist
+    allbert_assist_web
+    allbert_browser
+    allbert_composition
+    allbert_discord
+    allbert_email
+    allbert_kernel
+    allbert_matrix
+    allbert_notes_files
+    allbert_research
+    allbert_signal
+    allbert_slack
+    allbert_telegram
+    allbert_tui
+    allbert_whatsapp
+    stocksage
+  )a
+
   test "CoreApp.version/0 derives from the :allbert_assist :vsn (no hand-maintained literal)" do
     assert CoreApp.version() ==
              to_string(Application.spec(:allbert_assist, :vsn))
   end
 
-  test "the umbrella and every Allbert OTP application agree on version" do
-    versions = %{
-      umbrella: MixProject.project() |> Keyword.fetch!(:version),
-      allbert_kernel: Application.spec(:allbert_kernel, :vsn) |> to_string(),
-      allbert_assist: Application.spec(:allbert_assist, :vsn) |> to_string(),
-      allbert_composition: Application.spec(:allbert_composition, :vsn) |> to_string(),
-      allbert_assist_web: Application.spec(:allbert_assist_web, :vsn) |> to_string()
-    }
+  test "the umbrella and every declared OTP application carry the v1.4 release version" do
+    applications = declared_umbrella_applications()
 
-    assert versions |> Map.values() |> Enum.uniq() |> length() == 1,
-           "version drift across Allbert applications: #{inspect(versions)} — " <>
-             "bump the umbrella and all four app mix.exs versions in lockstep at release"
+    assert applications == @expected_umbrella_applications,
+           "umbrella application roster drift: #{inspect(applications)} — " <>
+             "extend the version checkpoint when an application joins or leaves the release"
+
+    versions =
+      applications
+      |> Enum.map(fn application ->
+        assert :ok = load_application(application)
+        {application, Application.spec(application, :vsn) |> to_string()}
+      end)
+      |> Map.new()
+      |> Map.put(:umbrella, MixProject.project() |> Keyword.fetch!(:version))
+
+    assert Map.values(versions) |> Enum.uniq() == [@release_version],
+           "version drift across the umbrella release: #{inspect(versions)} — " <>
+             "bump root mix.exs and every apps/*/mix.exs version in lockstep at release"
   end
 
   test "the Web application depends on composition and retains its residual dependency" do
@@ -72,5 +100,25 @@ defmodule AllbertAssistWeb.VersionConsistencyTest do
              File.read!(@service_worker_path),
            "workspace-sw.js.gz is stale — regenerate it through " <>
              "the Phoenix asset digest in the same commit whenever workspace-sw.js changes"
+  end
+
+  defp declared_umbrella_applications do
+    [Path.expand("../../../..", __DIR__), "apps", "*", "mix.exs"]
+    |> Path.join()
+    |> Path.wildcard()
+    |> Enum.map(fn mixfile ->
+      mixfile
+      |> Path.dirname()
+      |> Path.basename()
+      |> String.to_existing_atom()
+    end)
+    |> Enum.sort()
+  end
+
+  defp load_application(application) do
+    case Application.load(application) do
+      :ok -> :ok
+      {:error, {:already_loaded, ^application}} -> :ok
+    end
   end
 end

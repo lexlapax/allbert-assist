@@ -936,7 +936,7 @@ defmodule AllbertAssist.Pack.CanonicalTest do
     assert {:ok, bytes} = Canonical.snapshot_bytes(snapshot)
 
     assert bytes =~
-             ~s("descriptor":{"application":"allbert_kernel","application_version":"1.3.2","capability_tier":"kernel","id":"allbert_kernel","provenance":{"component":"beam-allbert-kernel","source":"signed_release"},"registry_order":0,"schema_version":1})
+             ~s("descriptor":{"application":"allbert_kernel","application_version":"1.4.0","capability_tier":"kernel","id":"allbert_kernel","provenance":{"component":"beam-allbert-kernel","source":"signed_release"},"registry_order":0,"schema_version":1})
   end
 
   test "compiled descriptor identity must match its contribution owner" do
@@ -2369,7 +2369,7 @@ defmodule AllbertAssist.Pack.CanonicalTest do
         schema_version: 1,
         id: "allbert_kernel",
         application: :allbert_kernel,
-        application_version: "1.3.2",
+        application_version: "1.4.0",
         capability_tier: :kernel,
         provenance: %{source: :signed_release, component: "beam-allbert-kernel"},
         registry_order: 0

@@ -7,7 +7,7 @@ defmodule AllbertAssist.Pack.ReleaseAssemblyVerifierTest do
 
   alias AllbertAssist.Pack.ReleaseAssemblyVerifier
 
-  @version "1.3.2"
+  @version "1.4.0"
   @checkpoint "v14-m1a1"
   @m1a3_checkpoint "v14-m1a3"
   @repository "https://github.com/lexlapax/allbert-assist"

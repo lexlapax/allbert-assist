@@ -435,7 +435,7 @@ defmodule AllbertAssist.Pack.ReadinessTest do
             schema_version: 1,
             id: "allbert_assist",
             application: :allbert_assist,
-            application_version: "1.3.2",
+            application_version: "1.4.0",
             capability_tier: :native,
             provenance: %{source: :signed_release, component: "beam-allbert-assist"},
             registry_order: 100

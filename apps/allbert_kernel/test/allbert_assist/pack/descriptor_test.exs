@@ -10,7 +10,7 @@ defmodule AllbertAssist.Pack.DescriptorTest do
              schema_version: 1,
              id: "allbert_kernel",
              application: :allbert_kernel,
-             application_version: "1.3.2",
+             application_version: "1.4.0",
              capability_tier: :kernel,
              provenance: %{source: :signed_release, component: "beam-allbert-kernel"},
              registry_order: 0
