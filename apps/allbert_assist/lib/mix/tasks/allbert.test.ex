@@ -11048,7 +11048,10 @@ defmodule Mix.Tasks.Allbert.Test do
     try do
       cwd = app_cwd(owner)
       relative_files = Enum.map(files, &relative_test_path(&1, owner))
-      task = if raw?, do: "allbert.test.raw", else: "test"
+      # The standalone kernel cannot load the residual application's raw Mix
+      # task. Keep fast-local on the same per-owner runner contract used by
+      # serial-owner so every owner executes from its declared CWD.
+      task = if raw?, do: serial_owner_test_task(owner), else: "test"
       args = [task | test_args ++ relative_files]
 
       command = %{
@@ -11067,7 +11070,9 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp run_test_files_command(command, runner_key) do
-    case runner_key && Application.get_env(:allbert_assist, runner_key) do
+    runner_key = runner_key || :test_files_command_runner
+
+    case Application.get_env(:allbert_assist, runner_key) do
       runner when is_function(runner, 1) ->
         runner.(command)
 

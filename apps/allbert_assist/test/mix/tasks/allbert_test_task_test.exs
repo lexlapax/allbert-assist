@@ -18,6 +18,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     original_focused_runner =
       Application.get_env(:allbert_assist, :focused_command_runner)
 
+    original_test_files_runner =
+      Application.get_env(:allbert_assist, :test_files_command_runner)
+
     original_preflight_verifier =
       Application.get_env(:allbert_assist, :preflight_attestation_verifier)
 
@@ -49,6 +52,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       restore_app_env(:gate_changed_files, original_changed_files)
       restore_app_env(:test_metrics_store, original_metrics_store)
       restore_app_env(:focused_command_runner, original_focused_runner)
+      restore_app_env(:test_files_command_runner, original_test_files_runner)
       restore_app_env(:preflight_attestation_verifier, original_preflight_verifier)
       File.rm_rf!(evidence_root)
       File.rm_rf!(Path.dirname(metrics_store))
@@ -57,6 +61,41 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     end)
 
     {:ok, evidence_root: evidence_root, metrics_store: metrics_store}
+  end
+
+  test "fast-local uses each owner's declared test task from its own CWD" do
+    parent = self()
+
+    Application.put_env(:allbert_assist, :test_files_command_runner, fn command ->
+      send(parent, {:fast_local_command, command})
+      {"Running ExUnit with seed: 41004\n1 test, 0 failures\n", 0}
+    end)
+
+    capture_io(fn -> AllbertTestTask.run(["fast-local"]) end)
+
+    repo_root = Path.expand("../../../../..", __DIR__)
+
+    assert_received {:fast_local_command,
+                     %{
+                       owner: :kernel,
+                       cwd: kernel_cwd,
+                       args: ["test" | kernel_paths]
+                     }}
+
+    assert kernel_cwd == Path.join(repo_root, "apps/allbert_kernel")
+    assert kernel_paths != []
+    assert Enum.all?(kernel_paths, &String.starts_with?(&1, "test/"))
+
+    assert_received {:fast_local_command,
+                     %{
+                       owner: :core,
+                       cwd: core_cwd,
+                       args: ["allbert.test.raw" | core_paths]
+                     }}
+
+    assert core_cwd == Path.join(repo_root, "apps/allbert_assist")
+    assert core_paths != []
+    assert Enum.all?(core_paths, &String.starts_with?(&1, "test/"))
   end
 
   test "focused records one structured metrics row per owner", %{

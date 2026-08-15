@@ -4208,9 +4208,11 @@
     "apps/allbert_signal/lib/allbert_signal/client.ex",
     "apps/allbert_slack/lib/allbert_slack/adapter.ex",
     "apps/allbert_slack/lib/allbert_slack/client.ex",
+    "apps/allbert_telegram/lib/allbert_telegram/actions/doctor.ex",
     "apps/allbert_telegram/lib/allbert_telegram/adapter.ex",
     "apps/allbert_telegram/lib/allbert_telegram/cli.ex",
     "apps/allbert_telegram/lib/allbert_telegram/client.ex",
+    "apps/allbert_telegram/lib/allbert_telegram/doctor.ex",
     "apps/allbert_tui/lib/allbert_assist/runtime/attach/tui_session.ex",
     "apps/allbert_tui/lib/allbert_tui/adapter.ex",
     "apps/allbert_tui/lib/allbert_tui/input_receipt.ex",
@@ -4456,6 +4458,18 @@
       "owner": "AllbertAssist.DynamicPlugins.Reconciler",
       "phase": "ready",
       "source_path": "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/reconciler.ex"
+    },
+    {
+      "admission_mode": "ready_carried",
+      "carrier_policy": "carries the Runner E1 into the Telegram diagnostic chain",
+      "compatibility_provenance": null,
+      "entrypoint": "run/2",
+      "focused_test": "AllbertTelegram.Actions.DoctorTest",
+      "id": "telegram-doctor-action",
+      "missing_or_stale_result": "diagnostic error before provider request",
+      "owner": "AllbertTelegram.Actions.Doctor",
+      "phase": "ready",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/actions/doctor.ex"
     },
     {
       "admission_mode": "ready_carried",
@@ -6100,6 +6114,18 @@
       "owner": "AllbertTelegram.CLI",
       "phase": "ready",
       "source_path": "apps/allbert_telegram/lib/allbert_telegram/cli.ex"
+    },
+    {
+      "admission_mode": "ready_carried",
+      "carrier_policy": "re-carries the Runner E1 into Client immediately before the guarded Req effect",
+      "compatibility_provenance": null,
+      "entrypoint": "diagnose/1",
+      "focused_test": "AllbertTelegram.Actions.DoctorTest",
+      "id": "telegram-doctor",
+      "missing_or_stale_result": "diagnostic error before provider request",
+      "owner": "AllbertTelegram.Doctor",
+      "phase": "ready",
+      "source_path": "apps/allbert_telegram/lib/allbert_telegram/doctor.ex"
     },
     {
       "admission_mode": "ready_carried",
