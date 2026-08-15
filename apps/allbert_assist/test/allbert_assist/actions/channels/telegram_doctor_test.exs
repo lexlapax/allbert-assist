@@ -1,5 +1,7 @@
 defmodule AllbertTelegram.Actions.DoctorTest do
-  use AllbertAssist.DataCase, async: false
+  use ExUnit.Case, async: false
+
+  @moduletag :external_runtime_serial
 
   import AllbertAssist.TestSupport.ActionEnvelopeAssertions
 
@@ -12,6 +14,11 @@ defmodule AllbertTelegram.Actions.DoctorTest do
   alias AllbertTelegram.Doctor
 
   setup {Req.Test, :verify_on_exit!}
+
+  setup tags do
+    AllbertAssist.DataCase.setup_sandbox(tags)
+    :ok
+  end
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
