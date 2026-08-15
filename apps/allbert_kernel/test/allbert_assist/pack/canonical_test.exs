@@ -1883,6 +1883,35 @@ defmodule AllbertAssist.Pack.CanonicalTest do
             ]} = Canonical.build_snapshot(candidate, :shadow)
   end
 
+  test "a contribution alias digest binds the explicit source-to-target carrier transition" do
+    {candidate, compatibility_alias} = contribution_alias_candidate()
+
+    contributions =
+      Enum.map(candidate.contributions, fn
+        %Contribution{owner: %Owner{id: "target_plugin"}} = contribution ->
+          %{contribution | implementation_module: AllbertAssist.Pack.RowSchemas}
+
+        contribution ->
+          contribution
+      end)
+
+    owner = %OwnerRef{schema_version: 1, kind: :legacy_plugin, id: "source_plugin"}
+    target = compatibility_alias.target
+
+    assert {:error,
+            [
+              %ValidationDiagnostic{
+                schema_version: 1,
+                code: :digest_mismatch,
+                owner: ^owner,
+                detail: %{actual: _, expected: _}
+              }
+            ]} =
+             Canonical.build_snapshot(%{candidate | contributions: contributions}, :shadow)
+
+    assert target.owner_id == "target_plugin"
+  end
+
   test "a deprecated contribution requires exactly one top-level alias" do
     {candidate, compatibility_alias} = contribution_alias_candidate()
     candidate = %{candidate | compatibility_aliases: []}
@@ -1904,6 +1933,60 @@ defmodule AllbertAssist.Pack.CanonicalTest do
                 detail: %{owner_id: "source_plugin", target: ^target}
               }
             ]} = Canonical.build_snapshot(candidate, :shadow)
+  end
+
+  test "compiled legacy-provenance actions require the exact deprecated contribution target" do
+    {candidate, _compatibility_alias} = compiled_legacy_action_candidate()
+
+    assert {:ok, _snapshot} = Canonical.build_snapshot(candidate, :shadow)
+
+    without_alias = %{
+      candidate
+      | contributions: Enum.reject(candidate.contributions, &(&1.owner.id == "source_plugin")),
+        compatibility_aliases: []
+    }
+
+    assert {:error, [%{detail: %{reason: :legacy_action_requires_deprecated_pack_alias}}]} =
+             Canonical.build_snapshot(without_alias, :shadow)
+
+    other_target = compiled_contribution("other_pack", :other_pack, 1)
+
+    other_ref = %Target{
+      schema_version: 1,
+      kind: :contribution,
+      owner_id: "other_pack",
+      identity: "other_pack"
+    }
+
+    retargeted_source =
+      candidate.contributions
+      |> Enum.find(&(&1.owner.id == "source_plugin"))
+      |> put_in([Access.key!(:compatibility), Access.key!(:alias_of)], other_ref)
+
+    {:ok, authority} =
+      Canonical.contribution_alias_authority(retargeted_source, other_target)
+
+    retargeted_alias = %CompatibilityAlias{
+      schema_version: 1,
+      kind: :deprecated_alias,
+      owner_id: "source_plugin",
+      target: other_ref,
+      module: __MODULE__,
+      authority_sha256: authority.authority_sha256
+    }
+
+    retargeted = %{
+      candidate
+      | contributions:
+          Enum.map(candidate.contributions, fn
+            %Contribution{owner: %Owner{id: "source_plugin"}} -> retargeted_source
+            contribution -> contribution
+          end) ++ [other_target],
+        compatibility_aliases: [retargeted_alias]
+    }
+
+    assert {:error, [%{detail: %{reason: :legacy_action_requires_deprecated_pack_alias}}]} =
+             Canonical.build_snapshot(retargeted, :shadow)
   end
 
   test "effective action records validate their exact scalar contract before traversal" do
@@ -2357,26 +2440,37 @@ defmodule AllbertAssist.Pack.CanonicalTest do
   end
 
   defp compiled_contribution do
+    compiled_contribution("allbert_kernel", :allbert_kernel, 0, :kernel)
+  end
+
+  defp compiled_contribution(id, application, order) do
+    compiled_contribution(id, application, order, :native)
+  end
+
+  defp compiled_contribution(id, application, order, tier) do
     %Contribution{
       schema_version: 1,
       owner: %Owner{
         schema_version: 1,
         kind: :compiled_pack,
-        id: "allbert_kernel",
-        application: :allbert_kernel
+        id: id,
+        application: application
       },
       descriptor: %Descriptor{
         schema_version: 1,
-        id: "allbert_kernel",
-        application: :allbert_kernel,
+        id: id,
+        application: application,
         application_version: "1.4.0",
-        capability_tier: :kernel,
-        provenance: %{source: :signed_release, component: "beam-allbert-kernel"},
-        registry_order: 0
+        capability_tier: tier,
+        provenance: %{
+          source: :signed_release,
+          component: "beam-#{String.replace(id, "_", "-")}"
+        },
+        registry_order: order
       },
       implementation_module: __MODULE__,
       source_lane: :native,
-      owner_order: %Order{schema_version: 1, namespace: :compiled_pack, value: 0},
+      owner_order: %Order{schema_version: 1, namespace: :compiled_pack, value: order},
       compatibility: %Compatibility{
         schema_version: 1,
         kind: :native,
@@ -2495,8 +2589,8 @@ defmodule AllbertAssist.Pack.CanonicalTest do
 
   defp json_scalar!(value), do: value |> :json.encode() |> IO.iodata_to_binary()
 
-  defp action_row(owner_id, name, legacy_index) do
-    binding = action_binding(name, legacy_index, owner_id)
+  defp action_row(owner_id, name, legacy_index, plugin_id \\ nil) do
+    binding = action_binding(name, legacy_index, plugin_id || owner_id)
 
     source_authority = %{
       "kind" => "action",
@@ -2711,11 +2805,8 @@ defmodule AllbertAssist.Pack.CanonicalTest do
         }
       end)
 
-    callbacks_sha256 =
-      digest("allbert.pack.contribution.callbacks.v1\0" <> "[]")
-
-    authority_projection =
-      ~s({"callbacks_sha256":"#{callbacks_sha256}","enabled":true,"implementation_module":"AllbertAssist.Pack.CanonicalTest","kind":"contribution","trust":"pending"})
+    {:ok, authority} =
+      Canonical.contribution_alias_authority(source_contribution, target_contribution)
 
     compatibility_alias = %CompatibilityAlias{
       schema_version: 1,
@@ -2723,12 +2814,56 @@ defmodule AllbertAssist.Pack.CanonicalTest do
       owner_id: "source_plugin",
       target: target,
       module: __MODULE__,
-      authority_sha256: digest("allbert.pack.alias.authority.v1\0" <> authority_projection)
+      authority_sha256: authority.authority_sha256
     }
 
     candidate =
       candidate(
         contributions: [source_contribution, target_contribution],
+        compatibility_aliases: [compatibility_alias]
+      )
+
+    {candidate, compatibility_alias}
+  end
+
+  defp compiled_legacy_action_candidate do
+    target_ref = %Target{
+      schema_version: 1,
+      kind: :contribution,
+      owner_id: "target_plugin",
+      identity: "target_plugin"
+    }
+
+    target_row = action_row("target_plugin", "sample", 4, "source_plugin")
+
+    target_contribution =
+      "target_plugin"
+      |> then(&compiled_contribution(&1, :target_plugin, 0))
+      |> put_in([Access.key!(:callbacks), Access.key!(:actions)], [target_row])
+
+    source_contribution =
+      "source_plugin"
+      |> legacy_contribution(1)
+      |> put_in([Access.key!(:compatibility), Access.key!(:kind)], :deprecated_alias)
+      |> put_in([Access.key!(:compatibility), Access.key!(:alias_of)], target_ref)
+      |> put_in([Access.key!(:compatibility), Access.key!(:trust)], :trusted)
+
+    {:ok, authority} =
+      Canonical.contribution_alias_authority(source_contribution, target_contribution)
+
+    compatibility_alias = %CompatibilityAlias{
+      schema_version: 1,
+      kind: :deprecated_alias,
+      owner_id: "source_plugin",
+      target: target_ref,
+      module: __MODULE__,
+      authority_sha256: authority.authority_sha256
+    }
+
+    candidate =
+      candidate(
+        contributions: [source_contribution, target_contribution],
+        action_bindings: [action_binding("sample", 4, "source_plugin")],
         compatibility_aliases: [compatibility_alias]
       )
 

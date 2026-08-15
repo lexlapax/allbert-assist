@@ -26,6 +26,7 @@ defmodule AllbertAssist.Pack.CandidateBuilder do
     ActionAssembly,
     ChannelRows,
     CompatibilityEvidence,
+    ExtractedAliases,
     MetadataRows,
     TestLaneRows
   }
@@ -106,20 +107,23 @@ defmodule AllbertAssist.Pack.CandidateBuilder do
   end
 
   defp assemble(closed, plugins, families, bindings, aliases, diagnostics) do
-    contributions =
+    base_contributions =
       Enum.map(closed.rows, &compiled_contribution(&1, families)) ++
         Enum.map(Enum.with_index(plugins.entries, 1), fn {plugin, index} ->
           plugin_contribution(plugin, index, families)
         end)
 
-    {:ok,
-     %Candidate{
-       schema_version: 1,
-       contributions: contributions,
-       action_bindings: bindings,
-       compatibility_aliases: aliases,
-       compatibility_diagnostics: diagnostics
-     }}
+    with {:ok, contributions, contribution_aliases} <-
+           ExtractedAliases.apply(base_contributions, plugins.entries) do
+      {:ok,
+       %Candidate{
+         schema_version: 1,
+         contributions: contributions,
+         action_bindings: bindings,
+         compatibility_aliases: aliases ++ contribution_aliases,
+         compatibility_diagnostics: diagnostics
+       }}
+    end
   end
 
   defp merge_families(families) do

@@ -13,8 +13,12 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     ActionProjection,
     CandidateBuilder,
     Canonical,
+    CompatibilityAlias,
+    Contribution,
     ProjectionProvider
   }
+
+  alias AllbertAssist.Pack.CandidateBuilder.ExtractedAliases
 
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugin.Registry.MetadataEntry, as: PluginEntry
@@ -58,8 +62,30 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
   # application versions are authority bytes, so moving all seventeen OTP apps
   # from 1.3.2 to 1.4.0 changes the canonical candidate without changing its
   # contribution roster or permissions.
-  @expected_behavior_digest "07478e268b3354b54cb2e4f0aaee4fb283a1a1aeb8a23f635b2d60f6bc247032"
-  @expected_bytes_sha256 "55d13fe07b3724929d52a6ad997ccbaef69405d3effda8dc983946cbf129560c"
+  # v1.4 M17.b re-froze the internal component boundary after packaged FV found
+  # that the thirteen extracted manifests were still effective legacy owners.
+  # Their rows now belong to the exact compiled Pack targets; the old carriers
+  # remain snapshot-inert, digest-bound deprecated aliases. The three action aliases are
+  # unchanged and independently validated.
+  @expected_behavior_digest "820b9eda8d992e25edcf346c6b1e556941ae8ff913f9a79478805000f51fc62d"
+  @expected_bytes_sha256 "5872bf1b69e5cdb7d76005a998d2c8dc96d8974c6bd1b3b986512d8fac46b169"
+  @expected_extracted_aliases [
+    {"allbert.artifacts", "AllbertArtifacts.Plugin", "allbert_artifacts",
+     "AllbertArtifacts.Pack"},
+    {"allbert.browser", "AllbertBrowser.Plugin", "allbert_browser", "AllbertBrowser.Pack"},
+    {"allbert.discord", "AllbertDiscord.Plugin", "allbert_discord", "AllbertDiscord.Pack"},
+    {"allbert.email", "AllbertEmail.Plugin", "allbert_email", "AllbertEmail.Pack"},
+    {"allbert.matrix", "AllbertMatrix.Plugin", "allbert_matrix", "AllbertMatrix.Pack"},
+    {"allbert.notes_files", "AllbertNotesFiles.Plugin", "allbert_notes_files",
+     "AllbertNotesFiles.Pack"},
+    {"allbert.research", "AllbertResearch.Plugin", "allbert_research", "AllbertResearch.Pack"},
+    {"allbert.signal", "AllbertSignal.Plugin", "allbert_signal", "AllbertSignal.Pack"},
+    {"allbert.slack", "AllbertSlack.Plugin", "allbert_slack", "AllbertSlack.Pack"},
+    {"allbert.telegram", "AllbertTelegram.Plugin", "allbert_telegram", "AllbertTelegram.Pack"},
+    {"allbert.tui", "AllbertTUI.Plugin", "allbert_tui", "AllbertTUI.Pack"},
+    {"allbert.whatsapp", "AllbertWhatsApp.Plugin", "allbert_whatsapp", "AllbertWhatsApp.Pack"},
+    {"stocksage", "StockSage.Plugin", "allbert_stocksage", "StockSage.Pack"}
+  ]
 
   setup context do
     if context[:parity] do
@@ -100,6 +126,111 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
              builder_candidate.action_bindings,
              &(&1.registry_order == &1.legacy_index)
            )
+  end
+
+  @tag :parity
+  test "all extracted source contributions are inert aliases to exact compiled Pack owners",
+       context do
+    assert {:ok, candidate} =
+             CandidateBuilder.build(context.closed, context.apps, context.plugins)
+
+    compiled = Enum.filter(candidate.contributions, &(&1.owner.kind == :compiled_pack))
+
+    deprecated =
+      Enum.filter(candidate.contributions, &(&1.compatibility.kind == :deprecated_alias))
+
+    native_aliases = Enum.filter(candidate.compatibility_aliases, &(&1.kind == :deprecated_alias))
+    action_aliases = Enum.filter(candidate.compatibility_aliases, &(&1.kind == :legacy_plugin))
+
+    assert length(compiled) == 15
+    assert length(deprecated) == 13
+    assert length(native_aliases) == 13
+    assert length(action_aliases) == 3
+
+    assert Enum.all?(action_aliases, &(&1.target.kind == :action))
+
+    assert ExtractedAliases.mappings() == @expected_extracted_aliases
+
+    assert Enum.all?(ExtractedAliases.mappings(), fn tuple ->
+             tuple |> Tuple.to_list() |> Enum.all?(&is_binary/1)
+           end)
+
+    for {source_id, source_module, target_id, target_module} <- @expected_extracted_aliases do
+      assert %Contribution{
+               implementation_module: source_carrier,
+               compatibility: %{kind: :deprecated_alias, alias_of: target}
+             } = source = Enum.find(candidate.contributions, &(&1.owner.id == source_id))
+
+      assert module_name(source_carrier) == source_module
+
+      assert target.kind == :contribution
+      assert target.owner_id == target_id
+      assert target.identity == target_id
+
+      assert %Contribution{
+               owner: %{kind: :compiled_pack},
+               implementation_module: target_carrier,
+               compatibility: %{kind: :native}
+             } = compiled_target = Enum.find(candidate.contributions, &(&1.owner.id == target_id))
+
+      assert module_name(target_carrier) == target_module
+
+      assert %CompatibilityAlias{
+               module: alias_carrier,
+               target: ^target,
+               authority_sha256: digest
+             } = Enum.find(native_aliases, &(&1.owner_id == source_id))
+
+      assert module_name(alias_carrier) == source_module
+
+      assert {:ok, authority} =
+               Canonical.contribution_alias_authority(source, compiled_target)
+
+      assert digest == authority.authority_sha256
+    end
+
+    refute Enum.any?(candidate.contributions, &(&1.compatibility.kind == :legacy_plugin))
+  end
+
+  @tag :parity
+  test "extracted mapping rejects missing or carrier-mismatched first-party metadata", context do
+    missing = %{
+      context.plugins
+      | entries: Enum.reject(context.plugins.entries, &(&1.plugin_id == "allbert.browser"))
+    }
+
+    assert {:error, [_diagnostic | _]} =
+             CandidateBuilder.build(context.closed, context.apps, missing)
+
+    mismatched = %{
+      context.plugins
+      | entries:
+          Enum.map(context.plugins.entries, fn
+            %{plugin_id: "allbert.browser"} = entry -> %{entry | module: __MODULE__}
+            entry -> entry
+          end)
+    }
+
+    assert {:error, [%{detail: %{reason: :extracted_alias_mapping_mismatch}}]} =
+             CandidateBuilder.build(context.closed, context.apps, mismatched)
+
+    extra_entry =
+      context.plugins.entries
+      |> Enum.find(&(&1.plugin_id == "allbert.browser"))
+      |> Map.merge(%{
+        plugin_id: "allbert.extra",
+        module: __MODULE__,
+        apps: [],
+        channels: [],
+        actions: [],
+        settings_schema: [],
+        children: :ignore
+      })
+
+    extra = %{context.plugins | entries: context.plugins.entries ++ [extra_entry]}
+
+    assert {:error, [%{detail: %{reason: :extracted_alias_source_roster_mismatch}}]} =
+             CandidateBuilder.build(context.closed, context.apps, extra)
   end
 
   @tag :parity
@@ -283,6 +414,10 @@ defmodule AllbertAssist.Pack.CandidateBuilderTest do
     assert {:ok, snapshot} = Canonical.build_snapshot(candidate, :shadow)
     assert {:ok, bytes} = Canonical.snapshot_bytes(snapshot)
     {bytes, snapshot.behavior_digest}
+  end
+
+  defp module_name(module) do
+    module |> Atom.to_string() |> String.replace_prefix("Elixir.", "")
   end
 
   defp candidate_for(closed, plugin, opts \\ []) do

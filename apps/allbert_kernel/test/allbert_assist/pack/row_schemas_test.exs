@@ -431,6 +431,7 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
     for schema <- [
           :app_descriptor_v1,
           :settings_fragment_ref_v1,
+          :channel_descriptor_v1,
           :release_asset_v1,
           :test_lane_v1
         ] do
@@ -465,6 +466,7 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
     for schema <- [
           :app_descriptor_v1,
           :settings_fragment_ref_v1,
+          :channel_descriptor_v1,
           :release_asset_v1,
           :test_lane_v1
         ] do
@@ -484,6 +486,76 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
         |> RowSchemas.alias_authority_projection!(renamed_contribution)
 
       assert original_projection == renamed_projection
+    end
+  end
+
+  test "reattribution covers every classified schema and fails closed on source tampering" do
+    source = contribution()
+
+    target_owner = %Owner{
+      schema_version: 1,
+      kind: :compiled_pack,
+      id: "renamed_pack",
+      application: :renamed_app
+    }
+
+    target = contribution(target_owner, "beam-renamed-pack")
+
+    for schema <- [
+          :app_descriptor_v1,
+          :settings_fragment_ref_v1,
+          :channel_descriptor_v1,
+          :release_asset_v1,
+          :test_lane_v1
+        ] do
+      {input, payload, _authority} = valid_fixture(schema)
+      row = row(schema, input, payload)
+      reattributed = RowSchemas.reattribute!(row, source, target)
+
+      assert reattributed.owner_id == target.owner.id
+
+      assert RowSchemas.alias_authority_projection!(row, source) ==
+               RowSchemas.alias_authority_projection!(reattributed, target)
+
+      expected_input = input_for_contribution(schema, input, target)
+      assert reattributed.payload == normalized_payload(schema, expected_input)
+
+      if digest_field = reference_digest_field(schema) do
+        assert reattributed.payload[digest_field] ==
+                 RowSchemas.reference_digest_for!(schema, expected_input)
+      end
+
+      if schema == :app_descriptor_v1 do
+        assert get_in(reattributed.source_authority, ["skill_root_refs", Access.at(0), "owner_id"]) ==
+                 target.owner.id
+      end
+
+      assert reattributed.identity == row.identity
+      assert reattributed.order == row.order
+    end
+
+    {input, payload, _authority} = valid_fixture(:settings_fragment_ref_v1)
+    row = row(:settings_fragment_ref_v1, input, payload)
+    wrong_source = %{source | owner: %{source.owner | id: "wrong_source"}}
+
+    assert_raise ArgumentError, fn ->
+      RowSchemas.reattribute!(row, wrong_source, target)
+    end
+
+    tampered = put_in(row.payload["owner_id"], "wrong_source")
+
+    assert_raise ArgumentError, fn ->
+      RowSchemas.reattribute!(tampered, source, target)
+    end
+
+    {channel_input, channel_payload, _authority} = valid_fixture(:channel_descriptor_v1)
+    channel = row(:channel_descriptor_v1, channel_input, channel_payload)
+
+    tampered_channel =
+      put_in(channel.source_authority["plugin_id"], "wrong_source")
+
+    assert_raise ArgumentError, fn ->
+      RowSchemas.reattribute!(tampered_channel, source, target)
     end
   end
 
@@ -1002,6 +1074,12 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
     |> with_recomputed_digest(:settings_fragment_ref_v1)
   end
 
+  defp input_for_contribution(:channel_descriptor_v1, input, contribution) do
+    input
+    |> update_authority(&Map.put(&1, "plugin_id", contribution.owner.id))
+    |> with_recomputed_digest(:channel_descriptor_v1)
+  end
+
   defp input_for_contribution(:release_asset_v1, input, contribution) do
     update_payload(input, fn payload ->
       Map.put(payload, "component", contribution.descriptor.provenance.component)
@@ -1010,7 +1088,9 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
 
   defp input_for_contribution(:test_lane_v1, input, contribution) do
     input
-    |> update_payload(&Map.put(&1, "application", Atom.to_string(contribution.owner.application)))
+    |> update_payload(fn payload ->
+      Map.put(payload, "application", Atom.to_string(contribution.owner.application))
+    end)
     |> with_recomputed_digest(:test_lane_v1)
   end
 
@@ -1031,6 +1111,7 @@ defmodule AllbertAssist.Pack.RowSchemasTest do
 
   defp owner_fields(:app_descriptor_v1), do: []
   defp owner_fields(:settings_fragment_ref_v1), do: ["owner_id"]
+  defp owner_fields(:channel_descriptor_v1), do: []
   defp owner_fields(:release_asset_v1), do: ["component"]
   defp owner_fields(:test_lane_v1), do: ["application"]
 

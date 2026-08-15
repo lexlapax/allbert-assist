@@ -1039,6 +1039,66 @@ defmodule AllbertAssist.Pack.RowSchemas do
     raise ArgumentError, "alias authority requires a Pack.Row and Pack.Contribution"
   end
 
+  @doc "Reattributes one validated callback Row between contribution owners."
+  @spec reattribute!(Row.t(), Contribution.t(), Contribution.t()) :: Row.t()
+  def reattribute!(
+        %Row{} = row,
+        %Contribution{schema_version: 1, owner: %Owner{}} = source,
+        %Contribution{schema_version: 1, owner: %Owner{}} = target
+      ) do
+    source_projection = alias_authority_projection!(row, source)
+    contract = validate_row_envelope!(row, source)
+
+    normalized =
+      row.payload_schema
+      |> normalize!(%Input{payload: row.payload, source_authority: row.source_authority})
+
+    payload = canonical_projection(normalized)
+    source_authority = source_authority_projection(normalized)
+
+    payload =
+      reattribute_fields!(
+        contract["fields"],
+        payload,
+        contract["definitions"] || %{},
+        source,
+        target
+      )
+
+    source_authority =
+      reattribute_source_authority!(contract, source_authority, source, target)
+
+    payload =
+      recompute_reference_digest(
+        payload,
+        row.payload_schema,
+        source_authority,
+        contract["reference_digest_field"]
+      )
+
+    identity = reattributed_identity(row, contract, payload)
+    order = reattributed_order(row, contract, identity)
+
+    reattributed = %{
+      row
+      | owner_id: target.owner.id,
+        identity: identity,
+        order: order,
+        payload: payload,
+        source_authority: source_authority
+    }
+
+    if alias_authority_projection!(reattributed, target) == source_projection do
+      reattributed
+    else
+      raise ArgumentError, "reattributed Pack row changed owner-neutral authority"
+    end
+  end
+
+  def reattribute!(_row, _source, _target) do
+    raise ArgumentError, "reattribution requires a Pack.Row and two Pack.Contributions"
+  end
+
   defp contract_for_schema!(schema) do
     schema_name = Atom.to_string(schema)
 
@@ -1596,7 +1656,9 @@ defmodule AllbertAssist.Pack.RowSchemas do
   # character can produce a byte in these ranges. Candidate composition
   # normalizes thousands of row fields, and the list this replaces was
   # allocated and walked for each one.
-  defp no_control_characters?(<<byte, _rest::binary>>) when byte <= 0x1F or byte == 0x7F, do: false
+  defp no_control_characters?(<<byte, _rest::binary>>) when byte <= 0x1F or byte == 0x7F,
+    do: false
+
   defp no_control_characters?(<<_byte, rest::binary>>), do: no_control_characters?(rest)
   defp no_control_characters?(<<>>), do: true
 
@@ -1780,6 +1842,133 @@ defmodule AllbertAssist.Pack.RowSchemas do
       spec["definitions"] || %{},
       contribution
     )
+  end
+
+  defp reattribute_source_authority!(
+         %{"source_authority" => %{"kind" => "none"}},
+         nil,
+         _source,
+         _target
+       ),
+       do: nil
+
+  defp reattribute_source_authority!(contract, source_authority, source, target) do
+    spec = contract["source_authority"]
+
+    reattribute_fields!(
+      spec["fields"],
+      source_authority,
+      spec["definitions"] || %{},
+      source,
+      target
+    )
+  end
+
+  defp reattribute_fields!(fields, value, definitions, source, target) do
+    Enum.reduce(fields, value, fn field, reattributed ->
+      name = field["name"]
+
+      Map.put(
+        reattributed,
+        name,
+        reattribute_field!(
+          field,
+          Map.fetch!(reattributed, name),
+          definitions,
+          source,
+          target
+        )
+      )
+    end)
+  end
+
+  defp reattribute_field!(field, value, definitions, source, target) do
+    case {field["owner_reference"], field["owner_reference_source"]} do
+      {"none", nil} ->
+        reattribute_nested!(field, value, definitions, source, target)
+
+      {classification, reference_source}
+      when classification in ["packaging_owner", "application_reference"] and
+             is_binary(reference_source) ->
+        reattribute_reference!(field, value, reference_source, source, target)
+
+      invalid ->
+        raise ArgumentError,
+              "unclassified Pack row owner reference during reattribution: #{inspect(invalid)}"
+    end
+  end
+
+  defp reattribute_reference!(field, value, reference_source, source, target) do
+    if is_nil(value) and field["nullable"] do
+      nil
+    else
+      expected = owner_reference_value!(reference_source, source)
+
+      if value == expected do
+        owner_reference_value!(reference_source, target)
+      else
+        raise ArgumentError,
+              "Pack row owner reference #{inspect(field["name"])} does not match source contribution"
+      end
+    end
+  end
+
+  defp reattribute_nested!(_field, nil, _definitions, _source, _target), do: nil
+
+  defp reattribute_nested!(
+         %{"list_semantics" => semantics, "type" => type},
+         values,
+         definitions,
+         source,
+         target
+       )
+       when semantics in ["ordered", "set"] and is_list(values) do
+    Enum.map(values, &reattribute_type!(type, &1, definitions, source, target))
+  end
+
+  defp reattribute_nested!(%{"type" => type}, value, definitions, source, target) do
+    reattribute_type!(type, value, definitions, source, target)
+  end
+
+  defp reattribute_type!(type, value, definitions, source, target) do
+    case Map.get(definitions, type) do
+      %{"kind" => "exact_object", "fields" => fields} ->
+        reattribute_fields!(fields, value, definitions, source, target)
+
+      %{"kind" => "variable_map", "value_type" => value_type} ->
+        Map.new(value, fn {key, nested} ->
+          {key, reattribute_type!(value_type, nested, definitions, source, target)}
+        end)
+
+      _scalar_or_unclassified_definition ->
+        value
+    end
+  end
+
+  defp reattributed_identity(row, contract, payload) do
+    identity_field = contract["identity"]["field"]
+    field_contract = Enum.find(contract["fields"], &(&1["name"] == identity_field))
+
+    value =
+      case field_contract["owner_reference"] do
+        "none" -> row.identity.value
+        _classified -> Map.fetch!(payload, identity_field)
+      end
+
+    %{row.identity | value: value}
+  end
+
+  defp reattributed_order(row, contract, identity) do
+    identity_field = contract["identity"]["field"]
+    field_contract = Enum.find(contract["fields"], &(&1["name"] == identity_field))
+
+    value =
+      case {contract["order"]["kind"], field_contract["owner_reference"]} do
+        {"lexical", classification} when classification != "none" -> identity.value
+        _other -> row.order.value
+      end
+
+    %{row.order | value: value}
   end
 
   defp owner_neutralize_fields!(fields, payload, definitions, contribution) do
@@ -2023,5 +2212,4 @@ defmodule AllbertAssist.Pack.RowSchemas do
   defp escape_byte(byte) when byte <= 0x1F do
     "\\u" <> (byte |> Integer.to_string(16) |> String.pad_leading(4, "0"))
   end
-
 end

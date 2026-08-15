@@ -15,6 +15,8 @@ defmodule AllbertAssist.Pack.Canonical do
   alias AllbertAssist.Pack.RowSchemas.Input
 
   @snapshot_domain "allbert.pack.snapshot.v1\0"
+  @contribution_alias_domain "allbert.pack.contribution.alias.authority.v2\0"
+  @contribution_callbacks_domain "allbert.pack.contribution.callbacks.v1\0"
   @sha256_pattern ~r/\A[0-9a-f]{64}\z/
   @module_string_pattern ~r/\A[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*\z/
   @capability_fields [
@@ -111,6 +113,43 @@ defmodule AllbertAssist.Pack.Canonical do
        )
      ]}
   end
+
+  @doc false
+  @spec contribution_alias_authority(Contribution.t(), Contribution.t()) ::
+          {:ok, %{projection: map(), authority_sha256: String.t()}} | {:error, term()}
+  def contribution_alias_authority(%Contribution{} = source, %Contribution{} = target) do
+    with {:ok, source_rows} <- contribution_alias_rows(source),
+         {:ok, target_rows} <- contribution_alias_rows(target),
+         true <- authority_subset?(source_rows, target_rows),
+         true <- source.compatibility.trust == target.compatibility.trust,
+         true <- source.compatibility.enabled == target.compatibility.enabled,
+         {:ok, callbacks_bytes} <- encode_json(source_rows) do
+      callbacks_sha256 = sha256(@contribution_callbacks_domain <> callbacks_bytes)
+
+      projection = %{
+        "kind" => "contribution_alias_transition",
+        "source_implementation_module" => module_string(source.implementation_module),
+        "target_implementation_module" => module_string(target.implementation_module),
+        "trust" => Atom.to_string(source.compatibility.trust),
+        "enabled" => source.compatibility.enabled,
+        "callbacks_sha256" => callbacks_sha256
+      }
+
+      with {:ok, authority_bytes} <- encode_json(projection) do
+        {:ok,
+         %{
+           projection: projection,
+           authority_sha256: sha256(@contribution_alias_domain <> authority_bytes)
+         }}
+      end
+    else
+      {:error, _diagnostics} = error -> error
+      _mismatch -> canonicalization_error("contribution_alias_authority")
+    end
+  end
+
+  def contribution_alias_authority(_source, _target),
+    do: canonicalization_error("contribution_alias_authority")
 
   defp validate_candidate_envelope(%Candidate{} = candidate) do
     keys = Map.keys(candidate)
@@ -321,7 +360,7 @@ defmodule AllbertAssist.Pack.Canonical do
          :ok <- validate_diagnostics(diagnostics),
          :ok <- validate_cross_record_semantics(contributions, actions, diagnostics),
          :ok <- validate_aliases(contributions, actions, aliases),
-         :ok <- validate_action_integrity(contributions, actions) do
+         :ok <- validate_action_integrity(contributions, actions, aliases) do
       :ok
     end
   end
@@ -531,13 +570,30 @@ defmodule AllbertAssist.Pack.Canonical do
   end
 
   defp validate_row_uniqueness(contributions) do
-    entries = row_entries(contributions)
+    active_entries =
+      contributions
+      |> Enum.reject(&deprecated_contribution?/1)
+      |> row_entries()
 
-    with :ok <- validate_unique_row_identities(entries),
-         :ok <- validate_unique_row_orders(entries) do
+    deprecated_entries =
+      contributions
+      |> Enum.filter(&deprecated_contribution?/1)
+      |> row_entries()
+
+    with :ok <- validate_unique_row_identities(active_entries),
+         :ok <- validate_unique_row_orders(active_entries),
+         :ok <- validate_unique_row_identities(deprecated_entries),
+         :ok <- validate_unique_row_orders(deprecated_entries) do
       :ok
     end
   end
+
+  defp deprecated_contribution?(%Contribution{
+         compatibility: %Compatibility{kind: :deprecated_alias}
+       }),
+       do: true
+
+  defp deprecated_contribution?(_contribution), do: false
 
   defp validate_unique_row_identities(entries) do
     entries
@@ -1776,9 +1832,9 @@ defmodule AllbertAssist.Pack.Canonical do
     Enum.any?(contributions, fn
       %Contribution{
         owner: %Owner{kind: :legacy_plugin, id: ^owner_id},
-        compatibility: %Compatibility{kind: :legacy_plugin, enabled: true}
+        compatibility: %Compatibility{kind: kind, enabled: true}
       } ->
-        true
+        kind in [:legacy_plugin, :deprecated_alias]
 
       _contribution ->
         false
@@ -2424,11 +2480,8 @@ defmodule AllbertAssist.Pack.Canonical do
          true <- source.compatibility.kind == :deprecated_alias,
          true <- source.compatibility.alias_of == target,
          true <- compatibility_alias.module == source.implementation_module,
-         {:ok, source_projection} <- contribution_authority_projection(source),
-         {:ok, target_projection} <- contribution_authority_projection(target_contribution),
-         true <- source_projection == target_projection,
-         {:ok, authority_bytes} <- encode_json(source_projection) do
-      expected = sha256("allbert.pack.alias.authority.v1\0" <> authority_bytes)
+         {:ok, authority} <- contribution_alias_authority(source, target_contribution) do
+      expected = authority.authority_sha256
 
       if compatibility_alias.authority_sha256 == expected do
         :ok
@@ -2448,30 +2501,8 @@ defmodule AllbertAssist.Pack.Canonical do
          ]}
       end
     else
-      {:error, _diagnostics} = error -> error
+      {:error, _diagnostics} -> alias_mismatch(compatibility_alias, source)
       _mismatch -> alias_mismatch(compatibility_alias, source)
-    end
-  end
-
-  defp contribution_authority_projection(%Contribution{} = contribution) do
-    with {:ok, rows} <- contribution_alias_rows(contribution),
-         {:ok, callbacks_bytes} <- encode_json(rows) do
-      callbacks_sha256 =
-        sha256("allbert.pack.contribution.callbacks.v1\0" <> callbacks_bytes)
-
-      {:ok,
-       %{
-         "kind" => "contribution",
-         "implementation_module" =>
-           if(
-             is_nil(contribution.implementation_module),
-             do: nil,
-             else: module_string(contribution.implementation_module)
-           ),
-         "trust" => Atom.to_string(contribution.compatibility.trust),
-         "enabled" => contribution.compatibility.enabled,
-         "callbacks_sha256" => callbacks_sha256
-       }}
     end
   end
 
@@ -2481,6 +2512,7 @@ defmodule AllbertAssist.Pack.Canonical do
         Enum.flat_map(RowSchemas.callback_order(), fn callback ->
           contribution.callbacks
           |> Map.fetch!(callback)
+          |> Enum.reject(&alias_target_row?/1)
           |> Enum.map(&RowSchemas.alias_authority_projection!(&1, contribution))
           |> Enum.sort_by(&alias_authority_row_sort_key/1)
         end)
@@ -2490,6 +2522,17 @@ defmodule AllbertAssist.Pack.Canonical do
       _error in [ArgumentError, KeyError] -> canonicalization_error("contribution_alias_rows")
     end
   end
+
+  defp authority_subset?(source_rows, target_rows) do
+    target_frequencies = Enum.frequencies(target_rows)
+
+    source_rows
+    |> Enum.frequencies()
+    |> Enum.all?(fn {row, count} -> Map.get(target_frequencies, row, 0) == count end)
+  end
+
+  defp alias_target_row?(%Row{order: %{namespace: :alias_target}}), do: true
+  defp alias_target_row?(_row), do: false
 
   defp alias_authority_row_sort_key(projection) do
     {
@@ -2559,10 +2602,11 @@ defmodule AllbertAssist.Pack.Canonical do
          %Contribution{
            owner: %Owner{kind: :legacy_plugin, id: owner_id},
            source_lane: :legacy_plugin,
-           compatibility: %Compatibility{kind: :legacy_plugin, alias_of: nil, enabled: true}
+           compatibility: %Compatibility{kind: kind, enabled: true}
          },
          %CompatibilityAlias{owner_id: owner_id}
-       ),
+       )
+       when kind in [:legacy_plugin, :deprecated_alias],
        do: :ok
 
   defp validate_action_alias_source_owner(source_contribution, compatibility_alias),
@@ -3047,32 +3091,32 @@ defmodule AllbertAssist.Pack.Canonical do
 
   defp module_string?(_value), do: false
 
-  defp validate_action_integrity(contributions, actions) do
+  defp validate_action_integrity(contributions, actions, aliases) do
     rows = owned_action_rows(contributions, include_aliases?: false)
 
-    with :ok <- validate_action_row_owner_lanes(rows, actions),
-         :ok <- validate_bindings_have_rows(actions, rows),
-         :ok <- validate_rows_have_bindings(rows, actions) do
+    with :ok <- validate_action_row_owner_lanes(rows, actions, aliases),
+         :ok <- validate_bindings_have_rows(actions, rows, aliases),
+         :ok <- validate_rows_have_bindings(rows, actions, aliases) do
       :ok
     end
   end
 
-  defp validate_action_row_owner_lanes(rows, actions) do
+  defp validate_action_row_owner_lanes(rows, actions, aliases) do
     rows
     |> Enum.sort_by(fn {_contribution, row} -> row_sort_key(row) end)
-    |> Enum.reduce_while(:ok, &validate_action_row_owner_lane(&1, &2, actions))
+    |> Enum.reduce_while(:ok, &validate_action_row_owner_lane(&1, &2, actions, aliases))
   end
 
-  defp validate_action_row_owner_lane({contribution, row}, :ok, actions) do
+  defp validate_action_row_owner_lane({contribution, row}, :ok, actions, aliases) do
     actions
     |> Enum.find(&action_declaration_matches?(row, &1))
-    |> validate_action_owner_lane_match(contribution, row)
+    |> validate_action_owner_lane_match(contribution, row, aliases)
   end
 
-  defp validate_action_owner_lane_match(nil, _contribution, _row), do: {:cont, :ok}
+  defp validate_action_owner_lane_match(nil, _contribution, _row, _aliases), do: {:cont, :ok}
 
-  defp validate_action_owner_lane_match(action, contribution, row) do
-    case action_owner_lane_error(contribution, action) do
+  defp validate_action_owner_lane_match(action, contribution, row, aliases) do
+    case action_owner_lane_error(contribution, action, aliases) do
       nil ->
         {:cont, :ok}
 
@@ -3088,7 +3132,8 @@ defmodule AllbertAssist.Pack.Canonical do
 
   defp action_owner_lane_error(
          %Contribution{owner: %Owner{kind: :compiled_pack}},
-         %ActionBinding{source_lane: :native_static}
+         %ActionBinding{source_lane: :native_static},
+         _aliases
        ),
        do: nil
 
@@ -3097,26 +3142,48 @@ defmodule AllbertAssist.Pack.Canonical do
          %ActionBinding{
            source_lane: :legacy_plugin,
            normalized_capability: %{plugin_id: owner_id}
-         }
+         },
+         _aliases
        ),
        do: nil
 
-  defp action_owner_lane_error(_contribution, %ActionBinding{source_lane: :native_static}),
-    do: :native_action_requires_compiled_owner
-
-  defp action_owner_lane_error(_contribution, %ActionBinding{source_lane: :legacy_plugin}),
-    do: :legacy_action_requires_legacy_owner
-
-  defp validate_bindings_have_rows(actions, rows) do
-    actions
-    |> sort_actions()
-    |> Enum.reduce_while(:ok, &validate_binding_has_row(&1, &2, rows))
+  defp action_owner_lane_error(
+         %Contribution{owner: %Owner{kind: :compiled_pack, id: target_id}},
+         %ActionBinding{
+           source_lane: :legacy_plugin,
+           normalized_capability: %{plugin_id: source_id}
+         },
+         aliases
+       ) do
+    if deprecated_alias_target?(aliases, source_id, target_id),
+      do: nil,
+      else: :legacy_action_requires_deprecated_pack_alias
   end
 
-  defp validate_binding_has_row(action, :ok, rows) do
+  defp action_owner_lane_error(
+         _contribution,
+         %ActionBinding{source_lane: :native_static},
+         _aliases
+       ),
+       do: :native_action_requires_compiled_owner
+
+  defp action_owner_lane_error(
+         _contribution,
+         %ActionBinding{source_lane: :legacy_plugin},
+         _aliases
+       ),
+       do: :legacy_action_requires_legacy_owner
+
+  defp validate_bindings_have_rows(actions, rows, aliases) do
+    actions
+    |> sort_actions()
+    |> Enum.reduce_while(:ok, &validate_binding_has_row(&1, &2, rows, aliases))
+  end
+
+  defp validate_binding_has_row(action, :ok, rows, aliases) do
     matching_rows =
       Enum.count(rows, fn {contribution, row} ->
-        action_row_matches?(contribution, row, action)
+        action_row_matches?(contribution, row, action, aliases)
       end)
 
     if matching_rows == 1 do
@@ -3134,11 +3201,11 @@ defmodule AllbertAssist.Pack.Canonical do
     end
   end
 
-  defp validate_rows_have_bindings(rows, actions) do
+  defp validate_rows_have_bindings(rows, actions, aliases) do
     rows
     |> Enum.sort_by(fn {_contribution, row} -> row_sort_key(row) end)
     |> Enum.reduce_while(:ok, fn {contribution, row}, :ok ->
-      if Enum.count(actions, &action_row_matches?(contribution, row, &1)) == 1 do
+      if Enum.count(actions, &action_row_matches?(contribution, row, &1, aliases)) == 1 do
         {:cont, :ok}
       else
         {:halt,
@@ -3166,6 +3233,7 @@ defmodule AllbertAssist.Pack.Canonical do
 
     for %Contribution{callbacks: callbacks} = contribution <- contributions,
         is_map(callbacks),
+        contribution.compatibility.kind != :deprecated_alias,
         %Row{} = row <- Map.get(callbacks, :actions, []),
         include_aliases? or row.order[:namespace] != :alias_target do
       {contribution, row}
@@ -3175,9 +3243,11 @@ defmodule AllbertAssist.Pack.Canonical do
   defp action_row_matches?(
          %Contribution{} = contribution,
          %Row{} = row,
-         %ActionBinding{} = action
+         %ActionBinding{} = action,
+         aliases \\ []
        ) do
-    action_declaration_matches?(row, action) and action_owner_matches?(contribution, action)
+    action_declaration_matches?(row, action) and
+      action_owner_matches?(contribution, action, aliases)
   end
 
   defp action_declaration_matches?(%Row{} = row, %ActionBinding{} = action) do
@@ -3210,16 +3280,45 @@ defmodule AllbertAssist.Pack.Canonical do
          %ActionBinding{
            source_lane: :legacy_plugin,
            normalized_capability: %{plugin_id: owner_id}
-         }
+         },
+         _aliases
        ),
        do: true
 
-  defp action_owner_matches?(%Contribution{owner: %Owner{kind: :compiled_pack}}, %ActionBinding{
-         source_lane: :native_static
-       }),
+  defp action_owner_matches?(
+         %Contribution{owner: %Owner{kind: :compiled_pack}},
+         %ActionBinding{
+           source_lane: :native_static
+         },
+         _aliases
+       ),
        do: true
 
-  defp action_owner_matches?(_contribution, _action), do: false
+  defp action_owner_matches?(
+         %Contribution{owner: %Owner{kind: :compiled_pack, id: target_id}},
+         %ActionBinding{
+           source_lane: :legacy_plugin,
+           normalized_capability: %{plugin_id: source_id}
+         },
+         aliases
+       ),
+       do: deprecated_alias_target?(aliases, source_id, target_id)
+
+  defp action_owner_matches?(_contribution, _action, _aliases), do: false
+
+  defp deprecated_alias_target?(aliases, source_id, target_id) do
+    Enum.count(aliases, fn
+      %CompatibilityAlias{
+        kind: :deprecated_alias,
+        owner_id: ^source_id,
+        target: %Target{kind: :contribution, owner_id: ^target_id, identity: ^target_id}
+      } ->
+        true
+
+      _alias ->
+        false
+    end) == 1
+  end
 
   defp validation_diagnostic(code, path, detail, owner \\ nil) do
     %ValidationDiagnostic{

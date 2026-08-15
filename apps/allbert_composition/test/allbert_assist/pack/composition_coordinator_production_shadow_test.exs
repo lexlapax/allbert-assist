@@ -56,8 +56,13 @@ defmodule AllbertAssist.Pack.CompositionCoordinatorProductionShadowTest do
   # application versions are authority bytes, so moving all seventeen OTP apps
   # from 1.3.2 to 1.4.0 changes the canonical candidate without changing its
   # contribution roster or permissions.
-  @expected_behavior_digest "07478e268b3354b54cb2e4f0aaee4fb283a1a1aeb8a23f635b2d60f6bc247032"
-  @expected_bytes_sha256 "55d13fe07b3724929d52a6ad997ccbaef69405d3effda8dc983946cbf129560c"
+  # v1.4 M17.b re-froze the internal component boundary after packaged FV found
+  # that the thirteen extracted manifests were still effective legacy owners.
+  # Their rows now belong to the exact compiled Pack targets; the old carriers
+  # remain inert, digest-bound deprecated aliases. The three action aliases are
+  # unchanged and independently validated.
+  @expected_behavior_digest "820b9eda8d992e25edcf346c6b1e556941ae8ff913f9a79478805000f51fc62d"
+  @expected_bytes_sha256 "5872bf1b69e5cdb7d76005a998d2c8dc96d8974c6bd1b3b986512d8fac46b169"
 
   defmodule AppMetadataSupervisor do
     use GenServer

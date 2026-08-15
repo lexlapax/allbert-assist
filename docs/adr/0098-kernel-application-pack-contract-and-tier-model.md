@@ -623,10 +623,21 @@ ADR 0030 extension registries while preserving its existing identity, source
 lane, enablement, diagnostics, and authority metadata.
 
 When a compiled plugin is extracted into `apps/allbert_<name>`, its native pack
-descriptor becomes the contribution owner. Any retained legacy manifest is an
-explicit deprecated alias to that same descriptor, not a second registration.
-The adapter must prove identical contribution identity and authority metadata
-before deduplicating it. Otherwise the collision rules in §4 apply.
+descriptor becomes the sole effective owner inside the authoritative Pack
+snapshot. The legacy manifest's source Contribution in that snapshot is inert
+compatibility evidence: an explicit deprecated alias to that descriptor, not a
+second Pack registration. The manifest and Plugin carrier remain supported
+inputs to retained compatibility registries such as channel discovery; this
+change does not retire those paths. The Composition boundary admits this
+carrier transition only through the sealed thirteen-entry first-party mapping.
+It reattributes the legacy callback rows to the compiled Pack, proves their
+owner-neutral authority is an exact subset of the target contribution, and
+binds both the old Plugin module and new Pack module into the alias digest.
+Compatibility-only action-alias rows remain on the legacy source and are proven
+independently. Deprecated source rows never enter effective resolution,
+effectful-owner derivation, or uniqueness checks. Missing, extra, ambiguous, or
+non-equivalent mappings reject the candidate; otherwise the collision rules in
+§4 apply.
 
 For operator data, `<ALLBERT_HOME>/packs` is the canonical new scan root and
 `<ALLBERT_HOME>/plugins` continues to be read. Allbert does not move, rewrite,
@@ -665,6 +676,17 @@ browser, Discord, Matrix, Signal, Slack, TUI, WhatsApp, Artifacts, and StockSage
 The exact closed projection, application/start DAG, component identifiers, and
 descriptor identities are release-assembly verified rather than inferred from
 the source directory layout.
+
+The M17 packaged-FV audit exposed a contradiction in the original M1 alias
+freeze: it required an extracted source Plugin module and target Pack descriptor
+module to be byte-identical while also freezing them as distinct modules, and it
+required full callback equality while compatibility-only action aliases must
+remain source-owned. The operator chose to repair the internal v1.4 contract
+rather than defer the release purpose. The accepted topology is therefore
+**15 compiled Pack contributions, 13 snapshot-inert `:deprecated_alias` contribution
+aliases, and 3 independent `:legacy_plugin` action aliases**. Compiled Packs are
+the only effective owners; the retained source contributions are provenance and
+compatibility evidence only.
 
 M15 then regenerated the final action, contribution, owner, edge, and affected-
 component inventories and froze their ownership in the v1.4 component-contract

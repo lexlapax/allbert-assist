@@ -262,11 +262,11 @@ defmodule AllbertAssist.Pack.Registry do
   end
 
   defp normalize_requested_effectful_ids(:derive_all, snapshot) do
-    {:ok, snapshot.contributions |> Enum.map(& &1.owner.id) |> Enum.sort()}
+    {:ok, effective_owner_ids(snapshot)}
   end
 
   defp normalize_requested_effectful_ids(ids, snapshot) when is_list(ids) do
-    owner_ids = snapshot.contributions |> Enum.map(& &1.owner.id) |> MapSet.new()
+    owner_ids = snapshot |> effective_owner_ids() |> MapSet.new()
 
     if ids == Enum.sort(Enum.uniq(ids)) and Enum.all?(ids, &is_binary/1) and
          Enum.all?(ids, &MapSet.member?(owner_ids, &1)) do
@@ -277,6 +277,13 @@ defmodule AllbertAssist.Pack.Registry do
   end
 
   defp normalize_requested_effectful_ids(_ids, _snapshot), do: :error
+
+  defp effective_owner_ids(snapshot) do
+    snapshot.contributions
+    |> Enum.reject(&(&1.compatibility.kind == :deprecated_alias))
+    |> Enum.map(& &1.owner.id)
+    |> Enum.sort()
+  end
 
   defp coordinator?(coordinator, caller) when is_pid(coordinator), do: coordinator == caller
 

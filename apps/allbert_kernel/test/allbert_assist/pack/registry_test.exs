@@ -3,8 +3,9 @@ defmodule AllbertAssist.Pack.RegistryTest do
 
   @moduletag :global_process_serial
 
-  alias AllbertAssist.Pack.{ActionBinding, Compatibility, Contribution, Order}
-  alias AllbertAssist.Pack.{PathSegment, ValidationDiagnostic}
+  alias AllbertAssist.Pack.{ActionBinding, Canonical, Compatibility, CompatibilityAlias}
+  alias AllbertAssist.Pack.{Contribution, Descriptor, Order, Owner, PathSegment, Target}
+  alias AllbertAssist.Pack.{ValidationDiagnostic}
   alias AllbertAssist.Pack.Registry
   alias AllbertAssist.Pack.Registry.{Candidate, Snapshot}
 
@@ -79,6 +80,14 @@ defmodule AllbertAssist.Pack.RegistryTest do
 
     assert {:ok, ^snapshot} = Registry.snapshot(server: registry)
     assert {:ok, []} = Registry.diagnostics(server: registry)
+  end
+
+  test "default effectful ownership excludes inert deprecated contribution sources" do
+    registry = start_private_registry(coordinator: self())
+    candidate = deprecated_candidate()
+
+    assert {:ok, _snapshot} = Registry.finalize(candidate, server: registry)
+    assert {:ok, ["target_pack"]} = Registry.effectful_ids(server: registry)
   end
 
   test "M1.b starts an explicitly authoritative collecting registry" do
@@ -345,6 +354,111 @@ defmodule AllbertAssist.Pack.RegistryTest do
       compatibility_aliases: [],
       compatibility_diagnostics: []
     }
+  end
+
+  defp deprecated_candidate do
+    target_ref = %Target{
+      schema_version: 1,
+      kind: :contribution,
+      owner_id: "target_pack",
+      identity: "target_pack"
+    }
+
+    target = %Contribution{
+      schema_version: 1,
+      owner: %Owner{
+        schema_version: 1,
+        kind: :compiled_pack,
+        id: "target_pack",
+        application: :allbert_kernel
+      },
+      implementation_module: __MODULE__,
+      descriptor: %Descriptor{
+        schema_version: 1,
+        id: "target_pack",
+        application: :allbert_kernel,
+        application_version: "1.4.0",
+        capability_tier: :native,
+        provenance: %{source: :signed_release, component: "beam-target-pack"},
+        registry_order: 0
+      },
+      source_lane: :native,
+      owner_order: %Order{schema_version: 1, namespace: :compiled_pack, value: 0},
+      compatibility: %Compatibility{
+        schema_version: 1,
+        kind: :native,
+        legacy_id: nil,
+        alias_of: nil,
+        trust: :trusted,
+        enabled: true
+      },
+      callbacks: empty_callbacks()
+    }
+
+    source = %Contribution{
+      schema_version: 1,
+      owner: %Owner{
+        schema_version: 1,
+        kind: :legacy_plugin,
+        id: "source_plugin",
+        application: nil
+      },
+      implementation_module: __MODULE__,
+      descriptor: nil,
+      source_lane: :legacy_plugin,
+      owner_order: %Order{schema_version: 1, namespace: :legacy_plugin, value: 1},
+      compatibility: %Compatibility{
+        schema_version: 1,
+        kind: :deprecated_alias,
+        legacy_id: "source_plugin",
+        alias_of: target_ref,
+        trust: :trusted,
+        enabled: true
+      },
+      callbacks: empty_callbacks()
+    }
+
+    {:ok, authority} = Canonical.contribution_alias_authority(source, target)
+
+    alias_record = %CompatibilityAlias{
+      schema_version: 1,
+      kind: :deprecated_alias,
+      owner_id: "source_plugin",
+      target: target_ref,
+      module: __MODULE__,
+      authority_sha256: authority.authority_sha256
+    }
+
+    %Candidate{
+      schema_version: 1,
+      contributions: [target, source],
+      action_bindings: [],
+      compatibility_aliases: [alias_record],
+      compatibility_diagnostics: []
+    }
+  end
+
+  defp empty_callbacks do
+    Map.new(
+      [
+        :apps,
+        :actions,
+        :settings_fragments,
+        :settings_migrations,
+        :channels,
+        :surfaces,
+        :skill_roots,
+        :home_roots,
+        :jobs,
+        :stores,
+        :prompt_rules,
+        :intent_descriptors,
+        :cli_groups,
+        :release_assets,
+        :test_lanes
+      ],
+      &{&1, []}
+    )
   end
 
   defp start_private_registry(opts) do

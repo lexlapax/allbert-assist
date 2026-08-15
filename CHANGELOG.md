@@ -12,8 +12,12 @@ changelog entries or release notes.
 
 ## v1.4.0 - Kernel And Pack Contract
 
-Status: **source remediation requalified; final artifact-source preflight
-pending (2026-08-15).** The first complete provisional generation exposed a
+Status: **R4 reopened for extracted-Pack alias-contract remediation
+(2026-08-15).** A later provisional candidate exposed that the thirteen
+extracted legacy manifests had not become inert Pack-snapshot contributions; its draft,
+13 unsigned assets, provisional tag, and temporary formula install/tap were
+deleted. No current release identity exists and the authoritative aggregate has
+not run. The earlier complete provisional generation exposed a
 packaged TUI attach-only bootstrap defect and was discarded in full before
 publication.
 No current tag, draft GitHub Release, signature, Homebrew update, or accepted
@@ -22,9 +26,10 @@ v1.4.0 is still the next binary carrier, so it also still owes the v1.3.1 and
 v1.3.2 source-only deltas their first artifact. The remediation's proportional
 R4 rejoin found and repaired a TUI selector that pointed at an empty lane. The
 selector now names each product application's real owner and complete current
-inventory lanes, and its full source rejoin is green at `380a3c78d`; this
-docs-only evidence checkpoint becomes the replacement artifact source only
-after its clean push and preflight. The complete source evidence includes
+inventory lanes, and its full source rejoin is green at `380a3c78d`. That prior
+evidence is superseded for artifact-source acceptance by the alias-contract
+repair and must be proportionally requalified before any new candidate. The
+prior source evidence includes
 preflight 10/10,
 `release.v1` 10/10, the thirteen-step `release.v14` 13/13 on the same
 exact-clean SHA, `release.v132` 8/8, `mix precommit` 4/4, the Linux
@@ -52,12 +57,15 @@ closeout.
   which is what makes relocation a move rather than a rename: no frozen symbol
   moved, was removed, or changed meaning.
 - **Compatibility behavior.** The external `allbert_plugin.json` contract keeps
-  its data-only declared-tier shape, and every surviving legacy plugin keeps its
-  adapter. Channel registration still runs through the legacy
-  `Plugin.channels/0` path — all seven channel packs leave the native
-  `Pack.channels/0` callback empty — so the new contribution seam is proven but
-  not yet adopted for channels. Nothing about the installed surface changes for
-  a user: same commands, same settings keys, same Home layout.
+  its data-only declared-tier shape, and every supported external legacy plugin
+  keeps its adapter. Each of the thirteen extracted first-party Plugin carriers
+  is now inert deprecated evidence inside the Pack snapshot for its compiled
+  Pack owner; the exact owner-neutral callback subset and old→new carrier
+  transition are digest-bound. The manifests and Plugin carriers remain active
+  inputs to retained compatibility registries, including channel discovery.
+  The three compatibility-only action aliases remain independently proven.
+  Nothing about the installed surface changes for a user: same commands, same
+  settings keys, same Home layout.
 - **The one deliberate observable change.** Retiring the direct `PermissionGate`
   facade into Security Central means an authorization decision now reports
   `decision.source: AllbertAssist.Security` rather than the retired facade. That
