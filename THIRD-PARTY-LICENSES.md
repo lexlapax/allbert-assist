@@ -855,8 +855,8 @@ the offline drift check can pass.
 - Required texts: `MPL-2.0`
 - Managed application: `castore`
 - Managed relative path: `priv/cacerts.pem`
-- Provenance: `{"castore_commit":"d7c27ff79eb627ee08a978c09d0e7f45dd410bc5","castore_version":"1.0.20","scope":"Only lib/castore-*/priv/cacerts.pem; Castore code remains Apache-2.0"}`
-- Source availability: `{"converter":{"immutable_url":"https://raw.githubusercontent.com/curl/curl/84c5dcdb05202d3260b4631c2fa842123f87b362/scripts/mk-ca-bundle.pl","name":"curl mk-ca-bundle.pl","sha256":"0d232e570f9b7fb2daba1499299af277cf8c01b7d3f36c79f6d7fa32030a60fa","version":"1.33"},"immutable_url":"https://raw.githubusercontent.com/mozilla-firefox/firefox/4acf6f0d6ccb0f7008080e0d91b15258c4c6686c/security/nss/lib/ckfw/builtins/certdata.txt","sha256":"e57912808daef7b2b0fa4df2ccf17e47aeaf26c839a38f85c76003ebafd866bd"}`
+- Provenance: `{"castore_commit":"78052c81abdbd19532031fe87d025d9c2743a77a","castore_version":"1.0.21","scope":"Only lib/castore-*/priv/cacerts.pem; Castore code remains Apache-2.0"}`
+- Source availability: `{"converter":{"immutable_url":"https://raw.githubusercontent.com/curl/curl/0ada20387c31c638cfd7f6b4ae7e5cab5b318caf/scripts/mk-ca-bundle.pl","name":"curl mk-ca-bundle.pl","sha256":"8e278f4982210b37e4f9a048bd6ed23df41e4a054085bd73f8242628f03d09ca","version":"1.33"},"immutable_url":"https://raw.githubusercontent.com/mozilla-firefox/firefox/4e9426ae522c67de47ff3e060774328b42df0134/security/nss/lib/ckfw/builtins/certdata.txt","sha256":"81b7f2576333a2e360e673f912d7b0b7a765d836c731003e348a46cac5d37198"}`
 
 ### `dispatcher` — Allbert release dispatcher
 

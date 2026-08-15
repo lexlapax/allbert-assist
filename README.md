@@ -2,6 +2,8 @@
 
 Allbert Assist is my personal AI assistant, developed in the open.
 
+Feature development is paused except for bug fixes while the lessons from v1.4 are distilled into [Loopex](https://github.com/lexlapax/loopex), a pure agentic-loop library and core project that Allbert can depend on.
+
 It is built for a single user — me — running on my own machine, with data kept
 local. Everything in it is shaped by what I actually need an assistant to do:
 hold conversations, remember information I have reviewed, route requests to
